@@ -10,7 +10,7 @@
   "summary": "接手编排交接后核对状态，按运营方要求做 p42 发布预检：main cdf3a8f6 的发布配置构建通过全部预算，但 trade-terminal-page 只剩 196 字节，低于手册要求的 200，预检不通过。运营方选「先重定基线」。按复现规则构建同一提交，把此前没有计入的 6 字节增长加进基线（124,909 → 124,915），预检构建对新基线余 202。没有发布。",
   "thread": null,
   "baseCommit": "cdf3a8f6",
-  "commits": [],
+  "commits": ["488e53d0", "ebb8dbe9"],
   "sources": [
     { "path": "docs/work-memory/sessions/2026-11-14-orchestration-handover.md" },
     { "path": "docs/terminal-performance-baseline.md" },
