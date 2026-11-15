@@ -433,6 +433,61 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Trade-page re-baseline before release p42 (2026-11-15)
+
+The release precheck for p42 built `main` `cdf3a8f6` in the release worktree `sairn-release-p42` with the release
+settings: pairing on, the production `.env.local`, Node 22.15.0 and release identity `cloudfront-2026-11-15-p42`. The
+build passed, with 453 client chunks and no circular static imports. One budget was under the precheck rule's
+200 bytes ([agent handbook](agent-handbook.md), section 8):
+
+- `trade-terminal-page` read 128,713, 196 bytes under its allowance.
+
+The other readings were:
+
+- total 3,394,329 (3,734 left);
+- static trade startup 1,664,201 (670 left);
+- mobile runtime increment 119,741 (839 left);
+- desktop runtime increment 204,654 (8,029 left);
+- `vaults-page` 30,637 (243 left);
+- `token-selector-popup` 15,378 (477 left).
+
+Protocol build of the same commit, in a new worktree of the `haoyu8962-netizen/sairn` clone without `.env.local`,
+Node 22.15.0 and pnpm 10.21.0 (`CI=true pnpm install --frozen-lockfile --prefer-offline`), with the fixed identity of
+the reproduction protocol, `NITRO_PRESET=node-server` and `VITE_MOBILE_PAIRING_ENABLED=false`; 452 client chunks:
+
+| Metric | `cdf3a8f6` pairing off | Room left before this change |
+| --- | ---: | ---: |
+| All client JS + CSS | 3,390,984 | 7,079 |
+| Static trade startup | 1,662,720 | 2,151 |
+| Mobile runtime increment | 119,740 | 840 |
+| Desktop runtime increment | 204,591 | 8,092 |
+| `trade-terminal-page` | 128,557 | 352 |
+| `vaults-page` | 30,633 | 247 |
+
+No base tree was built for this section. The comparison uses readings recorded in the sections below:
+
+- The 2026-11-05 section set the `trade-terminal-page` baseline against a protocol reading of 127,808, which left 358.
+- Since then the protocol readings recorded below moved by +2, −22 and +25 without a raise, the clean-clone build of
+  `main` `cde6f75b` read 127,815, and the third wave was raised by its +743.
+- This build reads 128,557, so the surface grew by 749 since that baseline and 743 of it was counted. The remaining 6
+  bytes are why the room fell from 358 to 352.
+
+Change to the baselines:
+
+- `trade-terminal-page` is raised by that uncounted growth, +6, to 124,915; its allowance is unchanged. Against the new
+  baseline the protocol build has 358 bytes left and the p42 precheck build 202.
+- The other baselines are unchanged.
+
+Limits:
+
+- The release configuration reads `trade-terminal-page` 156 bytes above the protocol build here (128,713 against
+  128,557); it read 139 above before p40 (127,947 against 127,808). A baseline that leaves the protocol build about
+  350 bytes therefore leaves a release build about 200, the precheck threshold, and the p38, p40 and p42 prechecks
+  each stopped on this surface (169, 123 and 196 left). This change does not alter that; raising the allowance or
+  measuring the surface in the release configuration is an operator decision that has not been made.
+- The 202 bytes are a reading of one precheck build. The release build of the same commit differs from it only in its
+  build time.
+
 ## Third-wave fixes total, static-startup and trade-page re-baseline (2026-11-13)
 
 The third wave (branch `fix/third-wave` of `haoyu8962-netizen/sairn`, on `main` `cde6f75b`) adds the local

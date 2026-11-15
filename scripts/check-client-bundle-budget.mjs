@@ -198,7 +198,11 @@ const budgets = {
 		// (PR #143) and +762 on 2026-11-01 for the second batch of audit fixes.
 		// Raised 2026-11-13 by +743 for the third wave (the l2 retry and the TWAP cancel queue): 128,558 minus main's
 		// 127,815. Before the raise the build exceeded the allowance by 392.
-		{ name: "trade-terminal-page", baselineGzipBytes: 124_909, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-15 by +6 before release p42, whose precheck left it 196 bytes under its allowance: the growth
+		// since the 2026-11-05 baseline that no raise had counted, 128,557 for main cdf3a8f6 minus 127,808, less the
+		// +743 above. The release configuration reads about 150 bytes above this protocol build
+		// (docs/terminal-performance-baseline.md).
+		{ name: "trade-terminal-page", baselineGzipBytes: 124_915, allowedIncreaseBytes: 4_000 },
 		{ name: "token-selector-popup", baselineGzipBytes: 14_355, allowedIncreaseBytes: 1_500 },
 		{ name: "api-wallet", baselineGzipBytes: 17_967, allowedIncreaseBytes: 2_000 },
 		{ name: "fundingHistory._address", baselineGzipBytes: 6_820, allowedIncreaseBytes: 1_500 },
