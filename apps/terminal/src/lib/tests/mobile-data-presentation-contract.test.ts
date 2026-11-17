@@ -2,6 +2,18 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import {
+	createImportedTextResolver,
+	isEmptyMarkers,
+	type PresentationMarkers,
+	scanPresentationMarkers,
+} from "./harness/presentation-markers";
+import {
+	NAMED_PRESENTATION_FILES,
+	type PresentationKind,
+	REVIEWED_PRESENTATION,
+	type ReviewedPresentation,
+} from "./mobile-data-presentation-registry";
 
 const root = resolve(import.meta.dirname, "../../../../..");
 const mobile = resolve(root, "apps/terminal/src/components/trade/mobile");
@@ -204,6 +216,264 @@ describe("mobile passive data presentation contract", () => {
 			expect(view).toContain("const depositDisabled = !actionAvailability.deposit.available || !onRequestAction;");
 			expect(view).toContain("const withdrawDisabled = !actionAvailability.withdraw.available || !onRequestAction;");
 			expect(view).toContain("isPassiveVaultActionReason(availability.reason)");
+		});
+	});
+
+	// The lists above only catch copy that was already retired. This registry is the other half: every
+	// announcer role, warning icon, warning-coloured class, status wording, raw error read and passive
+	// reason field in the covered files is counted from the source and compared with a reviewed entry,
+	// so a newly written passive notice fails until it is reviewed (docs/mobile-data-presentation.md,
+	// 回归入口, lists what the scan does not see).
+	describe("reviewed registry of warning-like presentation", () => {
+		const components = resolve(root, "apps/terminal/src/components");
+		const mobileEntries = readdirSync(mobile, { withFileTypes: true });
+		const covered = [
+			...mobileEntries
+				.filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
+				.map((entry) => `trade/mobile/${entry.name}`),
+			...NAMED_PRESENTATION_FILES,
+		];
+
+		const resolveImportedText = createImportedTextResolver(resolve(root, "apps/terminal/src"));
+
+		function expectedMarkers(entry: ReviewedPresentation): PresentationMarkers {
+			return {
+				announcers: entry.announcers ?? {},
+				icons: entry.icons ?? {},
+				tones: entry.tones ?? {},
+				copy: Object.fromEntries(
+					Object.entries(entry.copy ?? {}).map(([text, kind]) => [text, typeof kind === "string" ? 1 : kind[1]]),
+				),
+				rawErrors: entry.rawErrors ?? 0,
+				reasonFields: entry.reasonFields ?? {},
+			};
+		}
+
+		function copyKinds(entry: ReviewedPresentation): PresentationKind[] {
+			return Object.values(entry.copy ?? {}).map((kind) => (typeof kind === "string" ? kind : kind[0]));
+		}
+
+		it("covers every source file of the mobile directory", () => {
+			expect(
+				mobileEntries.filter((entry) => !entry.isFile() || !/\.tsx?$/.test(entry.name)).map((entry) => entry.name),
+				"components/trade/mobile holds something the scan does not read (a subdirectory or another extension): extend the coverage first",
+			).toEqual([]);
+			expect(covered.length).toBeGreaterThan(NAMED_PRESENTATION_FILES.length + 40);
+			expect(new Set(covered).size).toBe(covered.length);
+		});
+
+		it.each(covered)("%s presents only what was reviewed", (file) => {
+			const markers = scanPresentationMarkers(readFileSync(resolve(components, file), "utf8"), file, {
+				resolveImportedText,
+			});
+			const entry = REVIEWED_PRESENTATION[file];
+			const hint = `${file}: review the change against docs/mobile-data-presentation.md, then update mobile-data-presentation-registry.ts`;
+			if (!entry) {
+				expect(markers, hint).toEqual(expectedMarkers({ why: {} }));
+				return;
+			}
+			expect(markers, hint).toEqual(expectedMarkers(entry));
+		});
+
+		it("registers covered files only, and none that has nothing to review", () => {
+			for (const [file, entry] of Object.entries(REVIEWED_PRESENTATION)) {
+				expect(covered, file).toContain(file);
+				expect(isEmptyMarkers(expectedMarkers(entry)), `${file}: an empty entry hides nothing and must go`).toBe(false);
+			}
+		});
+
+		it("gives every registered kind its reason", () => {
+			for (const [file, entry] of Object.entries(REVIEWED_PRESENTATION)) {
+				const reasons = Object.entries(entry.why);
+				expect(reasons.length, file).toBeGreaterThan(0);
+				for (const [kind, reason] of reasons) expect(reason.trim().length, `${file}: ${kind}`).toBeGreaterThan(20);
+				for (const kind of copyKinds(entry)) expect(Object.keys(entry.why), `${file}: ${kind}`).toContain(kind);
+			}
+		});
+
+		it("lists every pending presentation in the policy", () => {
+			const policy = readFileSync(resolve(root, "docs/mobile-data-presentation.md"), "utf8");
+			const start = policy.indexOf("## 待处理");
+			expect(start, "docs/mobile-data-presentation.md needs its 待处理 section").toBeGreaterThan(-1);
+			const end = policy.indexOf("\n## ", start + 1);
+			const section = policy.slice(start, end === -1 ? undefined : end);
+			const rows = [...section.matchAll(/^\| `([\w-]+\.tsx?)` \|/gm)].map((match) => match[1]);
+			const pending = Object.entries(REVIEWED_PRESENTATION).filter(
+				([, entry]) => entry.why.pending !== undefined || copyKinds(entry).includes("pending"),
+			);
+			const pendingNames = pending.map(([file]) => file.split("/").at(-1));
+			expect(rows.length, "the 待处理 table has no rows this check can read").toBeGreaterThan(0);
+			expect(new Set(rows).size, "one row per file in 待处理").toBe(rows.length);
+			for (const [file, entry] of pending) expect(entry.why.pending, `${file}: say what is pending`).toBeDefined();
+			expect([...rows].sort(), "待处理 rows and pending registry entries must be the same files").toEqual(
+				[...pendingNames].sort(),
+			);
+		});
+
+		describe("scanner", () => {
+			function scan(source: string) {
+				return scanPresentationMarkers(source, "fixture.tsx");
+			}
+
+			it("reads the passive warning the retired-copy lists could not catch", () => {
+				expect(
+					scan(
+						'const notice = <p role="alert" className="text-warning">Positions data is delayed. Reconnecting...</p>;',
+					),
+				).toEqual({
+					announcers: { 'role="alert"': 1 },
+					icons: {},
+					tones: { "text-warning": 1 },
+					copy: { "Positions data is delayed. Reconnecting...": 1 },
+					rawErrors: 0,
+					reasonFields: {},
+				});
+			});
+
+			it.each([
+				["plain JSX text", "const a = <p>Balance data is stale</p>;", "Balance data is stale"],
+				["a single word in JSX", "const a = <button>Retry</button>;", "Retry"],
+				["a Lingui template", "const a = t`Failed to load positions.`;", "Failed to load positions."],
+				["a Lingui descriptor", "const a = msg`Order history updates paused`;", "Order history updates paused"],
+				["a message property", 'const a = t({ message: "Unavailable" });', "Unavailable"],
+				["an interpolated template", `const a = t\`Loading \${name}...\`;`, "Loading {…}..."],
+				["Trans children", "const a = <Trans>Waiting for order book...</Trans>;", "Waiting for order book..."],
+				[
+					"a prose literal in an attribute",
+					'const a = <i aria-label="Could not verify the balance" />;',
+					"Could not verify the balance",
+				],
+				["a prose literal in a call", 'toast.error("Connection lost, try again");', "Connection lost, try again"],
+				["an empty conclusion", "const a = <p>No positions found.</p>;", "No positions found."],
+				["text split by an expression", "const a = <p>No {name} found</p>;", "No {…} found"],
+				["a hyphenated form", "const a = <Trans>Prices may be out-of-date</Trans>;", "Prices may be out-of-date"],
+				["wording about updating", "const a = <Trans>Updating positions…</Trans>;", "Updating positions…"],
+				[
+					"a bare word in a label attribute",
+					'const a = <div aria-label={stale ? "Reconnecting" : undefined} />;',
+					"Reconnecting",
+				],
+				["a bare word rendered directly", 'const a = <span>{stale ? "Stale" : price}</span>;', "Stale"],
+				["a bare word passed to a translate call", 'const a = i18n._("Offline");', "Offline"],
+				["a Plural branch", 'const a = <Plural value={n} one="Syncing" other="# rows" />;', "Syncing"],
+				["a warning symbol", 'const a = <span>{stale ? "⚠" : null}</span>;', "⚠"],
+			])("counts status wording in %s", (_name, source, text) => {
+				expect(scan(source).copy).toEqual({ [text]: 1 });
+			});
+
+			it.each([
+				["a status discriminant", 'const a = status === "loading" || tone === "error";'],
+				["a type union", 'type Tone = "error" | "warning" | "loading";'],
+				["identifiers", "const isStale = isLoading || hasError || retryCount > 0;"],
+				[
+					"class lists",
+					'const a = <div className="flex items-center gap-2 text-fg-muted data-[pending]:opacity-60" />;',
+				],
+				["ordinary wording", "const a = <p>Deposit funds to start trading.</p>;"],
+				["an import", 'import { WarningIcon } from "@phosphor-icons/react";'],
+			])("ignores %s", (_name, source) => {
+				expect(isEmptyMarkers(scan(source)), JSON.stringify(scan(source))).toBe(true);
+			});
+
+			it("reads a label that lives in another module", () => {
+				const source = 'import { BOOK_LABELS } from "@/config/book-labels"; const a = <p>{t(BOOK_LABELS.waiting)}</p>;';
+				expect(isEmptyMarkers(scan(source))).toBe(true);
+				const markers = scanPresentationMarkers(source, "fixture.tsx", {
+					resolveImportedText: (moduleSpecifier, exportName, property) =>
+						moduleSpecifier === "@/config/book-labels" && exportName === "BOOK_LABELS" && property === "waiting"
+							? "Waiting for order book..."
+							: undefined,
+				});
+				expect(markers.copy).toEqual({ "Waiting for order book...": 1 });
+				expect(resolveImportedText("@/config/orderbook-labels", "ORDERBOOK_LABELS", "waiting")).toBe(
+					"Waiting for order book...",
+				);
+			});
+
+			it("counts announcers in every form", () => {
+				expect(
+					scan(
+						'const a = <><div role="status" /><div role={failed ? "alert" : undefined} /><span aria-live="polite" /><output /></>;',
+					).announcers,
+				).toEqual({ 'role="status"': 1, 'role="alert"': 1, "aria-live": 1, "<output>": 1 });
+				expect(scan('const a = <div role={kind === "alert" ? "log" : undefined} />;').announcers).toEqual({
+					'role="log"': 1,
+				});
+				expect(scan('const a = <p {...{ role: "alert", "aria-live": "polite" }} />;').announcers).toEqual({
+					'role="alert"': 1,
+					"aria-live": 1,
+				});
+				expect(scan('toast("x"); toast.warning(message); toast.success(done); toast.dismiss(id);').announcers).toEqual({
+					"toast()": 1,
+					"toast.warning()": 1,
+					"toast.success()": 1,
+				});
+			});
+
+			it("counts warning icons as elements and as values, and the Alert primitive", () => {
+				expect(
+					scan("const a = <><WarningCircleIcon /><Row icon={XCircleIcon} /><InfoIcon /><Alert>Text</Alert></>;").icons,
+				).toEqual({ WarningCircleIcon: 1, XCircleIcon: 1, InfoIcon: 1, Alert: 1 });
+				expect(
+					scan(
+						'import { WarningIcon as Caution } from "@phosphor-icons/react"; const a = <><Caution /><StatusGlyph glyph={STATUS_GLYPH_UNKNOWN} /><StatusGlyph glyph={STATUS_GLYPH_SUCCESS} /><ArrowClockwiseIcon /></>;',
+					).icons,
+				).toEqual({ Caution: 1, STATUS_GLYPH_UNKNOWN: 1 });
+			});
+
+			it("counts warning-coloured classes through variants, opacity and helpers", () => {
+				expect(
+					scan(
+						'const a = cn("text-fg", failed && "max-[1000px]:hover:!text-error/80 border-stroke-warning-weak", tone === "x" ? "bg-market-close-danger" : "bg-surface");',
+					).tones,
+				).toEqual({ "text-error/80": 1, "border-stroke-warning-weak": 1, "bg-market-close-danger": 1 });
+				expect(
+					scan('const a = <div className="text-success bg-market-down text-fg-muted" data-testid="size-error" />;')
+						.tones,
+				).toEqual({});
+			});
+
+			it("counts invalid-field marks and tone props of primitives", () => {
+				const markers = scan(
+					'const a = <><input aria-invalid={bad || undefined} aria-errormessage="e" /><Button intent="error" /><Glyph tone={failed ? "attention" : "neutral"} /><input type="error" data-state="error" /></>;',
+				);
+				expect(markers.announcers).toEqual({ "aria-invalid": 1, "aria-errormessage": 1 });
+				expect(markers.tones).toEqual({ 'intent="error"': 1, 'tone="attention"': 1 });
+				expect(
+					scan(
+						'const a = <Row render={() => <Glyph tone="error" />} onClick={() => setTone("warning")} valueClassName={tone === "danger" ? "x" : "y"} />;',
+					).tones,
+				).toEqual({ 'tone="error"': 1 });
+				expect(
+					scan(
+						'const a = <p className="border-stroke-info-weak bg-info-soft text-info text-amber-500 text-[var(--text-error)]" style={{ color: "var(--text-warning)" }} />;',
+					).tones,
+				).toEqual({
+					"border-stroke-info-weak": 1,
+					"bg-info-soft": 1,
+					"text-info": 1,
+					"text-amber-500": 1,
+					"--text-error": 1,
+					"--text-warning": 1,
+				});
+			});
+
+			it("counts raw error reads and passive reason fields", () => {
+				const markers = scan(
+					"const a = error.message; const { unavailableReason } = availability; const b = deposit.unavailableLabel;",
+				);
+				expect(markers.rawErrors).toBe(1);
+				expect(markers.reasonFields).toEqual({ unavailableReason: 1, unavailableLabel: 1 });
+				expect(
+					scan(
+						[
+							"const { message } = failure; const a = String(error); const b = cause.toString();",
+							"const c = `$" + "{queryError}`; const d = e.shortMessage; const f = total.toString();",
+						].join(" "),
+					).rawErrors,
+				).toBe(5);
+				expect(scan('const a = availability["unavailableReason"];').reasonFields).toEqual({ unavailableReason: 1 });
+			});
 		});
 	});
 });

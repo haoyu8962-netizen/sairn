@@ -131,7 +131,43 @@
 
 ## 回归入口
 
-`apps/terminal/src/lib/tests/mobile-data-presentation-contract.test.ts` 检查已移除的移动文案、共享弹窗被动警告和规范入口，并扫描质押、推荐与金库目录：不得出现已移除的被动刷新、读取失败与未知数值文案（含 `0 HYPE` 占位）；`role="alert"` 与警告图标只留在逐个登记理由与次数的已确认状态和操作反馈里（金库未找到、金库操作弹窗的失败与未知结果、操作弹窗与金库详情的风险说明、分类不可用的警告），新增一处即失败；金库操作按钮不得由说明文字是否存在决定禁用；`user-positions-readiness.test.tsx` 验证订阅确认与首份数据的区别。余额、委托、TWAP、历史和仓位弹窗的组件测试同时验证静默展示、恢复和操作保护。
+`apps/terminal/src/lib/tests/mobile-data-presentation-contract.test.ts` 有两层检查。
+
+第一层是登记表（2026-11-17，全局审查 P2-17）。旧的检查只有一份已移除文案的清单，新写的被动警告不在清单里就能通过：往手机持仓页签加一条 `role="alert"`、警告色的「Positions data is delayed. Reconnecting...」，19 项测试全部通过。现在 `harness/presentation-markers.ts` 用 TypeScript 语法树读出每个受检文件里可能把某种状态呈现成警告、失败或状态的全部内容，与 `mobile-data-presentation-registry.ts` 逐文件精确比对，多一处、少一处都失败：
+
+- **受检文件**：`components/trade/mobile` 下全部 `.ts` 与 `.tsx`（该目录出现子目录时测试失败，要求先扩大覆盖），加上登记表里点名的 12 个共享入口（发送、划转、逐仓保证金、市价与限价平仓、仓位 TP/SL、现货兑换弹窗，桌面充值提现页签，三个历史页及其共用的不可用占位）。
+- **读出的内容**：
+  - 播报：`role` 为 alert、status、log、marquee、timer、alertdialog；`aria-live`、`aria-invalid`、`aria-errormessage`；`<output>`；`toast()` 与 `toast.<方法>()` 调用（`dismiss` 除外）。条件表达式的分支与对象字面量展开里的属性也算，比较表达式里的字面量不算。
+  - 图标：警告类图标（名称含 Warning、XCircle、Prohibit、Info、Question、Hourglass、Clock、WifiSlash 等）、`Alert` 组件、`STATUS_GLYPH_*`（`SUCCESS` 除外）与 `BRAND_MOTION_*` 的引用。作为元素或作为值都算，导入时改了名也算；导入语句与闭合标签不算。
+  - 颜色：error、warning、danger、info 四族的类名，去掉变体前缀与 `!`，保留透明度后缀；黄、琥珀、橙、红的调色板类名；这几族的 CSS 变量（写在任意值类名或 `style` 里）；在组件上选择这类色调的属性，如 `intent="error"`、`tone="attention"`。
+  - 带状态措辞的用户可见文字：
+    - JSX 文本按元素合并，中间的表达式记作 `{…}`；Lingui 的 `t`、`msg` 与 `message` 属性；其它含空白的字符串字面量。
+    - 单个词只在这些位置算：JSX 表达式直接渲染的字面量及其条件分支、`aria-label`、`title`、`placeholder`、`label`、`description`、`one`、`other` 等文字属性、`t("…")` 与 `i18n._("…")` 的首个参数。
+    - 从 `@/…` 模块导入的文案对象：`t(ORDERBOOK_LABELS.waiting)` 这样的读取会去那个模块里取出原文。
+    - 措辞表包括 load、refresh、retry、stale、cached、updating、fetch、delay、lag、pause、interrupt、unavailable、fail、error、went wrong、could not、unable、cannot、connect、offline、wait、check、verify、pending、sync、unknown、expire、timed out、no …、not found、empty、N/A 等及其变形，以及 ⚠ 这类警告符号。
+  - 原始错误文字：`.message`、`.shortMessage`、`.details` 的读取，解构出的 `message`，以及对名称像错误的变量调用 `String()`、`toString()` 或放进模板字符串。
+  - 被动原因字段：`unavailableReason` 与 `unavailableLabel` 的读取。
+- **登记内容**：每个文件按形式登记次数，状态措辞按原文逐条登记并标注类别，每个类别有一句理由，说明它由什么驱动。类别是封闭的：用户操作反馈、输入校验、已确认的限制、已确认的对象变化、已确认的空结论、数值含义的颜色或措辞、破坏性操作的固定样式、风险说明、全局离线横幅、读屏专用的忙碌说明、读屏专用的数值播报、读屏专用的禁用原因、中性重试、稳定占位、与读取状态无关的固定文案，以及 `pending`。没有内容需要登记的文件不得出现在登记表里。
+- **`pending`**：已核实但尚未修复或尚待决定的被动提示，必须写明是什么，并列在下文「待处理」；「待处理」里点名的受检文件也必须有对应的 `pending` 登记。修复时连同登记一起删除。
+- **新增一处时**：先对照本规范判断它属于哪一类。被动数据状态（加载、过期、不可用、失败、重连）驱动的文字、颜色、图标或播报不得登记，要改成本规范允许的形式。
+
+这层检查读的是源码，不是渲染结果。下面这些它看不到，仍要靠行为测试与审查：
+
+- 文字或颜色在受检文件之外生成：
+  - 共享子组件，如 `TradingActionButton`、`TpSlSection`；
+  - hook 与 domain 函数返回的文案，如 `useFundsActionAvailability` 的 `unavailableReason`，受检文件必须经 `getFundsAvailabilityNotice` 过滤后再显示；
+  - 调用方经 props 传入的内容，如改单抽屉的错误文字由 `mobile-orders-tab.tsx` 决定。
+- 由函数返回的颜色（`getValueColorClass`、`getMarketCloseValueColorClass`）、拼接或查表得到的类名、从别的模块导入的类名常量。
+- 措辞表之外、又不带任何播报、警告色或图标的新说法。
+- 拼接出来的句子、对象表里按状态取用的单个词、Lingui 的 `select()` 与 `plural()` 选项里的单个词。
+- 经变量或非字面量对象展开传入的 `role`、`aria-live` 与色调属性。
+- 登记的是次数与原文，不是条件：把一处已登记的操作反馈改成由读取状态驱动而文字不变，次数不变，检查不会失败。
+- 只有理由、没有对应计数的 `pending` 登记：修复不会改变任何次数，登记与「待处理」里的那一行要随修复手工删除。
+- 颜色与措辞的类别是否属实由审查保证，测试只要求有理由。
+
+2026-11-17 的对抗审查按文字、样式、间接三个角度找到 34 种绕过写法，其中约三分之二已经补进扫描器，其余就是上面这份清单。源码扫描不追求穷尽，穷尽也做不到；它的作用是让常见写法的新提示必须经过一次登记与审查。
+
+第二层是原有的检查：已移除的移动文案、共享弹窗被动警告和规范入口，并扫描质押、推荐与金库目录：不得出现已移除的被动刷新、读取失败与未知数值文案（含 `0 HYPE` 占位）；`role="alert"` 与警告图标只留在逐个登记理由与次数的已确认状态和操作反馈里（金库未找到、金库操作弹窗的失败与未知结果、操作弹窗与金库详情的风险说明、分类不可用的警告），新增一处即失败；金库操作按钮不得由说明文字是否存在决定禁用；`user-positions-readiness.test.tsx` 验证订阅确认与首份数据的区别。余额、委托、TWAP、历史和仓位弹窗的组件测试同时验证静默展示、恢复和操作保护。
 
 质押、推荐与金库页：`passive-query-state.test.ts` 覆盖四态与合并规则；`staking-passive-data.test.tsx`、`referral-passive-data.test.tsx` 与 `vault-passive-data.test.tsx` 用真实的控制器、视图与 QueryClient（只替换传输层）验证首次失败只有中性重试、刷新失败保留本页收到的数据并禁用依赖它的操作、进入页面前缓存的数据在失败后不保留、后台刷新时没有文字且操作可用、`--` 占位，以及失败或保留的快照不得出「没有记录」结论；`use-referrals.test.tsx`、`vaults-domain.test.ts` 与 `use-vault-action-controller.test.tsx` 分别钉住推荐快照的当前性、`deriveVaultActionsAvailability` 的 `detailCurrent` 与被动原因分类、保留详情时暂停复核步骤、保留详情或份额未验证时暂停已在复核步骤的确认；`vault-passive-data.test.tsx` 另钉住公开列表或账户份额保留时不下筛选与搜索的空结论，以及详情、份额与公开列表在进入页面前缓存、页面自己的请求失败时不被保留；`vault-action-modal.test.tsx` 与 `vault-detail-page-outcomes.test.tsx` 钉住弹窗的确认按钮跟随 `canConfirm`、数据 Retry 只在页面需要重试时出现；`referral-ui-contract.test.ts` 与 `status-motion-surface-contract.test.ts` 登记已移除的刷新文字与转圈。
 
@@ -180,6 +216,57 @@ pnpm --dir apps/terminal exec vitest run \
 ```
 
 契约测试的文案清单不能替代行为审查；新增入口仍须覆盖未知、失败、恢复和确认空快照，检查禁用逻辑是否独立于文案。
+
+## 待处理
+
+2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
+
+| 文件 | 现状 | 依据 | 建议的修法 |
+| --- | --- | --- | --- |
+| `mobile-orders-tab.tsx` | 改单抽屉里用户改了值之后有三种情形。标记价不是实时时，红色提示显示「Mark price is unavailable. Wait for market data and try again.」。市场目录在加载或失败时，显示「Market metadata changed. Refresh and try again.」。当前委托快照过期或重连时，被改的输入框保留红框与 `aria-invalid`，却没有文字 | 展示规则「数据过期、重连、后台刷新失败」一行；「双端下单与账户概览」：行情未就绪不得进入表单错误，红框、文字与 `aria-invalid` 用同一份可展示结果 | 文字与红框共用一份可展示结果，排除 `snapshot-not-ready`、`mark-price-unavailable`，以及市场目录加载或失败时的 `market-binding-changed`；确认按钮继续按原始结果禁用 |
+| `mobile-orders-history-tab.tsx` | 「No orders match these filters.」不检查错误、离线与过期，可以由保留的旧记录得出 | 展示规则「完整、当前、成功的空快照」一行 | 数据不当前时改为空白忙碌区域 |
+| `mobile-funding-tab.tsx` | 「No funding payments match this direction.」同上，表头合计也由同一份旧数据算出 | 同上 | 同上 |
+| `mobile-twap-history-list.tsx` | 「No TWAP history found.」只要求存在一份 REST 快照，最近一次请求失败或订阅不当前时仍会显示 | 同上；「数据与操作边界」：历史缓存为空时不得声称没有记录 | hook 增加只用于展示的「快照当前」标记，不满足时保持空白 |
+| `mobile-twap-fill-history-list.tsx` | 「No TWAP fills found.」同上 | 同上 | 同上 |
+| `mobile-book-view.tsx` | 订单簿切换或重连期间，空的一侧可以由缓存快照显示「No orders」，读屏还会把它与「Waiting for order book...」一起读出 | 同上；官方文案目录里没有空侧文字 | 过渡期间空的一侧改用占位行 |
+| `send-modal.tsx` | 已登录的会话只是在重连、或钱包目录还在初始化时，打开着的弹窗显示警告框「Connect your wallet to send funds.」；Agent-only 会话也会看到 | 展示规则「钱包或地区规则尚未解析」与「已确认的 Agent-only 会话」两行 | 只在确认未连接时显示；涉及资金弹窗，单独一次改动 |
+| `transfer-modal.tsx` | 同上（「Connect your wallet to transfer funds.」）；Agent-only 会话同时看到这句与 Agent-only 的原因 | 同上 | 同上 |
+| `position-isolated-margin-modal.tsx` | 重连期间钱包地址短暂为空，弹窗显示红色的「Trading data changed while this dialog was open. Close and reopen it before submitting.」 | 展示规则「钱包或地区规则尚未解析」一行；真实的账户变化仍应提示 | 地址未解析时不显示，按钮保持禁用；真实变化照常提示 |
+| `position-tpsl-modal.tsx` | 同一个钱包只是在重连时，表单被「Connect wallet to view positions」整体替换。这一项只读代码确认，没有渲染复现 | 同上 | 会话解析中改用忙碌占位，保留草稿 |
+| `account-transfers-tab.tsx` | 已登录用户在会话解析完成前短暂看到「Connect your wallet to view deposits and withdrawals.」 | 同上。真正未连接时显示这句是既定做法，其它桌面账户页签相同 | `useAccountLedger` 暴露「会话解析中」，此时显示忙碌占位 |
+| `position-market-close-modal.tsx` | 提示框的加载变体（`role="status"` 加转圈）不可达：加载时提示本身为空 | 死代码；若可达即是可见的被动加载状态 | 删除该分支，同步 `status-motion-surface-contract` 的转圈登记 |
+| `position-limit-close-modal.tsx` | 同上 | 同上 | 同上 |
+| `trade-history-page.tsx` | 「No fills match the selected filters.」与标题「No matching fills」只在没有任何记录时才检查错误、离线与刷新；有保留的记录时，刷新失败、离线或刷新中仍会得出无匹配。这一项只读代码确认 | 展示规则「完整、当前、成功的空快照」一行 | 数据不当前时不下无匹配结论 |
+| `historical-orders-page.tsx` | 同上（「No orders match the selected filters.」「No matching orders」） | 同上 | 同上 |
+| `funding-history-page.tsx` | 同上（「No funding payments match the selected filters.」「No matching funding payments」） | 同上 | 同上 |
+| `mobile-trade-view.tsx` | 下单按钮在解析不出会话地址时显示「Connect Wallet」，已登录会话只是在重连时也一样。这一项只读代码确认 | 展示规则「钱包或地区规则尚未解析」一行；连接入口留在下单区是既定做法 | 会话解析中保留动作名称并禁用，与资金弹窗那一组一起处理 |
+| `mobile-account-view.tsx` | 地区检查未解析时，已连接账户的存款、提款与划转区域整体隐藏，而不是保留并禁用 | 展示规则「钱包或地区规则尚未解析」一行 | 只在确认受限时隐藏；Bridge 入口需一并核对 |
+
+核实后不算问题的有一项：新账号自动设置为统一账户期间（`pending` 状态），提款与划转的禁用原因与 `awaiting-funds` 相同。这是 [ADR 0041](adr/0041-automatic-unified-account-for-new-accounts.md) 的明确要求。
+
+没有判定出来的有一项：发送弹窗里的「Select a supported account mode before moving funds.」对新账号是否可达。
+
+## 与官方终端的对照（2026-11-17）
+
+建登记表时，有些展示的理由取决于官方的做法。官方开发文档只描述协议，不描述界面：清算规则、订单状态的含义、账本条目的字段、TWAP 只有 `twapOrder` 与 `twapCancel` 两个动作。所以这些项读的是官方终端的生产包（`app.hyperliquid.xyz`，`index-_r9icOH2.js`、`config-BkGHbgaN.js`、`en-US-BcHHE9Lu.js`）。读取方式是在浏览器里取源码文本检索，没有连接钱包，也没有看到带数据的界面。
+
+| 项目 | 官方终端 | 本终端 |
+| --- | --- | --- |
+| 被动加载文字 | 文案 `Loading...` 只用了一处，在区块浏览器的交易详情；没有「过期」「不可用」「重连」类文案；有离线横幅 `You are offline. Check your connection.` | 本规范禁止被动文字，保留全局离线横幅 |
+| 全仓保证金率 | 两档：维持保证金与账户价值之比超过 0.8 时红色，否则绿色 | 三档：危险、警告、正常 |
+| 委托历史状态 | 纯文字，不着色；协议撤单显示 `Canceled` 加下划线与悬停说明，各类拒绝显示 `Rejected` 加悬停说明 | 已成交绿色、已撤销与被拒红色的徽标 |
+| 持仓强平价 | 不着色，没有接近标记价的高亮 | 实时标记价在 10% 以内时红色 |
+| 下单摘要的预估强平价 | 不着色；缺值显示 `N/A` | 距下单价 5% 以内时红色；缺值显示 `N/A` |
+| 仓位 TP/SL 弹窗的标记价 | 不着色 | 有实时标记价时警告色 |
+| 充值提现记录 | 有状态列，值为 `pending` 或 `completed`，纯文字；手续费非零时着色，为零显示 `--` | 状态恒为 `Completed`；手续费有值时红色 |
+| 筛选无匹配 | 只要开启筛选且没有行就显示 `No results match your filters.`，不看加载或失败 | 成交历史要求补拉成功且当前；委托历史与资金费见「待处理」 |
+| 发送确认 | 目标地址没有发过交易时显示警告，并要求勾选确认；有手续费时说明金额 | 复核步骤有对应的两条提示 |
+| 订单簿空的一侧 | 文案目录里没有对应文字 | 显示「No orders」，见「待处理」 |
+| 余额不足时的下单按钮 | 改名为 `Not Enough Margin` 或 `Insufficient Balance` 并禁用 | 按钮保留动作名称，由可用性布尔值禁用 |
+
+颜色上的差异都属于「数值含义的颜色」，不是被动数据提示，本规范不禁止。是否向官方对齐是设计决定，这次没有处理。
+
+没有查到的有两项：官方 TWAP 历史的状态颜色与错误描述的显示方式；官方当前委托是否显示与标记价的距离。
 
 ## 行情标题的数据来源
 
