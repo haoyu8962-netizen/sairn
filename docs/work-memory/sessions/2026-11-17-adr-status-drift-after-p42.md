@@ -86,4 +86,6 @@ ADR 0051 的状态原来写「新脚本未以 `--execute` 运行过」：p42 用
 
 - 上面两组没有核对的文档，可以用同样的方法再做一批。
 - P2-17 的 `mobile-data-presentation-contract` 漏洞仍没有修。
-- 真机与真实钱包验收、交接记录里需要运营方做的六件事不变。
+- 2026-11-17 运营方同意后，删除了本机的旧发布工作树 `gatu-release-p26`、`p28`、`p30`–`p40`（共 13 个，`git worktree remove`，删除前确认没有未提交改动、环境文件都只是软链、没有进程在用）。保留 `gatu-release-p41`（回滚产物）与 `sairn-release-p42`。旧克隆里的 `claude/release-p*-record` 分支没有动。
+- 同日核对：两个环境文件仍没有拷到 `~/我的项目/sairn`，`sairn-release-p42` 的 `.env.local` 仍软链到旧克隆。
+- 真机与真实钱包验收、交接记录里需要运营方做的其余事项不变。
