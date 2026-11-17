@@ -81,6 +81,32 @@ describe("useWalletSession().isResolving", () => {
 		expect(read()).toEqual({ connected: false, resolving: true, walletAccess: false, sessionMode: "disconnected" });
 	});
 
+	describe("in a browser that never signed in", () => {
+		beforeEach(() => {
+			act(() => root.unmount());
+			resetWalletSessionStage("authentication-initialising-first-visit");
+			root = createRoot(container);
+			act(() => root.render(<Probe />));
+		});
+
+		it("is false while Privy initialises, like the header's Connect button", () => {
+			expect(read()).toEqual({ connected: false, resolving: false, walletAccess: false, sessionMode: "disconnected" });
+
+			act(() => vi.advanceTimersByTime(WALLET_SESSION_RESOLVING_MAX_MS * 2));
+			show("signed-out");
+			expect(read().resolving).toBe(false);
+		});
+
+		it("still waits for the session once the visitor signs in", () => {
+			act(() => vi.advanceTimersByTime(WALLET_SESSION_RESOLVING_MAX_MS * 2));
+			show("directory-initialising");
+			expect(read().resolving).toBe(true);
+
+			show("connected");
+			expect(read()).toEqual({ connected: true, resolving: false, walletAccess: true, sessionMode: "wallet" });
+		});
+	});
+
 	it("is false for a signed-out visitor as soon as Privy is ready", () => {
 		show("signed-out");
 		expect(read()).toEqual({ connected: false, resolving: false, walletAccess: false, sessionMode: "disconnected" });

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
+import { PassiveDataPlaceholder } from "./passive-data-placeholder";
 
 interface Props {
 	children: ReactNode;
@@ -17,4 +19,14 @@ export function Placeholder({ children, variant }: Props) {
 			{children}
 		</div>
 	);
+}
+
+interface ConnectPlaceholderProps {
+	children: ReactNode;
+}
+
+export function ConnectPlaceholder({ children }: ConnectPlaceholderProps) {
+	const { isResolving } = useWalletSession();
+	if (isResolving) return <PassiveDataPlaceholder busy />;
+	return <Placeholder>{children}</Placeholder>;
 }

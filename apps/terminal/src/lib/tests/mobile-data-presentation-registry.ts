@@ -554,7 +554,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"confirmed-empty": "Rendered only when useAccountLedger().canConfirmEmpty holds.",
 			"data-value": "Fee cell in the error colour when the row carries a fee.",
 			"confirmed-restriction":
-				"The Connect sentence, only once the session is definitively not connected; a busy region shows while useAccountLedger().isSessionResolving holds.",
+				"The Connect sentence, rendered through the shared ConnectPlaceholder of the desktop account tabs: only once the session is definitively not connected; a busy region shows while useWalletSession().isResolving holds.",
 		},
 	},
 	"trade/positions/transfer-modal.tsx": {

@@ -43,6 +43,19 @@ describe("wallet session resolving clock", () => {
 		expect(hasWalletSessionResolvingExpired()).toBe(true);
 	});
 
+	it("keeps the deadline of an open wait through a settled instant", () => {
+		reportWalletSessionUnsettled(true);
+		vi.advanceTimersByTime(5_000);
+		reportWalletSessionUnsettled(false);
+		vi.advanceTimersByTime(1_000);
+		reportWalletSessionUnsettled(true);
+		vi.advanceTimersByTime(3_999);
+		expect(hasWalletSessionResolvingExpired()).toBe(false);
+
+		vi.advanceTimersByTime(1);
+		expect(hasWalletSessionResolvingExpired()).toBe(true);
+	});
+
 	it("never expires a session that settled in time", () => {
 		reportWalletSessionUnsettled(true);
 		vi.advanceTimersByTime(3_000);

@@ -328,6 +328,20 @@ complete. Keep raw errors and warning banners hidden, and preserve every
 signing, approval and funding gate. See [mobile presentation
 rules](mobile-data-presentation.md).
 
+While the session is being restored, `useWalletSession().isResolving` tells
+the surfaces that show a connection conclusion to wait
+([runtime guardrails](runtime-guardrails.md) §1 owns the definition). It is
+presentation only: trading stays disconnected exactly as described above, and
+no signer, approval or funding gate reads it. Its wait ends after 10 seconds
+at the latest, on one clock shared by all surfaces, and is independent of the
+30-second **Reload page** entry: the two timers do not start, stop or reset
+each other. A session that is still unresolved between 10 and 30 seconds
+therefore looks as it did before the flag existed: the order button reads
+**Connect Wallet**, the dialogs and account tabs show their connect prompt,
+and the header keeps its connecting indicator; from 30 seconds the menu also
+offers **Reload page**. A browser that holds no stored Privy session never
+waits: its visitor sees the connect entries at once, as in the header.
+
 Login intent is recorded only from Privy's public login callback in an
 application-owned, `user.id`-bound `sessionStorage` record. Do not read or scan
 Privy's private storage keys. A record for another user or an unknown login

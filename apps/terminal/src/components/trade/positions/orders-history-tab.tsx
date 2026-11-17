@@ -25,7 +25,7 @@ import { AssetBadge } from "../components/asset-badge";
 import { HistoricalOrderPrice } from "../components/historical-order-price";
 import { DesktopTabToolbarPortal } from "./desktop-tab-toolbar-portal";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelTableBodyClass,
 	positionsPanelTableCellClass,
@@ -188,7 +188,7 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 	});
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view order history.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view order history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
 		if (status !== "ready" || (entries.length === 0 && (error || isOffline || isStale)))
 			return <PassiveDataPlaceholder />;

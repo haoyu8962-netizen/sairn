@@ -1261,19 +1261,18 @@ interface MobileOrderButtonLabels {
 }
 
 export function getMobileOrderButtonContent(input: MobileButtonContentInput): ButtonContent {
-	const stage = input.isSessionResolving
-		? "balanceLoading"
-		: getOrderActionStage({
-				isConnected: input.isConnected,
-				needsApproval: input.needsApproval,
-				isSignerReady: input.isSignerReady,
-				hasBalanceError: input.hasBalanceError,
-				isBalanceLoading: input.isBalanceLoading,
-				availableBalance: input.availableBalance,
-				reduceOnly: input.reduceOnly,
-				requiresAvailableBalance: input.requiresAvailableBalance,
-				isAwaitingFirstDeposit: input.isAwaitingFirstDeposit === true,
-			});
+	const stage = getOrderActionStage({
+		isConnected: input.isConnected,
+		isSessionResolving: input.isSessionResolving,
+		needsApproval: input.needsApproval,
+		isSignerReady: input.isSignerReady,
+		hasBalanceError: input.hasBalanceError,
+		isBalanceLoading: input.isBalanceLoading,
+		availableBalance: input.availableBalance,
+		reduceOnly: input.reduceOnly,
+		requiresAvailableBalance: input.requiresAvailableBalance,
+		isAwaitingFirstDeposit: input.isAwaitingFirstDeposit === true,
+	});
 
 	if (stage === "connect") {
 		return {

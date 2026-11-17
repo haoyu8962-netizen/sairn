@@ -54,7 +54,7 @@
 
 ## 钱包会话解析中
 
-「还没解析出钱包会话」与「确认未连接」是两种状态。`useWalletSession()` 在下面这些时候都给出 `isConnected` 为假、`address` 为空：Privy 还没就绪；已登录但钱包目录还在初始化；wagmi 正在连接或重连（Privy 更新用户对象后适配层会重连一次，例如智能钱包关联完成时，见 [ADR 0033](adr/0033-silent-email-wallet-creation.md)）；期望的钱包已在目录里但还没成为当前账户。这些都不是用户断开了钱包。
+「还没解析出钱包会话」与「确认未连接」是两种状态。`useWalletSession()` 在下面这些时候都给出 `isConnected` 为假、`address` 为空：Privy 还没就绪（只在浏览器里存有 Privy 登录痕迹时才算解析中，从未登录的访客立刻按未连接展示，与头部菜单相同）；已登录但钱包目录还在初始化；wagmi 正在连接或重连（Privy 更新用户对象后适配层会重连一次，例如智能钱包关联完成时，见 [ADR 0033](adr/0033-silent-email-wallet-creation.md)）；期望的钱包已在目录里但还没成为当前账户。这些都不是用户断开了钱包。
 
 `useWalletSession().isResolving` 把它们归成一个标志，定义与不覆盖的情形见 [运行时约束](runtime-guardrails.md) §1。等待有上限：全应用共用一个时钟，从会话变成未定起最多 10 秒，之后不论卡在哪一步都按当前的实际状态展示，所有入口同时切换。它只用于展示：`isConnected`、`hasWalletAccess`、地址、签名器与全部执行守卫照旧，解析期间没有任何动作因此可用。确认未连接（Privy 就绪且未登录，或已登录但目录里没有期望的钱包，或等待已满 10 秒）与真实的账户变化（含在钱包里切到另一个账户），展示与以前相同。
 
@@ -63,11 +63,11 @@
 | 发送、划转弹窗 | 不显示连接警告；输入保留；按钮按可用性布尔值禁用 | 显示「Connect your wallet to send funds.」/「Connect your wallet to transfer funds.」。Agent-only 会话只看到需在桌面连接主钱包的一句原因（地区确认受限时只看到地区说明），不再同时看到连接警告 |
 | 逐仓保证金弹窗 | 不显示「Trading data changed…」；输入保留；提交禁用 | 账户或网络与开窗时不同（含换了账户、退出登录、切到 Agent-only）时照常显示 |
 | 仓位 TP/SL 弹窗 | 已显示的表单保持挂载并禁用，草稿保留；会话恢复后账户数据重新加载期间同样保持，数据回来后恢复可提交。期间仓位或已有 TP/SL 变了，数据回来后表单显示「Trading data changed…」并保持禁用，需要关闭重开。打开时还没有表单则显示忙碌占位 | 「Connect wallet to view positions」「Trading data changed…」「No active positions.」照常替换表单 |
-| 桌面充值提现页签 | 忙碌占位（`aria-busy`），导出按钮禁用，不发请求 | 「Connect your wallet to view deposits and withdrawals.」 |
-| 手机下单按钮 | 保留动作名称（如 Buy）并禁用，点击不提交、不打开连接窗口 | 「Connect Wallet」，可点击 |
+| 桌面账户页签（持仓、当前委托、余额、成交历史、资金费、委托历史、TWAP 及其历史与成交、充值提现） | 忙碌占位（`aria-busy`）代替连接那一句；页签不卸载，筛选与工具栏保留；不发请求 | 各页签的「Connect your wallet to view …」。十个页签的这句话都经共用的 `ConnectPlaceholder` 渲染，不各自判断。余额页签对邮箱会话显示的「Open Deposit to prepare your email wallet.」不受影响 |
+| 下单按钮（桌面与手机） | 保留动作名称（桌面「Place Buy Order」、手机「Buy」）并禁用，点击不提交、不打开连接窗口。两端共用 `getOrderActionStage` 的同一个分支（[下单表单对齐](order-entry-surface-parity.md)） | 「Connect Wallet」，可点击 |
 | 手机账户页（地区检查未解析） | 已连接账户的 Deposit、Withdraw、Perps / Spot 与 Bridge 保留并禁用，不显示地区文字 | 地区确认受限时整块隐藏并显示限制说明，与以前相同 |
 
-没有处理的入口：桌面下单按钮与手机下单按钮共用阶段判断，但不在本规范的受检文件里，解析中仍显示连接入口；其它桌面账户页签的连接提示同理。邮箱会话的钱包还在静默创建时目录里没有钱包，不算解析中，这些入口仍按未连接展示（协议门控另有自己的等待，见下一节）。
+不算解析中的一种情形：邮箱会话的钱包还在静默创建时目录里没有钱包，这些入口仍按未连接展示（协议门控另有自己的等待，见下一节）。10 秒上限与头部菜单 30 秒后出现的「重新加载页面」互不影响：10 秒到 30 秒之间，这些入口按未连接展示，头部仍是连接中的指示（[交易引导规范](trading-onboarding.md)）。
 
 ## 邮箱钱包的静默创建
 
@@ -194,7 +194,7 @@
 
 `market-selector-quote.test.ts`、`token-selector-row.test.tsx` 与 `token-selector-wiring.test.tsx` 验证市场选择器的价格只来自实时价格上下文、涨跌只对实时资产上下文的 `prevDayPx` 计算，失效时为占位，排序用同样的值；`use-markets-info-subscriptions.test.tsx` 验证首帧前不读本地快照、每行的 `assetContextLive`，并把真实 `useMarketsInfoInternal` 的行交给真实选择器行渲染。
 
-`session-resolving-clock.test.ts` 钉住共用时钟：10 秒到期、重复上报不重新计时、短于 2 秒的已定瞬间不重开等待。`wallet-session-resolving.test.tsx` 用真实的 `useWalletSession`（只替换 Privy 与 wagmi）钉住 `isResolving` 在各阶段的取值、每一种未定状态都在 10 秒后结束、晚挂载的调用方共用同一期限，以及 Agent-only、已退出登录、在钱包里切了账户时为假。`funds-dialogs-session-resolving.test.tsx`、`position-isolated-margin-session-resolving.test.tsx`、`position-tpsl-session-resolving.test.tsx`、`account-transfers-session-resolving.test.tsx` 与 `tests/mobile-trade-session-resolving.test.tsx` 在同一套会话阶段（`harness/wallet-session-stage.ts`）下渲染真实组件，验证解析中不下连接或变化结论、动作禁用且不发请求、草稿保留，以及确认未连接、换了账户、Agent-only 时的展示不变；`mobile-account-view.test.tsx` 验证地区未解析时资金入口保留并禁用、确认受限时隐藏。
+`session-resolving-clock.test.ts` 钉住共用时钟：10 秒到期、重复上报不重新计时、短于 2 秒的已定瞬间不重开等待。`wallet-session-resolving.test.tsx` 用真实的 `useWalletSession`（只替换 Privy 与 wagmi）钉住 `isResolving` 在各阶段的取值、每一种未定状态都在 10 秒后结束、晚挂载的调用方共用同一期限，以及 Agent-only、已退出登录、在钱包里切了账户时为假。`funds-dialogs-session-resolving.test.tsx`、`position-isolated-margin-session-resolving.test.tsx`、`position-tpsl-session-resolving.test.tsx`、`account-transfers-session-resolving.test.tsx`、`tests/mobile-trade-session-resolving.test.tsx` 与 `tests/trade-panel-session-resolving.test.tsx` 在同一套会话阶段（`harness/wallet-session-stage.ts`）下渲染真实组件，验证解析中不下连接或变化结论、动作禁用且不发请求、草稿保留，以及确认未连接、换了账户、从未登录、Agent-only 时的展示不变。`desktop-account-tabs-session-resolving.test.tsx` 验证共用的 `ConnectPlaceholder`，并扫描 `components/trade/positions`：十句「Connect your wallet to view …」都必须经它渲染，新页签自己写一句就失败。`deposit-order-cta.test.tsx` 用同一组输入比对桌面 `useButtonContent` 与手机 `getMobileOrderButtonContent` 在解析中的结果。`mobile-account-view.test.tsx` 验证地区未解析时资金入口保留并禁用、确认受限时隐藏；这一项与钱包会话无关，沿用该文件对会话 hook 的桩。
 
 `account-mode-query.test.ts` 验证模式来源解析与三态分类；`mobile-account-view.test.tsx`、`funds-action-balances.test.tsx` 和 `deposit-modal-withdrawal-routing-guard.test.tsx` 使用真实资金能力计算验证未解析静默、确认限制、按钮禁用和未发起请求。`desktop-positions-readiness.test.tsx` 连接真实持仓 hook 与桌面页，验证首快照等待、错误优先和恢复，不依赖源码匹配。
 
@@ -214,7 +214,10 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/position-isolated-margin-session-resolving.test.tsx \
   src/lib/tests/position-tpsl-session-resolving.test.tsx \
   src/lib/tests/account-transfers-session-resolving.test.tsx \
+  src/lib/tests/desktop-account-tabs-session-resolving.test.tsx \
+  src/lib/tests/deposit-order-cta.test.tsx \
   tests/mobile-trade-session-resolving.test.tsx \
+  tests/trade-panel-session-resolving.test.tsx \
   src/lib/tests/deposit-empty-balances-entry.test.tsx \
   src/lib/tests/mobile-orders-card.test.tsx \
   src/lib/tests/mobile-twap-card.test.tsx \
@@ -245,7 +248,7 @@ pnpm --dir apps/terminal exec vitest run \
 
 ## 待处理
 
-2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。其中分不清「会话解析中」与「未连接」的六个入口，以及手机账户页的地区未解析，已在 2026-11-17 修复并从表中删除，现行做法见上文「钱包会话解析中」，过程见[任务记录](work-memory/sessions/2026-11-17-wallet-session-resolving-presentation.md)。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
+2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。其中分不清「会话解析中」与「未连接」的六个入口，以及手机账户页的地区未解析，已在 2026-11-17 修复并从表中删除（同一改动里桌面下单按钮与其余桌面账户页签也一并改了，它们原先不在表里），现行做法见上文「钱包会话解析中」，过程见[任务记录](work-memory/sessions/2026-11-17-wallet-session-resolving-presentation.md)。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
 
 | 文件 | 现状 | 依据 | 建议的修法 |
 | --- | --- | --- | --- |

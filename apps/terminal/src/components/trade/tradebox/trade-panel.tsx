@@ -136,7 +136,7 @@ function warmDesktopTradeSettingsModals() {
 
 export function TradePanel() {
 	const { t } = useLingui();
-	const { address, isConnected, hasWalletAccess, sessionMode } = useWalletSession();
+	const { address, isConnected, hasWalletAccess, isResolving, sessionMode } = useWalletSession();
 	const { data: connectionWalletClient } = useConnectionWalletClient();
 	const depositAvailability = useDepositAvailability();
 
@@ -738,6 +738,7 @@ export function TradePanel() {
 
 	const buttonContent = useButtonContent({
 		isConnected,
+		isSessionResolving: isResolving,
 		availableBalance,
 		reduceOnly,
 		requiresAvailableBalance,

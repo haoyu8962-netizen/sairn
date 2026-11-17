@@ -13,6 +13,7 @@ import {
 	useHyperliquidOptional,
 } from "@/lib/hyperliquid";
 import { clearPrivyLoginMethod, usePrivyLoginIntent } from "@/lib/wallet/privy-login-method";
+import { hasPersistedPrivySession } from "@/lib/wallet/privy-session-hint";
 import {
 	getPrivyEmailAddress,
 	getPrivyEmbeddedWalletAddress,
@@ -127,8 +128,10 @@ export function useWalletSession() {
 	const displayAddress = address;
 	const sessionMode = hyperliquid?.sessionMode ?? (hasWalletSession ? "wallet" : "disconnected");
 	const walletUnsettled =
-		!ready ||
-		(authenticated && (!walletsReady || isConnecting || isReconnecting || (!!selectedPrivyWallet && !walletConnected)));
+		(!ready && hasPersistedPrivySession()) ||
+		(ready &&
+			authenticated &&
+			(!walletsReady || isConnecting || isReconnecting || (!!selectedPrivyWallet && !walletConnected)));
 	const resolvingExpired = useSyncExternalStore(
 		subscribeWalletSessionResolvingExpiry,
 		hasWalletSessionResolvingExpired,
@@ -161,12 +164,12 @@ export function useWalletSession() {
 		isConnecting,
 		isReconnecting,
 		/**
-		 * The session can still become a wallet session: Privy or its wallet directory is initialising, wagmi
-		 * is connecting or reconnecting, or the expected wallet is in the directory and wagmi has no account
-		 * yet. It ends after WALLET_SESSION_RESOLVING_MAX_MS at the latest. Presentation only: while it holds,
+		 * The session can still become a wallet session: Privy is initialising in a browser that holds a
+		 * stored Privy session, its wallet directory is initialising, wagmi is connecting or reconnecting, or
+		 * the expected wallet is in the directory and wagmi has no account yet. It ends after WALLET_SESSION_RESOLVING_MAX_MS at the latest. Presentation only: while it holds,
 		 * a surface neither concludes "disconnected" nor enables anything. Never true for an Agent-only
-		 * session, an established wallet session, a signed-out visitor once Privy is ready, or a wagmi account
-		 * that differs from the expected wallet.
+		 * session, an established wallet session, a visitor who is not signed in, or a wagmi account that
+		 * differs from the expected wallet.
 		 */
 		isResolving,
 		sessionMode,

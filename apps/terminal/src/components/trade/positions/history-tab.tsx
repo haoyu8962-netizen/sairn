@@ -20,7 +20,7 @@ import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { AssetBadge } from "../components/asset-badge";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelTableBodyClass,
 	positionsPanelTableCellClass,
@@ -77,7 +77,7 @@ export function HistoryTab() {
 	});
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view trade history.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view trade history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
 		if (status !== "ready" || (fills.length === 0 && (error || isOffline || isStale)))
 			return <PassiveDataPlaceholder />;

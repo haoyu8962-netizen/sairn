@@ -420,7 +420,7 @@ describe("MobileTradeView order button while the wallet session resolves", () =>
 		expect(ctaButton().disabled).toBe(false);
 	});
 
-	it.each(["signed-out", "wallet-missing", "connected-other-account"] as const)("offers Connect Wallet once the session is %s", async (stage) => {
+	it.each(["signed-out", "wallet-missing", "connected-other-account", "authentication-initialising-first-visit"] as const)("offers Connect Wallet once the session is %s", async (stage) => {
 		await show(stage);
 
 		const button = ctaButton();

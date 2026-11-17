@@ -433,6 +433,56 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Wallet session resolving presentation, no baseline change (2026-11-17)
+
+The presentation-only change that tells a resolving wallet session from a disconnected one (branch
+`fix/wallet-session-resolving`, [runtime guardrails](runtime-guardrails.md) §1) adds one flag and a shared clock to
+`useWalletSession()` and reads the flag in the Send, Transfer, isolated margin and TP/SL dialogs, the ten desktop
+account tabs, the order button of both surfaces and the phone account view. No baseline or allowance was changed.
+
+Both trees were built on the same machine on 2026-11-17, each in its own worktree of the
+`haoyu8962-netizen/sairn` clone without `.env.local`, with Node 22.15.0 and pnpm 10.21.0
+(`pnpm install --frozen-lockfile --prefer-offline`), the fixed identity of the reproduction protocol,
+`NITRO_PRESET=node-server` and `VITE_MOBILE_PAIRING_ENABLED=false`; 452 client chunks each. The base is
+`6c45e83a`; the head is the branch's working tree after its last code change.
+
+| Metric | `6c45e83a` | Change | Head | Room left |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,391,705 | +533 | 3,392,238 | 5,825 |
+| Static trade startup | 1,662,902 | +521 | 1,663,423 | 1,448 |
+| Mobile runtime increment | 119,743 | +6 | 119,749 | 831 |
+| Desktop runtime increment | 204,705 | +151 | 204,856 | 7,827 |
+| `trade-terminal-page` | 128,565 | +82 | 128,647 | 268 |
+| `token-selector-popup` | 15,384 | −5 | 15,379 | 476 |
+| `api-wallet` | 18,414 | −4 | 18,410 | 1,557 |
+| `fundingHistory._address` | 6,844 | −2 | 6,842 | 1,478 |
+| `tradeHistory._address` | 7,372 | +1 | 7,373 | 2,500 |
+| `historicalOrders._address` | 8,138 | −1 | 8,137 | 1,526 |
+| `leaderboard` | 12,060 | −2 | 12,058 | 1,525 |
+| `staking` | 24,455 | −1 | 24,454 | 1,177 |
+| `vaults-page` | 30,636 | −2 | 30,634 | 246 |
+| `fundingComparison` | 10,526 | −5 | 10,521 | 2,112 |
+| `funding-history-panel` | 9,389 | −7 | 9,382 | 779 |
+
+- The largest chunk (`index-BRVzclkp`, the vendor entry) is 1,414,783 bytes raw in both builds and 411,536 gzip in
+  the base against 411,550 in the head.
+- By chunk, measured with gzip level 9 on the emitted files: the chunk that holds `useWalletSession`
+  (`use-global-modal-store`) grows by 455 for the flag and the clock; `position-dialog-host` by 148 for the held
+  TP/SL form and the isolated-margin notice; `positions-panel-table-styles`, which holds the desktop tabs'
+  placeholder, by 116 for the shared connect placeholder; `trade-terminal-page` by 78 for the phone order button
+  and the phone account view; `send-modal`, `trade-panel` and `transfer-modal` by 31, 28 and 22. `mobile-header`
+  shrinks by 69 because the stored-session hint moved out of it into the chunk of the hook.
+- The static-startup and total growth is that of the hook's chunk plus the placeholder chunk. The desktop runtime
+  increment grows with `trade-panel` and the desktop account tabs.
+- A first version, which changed only the phone order button, read `trade-terminal-page` at 128,639; moving the
+  check into the stage function shared with the desktop panel reads 128,647.
+- `trade-terminal-page` has 268 bytes left in this configuration. The release configuration read it 156 bytes
+  above the protocol build before p42, so the next release precheck is expected to find it under the 200-byte rule
+  and to need a re-baseline first. The base alone would leave about 194 by the same estimate.
+- The branch `fix/mobile-presentation-pending-notices` was measured against the same base and is not included
+  here; it reads static trade startup +174 and `trade-terminal-page` −20. The two together were not built.
+- Pairing on and the release configuration were not built.
+
 ## Trade-page re-baseline before release p42 (2026-11-15)
 
 The release precheck for p42 built `main` `cdf3a8f6` in the release worktree `sairn-release-p42` with the release

@@ -22,6 +22,8 @@ interface OrderActionStageInput {
 	requiresAvailableBalance?: boolean;
 	/** A new account with a confirmed empty snapshot whose mode is set after its first deposit (ADR 0041). */
 	isAwaitingFirstDeposit?: boolean;
+	/** The wallet session may still become connected: keep the order's name, disabled, instead of Connect. */
+	isSessionResolving?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function entryOrderRequiresAvailableBalance(input: {
 }
 
 export function getOrderActionStage(input: OrderActionStageInput): OrderActionStage {
+	if (input.isSessionResolving) return "balanceLoading";
 	if (!input.isConnected) return "connect";
 	if (input.needsApproval && !input.isSignerReady) return "agent";
 	if (input.isAwaitingFirstDeposit) return "deposit";

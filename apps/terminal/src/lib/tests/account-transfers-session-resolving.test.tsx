@@ -122,16 +122,18 @@ describe("desktop Deposits & Withdrawals tab while the wallet session resolves",
 		expect(mocks.ledgerRequests).toEqual([]);
 	});
 
-	it.each(["signed-out", "wallet-missing", "connected-other-account"] as const)(
-		"keeps the Connect sentence once the session is %s",
-		(stage) => {
-			mount(stage);
+	it.each([
+		"signed-out",
+		"wallet-missing",
+		"connected-other-account",
+		"authentication-initialising-first-visit",
+	] as const)("keeps the Connect sentence once the session is %s", (stage) => {
+		mount(stage);
 
-			expect(container.textContent).toContain(CONNECT);
-			expect(exportButton().disabled).toBe(true);
-			expect(mocks.ledgerRequests).toEqual([]);
-		},
-	);
+		expect(container.textContent).toContain(CONNECT);
+		expect(exportButton().disabled).toBe(true);
+		expect(mocks.ledgerRequests).toEqual([]);
+	});
 
 	it("moves from the busy region to the account's list when the session resolves", async () => {
 		mount("reconnecting");

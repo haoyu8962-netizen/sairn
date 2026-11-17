@@ -19,7 +19,7 @@ import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { AssetBadge } from "../components/asset-badge";
 import { DesktopTabToolbarPortal } from "./desktop-tab-toolbar-portal";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelTableBodyClass,
 	positionsPanelTableCellClass,
@@ -92,7 +92,8 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 	});
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view funding payments.`}</Placeholder>;
+		if (!isConnected)
+			return <ConnectPlaceholder>{t`Connect your wallet to view funding payments.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <FundingLoadingPlaceholder />;
 		if (status !== "ready" || (updates.length === 0 && (error || isOffline || isStale)))
 			return <PassiveDataPlaceholder />;

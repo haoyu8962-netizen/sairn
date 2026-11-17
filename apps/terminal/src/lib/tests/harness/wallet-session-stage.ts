@@ -16,8 +16,10 @@ export const OTHER_OWNER = "0x3333333333333333333333333333333333333333";
 export const AGENT_ONLY_OWNER = "0x5555555555555555555555555555555555555555";
 
 export type WalletSessionStage =
-	// Privy has not finished initialising; nothing is known about the session yet.
+	// Privy has not finished initialising, in a browser that holds a stored Privy session.
 	| "authentication-initialising"
+	// Privy has not finished initialising, in a browser that never signed in.
+	| "authentication-initialising-first-visit"
 	// Signed in, Privy's wallet directory is still initialising.
 	| "directory-initialising"
 	// Signed in, the expected wallet is in the directory, wagmi has not connected it yet.
@@ -42,6 +44,8 @@ export type WalletSessionStage =
 	| "agent-only-over-wallet";
 
 interface StageInputs {
+	// Whether this browser holds Privy's session tokens (lib/wallet/privy-session-hint.ts).
+	storedSession: boolean;
 	ready: boolean;
 	authenticated: boolean;
 	walletsReady: boolean;
@@ -55,6 +59,7 @@ interface StageInputs {
 }
 
 const BASE: StageInputs = {
+	storedSession: true,
 	ready: true,
 	authenticated: true,
 	walletsReady: true,
@@ -68,6 +73,14 @@ const BASE: StageInputs = {
 
 const STAGES: Record<WalletSessionStage, StageInputs> = {
 	"authentication-initialising": { ...BASE, ready: false, authenticated: false, walletsReady: false, directory: [] },
+	"authentication-initialising-first-visit": {
+		...BASE,
+		storedSession: false,
+		ready: false,
+		authenticated: false,
+		walletsReady: false,
+		directory: [],
+	},
 	"directory-initialising": { ...BASE, walletsReady: false, directory: [] },
 	activating: BASE,
 	connecting: { ...BASE, isConnecting: true },
@@ -81,7 +94,7 @@ const STAGES: Record<WalletSessionStage, StageInputs> = {
 	},
 	"connected-other-account": { ...BASE, directory: [SESSION_OWNER, OTHER_OWNER], connectedAddress: OTHER_OWNER },
 	"wallet-missing": { ...BASE, directory: [] },
-	"signed-out": { ...BASE, authenticated: false, directory: [] },
+	"signed-out": { ...BASE, storedSession: false, authenticated: false, directory: [] },
 	"agent-only": { ...BASE, authenticated: false, directory: [], agentOnly: true },
 	"agent-only-over-wallet": { ...BASE, agentOnly: true },
 };
@@ -97,6 +110,8 @@ export function resetWalletSessionStage(next: WalletSessionStage): void {
 
 export function setWalletSessionStage(next: WalletSessionStage): void {
 	stage = next;
+	if (STAGES[next].storedSession) window.localStorage.setItem("privy:token", "stage");
+	else window.localStorage.removeItem("privy:token");
 	for (const listener of listeners) listener();
 }
 

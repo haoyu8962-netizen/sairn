@@ -11,7 +11,7 @@ import { useMarkets } from "@/lib/hyperliquid";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
 import { getTwapAverageFillPrice, getTwapHistoryDurationMs, getTwapHistoryTimeMs } from "@/lib/trade/order-history";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import { positionsPanelTableShellClass } from "./positions-panel-table-styles";
 
 const twapHistoryGridClass =
@@ -27,7 +27,7 @@ export function TwapHistoryTable() {
 	const markets = useMarkets();
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view TWAP history.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view TWAP history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
 		if (status !== "ready" || (history.length === 0 && isRealtimeDegraded)) return <PassiveDataPlaceholder />;
 		if (history.length === 0) return <Placeholder>{t`No TWAP history found.`}</Placeholder>;

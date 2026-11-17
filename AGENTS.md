@@ -78,7 +78,7 @@ This file contains durable project instructions for coding agents. Read `agent.m
 - Follow `docs/mobile-data-presentation.md` before changing mobile loading, reconnect, empty or error states, including shared dialogs used on mobile; its table defines the allowed and forbidden presentation per situation. Update it before introducing a new category of passive data notice. Every announcer, warning icon, warning colour and status wording in a covered file is registered with its kind in `mobile-data-presentation-registry.ts`; a new one fails the contract until it is reviewed against the policy, and a passive data notice is never registered (回归入口 lists what the scan reads and what it cannot see).
 - Passive data fetching never renders loading, stale, unavailable or raw transport-error text, warning icons or error labels in action buttons; stable numeric placeholders, blank lists, skeletons, `aria-busy` and screen-reader-only descriptions are the allowed forms.
 - An active subscription is not proof that its first snapshot arrived. Empty-list conclusions and deposit suggestions require a complete, current, successful snapshot; stale, failed, missing or mismatched snapshots are never confirmed empty states.
-- A wallet session that is still resolving is not a disconnected one: while `useWalletSession().isResolving` holds, a surface neither says "connect your wallet" or "trading data changed" nor enables anything, and it keeps the user's draft. The flag is presentation only and bounded by one shared clock, so a session that never settles is reported; `docs/runtime-guardrails.md` §1 owns its definition and `docs/mobile-data-presentation.md` (钱包会话解析中) what each surface shows.
+- A wallet session that is still resolving is not a disconnected one. The surfaces listed in `docs/mobile-data-presentation.md` (钱包会话解析中: the Send, Transfer, isolated margin and TP/SL dialogs, the desktop account tabs, and the order button on both surfaces) read `useWalletSession().isResolving`: while it holds they neither say "connect your wallet" or "trading data changed" nor enable anything, and they keep the user's draft. A surface that shows a disconnected conclusion and is not on that list is added to it, or to 待处理, before it changes. The flag is presentation only and bounded by one shared clock, so a session that never settles is reported; `docs/runtime-guardrails.md` §1 owns its definition.
 - Placeholders are presentation only. Preserve every signing, account-mode, funding, regional, freshness and action-availability guard; disable actions from availability booleans, never from the presence of a displayed explanation. Keep feedback for actions the user actually requested, including uncertain outcomes.
 
 ## Trading terminal visual contract
@@ -289,7 +289,9 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/position-isolated-margin-session-resolving.test.tsx \
   src/lib/tests/position-tpsl-session-resolving.test.tsx \
   src/lib/tests/account-transfers-session-resolving.test.tsx \
+  src/lib/tests/desktop-account-tabs-session-resolving.test.tsx \
   tests/mobile-trade-session-resolving.test.tsx \
+  tests/trade-panel-session-resolving.test.tsx \
   src/lib/tests/portfolio-overview.test.tsx \
   src/lib/tests/portfolio-refresh-since-mount.test.tsx \
   src/lib/tests/portfolio.test.ts \
@@ -431,6 +433,9 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/limit-price-prefill-contract.test.ts \
   src/lib/tests/book-price-selection.test.tsx \
   src/lib/tests/book-size-mode-request.test.tsx \
+  src/lib/tests/deposit-order-cta.test.tsx \
+  tests/mobile-trade-session-resolving.test.tsx \
+  tests/trade-panel-session-resolving.test.tsx \
   tests/trade-panel-open-interest-cap.test.tsx \
   src/lib/tests/market-store-cross-window.test.ts
 
