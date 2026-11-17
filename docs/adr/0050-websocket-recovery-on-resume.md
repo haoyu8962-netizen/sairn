@@ -1,6 +1,6 @@
 # ADR 0050：页面回到前台或网络恢复时立即恢复 WebSocket 数据
 
-- 状态：已接受并实施（2026-11-12）。PR #157 以 `810a45db` 合入 `dev`，经晋升 #158（`main` `766a8566`）同日随 `cloudfront-2026-11-12-p41` 发布（[发布记录](../work-memory/sessions/2026-11-12-cloudfront-release-p41.md)）。真机未验收：运营方报告的现象没有在可控环境里复现，下文的改动针对代码审查与实测确认的等待，不等于已确认修好被报告的场景。
+- 状态：已接受并实施（2026-11-12）。PR #157 以 `810a45db` 合入 `dev`，经晋升 #158（`main` `766a8566`）同日随 `cloudfront-2026-11-12-p41` 发布（[发布记录](../work-memory/sessions/2026-11-12-cloudfront-release-p41.md)）。真机未验收：运营方报告的现象没有在可控环境里复现，下文的改动针对代码审查与实测确认的等待，不等于已确认修好被报告的场景。 2026-11-17 补记：文末 2026-11-12 的补记（分支 `claude/fix-realtime-liveness`）2026-11-13 经最后一次 `dev` → `main` 合并（`b23cce99`）进 `main`，2026-11-15 随 p42 发布（[p42 发布记录](../work-memory/sessions/2026-11-15-cloudfront-release-p42.md)）；真机仍未验收。
 - 关联：[运行时守则](../runtime-guardrails.md) §6；[ADR 0003](0003-orderbook-transport-isolation.md)（订单簿连接隔离）；[ADR 0010](0010-blank-until-ready-startup.md)（空白到就绪的启动）；[ADR 0022](0022-subscription-staleness-monotonic-clock.md)（过期判断用单调时钟）；[被动数据展示规范](../mobile-data-presentation.md)；提交 `5e242efe`（回到前台不无条件重连）；[任务记录](../work-memory/sessions/2026-11-12-ios-resume-websocket-recovery.md)。
 
 ## 背景

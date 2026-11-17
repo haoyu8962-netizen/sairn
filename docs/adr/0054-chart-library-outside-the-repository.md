@@ -1,7 +1,7 @@
 # ADR 0054：图表库移出仓库，仓库公开，历史重写
 
-- 状态：已接受并实施（2026-11-13）。分支 `chore/chart-library-fetch`，未合入 `dev`、未发布。CI 没有在新仓库上跑过：Actions 目前关闭，`CHART_LIBRARY_TOKEN` 还没有配置。
-- 关联：[运行时护栏](../runtime-guardrails.md) §4（TradingView 生命周期与本地补丁）；[Agent 工作手册](../agent-handbook.md)第 3 节；[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md)（CI 分层）；[ADR 0027](0027-brand-single-source-and-sairn-rename.md)（仓库名保留 `gatu`）；`deploy/verify-chart-build.mjs` 与 `deploy/manifests/tradingview-charting-library.json`。
+- 状态：已接受并实施（2026-11-13）。分支 `chore/chart-library-fetch`，未合入 `dev`、未发布。CI 没有在新仓库上跑过：Actions 目前关闭，`CHART_LIBRARY_TOKEN` 还没有配置。 2026-11-17 补记：已经 PR #1 合入 `main`（`3c31c852`，2026-11-13）；Actions 已开启，新仓库的 CI 已运行并通过（PR #4、PR #6）；2026-11-15 的 p42 从这个仓库构建并发布（[p42 发布记录](../work-memory/sessions/2026-11-15-cloudfront-release-p42.md)）。
+- 关联：[运行时护栏](../runtime-guardrails.md) §4（TradingView 生命周期与本地补丁）；[Agent 工作手册](../agent-handbook.md)第 3 节；[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md)（CI 分层）；[ADR 0027](0027-brand-single-source-and-identifier-rename.md)（仓库名保留 `gatu`）；`deploy/verify-chart-build.mjs` 与 `deploy/manifests/tradingview-charting-library.json`。
 
 ## 背景
 

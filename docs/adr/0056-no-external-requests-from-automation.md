@@ -1,6 +1,6 @@
 # ADR 0056：自动化不向第三方发请求，不设定时工作流
 
-- 状态：已接受并实施（2026-11-13，运营方要求）。分支 `fix/third-wave`，未合入 `main`。GitHub 上的 `Website Market Snapshot` 工作流已在同日先行停用。
+- 状态：已接受并实施（2026-11-13，运营方要求）。分支 `fix/third-wave`，未合入 `main`。GitHub 上的 `Website Market Snapshot` 工作流已在同日先行停用。 2026-11-17 补记：已经 PR #4 合入 `main`（`d96a8e84`，2026-11-13）。
 - 关联：[官网规划](../website-plan.md)第 8 节；[官网部署手册](../../deploy/website/README.md)；[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md) 2026-10-26 补记（新增每日检查，本文取代）；[ADR 0054](0054-chart-library-outside-the-repository.md)、[ADR 0055](0055-single-main-branch-and-release-tags.md)；`scripts/ci-workflows.test.mjs`。
 
 ## 背景

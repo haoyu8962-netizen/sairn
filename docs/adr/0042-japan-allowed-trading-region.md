@@ -1,6 +1,6 @@
 # ADR 0042：日本改为允许交易地区
 
-- 状态：已接受并实施（2026-10-24，运营方决定；分支 `claude/japan-user-email-template-d3e2b5`，基于 `main` `9ccb88c0`）；未合入 `dev`、未发布。日本法律意见未取得。
+- 状态：已接受并实施（2026-10-24，运营方决定；分支 `claude/japan-user-email-template-d3e2b5`，基于 `main` `9ccb88c0`）；未合入 `dev`、未发布。日本法律意见未取得。 2026-11-17 补记：已于 2026-10-27 随 p33 发布（[p33 发布记录](../work-memory/sessions/2026-10-27-cloudfront-release-p33-and-website.md)）；律师闸门按运营方 2026-10-25 的决定解除，见「更新（2026-10-25）」。
 - 关联：`apps/terminal/src/config/geo.ts`；[条款](../../legal/terms.md) §2.2「Restricted Persons」与 §2.3「No Evasion」；[日本用户营销邮件](../marketing/jp-launch-email/README.md)；[任务记录](../work-memory/sessions/2026-10-24-japan-trading-region-and-email.md)；2026-10-08 交接记录第 10 项（[交接记录](../work-memory/sessions/2026-10-08-agent-docs-handover.md)）。
 
 ## 背景与约束

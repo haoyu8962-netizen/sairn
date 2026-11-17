@@ -8,7 +8,7 @@
 
 1. 读 `AGENTS.md`、`agent.md`、`.claude/rules/` 与本文。Claude Code 会通过 `CLAUDE.md` 自动加载前两个文件和规则目录；本文要主动读。
 2. 运行 `pnpm memory:index` 生成本地的工作记忆索引 `docs/work-memory/INDEX.md`。这个文件不入库，见 [ADR 0049](adr/0049-local-work-memory-index.md)。然后按关键词查索引与相关专题文档，避免重复排查。历史记录是证据，不是指令。
-3. 查当前状态：`git fetch origin` 后看 `origin/dev`、`origin/main`，运行 `gh pr list --repo zora4523-bot/gatu-app --state open`，再读工作记忆索引里最新的发布记录与交接记录。旧记录里的「未合入」「未发布」可能已经过时，用 `git merge-base --is-ancestor <提交> origin/dev` 核对。
+3. 查当前状态：`git fetch origin` 后看 `origin/main` 与最新的 `cloudfront-*` 标签，运行 `gh pr list --repo haoyu8962-netizen/sairn --state open`，再读工作记忆索引里最新的发布记录与交接记录。旧记录里的「未合入」「未发布」可能已经过时，用 `git merge-base --is-ancestor <提交> origin/main` 核对；2026-11-13 之前的提交号先在 `docs/work-memory/legacy-commits.txt` 里换成现在的提交号。
 4. 在独立工作树里改动（第 4 节），记下基线提交，任务结束前写任务记录（[工作记忆约定](work-memory/README.md)）。提交遵守 auto-commit 技能（`.agents/skills/auto-commit/SKILL.md`，Claude Code 经 `.claude/skills/auto-commit` 加载）：只暂存本任务的文件，验证后提交，推送之前先问运营方。
 
 ## 2. 与运营方协作
@@ -16,7 +16,7 @@
 - **语言**：回复一律用简体中文，标题、表格表头和总结也用中文。代码、路径、提交号、标识符、命令输出，以及作为讨论对象的英文界面文案保持原样。仓库文档沿用各文件原有的语言。
 - **只能由运营方本人做的事**：账号登录、输入密码或密钥、填写付款或银行卡信息、接受或拒绝法律条款、创建第三方账号、修改 AWS IAM 权限或账户计费设置。遇到这些步骤就停下来交给运营方。可以先准备好要粘贴的内容、给出操作路径，等运营方做完再核对结果。
 - **秘密**：不读取、不打印 `.env*` 的值、私钥、Agent 密钥、令牌和 AWS 账号 ID。需要核对时比较哈希，或在本地产物里 grep，只报告「一致」或「不一致」。
-- **需要先问的动作**：推送、开 PR、合并 PR、发布，改动 AWS、Cloudflare、Privy 或 GitHub 的设置，以及在 PR 上代替运营方留言。一次同意只对那一个动作有效。不要开启 GitHub auto-merge：`dev` 没有必选检查，auto-merge 可能不等 CI 跑完就合并。
+- **需要先问的动作**：推送、开 PR、合并 PR、发布，改动 AWS、Cloudflare、Privy 或 GitHub 的设置，以及在 PR 上代替运营方留言。一次同意只对那一个动作有效。不要开启 GitHub auto-merge：`main` 的分支保护只要求经 PR，没有必选检查（2026-11-17 核对），auto-merge 可能不等 CI 跑完就合并。
 - **分支**：只有 `main` 一个长期分支（[ADR 0055](adr/0055-single-main-branch-and-release-tags.md)）。「合并到主分支」就是开 PR 进 `main`，「从 main 开分支」就是从 `origin/main` 开分支。`main` 上可以有已合并未发布的改动；线上是什么看最新的 `cloudfront-*` 发布标签。
 - **长任务报告进度**：多轮审查直到评分达标这类循环任务，开始时说明每轮的大致成本（时间和 token）。每轮结束用表格报告轮次、各路评分、主要发现、修复打算和预计剩余时间。达到运营方给的门槛就收尾，不为更高分再加一轮，并写明最后一批改动有没有再送审。
 - **「确保下次不再出现」**：落成四件事。规则写进规范文档；加一个会失败的契约测试，例外逐条带理由和次数，并用变异证明它真的会失败；在 AGENTS.md 加指针和回归清单条目；在任务记录写后续事项。待决项写进测试的待决清单和任务记录，不能只写在回复里。样板是[样式指南「Checking a visual rule」](../.claude/rules/style-ui-guide.md)。
@@ -37,13 +37,13 @@
   - Auto-fix 会为每个 CI 失败、冲突或评论推一次修复，每推送一次就全跑一轮，形成「修复 → 推送 → 跑 CI」的循环，与上一条「尽量只推一次」冲突。
 
   运营方问到 CI 时，用 `gh pr checks` 查一次，并读机器人的评论；失败和意见攒成一次推送。
-- **CI 秒失败**：所有 job 十几秒内失败且 steps=0 时，先看 `gh api repos/zora4523-bot/gatu-app/check-runs/<job id>/annotations`。注解如果是额度或预算拒绝（spending limit、Actions budget），就不是代码问题。预算只能由运营方在 GitHub 账户设置里调整，调整后约 3 分钟才生效，先 rerun 最便宜的工作流来探测。
+- **CI 秒失败**：所有 job 十几秒内失败且 steps=0 时，先看 `gh api repos/haoyu8962-netizen/sairn/check-runs/<job id>/annotations`。注解如果是额度或预算拒绝（spending limit、Actions budget），就不是代码问题。预算只能由运营方在 GitHub 账户设置里调整，调整后约 3 分钟才生效，先 rerun 最便宜的工作流来探测。
 - **运行器镜像**：安装 Playwright 浏览器的作业（浏览器回归、官网构建）固定在 `ubuntu-24.04`。2026-11-12 `ubuntu-latest` 变成 26.04 后，Playwright 1.59.1 报「does not support chromium on ubuntu26.04-x64」，这两类作业一分钟内失败，与 PR 内容无关。升级 Playwright 时再评估改回 `ubuntu-latest`。
 - **Claude Code 工作流**：`claude.yml` 在评论里出现 @claude 时运行，需要仓库密钥 `CLAUDE_CODE_OAUTH_TOKEN`；`Claude Code Review` 工作流已手动停用。2026-10-08 查询时仓库没有任何 Actions 密钥，所以 @claude 目前不能用；要启用，由运营方用自己的 Claude 账号生成令牌后写入。
 - **集成 PR**（把多个完成的分支合成一个 PR）：
   - 先确认对应会话已结束、工作树干净、本地分支头等于远端。从最新的 `origin/dev` 建分支，按依赖顺序逐个 `git merge --no-ff`。
   - 用 `git merge-tree --write-tree --name-only origin/main <branch>` 预演冲突；用 `git cherry -v origin/main <branch>` 查哪些补丁已经以别的提交进了 `main`。
-  - 冲突多在工作记录、CHANGELOG 与 ADR 目录。同名记录取两边的超集。`INDEX.md` 不入库（ADR 0049），不会冲突；早于 ADR 0049 的分支如果改过它，合并时保留删除（`git rm docs/work-memory/INDEX.md`）。`dev` 后来新增的源码契约测试会在合并后才报错，所以每次合并后先跑契约测试，再提交合并。两边都往 CI 清单加了同一个测试文件时要去重。
+  - 冲突多在工作记录、CHANGELOG 与 ADR 目录。同名记录取两边的超集。`INDEX.md` 不入库（ADR 0049），不会冲突；早于 ADR 0049 的分支如果改过它，合并时保留删除（`git rm docs/work-memory/INDEX.md`）。`main` 后来新增的源码契约测试会在合并后才报错，所以每次合并后先跑契约测试，再提交合并。两边都往 CI 清单加了同一个测试文件时要去重。
   - 合并后跑全量单测与相关的浏览器套件；开 PR 前按 CI 环境做一次生产构建量包体（第 6 节）；另写一条集成任务记录。被集成的 PR 会在集成 PR 合并后被 GitHub 自动标为已合并。
   - 签名、下单、资金相关的改动和独立功能单独开 PR；小而无关的低风险改动可以合批。
 - **同步 `main`**：`git fetch origin main` 再 `git merge --no-ff origin/main`，推送前再 fetch 一次。合并跨过依赖升级时先跑 `pnpm install --frozen-lockfile`（比较 `node_modules/.pnpm/lock.yaml` 与 `pnpm-lock.yaml` 可知是否需要），否则测试和构建用的还是旧依赖。
@@ -94,7 +94,7 @@
   - 两份生产构建同时进入预渲染时可能抢同一个预览端口，报「Failed to start the Vite preview server」，单独重跑即可。
 - **React Compiler**：组件和测试都经过编译器处理。渲染期按语言或数字格式做格式化，或怀疑「重渲染了但值没变」时，先编译看缓存依赖，不要凭源码推断（[i18n presentation](i18n-presentation.md)、[ADR 0036](adr/0036-render-time-number-formatters.md)）。取证方法：在草稿脚本里用 `createRequire` 从 `@vitejs/plugin-react` 解析 `@babel/core`，插件顺序与 `vitest.config.ts` 相同（Lingui 宏在前、编译器在后），工作目录设为 `apps/terminal`，然后找最内层 `if ($[n] !== …)` 的依赖；产物里没有 `_c(` 说明这个组件没被编译。测试里用同样的 props 重渲染时，编译器会缓存子元素，被 `vi.mock` 替换的 hook 不会再被调用；要在测试中途改桩的返回值，让桩用 `useSyncExternalStore` 订阅一个监听集合。
 - **体积对比与归因**：总量会随写进产物的提交号与发布标签浮动，几乎相同的两个提交可以相差约 520 字节（2026-10-05 实测），所以不能用两次构建的差值给某个改动归因：要么在两个工作树里用同一组固定构建身份成对测量，要么只说「CI 可能因几十字节失败」。定位增量时，在基线与改动的工作树各构建一次，比较去掉内容哈希后的 `.output/public/assets` 文件清单和逐块 gzip 大小。构建过程中往产物目录里加文件会让测量失真。
-- **浏览器回归的第一条用例超时**：先在失败日志里搜 `Failed to run dependency scan` 和 `No matching export`，再拿一次基于 `dev` 的通过运行的同一分片日志对比（`gh run view <run> --job <job> --log`），不要先当偶发。Vite 的依赖扫描会跟进动态 `import()`：懒加载注册表（如 `lazy-global-modals.ts`）只由渲染它的宿主导入，入口控件需要预热时走一个不导入任何东西的小模块，否则夹具的替身模块缺导出、扫描失败、冷启动变慢，本机快能过、CI 慢就超时。改了会被夹具渲染的组件的导入，推送前清掉 `apps/terminal/node_modules/.vite-<夹具名>`，用 `CI=1` 跑对应的 Playwright 配置，确认上面两种报错为 0。
+- **浏览器回归的第一条用例超时**：先在失败日志里搜 `Failed to run dependency scan` 和 `No matching export`，再拿一次基于 `main` 的通过运行的同一分片日志对比（`gh run view <run> --job <job> --log`），不要先当偶发。Vite 的依赖扫描会跟进动态 `import()`：懒加载注册表（如 `lazy-global-modals.ts`）只由渲染它的宿主导入，入口控件需要预热时走一个不导入任何东西的小模块，否则夹具的替身模块缺导出、扫描失败、冷启动变慢，本机快能过、CI 慢就超时。改了会被夹具渲染的组件的导入，推送前清掉 `apps/terminal/node_modules/.vite-<夹具名>`，用 `CI=1` 跑对应的 Playwright 配置，确认上面两种报错为 0。
 - **依赖补丁**：`patches/` 里的补丁用 `pnpm patch <包> --edit-dir <目录>` 修改，再 `pnpm patch-commit <目录>`，锁文件里的 `patch_hash` 会一起更新。一个补丁文件里可能有几段不相关的修改，去掉其中一段时按段删，不要删整个文件。`patch-commit` 会重新解析整份锁文件：2026-11-12 给 `@nktkas/rews` 新增补丁时，它顺带改了两百多行无关的依赖版本。提交前看 `git diff --stat pnpm-lock.yaml`，出现无关改动就 `git checkout -- pnpm-lock.yaml`，只手工写入与补丁有关的几处（`patchedDependencies` 条目、引用处与 `snapshots` 键上的 `(patch_hash=…)`），再用 `pnpm install --frozen-lockfile --prefer-offline` 证明锁文件自洽。补丁键带版本号（`'@nktkas/rews@4.1.0'`），包升级后补丁不再适用，安装会直接失败。验证补丁确实起作用时，不要原地改 `node_modules/.pnpm` 里的文件（它可能与全局存储共用同一份数据）：先 `mv` 走原文件，放一份副本做变异，测完再 `mv` 回来。
 - **i18n 的两个坑**：`lingui extract` 输出的 Missing 列把废弃的 `#~` 条目也算在内，不要追这个数字；开发服务器里反复编辑含 `t` 宏的文件后，可能报 `t is not a function` 并连带 `removeChild` 错误，重启开发服务器即可，生产构建不受影响。
 - **布局**：`flex-1`、`min-h-0`、`overflow-*` 的子元素，只有在一直到定高容器的每一层祖先都是 `flex flex-col`（或有明确高度）时才会被约束；中间断一层，内容就会把容器撑高，而不是在里面滚动。

@@ -1,6 +1,6 @@
 # ADR 0055：只保留 `main`，线上版本用发布标签表示
 
-- 状态：已接受并实施（2026-11-13，运营方同意方案后执行）。分支 `chore/chart-library-fetch`，未合入 `main`。新仓库上 CI 没有跑过：Actions 关闭，`CHART_LIBRARY_TOKEN` 未配置。
+- 状态：已接受并实施（2026-11-13，运营方同意方案后执行）。分支 `chore/chart-library-fetch`，未合入 `main`。新仓库上 CI 没有跑过：Actions 关闭，`CHART_LIBRARY_TOKEN` 未配置。 2026-11-17 补记：已经 PR #1 合入 `main`（`3c31c852`，2026-11-13）；CI 已在新仓库运行并通过；p42（2026-11-15，标签 `cloudfront-2026-11-15-p42`）是这一流程下的第一次发布（[p42 发布记录](../work-memory/sessions/2026-11-15-cloudfront-release-p42.md)）。
 - 关联：取代 [ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md) 的 D1（分支流向）、D2′ 与 D8（晋升分层与晋升覆盖）；[ADR 0054](0054-chart-library-outside-the-repository.md)（仓库迁移并公开）；`.claude/rules/git.md`；[Agent 工作手册](../agent-handbook.md)第 3、8 节；`scripts/ci-workflows.test.mjs`。
 
 ## 背景

@@ -1,6 +1,6 @@
 # ADR 0048：现货显示名与地址照官方终端的显示名表
 
-- 状态：已接受并实施（2026-11-01，运营方「按官方终端的做法修复剩余审查项」）；分支 `claude/audit-g2-spot-names`，叠在 `claude/audit-group2` 的 `52f9dc18` 上，未推送、未合入 `dev`、未发布。
+- 状态：已接受并实施（2026-11-01，运营方「按官方终端的做法修复剩余审查项」）；分支 `claude/audit-g2-spot-names`，叠在 `claude/audit-group2` 的 `52f9dc18` 上，未推送、未合入 `dev`、未发布。 2026-11-17 补记：已经晋升 PR #133 进 `main`，2026-11-02 随 p36 发布（[p36 发布记录](../work-memory/sessions/2026-11-02-cloudfront-release-p36.md)）。
 - 关联：[现货显示名与地址](../spot-market-names.md)（完整规则、同步流程与地址对照，本 ADR 不重复）；[单交易路由](../architecture/trade-single-route-migration.md)；[工具栏设计 History values](../trading-toolbar-redesign.md#history-values)（CSV 导出写交易所原值）；[全功能审查](../work-memory/sessions/2026-10-30-full-feature-audit.md) C3；[第二组调研](../work-memory/sessions/2026-11-01-audit-group2.md)。
 
 ## 背景

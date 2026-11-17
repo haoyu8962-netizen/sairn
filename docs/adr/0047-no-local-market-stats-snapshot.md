@@ -1,6 +1,6 @@
 # ADR 0047：不保留本地行情统计快照
 
-- 状态：已接受并实施（2026-11-01）。运营方规则：按官方终端的做法修复审查遗留项，与 `AGENTS.md` 契约或归属文档冲突时以契约为准并记录偏差。分支 `claude/audit-g2-selector`（基于 `claude/audit-group2` 的 `52f9dc18`），未合入 `dev`、未发布。
+- 状态：已接受并实施（2026-11-01）。运营方规则：按官方终端的做法修复审查遗留项，与 `AGENTS.md` 契约或归属文档冲突时以契约为准并记录偏差。分支 `claude/audit-g2-selector`（基于 `claude/audit-group2` 的 `52f9dc18`），未合入 `dev`、未发布。 2026-11-17 补记：已经晋升 PR #133 进 `main`，2026-11-02 随 p36 发布（[p36 发布记录](../work-memory/sessions/2026-11-02-cloudfront-release-p36.md)）。
 - 取代：[ADR 0008](0008-compact-market-context-channels.md) 决策 2 末句的会话级统计缓存（`hl-mkt-stats-v2`），以及决策 3 中「会话缓存存的是合并后的视图，恢复时用视图解析器校验，损坏即丢弃」一句。ADR 0008 的其余决策（紧凑频道、累积器、失败回退与上报）不变。
 - 关联：[移动端数据展示规范](../mobile-data-presentation.md)（被动数据与行情来源）；[资金费率对比页](../funding-comparison.md)（`perpContextsLive`）；[全功能审查第二组记录](../work-memory/sessions/2026-11-01-audit-group2.md) M4。
 

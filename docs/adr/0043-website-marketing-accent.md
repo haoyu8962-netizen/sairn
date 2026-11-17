@@ -1,6 +1,6 @@
 # ADR 0043：官网营销强调色改用 Logo 的选择琥珀
 
-- 状态：已接受并实施（2026-10-26，运营方在对话中选定方案 B，此前已对比 CSS 覆盖预览的并排截图）；分支 `claude/japan-user-email-template-d3e2b5`，与未提交的首页改版一起提交；未合入 `dev`、未发布。
+- 状态：已接受并实施（2026-10-26，运营方在对话中选定方案 B，此前已对比 CSS 覆盖预览的并排截图）；分支 `claude/japan-user-email-template-d3e2b5`，与未提交的首页改版一起提交；未合入 `dev`、未发布。 2026-11-17 补记：已于 2026-10-27 随官网发布上线，官网与 p33 从同一提交构建（[p33 发布记录](../work-memory/sessions/2026-10-27-cloudfront-release-p33-and-website.md)）。
 - 关联：[ADR 0027](0027-brand-single-source-and-identifier-rename.md)（单一来源）；[ADR 0028](0028-brand-accent-colors.md)（界面品牌色，本 ADR 只为官网新增一个角色，不改它的任何决定）；[品牌标识与素材](../brand-assets.md)「界面品牌色」；`.claude/rules/design-tokens.md`「Brand roles」；[官网规划](../website-plan.md) §6；AGENTS.md「Brand identity contract」。
 
 ## 背景与约束
