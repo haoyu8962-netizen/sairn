@@ -479,9 +479,39 @@ Both trees were built on the same machine on 2026-11-17, each in its own worktre
 - `trade-terminal-page` has 268 bytes left in this configuration. The release configuration read it 156 bytes
   above the protocol build before p42, so the next release precheck is expected to find it under the 200-byte rule
   and to need a re-baseline first. The base alone would leave about 194 by the same estimate.
-- The branch `fix/mobile-presentation-pending-notices` was measured against the same base and is not included
-  here; it reads static trade startup +174 and `trade-terminal-page` −20. The two together were not built.
+- The table above compares the branch with its own base and does not include the branch
+  `fix/mobile-presentation-pending-notices`, which merged first; the table below is the tree that ships.
 - Pairing on and the release configuration were not built.
+
+After `main` `00d369f3` (the merge of `fix/mobile-presentation-pending-notices`) was merged into the branch
+(`e18663b1`), both trees were built again the same way on the same day: `main` `00d369f3` in the comparison worktree
+and the merged tree in the branch's worktree; 452 client chunks each, every budget and the circular-import check
+passed.
+
+| Metric | `main` `00d369f3` | Change | Merged `e18663b1` | Room left |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,391,367 | +1,099 | 3,392,466 | 5,597 |
+| Static trade startup | 1,663,018 | +559 | 1,663,577 | 1,294 |
+| Mobile runtime increment | 119,737 | −13 | 119,724 | 856 |
+| Desktop runtime increment | 204,641 | +162 | 204,803 | 7,880 |
+| `trade-terminal-page` | 128,542 | +81 | 128,623 | 292 |
+| `token-selector-popup` | 15,383 | −6 | 15,377 | 478 |
+| `api-wallet` | 18,416 | −3 | 18,413 | 1,554 |
+| `fundingHistory._address` | 6,938 | +6 | 6,944 | 1,376 |
+| `tradeHistory._address` | 7,465 | +4 | 7,469 | 2,404 |
+| `historicalOrders._address` | 8,233 | +2 | 8,235 | 1,428 |
+| `leaderboard` | 12,059 | +1 | 12,060 | 1,523 |
+| `staking` | 24,455 | +1 | 24,456 | 1,175 |
+| `vaults-page` | 30,636 | −2 | 30,634 | 246 |
+| `fundingComparison` | 10,522 | +3 | 10,525 | 2,108 |
+| `funding-history-panel` | 9,387 | −6 | 9,381 | 780 |
+
+- The largest chunk reads 411,542 gzip on `main` and 411,526 on the merged tree, 1,414,783 raw in both.
+- The total grows by about twice what the branch added to its own base (+533). As the section below notes for
+  the other branch, renamed chunk imports change how unrelated chunks compress, so the aggregates of two builds
+  differ by more than the code does; the per-surface lines are the stable part.
+- `trade-terminal-page` has 292 bytes left in this configuration, about 136 by the release estimate above, so the
+  expectation for the next release precheck is unchanged.
 
 ## Mobile presentation fixes, no baseline change (2026-11-17)
 
