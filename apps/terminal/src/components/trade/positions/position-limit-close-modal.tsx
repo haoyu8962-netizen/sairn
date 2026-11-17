@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { SpinnerGapIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { ModalDescription, ModalTitle } from "@sairn/ui";
 import { useRef, useState } from "react";
 import { PriceInput } from "@/components/ui/price-input";
@@ -384,21 +384,11 @@ function PositionLimitCloseModalBody({ position, openingTarget, open, onOpenChan
 				{visibleError && (
 					<div
 						id={errorId}
-						role={userPositions.isLoading ? "status" : "alert"}
-						aria-live={userPositions.isLoading ? "polite" : "assertive"}
-						className={cn(
-							"flex items-start gap-2 rounded-8 p-2.5 text-xs",
-							userPositions.isLoading ? "text-fg-muted" : "bg-error-soft text-error",
-						)}
+						role="alert"
+						aria-live="assertive"
+						className="flex items-start gap-2 rounded-8 bg-error-soft p-2.5 text-xs text-error"
 					>
-						{userPositions.isLoading ? (
-							<SpinnerGapIcon
-								className="mt-0.5 size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
-							/>
-						) : (
-							<WarningIcon className="mt-0.5 size-3.5 shrink-0" weight="fill" aria-hidden="true" />
-						)}
+						<WarningIcon className="mt-0.5 size-3.5 shrink-0" weight="fill" aria-hidden="true" />
 						<span className="leading-relaxed">{visibleError}</span>
 					</div>
 				)}

@@ -684,6 +684,7 @@ describe("PositionMarketCloseModal", () => {
 		testState.positionIsLoading = true;
 		render();
 		expect(container.textContent).not.toContain("Loading the latest position");
+		expect(container.querySelector('[role="status"], [role="alert"], .animate-spin')).toBeNull();
 		expectEditingLocked("paused");
 
 		testState.positionIsLoading = false;
@@ -707,6 +708,8 @@ describe("PositionMarketCloseModal", () => {
 		testState.livePosition = null;
 		render();
 		expect(container.querySelector('[role="alert"]')?.textContent).toContain("This position is no longer open");
+		expect(container.querySelector('[role="alert"]')?.getAttribute("aria-live")).toBe("assertive");
+		expect(container.querySelector('[role="status"], .animate-spin')).toBeNull();
 		expectEditingLocked("disabled");
 
 		testState.livePosition = { szi: "-2.5", entryPx: "100000", unrealizedPnl: "-50" };

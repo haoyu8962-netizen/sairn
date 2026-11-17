@@ -120,14 +120,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 	"trade/mobile/mobile-book-view.tsx": {
 		announcers: { "<output>": 1, "aria-live": 1 },
 		copy: {
-			"No orders": "pending",
+			"No orders": "confirmed-empty",
 			"Waiting for order book...": "busy-description",
 		},
 		why: {
 			"busy-description":
 				'Screen-reader-only <output aria-live="polite"> while the book waits for its first live frame.',
-			pending:
-				'"No orders" on an empty side can be drawn from the cached snapshot while the book is still transitioning; an empty side is only a fact on a live frame.',
+			"confirmed-empty":
+				'An empty side of the split book says "No orders" only on a live frame; while the book is transitioning (a cached snapshot, no live frame yet) that side holds placeholder rows.',
 		},
 	},
 	"trade/mobile/mobile-funding-tab.tsx": {
@@ -135,14 +135,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		tones: { "text-market-close-danger": 1 },
 		copy: {
 			"No funding payments found.": "confirmed-empty",
-			"No funding payments match this direction.": "pending",
+			"No funding payments match this direction.": "confirmed-empty",
 		},
 		why: {
-			"value-announcement": "Screen-reader-only live region announcing the funding total shown in the header.",
-			"confirmed-empty": "Rendered only for a ready snapshot with no error, not offline and not stale.",
+			"value-announcement":
+				"Screen-reader-only live region announcing the funding total; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+			"confirmed-empty":
+				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
 			"data-value": "Short direction in the danger colour.",
-			pending:
-				"The direction no-match sentence does not check error, offline or stale, so it can be drawn from retained rows.",
 		},
 	},
 	"trade/mobile/mobile-history-tab.tsx": {
@@ -201,15 +201,15 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		tones: { "text-market-close-danger": 1, "bg-error-soft": 1, "text-error": 1 },
 		copy: {
 			"No order history found.": "confirmed-empty",
-			"No orders match these filters.": "pending",
+			"No orders match these filters.": "confirmed-empty",
 		},
 		why: {
-			"value-announcement": "Screen-reader-only live region announcing the number of orders shown.",
-			"confirmed-empty": "Rendered only for a ready snapshot with no error, not offline and not stale.",
+			"value-announcement":
+				"Screen-reader-only live region announcing the number of orders shown; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+			"confirmed-empty":
+				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
 			"data-value":
 				"Sell direction in the danger colour; Canceled and Rejected status badge in the error colours (the official terminal leaves the status uncoloured).",
-			pending:
-				"The filter no-match sentence does not check error, offline or stale, so it can be drawn from retained rows.",
 		},
 	},
 	"trade/mobile/mobile-orders-tab.tsx": {
@@ -218,10 +218,10 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		copy: {
 			"This order changed or is no longer open. Refresh and try again.": "confirmed-change",
 			"Orders with linked TP/SL orders cannot be modified here.": "confirmed-restriction",
-			"Market metadata changed. Refresh and try again.": "pending",
+			"Market metadata changed. Refresh and try again.": "confirmed-change",
 			"This order has incomplete data and cannot be modified. Refresh and try again.": "confirmed-restriction",
 			"Reconnect the trading account before modifying this order.": "action-feedback",
-			"Mark price is unavailable. Wait for market data and try again.": "pending",
+			"Mark price is unavailable. Wait for market data and try again.": "action-feedback",
 			"The trading account or network changed. Reopen the editor and try again.": "confirmed-change",
 			"Size cannot exceed the order's remaining size.": "input-validation",
 			"Open orders are refreshing. Wait for live data and try again.": ["action-feedback", 2],
@@ -241,17 +241,17 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 		why: {
 			"action-feedback":
-				'The role="alert" line and the toasts report a Cancel or Modify the user requested, including the reply to a Modify tap while the trading client is not a valid owner; the snapshot-not-ready sentence is filtered out of the draft and only follows a confirmed submit.',
-			"input-validation": "What the user typed in the modify drawer against the order it edits.",
-			"confirmed-change": "The order, the account or the network differs from what the editor opened with.",
+				'The role="alert" line and the toasts report a Cancel or Modify the user requested, including the reply to a Modify tap while the trading client is not a valid owner; getDisplayableOpenOrderModifyBlock() keeps the snapshot-not-ready and mark-price sentences out of the draft, so they only follow a confirmed submit.',
+			"input-validation":
+				"What the user typed in the modify drawer against the order it edits; the message, the red border and aria-invalid come from the same displayable block.",
+			"confirmed-change":
+				"The order, the account, the network or the market binding differs from what the editor opened with. The market sentence needs a loaded market catalog everywhere it is shown: in a draft, and as the reply to a Modify tap for a market the loaded catalog cannot bind. While the catalog is loading or failed, Modify Order is disabled and a tap is ignored.",
 			"confirmed-restriction":
-				"Modify capabilities derived from the order record itself (linked TP/SL, market order, unsupported type, incomplete record).",
+				"Modify capabilities derived from the order record itself (linked TP/SL, market order, unsupported type, incomplete record, outcome market).",
 			"confirmed-empty": "Rendered only when the open-orders snapshot is active, received and not stale (isDataReady).",
 			"data-value":
 				"Sell direction in the danger colour; distance to mark in the warning colour when a live mark is within 10%.",
 			"destructive-action": "Static danger colour of Cancel all and Cancel.",
-			pending:
-				"While the user edits the drawer, a mark price that is not live and a markets query that is loading or failed show these two sentences in the red alert, and a stale open-orders snapshot leaves the edited field red with no message.",
 		},
 	},
 	"trade/mobile/mobile-position-actions.tsx": {
@@ -324,23 +324,23 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 	"trade/mobile/mobile-twap-fill-history-list.tsx": {
 		tones: { "text-market-close-danger": 1 },
 		copy: {
-			"No TWAP fills found.": "pending",
+			"No TWAP fills found.": "confirmed-empty",
 		},
 		why: {
 			"data-value": "Sell direction in the danger colour.",
-			pending:
-				"The empty sentence only needs an existing REST snapshot, even after a later request failed or while the stream is not current.",
+			"confirmed-empty":
+				"Rendered only when useTwapSliceFills().canConfirmEmpty holds (online, the last REST request succeeded, none is running or paused, the stream is active and not stale).",
 		},
 	},
 	"trade/mobile/mobile-twap-history-list.tsx": {
 		tones: { "text-market-close-danger": 2 },
 		copy: {
-			"No TWAP history found.": "pending",
+			"No TWAP history found.": "confirmed-empty",
 		},
 		why: {
 			"data-value": "Failed status and the exchange description of a TWAP that ended in error, in the danger colour.",
-			pending:
-				"The empty sentence only needs an existing REST snapshot, even after a later request failed or while the stream is not current.",
+			"confirmed-empty":
+				"Rendered only when useTwapHistory().canConfirmEmpty holds (online, the last REST request succeeded, none is running or paused, the stream is active and not stale).",
 		},
 	},
 	"trade/mobile/mobile-twap-tab.tsx": {
@@ -438,7 +438,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 	},
 	"trade/positions/position-market-close-modal.tsx": {
-		announcers: { "<output>": 1, "aria-live": 2, 'role="status"': 1, 'role="alert"': 1 },
+		announcers: { "<output>": 1, "aria-live": 2, 'role="alert"': 1 },
 		icons: { WarningIcon: 2 },
 		tones: {
 			"text-market-close-danger": 1,
@@ -463,12 +463,10 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"risk-disclosure": "Static wording that filled trades cannot be reversed.",
 			"destructive-action": "Static danger styling of the confirm control.",
 			"data-value": "Estimated PnL in the danger colour when negative.",
-			pending:
-				'The role="status" spinner variant of the message box is unreachable (loading makes the message null) and should be removed.',
 		},
 	},
 	"trade/positions/position-limit-close-modal.tsx": {
-		announcers: { "aria-invalid": 1, 'role="status"': 1, 'role="alert"': 1, "aria-live": 1 },
+		announcers: { "aria-invalid": 1, 'role="alert"': 1, "aria-live": 1 },
 		icons: { WarningIcon: 1 },
 		tones: {
 			"text-market-close-danger": 1,
@@ -487,7 +485,6 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"input-validation": 'Limit price and sizing errors in the same role="alert" box.',
 			"destructive-action": "Static danger styling of the confirm control.",
 			"data-value": "Estimated PnL in the danger colour when negative.",
-			pending: 'The role="status" spinner variant of the message box is unreachable and should be removed.',
 		},
 	},
 	"trade/positions/position-tpsl-modal.tsx": {
@@ -597,8 +594,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"No fills found in the recent trade snapshot.": "confirmed-empty",
 			"No fills found": "confirmed-empty",
 			"The account has no fills in the public API snapshot.": "confirmed-empty",
-			"No fills match the selected filters.": "pending",
-			"No matching fills": "pending",
+			"No fills match the selected filters.": "confirmed-empty",
+			"No matching fills": "confirmed-empty",
 			Refresh: "neutral-retry",
 			"The page loads one recent-fill snapshot. Export CSV to request a broader accessible history.": "static-copy",
 		},
@@ -607,9 +604,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				"Screen-reader-only descriptions handed to HistoryPageUnavailable or the skeleton; nothing of them is visible.",
 			"neutral-retry": "The Refresh control of the page header.",
 			"confirmed-empty":
-				"The empty statements are rendered only for a ready snapshot with no error, online and not refreshing.",
-			pending:
-				"The filter no-match pair is drawn from the retained rows even after a failed refresh, while offline or while refreshing.",
+				"The empty statements and the filter no-match pair are rendered only for a ready snapshot with no error, online and not refreshing; otherwise the region below the filters is HistoryPageUnavailable.",
 			"input-validation": 'role="alert" for an invalid account address in the route.',
 			"confirmed-restriction": "The <output> notice that the snapshot reached its confirmed size limit.",
 			"static-copy": "The standing explanation of what the page loads.",
@@ -633,8 +628,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"No ordinary orders found.": "confirmed-empty",
 			"No order history found": "confirmed-empty",
 			"The account has no ordinary orders in the available history.": "confirmed-empty",
-			"No orders match the selected filters.": "pending",
-			"No matching orders": "pending",
+			"No orders match the selected filters.": "confirmed-empty",
+			"No matching orders": "confirmed-empty",
 			Refresh: "neutral-retry",
 			"This account reached the {…}-order API limit. Older orders are not available from this endpoint.":
 				"confirmed-restriction",
@@ -644,9 +639,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				"Screen-reader-only descriptions handed to HistoryPageUnavailable or the skeleton; nothing of them is visible.",
 			"neutral-retry": "The Refresh control of the page header.",
 			"confirmed-empty":
-				"The empty statements are rendered only for a ready snapshot with no error, online and not refreshing.",
-			pending:
-				"The filter no-match pair is drawn from the retained rows even after a failed refresh, while offline or while refreshing.",
+				"The empty statements and the filter no-match pair are rendered only for a ready snapshot with no error, online and not refreshing; otherwise the region below the filters is HistoryPageUnavailable.",
 			"input-validation": 'role="alert" for an invalid account address in the route.',
 			"confirmed-restriction": "The <output> notice that the account reached the documented historicalOrders limit.",
 			"data-value": "Rejected status badge in the error colours.",
@@ -663,8 +656,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"No funding payments found in the confirmed 30-day window.": "confirmed-empty",
 			"No funding payments found": "confirmed-empty",
 			"The account has no funding payments in the confirmed 30-day window.": "confirmed-empty",
-			"No funding payments match the selected filters.": "pending",
-			"No matching funding payments": "pending",
+			"No funding payments match the selected filters.": "confirmed-empty",
+			"No matching funding payments": "confirmed-empty",
 			Refresh: "neutral-retry",
 			"Only this requested time window is shown. Older payments have not been loaded and are not included in this count.":
 				"static-copy",
@@ -674,9 +667,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				"Screen-reader-only descriptions handed to HistoryPageUnavailable or the skeleton; nothing of them is visible.",
 			"neutral-retry": "The Refresh control of the page header.",
 			"confirmed-empty":
-				"The empty statements are rendered only for a ready snapshot with no error, online and not refreshing.",
-			pending:
-				"The filter no-match pair is drawn from the retained rows even after a failed refresh, while offline or while refreshing.",
+				"The empty statements and the filter no-match pair are rendered only for a ready snapshot with no error, online and not refreshing; otherwise the region below the filters is HistoryPageUnavailable.",
 			"input-validation": 'role="alert" for an invalid account address in the route.',
 			"static-copy": "The standing explanation of the time window the page shows.",
 			"data-value": "Short side label in the danger colour.",

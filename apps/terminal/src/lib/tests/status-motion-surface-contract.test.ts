@@ -58,16 +58,6 @@ const ALLOWED_SPINNERS: Record<string, SpinnerReview> = {
 		wrapper: 1,
 		reason: "passive position count loading in an account tab",
 	},
-	"components/trade/positions/position-limit-close-modal.tsx": {
-		spin: 1,
-		glyph: 1,
-		reason: "passive position snapshot loading",
-	},
-	"components/trade/positions/position-market-close-modal.tsx": {
-		spin: 1,
-		glyph: 1,
-		reason: "passive position snapshot loading",
-	},
 	"components/trade/positions/positions-panel.tsx": { wrapper: 1, reason: "lazy account tab chunk fallback" },
 	"components/trade/tradebox/bridge/asset-selection-screen.tsx": {
 		spin: 1,
@@ -109,6 +99,10 @@ const RETIRED_PASSIVE_SPINNERS: Record<string, string> = {
 		'"Refreshing referral data…" was a passive data notice (docs/mobile-data-presentation.md, 2026-11-01)',
 	"components/staking/staking-view.tsx":
 		'"Refreshing staking data…" was a passive data notice (docs/mobile-data-presentation.md, 2026-11-01)',
+	"components/trade/positions/position-limit-close-modal.tsx":
+		"the message box had an unreachable position-loading variant with a spinner; loading shows no message (2026-11-17)",
+	"components/trade/positions/position-market-close-modal.tsx":
+		"the message box had an unreachable position-loading variant with a spinner; loading shows no message (2026-11-17)",
 };
 
 // Surfaces that report a requested action's status and must keep using the motion components.

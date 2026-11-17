@@ -433,6 +433,53 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Mobile presentation fixes, no baseline change (2026-11-17)
+
+The presentation-only fixes of [the mobile data presentation policy](mobile-data-presentation.md) (branch
+`fix/mobile-presentation-pending-notices`) touch the phone order tabs, the two phone TWAP lists and their hooks,
+the split order book, the three history pages and the two close dialogs. No baseline or allowance was changed.
+
+Both trees were built on the same machine on 2026-11-17, each in its own worktree of the
+`haoyu8962-netizen/sairn` clone without `.env.local`, with Node 22.15.0 and pnpm 10.21.0
+(`pnpm install --frozen-lockfile --prefer-offline`), the fixed identity of the reproduction protocol,
+`NITRO_PRESET=node-server` and `VITE_MOBILE_PAIRING_ENABLED=false`; 452 client chunks each. The base is
+`6c45e83a`, whose tree equals `main` `75b18fc0`; the head is the branch's working tree after its last code change
+(the third build of the branch, after the review changes to the TWAP hooks and the phone order tab).
+
+| Metric | `6c45e83a` | Fixes | Change | Room left |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,391,705 | 3,391,450 | −255 | 6,613 |
+| Static trade startup | 1,662,902 | 1,662,999 | +97 | 1,872 |
+| Mobile runtime increment | 119,743 | 119,732 | −11 | 848 |
+| Desktop runtime increment | 204,705 | 204,641 | −64 | 8,042 |
+| `trade-terminal-page` | 128,565 | 128,532 | −33 | 383 |
+| `token-selector-popup` | 15,384 | 15,379 | −5 | 476 |
+| `api-wallet` | 18,414 | 18,415 | +1 | 1,552 |
+| `fundingHistory._address` | 6,844 | 6,943 | +99 | 1,377 |
+| `tradeHistory._address` | 7,372 | 7,468 | +96 | 2,405 |
+| `historicalOrders._address` | 8,138 | 8,234 | +96 | 1,429 |
+| `leaderboard` | 12,060 | 12,059 | −1 | 1,524 |
+| `staking` | 24,455 | 24,454 | −1 | 1,177 |
+| `vaults-page` | 30,636 | 30,632 | −4 | 248 |
+| `fundingComparison` | 10,526 | 10,521 | −5 | 2,112 |
+| `funding-history-panel` | 9,389 | 9,381 | −8 | 780 |
+
+- The only changed module in `trade-terminal-page` is `mobile-book-view.tsx`. A first version of that fix, which
+  gave the empty-side component a second branch, read 128,623 (+58); the version that was kept reuses the existing
+  row ladder and drops an unused `compact` parameter.
+- The phone order tabs, the TWAP hooks and the modify-plan helper live in the `use-account-abstraction-control`
+  chunk, which is part of static trade startup. Each history page grows by about 100 bytes in its own route chunk.
+- The aggregates move by more than the code does. The second build of the branch read 3,391,729 in total,
+  1,663,076 for static trade startup and 128,545 for `trade-terminal-page`; the third build, which only adds code
+  to the `use-account-abstraction-control` chunk, reads 279, 77 and 13 bytes lower. Renamed chunk imports change
+  how the other chunks compress, so differences of this size between two builds are not a measure of the change.
+  The same holds for the few bytes in surfaces this branch does not touch.
+- The base reads higher than the protocol build of `cdf3a8f6` recorded in the next section (3,390,984 in total,
+  128,557 for `trade-terminal-page`), although the client code is the same. The cause was not investigated; the
+  comparison above uses builds of the same day and machine.
+- Pairing on and the release configuration were not built. The release configuration read `trade-terminal-page`
+  156 bytes above the protocol build before p42.
+
 ## Trade-page re-baseline before release p42 (2026-11-15)
 
 The release precheck for p42 built `main` `cdf3a8f6` in the release worktree `sairn-release-p42` with the release

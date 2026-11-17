@@ -98,6 +98,7 @@ vi.mock("@/hooks/trade/use-twap-cancel", () => ({
 
 vi.mock("@/hooks/trade/use-twap-history", () => ({
 	useTwapHistory: () => ({
+		canConfirmEmpty: !mocks.isTwapHistoryRealtimeDegraded,
 		error: undefined,
 		hasMore: mocks.hasMoreTwapHistory,
 		history: mocks.twapHistory,
@@ -113,6 +114,7 @@ vi.mock("@/hooks/trade/use-twap-history", () => ({
 
 vi.mock("@/hooks/trade/use-twap-slice-fills", () => ({
 	useTwapSliceFills: () => ({
+		canConfirmEmpty: mocks.twapFillsStatus === "ready" && !mocks.isTwapFillsRealtimeDegraded,
 		error: undefined,
 		fills: mocks.isTwapFillsEmpty ? [] : mocks.twapFills,
 		hasMore: mocks.hasMoreTwapFills,

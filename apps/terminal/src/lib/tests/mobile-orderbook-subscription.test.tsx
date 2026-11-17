@@ -766,6 +766,43 @@ describe("mobile orderbook subscription lifecycle", () => {
 		expect(getOrderbookActionsStore().selectedPrice).toBeNull();
 	});
 
+	it("states an empty split side on a live frame and holds its rows while the cached book is transitioning", async () => {
+		const bidsOnly = (time: number): BookEvent => ({
+			...createBook(mocks.market.name, time, false, 3),
+			levels: [createBook(mocks.market.name, time, false, 3).levels[0], []],
+		});
+		const getAsks = () => container.querySelector<HTMLElement>('[data-slot="split-orderbook-asks"]');
+		const getBids = () => container.querySelector<HTMLElement>('[data-slot="split-orderbook-bids"]');
+		const now = Date.now();
+		setSubscriptionState({ data: bidsOnly(now), isStale: false, status: "active" });
+		render({ compact: false });
+		await act(async () => {});
+
+		expect(getAsks()?.textContent).toBe("No orders");
+		expect(getAsks()?.querySelector('[data-slot="orderbook-placeholder-row"]')).toBeNull();
+		expect(getBids()?.querySelectorAll("button")).toHaveLength(3);
+
+		setSubscriptionState({ data: undefined, isStale: false, status: "subscribing" });
+		render({ compact: false });
+
+		expect(getBids()?.querySelectorAll("button")).toHaveLength(3);
+		expect(container.querySelector('fieldset[aria-busy="true"]')).not.toBeNull();
+		expect(container.querySelector('[data-slot="orderbook-busy-overlay"]')).not.toBeNull();
+		expect(container.querySelector('output[aria-live="polite"]')?.textContent).toContain("Waiting for order book");
+		expect(container.textContent).not.toContain("No orders");
+		expect(getAsks()?.textContent).toBe("");
+		expect(getAsks()?.querySelectorAll('[data-slot="orderbook-placeholder-row"]').length).toBeGreaterThan(0);
+		expect(getAsks()?.querySelector('[data-slot="orderbook-placeholder-row"]')?.getAttribute("aria-hidden")).toBe(
+			"true",
+		);
+
+		setSubscriptionState({ data: bidsOnly(now + 1), isStale: false, status: "active" });
+		render({ compact: false });
+
+		expect(getAsks()?.textContent).toBe("No orders");
+		expect(container.querySelector('fieldset[aria-busy="true"]')).toBeNull();
+	});
+
 	it("uses local receipt time instead of rejecting a valid snapshot because the device clock differs", () => {
 		setSubscriptionState({
 			data: createBook(mocks.market.name, 1),

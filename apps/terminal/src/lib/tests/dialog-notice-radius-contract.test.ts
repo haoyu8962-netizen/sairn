@@ -24,7 +24,7 @@ const PENDING_EXCEPTIONS = [
 	},
 	{
 		file: "components/trade/positions/position-limit-close-modal.tsx",
-		contains: "rounded-8 p-2.5 text-xs text-fg-muted bg-error-soft",
+		contains: "flex items-start gap-2 rounded-8 bg-error-soft p-2.5",
 		count: 1,
 	},
 	{
@@ -34,7 +34,7 @@ const PENDING_EXCEPTIONS = [
 	},
 	{
 		file: "components/trade/positions/position-market-close-modal.tsx",
-		contains: "rounded-8 p-2.5 text-xs text-fg-muted bg-error-soft",
+		contains: "flex items-start gap-2 rounded-8 bg-error-soft p-2.5",
 		count: 1,
 	},
 	{

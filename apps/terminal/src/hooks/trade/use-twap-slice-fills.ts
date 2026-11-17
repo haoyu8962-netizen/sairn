@@ -1,6 +1,7 @@
 import type { UserFillsResponse } from "@nktkas/hyperliquid";
 import { useState } from "react";
 import { MAX_TWAP_HISTORY_ROWS, TWAP_HISTORY_PAGE_SIZE } from "@/config/trade";
+import { useOnlineStatus } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { useInfo, useSubscription } from "@/lib/hyperliquid";
 import { MalformedHistoryPageError } from "@/lib/trade/history-pagination";
@@ -16,6 +17,12 @@ const TWAP_SLICE_FILLS_STALE_TIME_MS = 30_000;
 export type TwapSliceFillsStatus = "idle" | "loading" | "ready" | "error";
 
 interface TwapSliceFillsResult {
+	/**
+	 * Presentation only. True when the device is online, the REST snapshot is the answer to the last request, no
+	 * request is running or paused, and the stream is subscribed and not awaiting a fresh frame, so an empty list is a
+	 * fact. The stream is event-driven and is not marked stale by a disconnect, hence the online check.
+	 */
+	canConfirmEmpty: boolean;
 	error: unknown;
 	fills: UserFillsResponse;
 	hasMore: boolean;
@@ -29,6 +36,7 @@ interface TwapSliceFillsResult {
 
 export function useTwapSliceFills(): TwapSliceFillsResult {
 	const { address, isConnected } = useWalletSession();
+	const isOnline = useOnlineStatus();
 	const enabled = isConnected && !!address;
 	const user = address ?? EMPTY_ADDRESS;
 	const [realtimeRefreshKey, setRealtimeRefreshKey] = useState<number>();
@@ -98,6 +106,13 @@ export function useTwapSliceFills(): TwapSliceFillsResult {
 	}
 
 	return {
+		canConfirmEmpty:
+			status === "ready" &&
+			isOnline &&
+			!fillsQuery.isError &&
+			fillsQuery.fetchStatus === "idle" &&
+			fillsSubscription.status === "active" &&
+			!fillsSubscription.isStale,
 		error:
 			status === "error"
 				? (fillsQuery.error ?? (hasMalformedHistory ? new MalformedHistoryPageError() : undefined))

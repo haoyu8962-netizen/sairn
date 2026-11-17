@@ -86,8 +86,9 @@ function MobileFundingTabContent({
 	const disclosure = useMobileDisclosureSet(disclosureIdentity, filteredUpdateKeys, disclosureState);
 	const { expandedKeys, setExpanded } = disclosure;
 	const totalFunding = getToolbarFundingTotal(filteredUpdates);
+	const isSnapshotCurrent = status === "ready" && !error && !isOffline && !isStale;
 	const headerTotal =
-		isConnected && status === "ready"
+		isConnected && isSnapshotCurrent
 			? formatUSD(totalFunding, { signDisplay: "exceptZero" })
 			: FALLBACK_VALUE_PLACEHOLDER;
 	const headerClass = getMarketCloseValueColorClass(totalFunding);
@@ -201,16 +202,20 @@ function MobileFundingTabContent({
 		);
 	}
 
+	const noMatch = isSnapshotCurrent ? (
+		<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
+			{t`No funding payments match this direction.`}
+		</div>
+	) : (
+		<DataPendingState className="min-h-28" />
+	);
+
 	return (
 		<div className={cn("font-market-close min-h-0 flex flex-col", isPageScroll ? "min-h-0" : "flex-1", className)}>
 			{renderFilterRow(false)}
 			<div className={cn("min-h-0", !isPageScroll && "flex-1 overflow-y-auto overscroll-y-contain")}>
 				<div className="flex flex-col gap-2.5 px-3.5 pt-3">
-					{filteredUpdates.length === 0 ? (
-						<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
-							{t`No funding payments match this direction.`}
-						</div>
-					) : null}
+					{filteredUpdates.length === 0 ? noMatch : null}
 					<MobileProgressiveList key={directionFilter} items={filteredUpdates}>
 						{(visibleUpdates) =>
 							visibleUpdates.map((update) => {
