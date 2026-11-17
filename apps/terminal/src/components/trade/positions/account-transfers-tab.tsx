@@ -34,14 +34,17 @@ export function AccountTransfersTab() {
 	const locale = i18n.locale;
 	const numberFormat = useNumberFormat();
 	const markets = useMarkets();
-	const { canConfirmEmpty, error, isConnected, isRefreshing, retry, rows, status } = useAccountLedger();
+	const { canConfirmEmpty, error, isConnected, isRefreshing, isSessionResolving, retry, rows, status } =
+		useAccountLedger();
 	const { getActionLabel, getLocationLabel } = useAccountLedgerLabels();
 	const { exportCsv, isExporting } = useAccountLedgerCsv();
 	const isTestnet = useIsTestnet();
 	const historyLimitReached = isIncompleteHistorySnapshotError(error);
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view deposits and withdrawals.`}</Placeholder>;
+		if (!isConnected && !isSessionResolving) {
+			return <Placeholder>{t`Connect your wallet to view deposits and withdrawals.`}</Placeholder>;
+		}
 		if (status === "loading" || status === "idle") {
 			return <PassiveDataPlaceholder busy />;
 		}

@@ -16,7 +16,7 @@
 | 数据过期、重连、后台刷新失败 | 空容器、骨架，或允许保留的只读历史记录 | “余额已过期”“更新已暂停”“加载失败”等被动文字、警告图标和原始错误 |
 | 完整、当前、成功的空快照 | 正常的空列表说明 | 用数组长度单独判断账户/列表为空 |
 | 数据依赖尚未就绪的操作按钮 | 保留操作名称并禁用；执行中的明确用户操作可以显示进度 | 把按钮改名为“加载余额失败”“不可用”等数据状态 |
-| 钱包或地区规则尚未解析 | 等待解析，保留动作禁用状态 | 提前断言“不支持充值提现”“请选择账户模式”“等待连接恢复” |
+| 钱包或地区规则尚未解析 | 等待解析，保留动作禁用状态。钱包一侧以 `useWalletSession().isResolving` 为准，各入口的做法见下文「钱包会话解析中」；地区检查未解析时，已连接账户的资金入口保留并禁用 | 提前断言“不支持充值提现”“请选择账户模式”“等待连接恢复”；在会话解析中显示“请连接钱包”或“交易数据已变化”；因地区检查未解析而整块隐藏资金入口 |
 | 已确认的地区、网络或账户限制 | 必要、准确的限制说明 | 用未知状态代替已确认限制 |
 | 已确认的市场未平仓量上限（当前、成功、未过期、同一账户的 `webData3` 快照在 `perpsAtOpenInterestCap` 中列出该永续市场的精确名称） | 选中限价、止损限价、止盈限价时，在各端既有的校验提示行显示一条准确的限制说明（「未平仓量已达上限，限价单挂出后会被撤销。请使用市价单平仓。」），提交按钮保留静态名称并由 `canSubmit` 禁用；市价、止损市价、止盈市价、TWAP、分段订单和现货不受影响（[OI 上限说明](open-interest-cap.md)） | 快照缺失、订阅中、过期、错误、重连或账户不匹配时显示或执行上限限制；用提示是否存在决定能否提交；在行情区、按钮名称或未连接状态下展示被动上限徽标 |
 | 已确认的 Agent-only 会话（手机使用桌面授权的交易密钥） | Deposit / Withdraw / Transfer 及其他需要主钱包的入口保留并禁用，给出「需要在桌面连接主钱包」的一句原因（`agent-only-session`）；缺少 Agent 或 builder fee 授权时，下单与确认按钮保留静态名称并禁用，给出「请先在电脑端下第一笔订单完成交易授权」的一句原因（[ADR 0039](adr/0039-link-mobile-device-builder-fee-and-session-priority.md)） | 整体隐藏资金入口；把该原因归入被动数据原因集合；在手机上提供无法签名的 Enable / Connect / Reconnect 入口 |
@@ -51,6 +51,23 @@
 认证持续未就绪，或已登录用户的钱包目录持续初始化超过 30 秒，可提供用户主动点击的“重新加载页面”入口；已登录用户的菜单使用中性的钱包状态指示。钱包目录尚未就绪时，重连与安全退出保持禁用。就绪状态或身份变化须重置计时。这是应用的恢复交互，不是 SDK 的超时或重试规则，也不代表已复现 Hyperliquid 相同故障的处理方式。点击后沿用 Privy 正常会话恢复；不得自动刷新、退出登录、重挂载认证 Provider 或将未知状态标记为就绪，不改变签名、授权、资金判断及动作保护。不得显示原始错误、故障结论或警告横条。
 
 该入口仅适用于认证与钱包目录初始化，不扩展为行情、余额或订单被动加载提示。与 [交易引导规范](trading-onboarding.md) 和 [邮箱签名规范](email-trading-signing.md) 同步验证：认证与钱包目录独立恢复、30 秒入口出现、身份或就绪变化重置计时，以及未点击时没有刷新或交易副作用。
+
+## 钱包会话解析中
+
+「还没解析出钱包会话」与「确认未连接」是两种状态。`useWalletSession()` 在下面这些时候都给出 `isConnected` 为假、`address` 为空：Privy 还没就绪；已登录但钱包目录还在初始化；wagmi 正在连接或重连（Privy 更新用户对象后适配层会重连一次，例如智能钱包关联完成时，见 [ADR 0033](adr/0033-silent-email-wallet-creation.md)）；期望的钱包已在目录里但还没成为当前账户。这些都不是用户断开了钱包。
+
+`useWalletSession().isResolving` 把它们归成一个标志，定义与不覆盖的情形见 [运行时约束](runtime-guardrails.md) §1。等待有上限：全应用共用一个时钟，从会话变成未定起最多 10 秒，之后不论卡在哪一步都按当前的实际状态展示，所有入口同时切换。它只用于展示：`isConnected`、`hasWalletAccess`、地址、签名器与全部执行守卫照旧，解析期间没有任何动作因此可用。确认未连接（Privy 就绪且未登录，或已登录但目录里没有期望的钱包，或等待已满 10 秒）与真实的账户变化（含在钱包里切到另一个账户），展示与以前相同。
+
+| 入口 | 解析中 | 确认未连接或账户已变 |
+| --- | --- | --- |
+| 发送、划转弹窗 | 不显示连接警告；输入保留；按钮按可用性布尔值禁用 | 显示「Connect your wallet to send funds.」/「Connect your wallet to transfer funds.」。Agent-only 会话只看到需在桌面连接主钱包的一句原因（地区确认受限时只看到地区说明），不再同时看到连接警告 |
+| 逐仓保证金弹窗 | 不显示「Trading data changed…」；输入保留；提交禁用 | 账户或网络与开窗时不同（含换了账户、退出登录、切到 Agent-only）时照常显示 |
+| 仓位 TP/SL 弹窗 | 已显示的表单保持挂载并禁用，草稿保留；会话恢复后账户数据重新加载期间同样保持，数据回来后恢复可提交。期间仓位或已有 TP/SL 变了，数据回来后表单显示「Trading data changed…」并保持禁用，需要关闭重开。打开时还没有表单则显示忙碌占位 | 「Connect wallet to view positions」「Trading data changed…」「No active positions.」照常替换表单 |
+| 桌面充值提现页签 | 忙碌占位（`aria-busy`），导出按钮禁用，不发请求 | 「Connect your wallet to view deposits and withdrawals.」 |
+| 手机下单按钮 | 保留动作名称（如 Buy）并禁用，点击不提交、不打开连接窗口 | 「Connect Wallet」，可点击 |
+| 手机账户页（地区检查未解析） | 已连接账户的 Deposit、Withdraw、Perps / Spot 与 Bridge 保留并禁用，不显示地区文字 | 地区确认受限时整块隐藏并显示限制说明，与以前相同 |
+
+没有处理的入口：桌面下单按钮与手机下单按钮共用阶段判断，但不在本规范的受检文件里，解析中仍显示连接入口；其它桌面账户页签的连接提示同理。邮箱会话的钱包还在静默创建时目录里没有钱包，不算解析中，这些入口仍按未连接展示（协议门控另有自己的等待，见下一节）。
 
 ## 邮箱钱包的静默创建
 
@@ -177,6 +194,8 @@
 
 `market-selector-quote.test.ts`、`token-selector-row.test.tsx` 与 `token-selector-wiring.test.tsx` 验证市场选择器的价格只来自实时价格上下文、涨跌只对实时资产上下文的 `prevDayPx` 计算，失效时为占位，排序用同样的值；`use-markets-info-subscriptions.test.tsx` 验证首帧前不读本地快照、每行的 `assetContextLive`，并把真实 `useMarketsInfoInternal` 的行交给真实选择器行渲染。
 
+`session-resolving-clock.test.ts` 钉住共用时钟：10 秒到期、重复上报不重新计时、短于 2 秒的已定瞬间不重开等待。`wallet-session-resolving.test.tsx` 用真实的 `useWalletSession`（只替换 Privy 与 wagmi）钉住 `isResolving` 在各阶段的取值、每一种未定状态都在 10 秒后结束、晚挂载的调用方共用同一期限，以及 Agent-only、已退出登录、在钱包里切了账户时为假。`funds-dialogs-session-resolving.test.tsx`、`position-isolated-margin-session-resolving.test.tsx`、`position-tpsl-session-resolving.test.tsx`、`account-transfers-session-resolving.test.tsx` 与 `tests/mobile-trade-session-resolving.test.tsx` 在同一套会话阶段（`harness/wallet-session-stage.ts`）下渲染真实组件，验证解析中不下连接或变化结论、动作禁用且不发请求、草稿保留，以及确认未连接、换了账户、Agent-only 时的展示不变；`mobile-account-view.test.tsx` 验证地区未解析时资金入口保留并禁用、确认受限时隐藏。
+
 `account-mode-query.test.ts` 验证模式来源解析与三态分类；`mobile-account-view.test.tsx`、`funds-action-balances.test.tsx` 和 `deposit-modal-withdrawal-routing-guard.test.tsx` 使用真实资金能力计算验证未解析静默、确认限制、按钮禁用和未发起请求。`desktop-positions-readiness.test.tsx` 连接真实持仓 hook 与桌面页，验证首快照等待、错误优先和恢复，不依赖源码匹配。
 
 ```bash
@@ -189,6 +208,13 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/desktop-positions-readiness.test.tsx \
   src/lib/tests/user-positions-readiness.test.tsx \
   src/lib/tests/mobile-account-view.test.tsx \
+  src/lib/tests/wallet-session-resolving.test.tsx \
+  src/lib/tests/session-resolving-clock.test.ts \
+  src/lib/tests/funds-dialogs-session-resolving.test.tsx \
+  src/lib/tests/position-isolated-margin-session-resolving.test.tsx \
+  src/lib/tests/position-tpsl-session-resolving.test.tsx \
+  src/lib/tests/account-transfers-session-resolving.test.tsx \
+  tests/mobile-trade-session-resolving.test.tsx \
   src/lib/tests/deposit-empty-balances-entry.test.tsx \
   src/lib/tests/mobile-orders-card.test.tsx \
   src/lib/tests/mobile-twap-card.test.tsx \
@@ -219,7 +245,7 @@ pnpm --dir apps/terminal exec vitest run \
 
 ## 待处理
 
-2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
+2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。其中分不清「会话解析中」与「未连接」的六个入口，以及手机账户页的地区未解析，已在 2026-11-17 修复并从表中删除，现行做法见上文「钱包会话解析中」，过程见[任务记录](work-memory/sessions/2026-11-17-wallet-session-resolving-presentation.md)。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
 
 | 文件 | 现状 | 依据 | 建议的修法 |
 | --- | --- | --- | --- |
@@ -229,18 +255,11 @@ pnpm --dir apps/terminal exec vitest run \
 | `mobile-twap-history-list.tsx` | 「No TWAP history found.」只要求存在一份 REST 快照，最近一次请求失败或订阅不当前时仍会显示 | 同上；「数据与操作边界」：历史缓存为空时不得声称没有记录 | hook 增加只用于展示的「快照当前」标记，不满足时保持空白 |
 | `mobile-twap-fill-history-list.tsx` | 「No TWAP fills found.」同上 | 同上 | 同上 |
 | `mobile-book-view.tsx` | 订单簿切换或重连期间，空的一侧可以由缓存快照显示「No orders」，读屏还会把它与「Waiting for order book...」一起读出 | 同上；官方文案目录里没有空侧文字 | 过渡期间空的一侧改用占位行 |
-| `send-modal.tsx` | 已登录的会话只是在重连、或钱包目录还在初始化时，打开着的弹窗显示警告框「Connect your wallet to send funds.」；Agent-only 会话也会看到 | 展示规则「钱包或地区规则尚未解析」与「已确认的 Agent-only 会话」两行 | 只在确认未连接时显示；涉及资金弹窗，单独一次改动 |
-| `transfer-modal.tsx` | 同上（「Connect your wallet to transfer funds.」）；Agent-only 会话同时看到这句与 Agent-only 的原因 | 同上 | 同上 |
-| `position-isolated-margin-modal.tsx` | 重连期间钱包地址短暂为空，弹窗显示红色的「Trading data changed while this dialog was open. Close and reopen it before submitting.」 | 展示规则「钱包或地区规则尚未解析」一行；真实的账户变化仍应提示 | 地址未解析时不显示，按钮保持禁用；真实变化照常提示 |
-| `position-tpsl-modal.tsx` | 同一个钱包只是在重连时，表单被「Connect wallet to view positions」整体替换。这一项只读代码确认，没有渲染复现 | 同上 | 会话解析中改用忙碌占位，保留草稿 |
-| `account-transfers-tab.tsx` | 已登录用户在会话解析完成前短暂看到「Connect your wallet to view deposits and withdrawals.」 | 同上。真正未连接时显示这句是既定做法，其它桌面账户页签相同 | `useAccountLedger` 暴露「会话解析中」，此时显示忙碌占位 |
 | `position-market-close-modal.tsx` | 提示框的加载变体（`role="status"` 加转圈）不可达：加载时提示本身为空 | 死代码；若可达即是可见的被动加载状态 | 删除该分支，同步 `status-motion-surface-contract` 的转圈登记 |
 | `position-limit-close-modal.tsx` | 同上 | 同上 | 同上 |
 | `trade-history-page.tsx` | 「No fills match the selected filters.」与标题「No matching fills」只在没有任何记录时才检查错误、离线与刷新；有保留的记录时，刷新失败、离线或刷新中仍会得出无匹配。这一项只读代码确认 | 展示规则「完整、当前、成功的空快照」一行 | 数据不当前时不下无匹配结论 |
 | `historical-orders-page.tsx` | 同上（「No orders match the selected filters.」「No matching orders」） | 同上 | 同上 |
 | `funding-history-page.tsx` | 同上（「No funding payments match the selected filters.」「No matching funding payments」） | 同上 | 同上 |
-| `mobile-trade-view.tsx` | 下单按钮在解析不出会话地址时显示「Connect Wallet」，已登录会话只是在重连时也一样。这一项只读代码确认 | 展示规则「钱包或地区规则尚未解析」一行；连接入口留在下单区是既定做法 | 会话解析中保留动作名称并禁用，与资金弹窗那一组一起处理 |
-| `mobile-account-view.tsx` | 地区检查未解析时，已连接账户的存款、提款与划转区域整体隐藏，而不是保留并禁用 | 展示规则「钱包或地区规则尚未解析」一行 | 只在确认受限时隐藏；Bridge 入口需一并核对 |
 
 核实后不算问题的有一项：新账号自动设置为统一账户期间（`pending` 状态），提款与划转的禁用原因与 `awaiting-funds` 相同。这是 [ADR 0041](adr/0041-automatic-unified-account-for-new-accounts.md) 的明确要求。
 

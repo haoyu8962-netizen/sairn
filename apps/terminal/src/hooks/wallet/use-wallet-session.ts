@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { useConnectWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { type Address, isAddress, zeroAddress } from "viem";
 import { useConnection } from "wagmi";
@@ -21,6 +21,11 @@ import {
 	resolvePrivyWalletIntent,
 	selectPrivyWagmiWallet,
 } from "@/lib/wallet/privy-wagmi";
+import {
+	hasWalletSessionResolvingExpired,
+	reportWalletSessionUnsettled,
+	subscribeWalletSessionResolvingExpiry,
+} from "@/lib/wallet/session-resolving-clock";
 
 interface VerifiedExternalWalletOwner {
 	privyUserId: string;
@@ -121,6 +126,20 @@ export function useWalletSession() {
 	const address = hasWalletSession ? walletAddress : agentAddress;
 	const displayAddress = address;
 	const sessionMode = hyperliquid?.sessionMode ?? (hasWalletSession ? "wallet" : "disconnected");
+	const walletUnsettled =
+		!ready ||
+		(authenticated && (!walletsReady || isConnecting || isReconnecting || (!!selectedPrivyWallet && !walletConnected)));
+	const resolvingExpired = useSyncExternalStore(
+		subscribeWalletSessionResolvingExpiry,
+		hasWalletSessionResolvingExpired,
+		hasWalletSessionResolvingExpired,
+	);
+	useEffect(() => {
+		// Behind an Agent-only session the Privy identity is masked, so this instance cannot judge the
+		// wallet session; the instance outside the Hyperliquid provider keeps reporting for everyone.
+		if (!agentOnlySession) reportWalletSessionUnsettled(walletUnsettled);
+	}, [agentOnlySession, walletUnsettled]);
+	const isResolving = !agentOnlySession && walletUnsettled && !resolvingExpired;
 
 	return {
 		ready: sessionReady,
@@ -141,6 +160,15 @@ export function useWalletSession() {
 		isConnected: !!address,
 		isConnecting,
 		isReconnecting,
+		/**
+		 * The session can still become a wallet session: Privy or its wallet directory is initialising, wagmi
+		 * is connecting or reconnecting, or the expected wallet is in the directory and wagmi has no account
+		 * yet. It ends after WALLET_SESSION_RESOLVING_MAX_MS at the latest. Presentation only: while it holds,
+		 * a surface neither concludes "disconnected" nor enables anything. Never true for an Agent-only
+		 * session, an established wallet session, a signed-out visitor once Privy is ready, or a wagmi account
+		 * that differs from the expected wallet.
+		 */
+		isResolving,
 		sessionMode,
 		hasWalletAccess: sessionMode === "wallet" && hasWalletSession,
 	};

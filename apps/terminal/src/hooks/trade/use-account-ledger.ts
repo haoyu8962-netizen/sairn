@@ -40,6 +40,8 @@ interface AccountLedgerResult {
 	earnRows: AccountLedgerRow[];
 	error: unknown;
 	isConnected: boolean;
+	/** The wallet session may still become connected; not connected is not a conclusion yet. */
+	isSessionResolving: boolean;
 	rewardClaimRows: AccountLedgerRow[];
 	isRefreshing: boolean;
 	retry: () => void;
@@ -78,7 +80,7 @@ export async function fetchRecentAccountLedgerUpdates(
 }
 
 export function useAccountLedger({ enabled: requestedEnabled = true }: AccountLedgerOptions = {}): AccountLedgerResult {
-	const { address, isConnected } = useWalletSession();
+	const { address, isConnected, isResolving } = useWalletSession();
 	const { env, info } = useHyperliquid();
 	const enabled = requestedEnabled && isConnected && !!address;
 	const user = address ?? EMPTY_ADDRESS;
@@ -148,6 +150,7 @@ export function useAccountLedger({ enabled: requestedEnabled = true }: AccountLe
 				? (ledgerQuery.error ?? (hasMalformedRealtime ? new MalformedHistoryPageError() : undefined))
 				: undefined,
 		isConnected,
+		isSessionResolving: isResolving,
 		isRefreshing,
 		rewardClaimRows,
 		retry: () => {

@@ -275,8 +275,9 @@ function resolvePositionTpSlCancelResponse(
 
 function PositionTpSlModalBody({ open, position, isMobile, onOpenChange }: BodyProps) {
 	const { t } = useLingui();
-	const { address, isConnected } = useWalletSession();
+	const { address, isConnected, isResolving } = useWalletSession();
 	const { clientKey, env, info } = useHyperliquid();
+	const heldFormRef = useRef<HeldTpSlForm | null>(null);
 	const sessionIdentity = useRef<PositionTpSlSessionIdentity>({
 		owner: position.owner.toLowerCase(),
 		env: position.env,
@@ -366,6 +367,54 @@ function PositionTpSlModalBody({ open, position, isMobile, onOpenChange }: BodyP
 		openOrders,
 	};
 
+	const dataPending =
+		((positionLoading || positionError || positionStale) && !currentPosition) || !hasOpenOrdersSnapshot;
+	const holdsForm = isResolving || (isConnected && !!address && identityMatches && dataPending);
+	const liveForm =
+		!holdsForm &&
+		isConnected &&
+		address &&
+		identityMatches &&
+		currentPosition &&
+		currentPositionSize &&
+		!currentPositionSize.eq(0)
+			? { position: currentPosition, currentTpSlInfo, quoteSymbol }
+			: null;
+	useLayoutEffect(() => {
+		if (!holdsForm) heldFormRef.current = liveForm;
+	});
+	if (holdsForm) {
+		const held = heldFormRef.current;
+		if (!held) {
+			return (
+				<PositionTpSlStatus
+					open={open}
+					isMobile={isMobile}
+					position={position}
+					loading={isResolving || positionLoading || openOrdersStatus === "subscribing" || openOrdersStatus === "idle"}
+					onClose={onOpenChange}
+				/>
+			);
+		}
+		return (
+			<PositionTpSlForm
+				open={open}
+				isMobile={isMobile}
+				positionRef={position}
+				position={held.position}
+				markPx={displayMarkPx}
+				markSnapshotReady={markSnapshotReady}
+				currentTpSlInfo={held.currentTpSlInfo}
+				quoteSymbol={held.quoteSymbol}
+				sessionIdentity={sessionIdentity}
+				executionStateRef={executionStateRef}
+				infoClient={info}
+				liveDataReady={false}
+				liveDataMessage={null}
+				onOpenChange={onOpenChange}
+			/>
+		);
+	}
 	if (!isConnected || !address) {
 		return (
 			<PositionTpSlStatus
@@ -384,17 +433,6 @@ function PositionTpSlModalBody({ open, position, isMobile, onOpenChange }: BodyP
 				isMobile={isMobile}
 				position={position}
 				message={t`Trading data changed while this dialog was open. Close and reopen it before submitting.`}
-				onClose={onOpenChange}
-			/>
-		);
-	}
-	if (((positionLoading || positionError || positionStale) && !currentPosition) || !hasOpenOrdersSnapshot) {
-		return (
-			<PositionTpSlStatus
-				open={open}
-				isMobile={isMobile}
-				position={position}
-				loading={positionLoading || openOrdersStatus === "subscribing" || openOrdersStatus === "idle"}
 				onClose={onOpenChange}
 			/>
 		);
@@ -442,6 +480,12 @@ function PositionTpSlModalBody({ open, position, isMobile, onOpenChange }: BodyP
 			onOpenChange={onOpenChange}
 		/>
 	);
+}
+
+interface HeldTpSlForm {
+	position: Position;
+	currentTpSlInfo: TpSlOrderInfo | undefined;
+	quoteSymbol: string;
 }
 
 interface FormProps {

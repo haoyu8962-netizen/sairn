@@ -626,11 +626,29 @@ describe("mobile account view", () => {
 		expect(container.querySelector('button[aria-label="Disconnect wallet"]')).toBeNull();
 	});
 
-	it.each(["restricted", "unresolved"] as const)(
-		"blocks every Perps / Spot entry and withdrawal when geo is %s",
-		(geoStatus) => {
-			testState.accountAbstraction = "disabled";
-			testState.geoStatus = geoStatus;
+	it("hides every Perps / Spot entry and withdrawal once the region is confirmed restricted", () => {
+		testState.accountAbstraction = "disabled";
+		testState.geoStatus = "restricted";
+		bridgeState.hasExistingExecution = true;
+		act(() => {
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<MobileAccountView />
+				</I18nProvider>,
+			);
+		});
+
+		expect(container.querySelectorAll("button")).toHaveLength(0);
+		expect(container.textContent).toContain("Funds actions are unavailable in this region.");
+		expect(modalActions.openTransfer).not.toHaveBeenCalled();
+		expect(modalActions.openDeposit).not.toHaveBeenCalled();
+	});
+
+	it("keeps the connected funds actions in place and disabled while the region check is unresolved", () => {
+		testState.accountAbstraction = "disabled";
+		testState.geoStatus = "unresolved";
+		bridgeState.hasExistingExecution = true;
+		function render() {
 			act(() => {
 				root.render(
 					<I18nProvider i18n={i18n}>
@@ -638,19 +656,34 @@ describe("mobile account view", () => {
 					</I18nProvider>,
 				);
 			});
+		}
+		function actionButtons() {
+			return [...container.querySelectorAll<HTMLButtonElement>("button")];
+		}
+		function isDisabled(button: HTMLButtonElement) {
+			return button.disabled || button.getAttribute("aria-disabled") === "true";
+		}
+		function labels(buttons: HTMLButtonElement[]) {
+			return buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent);
+		}
+		render();
 
-			const transferButtons = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(
-				(button) => button.textContent === "Perps / Spot",
-			);
-			expect(transferButtons).toHaveLength(0);
-			const withdraw = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
-				(button) => button.textContent === "Withdraw",
-			);
-			expect(withdraw).toBeUndefined();
-			act(() => withdraw?.click());
+		const unresolved = actionButtons();
+		expect(labels(unresolved)).toEqual(["Deposit", "Withdraw", "Perps / Spot", "Bridge"]);
+		expect(unresolved.map(isDisabled)).toEqual([true, true, true, true]);
+		expect(container.textContent).not.toContain("region");
+		expect(container.querySelector("output")).toBeNull();
+		for (const button of unresolved) act(() => button.click());
+		expect(modalActions.openTransfer).not.toHaveBeenCalled();
+		expect(modalActions.openDeposit).not.toHaveBeenCalled();
 
-			expect(modalActions.openTransfer).not.toHaveBeenCalled();
-			expect(modalActions.openDeposit).not.toHaveBeenCalledWith("withdraw");
-		},
-	);
+		testState.geoStatus = "allowed";
+		render();
+
+		const allowed = actionButtons();
+		expect(allowed).toEqual(unresolved);
+		expect(allowed.map(isDisabled)).toEqual([false, false, false, false]);
+		act(() => allowed[3]?.click());
+		expect(modalActions.openDeposit).toHaveBeenCalledExactlyOnceWith("bridge");
+	});
 });

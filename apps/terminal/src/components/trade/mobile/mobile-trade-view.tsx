@@ -150,7 +150,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 	const { formatPrice, formatSlippageBps, formatToken } = numberFormat;
 	const { t } = useLingui();
 	const validationErrorId = useId();
-	const { address, isConnected, hasWalletAccess, sessionMode } = useWalletSession();
+	const { address, isConnected, hasWalletAccess, isResolving, sessionMode } = useWalletSession();
 	const { data: connectionWalletClient } = useConnectionWalletClient();
 	const depositAvailability = useDepositAvailability();
 
@@ -795,6 +795,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 
 	const buttonContent = getMobileOrderButtonContent({
 		isConnected,
+		isSessionResolving: isResolving,
 		availableBalance,
 		reduceOnly,
 		requiresAvailableBalance,
@@ -1225,6 +1226,7 @@ function formatEstimatedSlippage(
 
 interface MobileButtonContentInput {
 	isConnected: boolean;
+	isSessionResolving?: boolean;
 	availableBalance: number;
 	reduceOnly?: boolean;
 	requiresAvailableBalance?: boolean;
@@ -1259,17 +1261,19 @@ interface MobileOrderButtonLabels {
 }
 
 export function getMobileOrderButtonContent(input: MobileButtonContentInput): ButtonContent {
-	const stage = getOrderActionStage({
-		isConnected: input.isConnected,
-		needsApproval: input.needsApproval,
-		isSignerReady: input.isSignerReady,
-		hasBalanceError: input.hasBalanceError,
-		isBalanceLoading: input.isBalanceLoading,
-		availableBalance: input.availableBalance,
-		reduceOnly: input.reduceOnly,
-		requiresAvailableBalance: input.requiresAvailableBalance,
-		isAwaitingFirstDeposit: input.isAwaitingFirstDeposit === true,
-	});
+	const stage = input.isSessionResolving
+		? "balanceLoading"
+		: getOrderActionStage({
+				isConnected: input.isConnected,
+				needsApproval: input.needsApproval,
+				isSignerReady: input.isSignerReady,
+				hasBalanceError: input.hasBalanceError,
+				isBalanceLoading: input.isBalanceLoading,
+				availableBalance: input.availableBalance,
+				reduceOnly: input.reduceOnly,
+				requiresAvailableBalance: input.requiresAvailableBalance,
+				isAwaitingFirstDeposit: input.isAwaitingFirstDeposit === true,
+			});
 
 	if (stage === "connect") {
 		return {

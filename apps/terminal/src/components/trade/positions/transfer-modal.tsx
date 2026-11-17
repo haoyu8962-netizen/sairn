@@ -73,7 +73,14 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 	const [direction, setDirection] = useState<TransferDirection>(initialDirection);
 	const [amount, setAmount] = useState("");
 
-	const { address, hasWalletAccess, sessionMode: walletSessionMode, walletAddress, walletIntent } = useWalletSession();
+	const {
+		address,
+		hasWalletAccess,
+		isResolving,
+		sessionMode: walletSessionMode,
+		walletAddress,
+		walletIntent,
+	} = useWalletSession();
 	const {
 		spotBalances,
 		accountAbstraction,
@@ -286,7 +293,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 
 			<ModalContent>
 				<div className="space-y-4">
-					{!hasWalletAccess && (
+					{!hasWalletAccess && !isResolving && walletSessionMode !== "agent-only" && (
 						<div className="flex items-center gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5 text-xs text-warning">
 							<WarningCircleIcon className="size-3.5 shrink-0" />
 							<span className="flex-1">{t`Connect your wallet to transfer funds.`}</span>

@@ -15,7 +15,8 @@ export type PresentationKind =
 	| "action-feedback"
 	// What the user typed, shown only when the data it is checked against is ready.
 	| "input-validation"
-	// A restriction known to hold: region, account mode, Agent-only session, a protocol or API limit.
+	// A restriction known to hold: region, account mode, Agent-only session, a protocol or API limit, or a
+	// wallet session that is definitively not connected (useWalletSession().isResolving is false).
 	| "confirmed-restriction"
 	// The object being edited or confirmed differs from what the surface opened with.
 	| "confirmed-change"
@@ -98,8 +99,6 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				"The other <output> shows, to an email session whose embedded wallet is not the active address yet, a confirmed deposit restriction or the hint to open Deposit (the sponsored email-deposit exception).",
 			"data-value":
 				"Margin-ratio bar coloured by risk band and drawn only once the ratio is ready; unrealized PnL red when negative.",
-			pending:
-				"While the region check is unresolved the connected Deposit, Withdraw and transfer block is hidden instead of kept and disabled; nothing is announced, so no count changes with the fix and this entry has to be removed by hand.",
 		},
 	},
 	"trade/mobile/mobile-balances-tab.tsx": {
@@ -303,7 +302,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		tones: { "text-trading-panel-error": 1, "text-error": 2 },
 		rawErrors: 1,
 		copy: {
-			"Connect Wallet": "pending",
+			"Connect Wallet": "confirmed-restriction",
 			"N/A": "stable-placeholder",
 			"Trading is not available in your region": "confirmed-restriction",
 			"Failed to enable trading": "action-feedback",
@@ -313,12 +312,10 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				'The role="alert" summary and the one .message read show order validation errors filtered by getOrderValidationPresentation(), which drops errors whose market, account or wallet data is not ready.',
 			"action-feedback": "Failure of Enable Trading after the user pressed it.",
 			"confirmed-restriction":
-				"The disabled region button and the <output> reason under the order button (Agent-only, activate trading on desktop) for resolved states only.",
+				"The disabled region button and the <output> reason under the order button (Agent-only, activate trading on desktop) for resolved states only; the order button reads Connect Wallet only once the session is definitively not connected, and keeps the order's name, disabled, while useWalletSession().isResolving holds.",
 			"data-value":
 				"Estimated liquidation price in the error colour when it is within 5% of the order price and its data is ready; 24h change red when negative.",
 			"stable-placeholder": "The order summary N/A, identical for an empty draft, loading and a failed read.",
-			pending:
-				"The order button reads Connect Wallet whenever no session address resolves, which includes an authenticated session that is only reconnecting (read from the code, not reproduced).",
 		},
 	},
 	"trade/mobile/mobile-twap-fill-history-list.tsx": {
@@ -403,16 +400,15 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"Send status unknown": "action-feedback",
 			"Check your balances and the Deposits & Withdrawals history before retrying.": "action-feedback",
 			"Send failed": "action-feedback",
-			"Connect your wallet to send funds.": "pending",
+			"Connect your wallet to send funds.": "confirmed-restriction",
 		},
 		why: {
 			"action-feedback": "Toasts for the outcome of a Send the user confirmed, including the unknown outcome.",
 			"risk-disclosure":
 				"Review-step notices from the destination check the user triggered: the one-time activation fee and the warning that the destination never sent a transaction (the official Send confirmation warns the same way).",
-			"confirmed-restriction": "The region notice from getFundsAvailabilityNotice().",
+			"confirmed-restriction":
+				"The region or Agent-only notice from getFundsAvailabilityNotice(), and the Connect warning, which shows only once the session is definitively not connected: not while it resolves and not to an Agent-only session.",
 			"input-validation": "Red border of an amount above the confirmed balance.",
-			pending:
-				"The Connect warning also shows while an authenticated session is only reconnecting or the wallet directory initialises, and to an Agent-only session.",
 		},
 	},
 	"trade/positions/position-isolated-margin-modal.tsx": {
@@ -432,9 +428,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		why: {
 			"input-validation": "Amount and target-leverage errors for what the user typed.",
 			"risk-disclosure": "Static warning that removing margin raises liquidation risk.",
-			"confirmed-change": "The position status box once markets and positions are loaded, not failed and not stale.",
-			pending:
-				'The first branch of that box ("Trading data changed while this dialog was open") also fires while the wallet address is briefly undefined during a reconnect.',
+			"confirmed-change":
+				"The position status box once markets and positions are loaded, not failed and not stale; its identity branch reports an owner or network that differs from the one the dialog opened with, and stays silent while the wallet session resolves.",
 		},
 	},
 	"trade/positions/position-market-close-modal.tsx": {
@@ -502,7 +497,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 		rawErrors: 1,
 		copy: {
-			"Connect wallet to view positions": "pending",
+			"Connect wallet to view positions": "confirmed-restriction",
 			"No active positions.": "confirmed-empty",
 			"Safe action coordination across tabs is unavailable in this browser.": "action-feedback",
 			"TP/SL may have changed. Review this position's TP/SL before retrying.": "action-feedback",
@@ -520,7 +515,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 				"Mark price in the warning colour once a live mark exists (the official dialog leaves it uncoloured), unrealized PnL by sign, short side bar.",
 			"static-copy":
 				"The one destructured message is the prop of the status body component, which receives the sentences registered here; it is not error text.",
-			pending: '"Connect wallet to view positions" replaces the form while the same wallet is only reconnecting.',
+			"confirmed-restriction":
+				"The Connect body, only once the session is definitively not connected; while it resolves, or while the account data reloads afterwards, the form that was shown stays mounted and disabled, or a busy body shows when no form was.",
 		},
 	},
 	"trade/components/spot-swap-modal.tsx": {
@@ -549,7 +545,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 	"trade/positions/account-transfers-tab.tsx": {
 		tones: { "text-error": 1 },
 		copy: {
-			"Connect your wallet to view deposits and withdrawals.": "pending",
+			"Connect your wallet to view deposits and withdrawals.": "confirmed-restriction",
 			Retry: ["neutral-retry", 2],
 			"No deposits or withdrawals found.": "confirmed-empty",
 		},
@@ -557,7 +553,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"neutral-retry": "Neutral Retry after a failed read; no error text.",
 			"confirmed-empty": "Rendered only when useAccountLedger().canConfirmEmpty holds.",
 			"data-value": "Fee cell in the error colour when the row carries a fee.",
-			pending: "The Connect sentence also shows while a signed-in session is still resolving.",
+			"confirmed-restriction":
+				"The Connect sentence, only once the session is definitively not connected; a busy region shows while useAccountLedger().isSessionResolving holds.",
 		},
 	},
 	"trade/positions/transfer-modal.tsx": {
@@ -576,14 +573,13 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"Transfer status unknown": "action-feedback",
 			"Check your balances and the Deposits & Withdrawals history before retrying.": "action-feedback",
 			"Transfer failed": "action-feedback",
-			"Connect your wallet to transfer funds.": "pending",
+			"Connect your wallet to transfer funds.": "confirmed-restriction",
 		},
 		why: {
 			"action-feedback": "Toasts for the outcome of a Transfer the user confirmed, including the unknown outcome.",
-			"confirmed-restriction": "The notice from getFundsAvailabilityNotice() (Agent-only session, region).",
+			"confirmed-restriction":
+				"The notice from getFundsAvailabilityNotice() (Agent-only session, region), and the Connect warning, which shows only once the session is definitively not connected: not while it resolves and not to an Agent-only session.",
 			"input-validation": "Red border of an amount above the confirmed balance.",
-			pending:
-				"The Connect warning also shows during a reconnect, and an Agent-only session sees it next to the Agent-only reason.",
 		},
 	},
 	"trade-history/trade-history-page.tsx": {
