@@ -26,7 +26,7 @@ export function MobileTwapFillHistoryList({ className, scrollMode = "contained" 
 	const { formatNumber, formatPrice, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { fills, hasMore, isConnected, isRealtimeDegraded, loadMore, status } = useTwapSliceFills();
+	const { canConfirmEmpty, fills, hasMore, isConnected, loadMore, status } = useTwapSliceFills();
 	const { exportCsv, isExporting } = useTwapFillHistoryCsv();
 	const navigateToMarket = useMarketNavigation();
 	const { setActiveTab } = useMobileTerminalTab();
@@ -58,7 +58,7 @@ export function MobileTwapFillHistoryList({ className, scrollMode = "contained" 
 		return <div className="flex-1" />;
 	}
 
-	if (status !== "ready" || (isRealtimeDegraded && fills.length === 0)) {
+	if (status !== "ready" || (fills.length === 0 && !canConfirmEmpty)) {
 		return (
 			<div className="flex min-h-0 flex-1 flex-col">
 				<DataPendingState loading={status === "loading" || status === "idle"} />

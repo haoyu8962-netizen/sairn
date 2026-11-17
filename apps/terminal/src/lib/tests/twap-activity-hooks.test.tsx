@@ -22,23 +22,27 @@ const mocks = vi.hoisted(() => ({
 	historyQuery: {
 		data: [] as TwapHistoryResponse | undefined,
 		error: null as unknown,
+		fetchStatus: "idle" as "fetching" | "idle" | "paused",
 		isError: false,
 		refetch: vi.fn(),
 	},
 	fillsQuery: {
 		data: [] as UserTwapSliceFillsResponse | undefined,
 		error: null as unknown,
+		fetchStatus: "idle" as "fetching" | "idle" | "paused",
 		isError: false,
 		refetch: vi.fn(),
 	},
 	historySubscription: {
 		data: undefined as UserTwapHistoryWsEvent | undefined,
 		error: undefined as unknown,
+		isStale: false,
 		status: "active" as "idle" | "subscribing" | "active" | "error",
 	},
 	fillsSubscription: {
 		data: undefined as UserTwapSliceFillsWsEvent | undefined,
 		error: undefined as unknown,
+		isStale: false,
 		status: "active" as "idle" | "subscribing" | "active" | "error",
 	},
 	useInfo: vi.fn(),
@@ -128,17 +132,21 @@ describe("TWAP activity hooks", () => {
 		mocks.isConnected = true;
 		mocks.historyQuery.data = [];
 		mocks.historyQuery.error = null;
+		mocks.historyQuery.fetchStatus = "idle";
 		mocks.historyQuery.isError = false;
 		mocks.historyQuery.refetch.mockReset();
 		mocks.fillsQuery.data = [];
 		mocks.fillsQuery.error = null;
+		mocks.fillsQuery.fetchStatus = "idle";
 		mocks.fillsQuery.isError = false;
 		mocks.fillsQuery.refetch.mockReset();
 		mocks.historySubscription.data = undefined;
 		mocks.historySubscription.error = undefined;
+		mocks.historySubscription.isStale = false;
 		mocks.historySubscription.status = "active";
 		mocks.fillsSubscription.data = undefined;
 		mocks.fillsSubscription.error = undefined;
+		mocks.fillsSubscription.isStale = false;
 		mocks.fillsSubscription.status = "active";
 		mocks.useInfo.mockReset();
 		mocks.useSubscription.mockReset();
@@ -171,6 +179,60 @@ describe("TWAP activity hooks", () => {
 		expect(result.fills.status).toBe("ready");
 		expect(result.fills.isRealtimeDegraded).toBe(true);
 		expect(result.fills.realtimeError).toBe(fillsError);
+	});
+
+	it("confirms an empty list only for a current REST answer on a live stream", () => {
+		const current = renderHooks();
+		expect(current.history.canConfirmEmpty).toBe(true);
+		expect(current.fills.canConfirmEmpty).toBe(true);
+
+		const notCurrent: Array<() => void> = [
+			() => {
+				mocks.historyQuery.isError = true;
+				mocks.fillsQuery.isError = true;
+			},
+			() => {
+				mocks.historyQuery.fetchStatus = "fetching";
+				mocks.fillsQuery.fetchStatus = "fetching";
+			},
+			() => {
+				mocks.historyQuery.fetchStatus = "paused";
+				mocks.fillsQuery.fetchStatus = "paused";
+			},
+			() => {
+				mocks.historySubscription.status = "subscribing";
+				mocks.fillsSubscription.status = "subscribing";
+			},
+			() => {
+				mocks.historySubscription.isStale = true;
+				mocks.fillsSubscription.isStale = true;
+			},
+			() => {
+				mocks.historySubscription.status = "error";
+				mocks.fillsSubscription.status = "error";
+			},
+			() => {
+				mocks.historyQuery.data = undefined;
+				mocks.fillsQuery.data = undefined;
+			},
+		];
+		for (const apply of notCurrent) {
+			mocks.historyQuery.data = [];
+			mocks.historyQuery.fetchStatus = "idle";
+			mocks.historyQuery.isError = false;
+			mocks.fillsQuery.data = [];
+			mocks.fillsQuery.fetchStatus = "idle";
+			mocks.fillsQuery.isError = false;
+			mocks.historySubscription.isStale = false;
+			mocks.historySubscription.status = "active";
+			mocks.fillsSubscription.isStale = false;
+			mocks.fillsSubscription.status = "active";
+			apply();
+			act(() => root.render(null));
+			const result = renderHooks();
+			expect(result.history.canConfirmEmpty).toBe(false);
+			expect(result.fills.canConfirmEmpty).toBe(false);
+		}
 	});
 
 	it("refreshes the REST snapshot and creates fresh subscription identities on retry", () => {

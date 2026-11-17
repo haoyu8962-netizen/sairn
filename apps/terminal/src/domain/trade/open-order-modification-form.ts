@@ -103,6 +103,29 @@ export function createOpenOrderModifyFormTarget(
 	return { status: "ready", target: { size: size.target, triggerPrice, limitPrice } };
 }
 
+/**
+ * What the editor may show of a blocked draft plan: the red message, the red field border and `aria-invalid` all
+ * come from this one result. A read state is left out (the open-orders snapshot or the mark price is not live,
+ * or the market catalog is loading or failed), and so is an unchanged draft. Presentation only: the confirm
+ * control and the execution guard keep reading the plan itself.
+ */
+export function getDisplayableOpenOrderModifyBlock(
+	plan: OpenOrderModifyFormPlan | null,
+	isMarketCatalogReady: boolean,
+): Extract<OpenOrderModifyFormPlan, { status: "blocked" }> | null {
+	if (plan?.status !== "blocked") return null;
+	switch (plan.reason) {
+		case "no-change":
+		case "snapshot-not-ready":
+		case "mark-price-unavailable":
+			return null;
+		case "market-binding-changed":
+			return isMarketCatalogReady ? plan : null;
+		default:
+			return plan;
+	}
+}
+
 export function buildOpenOrderModifyFormPlan(params: BuildOpenOrderModifyFormPlanParams): OpenOrderModifyFormPlan {
 	const sizeChanged = !numericValuesEqual(params.size, params.target.size.order.sz);
 	const triggerChanged =

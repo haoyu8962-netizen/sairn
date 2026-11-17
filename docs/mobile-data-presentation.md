@@ -112,6 +112,13 @@
 - 资金费率对比页（`/fundingComparison`，桌面与手机）：首份快照、市场目录或离线等待期间只显示数据骨架与 `aria-busy`；首份快照失败、格式不符或市场目录失败时，数据区只保留中性的「重试」按钮，不显示错误文字或警告图标；已有非空快照的刷新失败只在快照自本地接收起不到 120 秒（两个刷新周期，以本地单调时钟计龄，本地墙钟年龄只会让它更早失效，系统时间回拨不会延长）时保留原数据且不提示，满 120 秒或查询因离线暂停时数据区换成骨架或中性「重试」，不显示旧数值；只有解析成功、在该时限内、目录就绪且最近一次请求成功的空快照才显示「暂无资金费率对比数据」；搜索无匹配单独显示为搜索结果。缺少换算间隔或资产上下文的数值使用 `--` 占位；Hyperliquid OI 另外只在持仓量所在的资产上下文来自当前实时订阅（`useMarketsInfo().perpContextsLive`，未送达、过期、失败或恢复中都不算；本地不保存行情快照，见 [ADR 0047](adr/0047-no-local-market-stats-snapshot.md)）且该市场标记价格实时（与行情头同一规则）时显示，否则为 `--` 并在两个排序方向都排在最后，资金费率照常显示。详见 [资金费率对比页](funding-comparison.md)。
 - 质押（`/staking`）、推荐（`/referrals`）、金库列表（`/vaults`）与金库详情（`/vaults/<地址>`），桌面与手机相同（2026-11-01，审查项 E5）。每个数据来源（质押的验证人与六个账户查询、推荐快照、金库公开列表、账户金库份额与领先金库、金库详情）按 `lib/passive-query-state.ts` 分为四态：`loading`（还没有可用数据、没有失败）为空白或既有骨架加 `aria-busy` 与读屏说明；`failed`（没有可用数据且最近一次请求失败或响应格式不符）时数据区只有中性「Retry」，没有错误文字、警告图标或 `role="alert"`，金库详情另保留「Back to Vaults」导航；`ready`（最近一次请求成功，可以正在后台刷新）照常显示数据、空列表结论与操作，金库存款、提款按钮不再因后台刷新禁用；`retained` 按上表静默保留本页收到过的数据，质押页在操作按钮旁、推荐页在内容顶部、金库详情在存款与提款按钮下方提供中性「Retry」，金库列表保留已显示的行，刷新入口仍是原有的「Refresh」；筛选或搜索结果为空时，只有公开列表为 `ready`，且账户筛选（Deposited、Leading）的账户份额与领先金库也为 `ready`，才显示「No Vaults in this filter」或搜索的「No matching Vaults」，否则只给中性「Retry」。推荐的领取记录是历史列表：加载时为空白加 `aria-busy` 与读屏说明，读取失败只给中性「Retry」，已加载的记录在刷新失败后保留，「No recent reward claims.」只在最近一次快照成功且没有刷新在进行（`useAccountLedger().canConfirmEmpty`）时出现。不显示被动刷新文字或转圈（原「Refreshing staking data…」「Refreshing referral data…」「Refreshing Vault data. Actions are temporarily unavailable.」与领取记录的「Loading recent reward claims…」可见文字）。操作只由可用性布尔值禁用：质押的四个操作要求账户快照为 `ready`，委托与解除委托另要求验证人列表为 `ready`；推荐的领取、创建与使用邀请码要求推荐快照为 `ready`；金库存款要求详情为 `ready`，提款另要求账户份额为 `ready`（`deriveVaultActionsAvailability`）；详情或份额保留期间，已打开的存款或提款弹窗停在输入步骤（`canReview` 为假），已在复核步骤的确认按钮与确认处理都暂停（`canConfirm` 为假，`confirm()` 直接返回），刷新成功后恢复，弹窗本身与输入不卸载；弹窗在输入与复核步骤另给一个中性「Retry」（与页面的 Retry 是同一个重新读取，只在 `needsRetry` 时出现：详情或份额读取失败、响应格式不符，或刷新失败后保留），因为阻断式弹窗盖住了页面上的 Retry，确认前的预检读取失败后也要能在弹窗里恢复，而不必关掉弹窗丢掉金额。只有已确认的限制显示说明（地区受限、Agent-only 会话、金库已关闭、不接受存款、未连接 owner、提款锁定、没有可提金额、「No unclaimed rewards are currently available.」只在推荐快照为 `ready` 时）；地区检查中或无法确认、详情或份额加载中或读取失败、刷新中这类被动原因不显示文字。用户发起的提交、失败与待确认结果仍按原有弹窗与通知反馈，执行路径各自的新鲜数据预检（质押 `loadStakingPreflightSnapshot`、推荐提交前 `refetchReferral`、金库 `verifyVaultActionPreflight`）不变。与官方终端的差异（2026-10-31 生产包）：官方质押页读取失败时弹出错误通知（`provideDelegations-CJcxKbEv.js`：`An error occurred while fetching validators`），推荐页读取失败时整页显示 `Unexpected error loading referral data`（`Referrals-DzsUY3Ry.js`），未知余额显示 0；本终端按本规范保持静默、只给中性重试并显示 `--`。官方金库详情刷新失败时保留上一份详情、首次失败时整页空白（`VaultDetailsPage-NS0z_PHx.js` 只在响应含 `response` 时更新），金库列表失败时列表为空（`VaultMainPage-Biimvm9f.js`）；本终端同样保留已收到的数据，首次失败时给中性重试。
 
+- 手机改单抽屉（`mobile-orders-tab.tsx`，2026-11-17）：红色提示、输入框红框与 `aria-invalid` 取自同一份可展示结果（`getDisplayableOpenOrderModifyBlock`），与下单面板的做法相同。这份结果不含四种情形：草稿没有改动；当前委托快照不是当前的（`snapshot-not-ready`）；标记价不是实时的（`mark-price-unavailable`）；市场目录加载中或失败时的 `market-binding-changed`。这些情形下抽屉里没有提示、红框与 `aria-invalid`，输入保留，确认按钮仍按原始结果禁用，回车也不提交。目录已加载而市场绑定与开窗时不同（或目录里已没有这个市场）时照常显示「Market metadata changed. Refresh and try again.」。用户确认之后被执行守卫拒绝的，原因的原文仍作为这次操作的反馈显示，包括上面这几种。
+- 手机委托历史与资金费页签（2026-11-17）：筛选无匹配的句子（「No orders match these filters.」「No funding payments match this direction.」）只在快照当前时显示，即 `status` 为 `ready`、没有错误、未离线、未过期。不满足时筛选行保留并可用，列表区是空白忙碌区域（`aria-busy`），不下结论；保留的记录在筛选能匹配时照常显示。读屏专用的表头数值（委托条数、资金费合计）按同一条件给数值，否则是稳定占位符 `-`，不由保留的旧记录播报「0 orders」或 `$0.00`。
+- 手机 TWAP 历史与成交列表（2026-11-17）：`useTwapHistory` 与 `useTwapSliceFills` 提供只用于展示的 `canConfirmEmpty`。它要求 REST 快照是最近一次请求的成功结果、没有请求在进行或因离线暂停、订阅为 `active` 且未过期。「No TWAP history found.」与「No TWAP fills found.」只在它成立时显示，否则是空白占位；已加载的记录不受影响，成交列表的导出入口照常保留。桌面的两张 TWAP 表没有随这次改动。
+- 手机订单簿分栏视图（2026-11-17）：某一侧为空时，只有实时帧才显示「No orders」。过渡期间（展示的是缓存快照，实时帧还没到）该侧改为占位行，读屏只读出「Waiting for order book...」。紧凑视图一直用占位行，没有空侧文字。
+- 成交、委托、资金费三个历史页（`/tradeHistory/<地址>`、`/historicalOrders/<地址>`、`/fundingHistory/<地址>`，2026-11-17）：筛选无匹配的标题与读屏句子只在快照就绪、最近一次请求没有失败、在线且没有刷新在进行时显示。不满足时筛选行保留，其下换成 `HistoryPageUnavailable`：离线或刷新中是空白忙碌区域，刷新失败是中性「Retry」。这与页面没有任何记录时的处理相同，读屏说明也用同一组句子。
+- 市价与限价平仓弹窗的提示框（2026-11-17）只有一种形态：`role="alert"`，用于已确认的仓位变化与输入校验。仓位快照加载中、读取失败或过期时没有提示框，也没有转圈；滑杆暂停，确认按钮禁用。原先的加载变体（`role="status"` 加转圈）不可达，已删除。
+
 ## 验证与防回归
 
 1. 首次进入：包括 `active` 但 `data === undefined`，不得出现错误文字、空账户结论或错误的充值引导。
@@ -173,6 +180,15 @@
 
 `mobile-fill-filter-backfill.test.tsx` 用真实的手机成交页签、`useUserFills`、`useTradeHistory` 与 QueryClient 验证：只在筛选开启时补拉（三种筛选各自都会触发，只开「Type」时也补拉）、按 `(time, coin, tid)` 合并且保留实时副本、补拉之后到达的匹配成交被挤出最近 30 条后仍显示、实时成交与快照衔接不上时（包括被 TWAP 成交挤占时，以及快照为空而订阅已挤掉其后的成交时）只给中性重试且重试后恢复结论、订阅里没有普通成交时已开启的筛选仍显示快照里的匹配、加载与重新请求时安静、失败只给中性重试、实时快照过期时不下结论、2,000 条上限的说明，以及清除筛选后回到实时列表；`fill-filter-presentation.test.ts` 覆盖其判定函数与衔接判断。
 
+2026-11-17 修复的展示各有行为测试，都渲染真实组件：
+
+- `mobile-order-modification.test.tsx`：改单抽屉在标记价不是实时、当前委托快照过期、市场目录加载中或失败时没有提示、红框与 `aria-invalid`，确认按钮禁用，回车不提交；标记价实时时触发价方向错误仍标红；目录已加载时的市场绑定变化仍提示；确认后被执行守卫拒绝的原因仍显示。`open-order-modification-form.test.ts` 覆盖 `getDisplayableOpenOrderModifyBlock`。
+- `mobile-history-cards.test.tsx`：手机委托历史与资金费页签在快照过期、离线或出错时，筛选无匹配的句子换成空白忙碌区域，读屏表头数值换成占位符；恢复后句子与数值回来。
+- `mobile-twap-history-empty.test.tsx`：真实的两个手机 TWAP 列表接真实的 `useTwapHistory` 与 `useTwapSliceFills`，只替换传输层；最近一次请求失败、请求进行中或暂停、订阅中、过期或失败时没有空结论，已加载的记录保留。`twap-activity-hooks.test.tsx` 钉住 `canConfirmEmpty` 的各个条件。
+- `mobile-orderbook-subscription.test.tsx`：分栏视图的空侧在实时帧上显示「No orders」，过渡期间是占位行。
+- `trade-history-page.test.tsx`、`historical-orders-page.test.tsx`、`funding-history-page.test.tsx`：筛选无匹配只在当前、成功、没有刷新的快照上显示；刷新失败给中性「Retry」，离线与刷新中是忙碌区域，筛选行与所选值保留。
+- `position-market-close-modal.test.tsx`、`position-limit-close-modal.test.tsx`：仓位加载或过期时没有 `role="status"`、`role="alert"` 与转圈。这个分支原本就不可达，这两处断言在修复前也通过；修复前会失败的是登记表与 `status-motion-surface-contract.test.ts` 的转圈登记。
+
 `open-interest-cap.test.ts` 验证上限集合只在活跃、有数据、未过期、同一账户的快照上得出，其余状态为未知；`mobile-trade-size-validation-a11y.test.tsx` 与 `trade-panel-open-interest-cap.test.tsx` 在真实移动与桌面下单面板上验证已确认上限时的限制说明、禁用与未提交，以及未知或未上限时保持安静；`market-asset-info.test.tsx` 验证 HIP-3 上限行在加载、失败、空值和畸形响应时不出现。
 
 `market-selector-quote.test.ts`、`token-selector-row.test.tsx` 与 `token-selector-wiring.test.tsx` 验证市场选择器的价格只来自实时价格上下文、涨跌只对实时资产上下文的 `prevDayPx` 计算，失效时为占位，排序用同样的值；`use-markets-info-subscriptions.test.tsx` 验证首帧前不读本地快照、每行的 `assetContextLive`，并把真实 `useMarketsInfoInternal` 的行交给真实选择器行渲染。
@@ -195,6 +211,16 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/mobile-history-cards.test.tsx \
   src/lib/tests/mobile-fill-filter-backfill.test.tsx \
   src/lib/tests/fill-filter-presentation.test.ts \
+  src/lib/tests/mobile-order-modification.test.tsx \
+  src/lib/tests/open-order-modification-form.test.ts \
+  src/lib/tests/mobile-twap-history-empty.test.tsx \
+  src/lib/tests/twap-activity-hooks.test.tsx \
+  src/lib/tests/mobile-orderbook-subscription.test.tsx \
+  src/lib/tests/trade-history-page.test.tsx \
+  src/lib/tests/historical-orders-page.test.tsx \
+  src/lib/tests/funding-history-page.test.tsx \
+  src/lib/tests/position-market-close-modal.test.tsx \
+  src/lib/tests/position-limit-close-modal.test.tsx \
   src/lib/tests/open-interest-cap.test.ts \
   src/lib/tests/market-asset-info.test.tsx \
   tests/mobile-trade-size-validation-a11y.test.tsx \
@@ -219,26 +245,17 @@ pnpm --dir apps/terminal exec vitest run \
 
 ## 待处理
 
-2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。下表是确认存在、尚未修复的项，登记表里都标为 `pending`。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
+2026-11-17 建登记表时逐项清点了受检文件里的 201 处展示，对其中存疑的 15 项由代理尝试推翻，并尽量用真实组件写探针测试复现；登记表写完后对照代码核对登记理由，又确认了 4 个文件。探针没有入库，结论见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md)。当时确认存在、尚未修复的共 18 个文件，登记表里都标为 `pending`。它们是登记之前就有的行为，不是登记放行的做法。建议的修法都只改展示，不动执行守卫。
+
+同日的第二次改动修掉了其中只涉及展示的 11 个文件：改单抽屉、手机委托历史与资金费页签、两个手机 TWAP 列表、订单簿分栏视图的空侧、三个历史页的筛选无匹配，以及两个平仓弹窗不可达的加载分支。现行做法写在上文「受约束的入口」，过程见[任务记录](work-memory/sessions/2026-11-17-mobile-presentation-pending-fixes.md)。下表是剩下的 7 个文件：界面分不清「会话解析中」与「未连接」的一组，加上账户页的地区未解析。它们涉及资金与签名弹窗，单独处理。
 
 | 文件 | 现状 | 依据 | 建议的修法 |
 | --- | --- | --- | --- |
-| `mobile-orders-tab.tsx` | 改单抽屉里用户改了值之后有三种情形。标记价不是实时时，红色提示显示「Mark price is unavailable. Wait for market data and try again.」。市场目录在加载或失败时，显示「Market metadata changed. Refresh and try again.」。当前委托快照过期或重连时，被改的输入框保留红框与 `aria-invalid`，却没有文字 | 展示规则「数据过期、重连、后台刷新失败」一行；「双端下单与账户概览」：行情未就绪不得进入表单错误，红框、文字与 `aria-invalid` 用同一份可展示结果 | 文字与红框共用一份可展示结果，排除 `snapshot-not-ready`、`mark-price-unavailable`，以及市场目录加载或失败时的 `market-binding-changed`；确认按钮继续按原始结果禁用 |
-| `mobile-orders-history-tab.tsx` | 「No orders match these filters.」不检查错误、离线与过期，可以由保留的旧记录得出 | 展示规则「完整、当前、成功的空快照」一行 | 数据不当前时改为空白忙碌区域 |
-| `mobile-funding-tab.tsx` | 「No funding payments match this direction.」同上，表头合计也由同一份旧数据算出 | 同上 | 同上 |
-| `mobile-twap-history-list.tsx` | 「No TWAP history found.」只要求存在一份 REST 快照，最近一次请求失败或订阅不当前时仍会显示 | 同上；「数据与操作边界」：历史缓存为空时不得声称没有记录 | hook 增加只用于展示的「快照当前」标记，不满足时保持空白 |
-| `mobile-twap-fill-history-list.tsx` | 「No TWAP fills found.」同上 | 同上 | 同上 |
-| `mobile-book-view.tsx` | 订单簿切换或重连期间，空的一侧可以由缓存快照显示「No orders」，读屏还会把它与「Waiting for order book...」一起读出 | 同上；官方文案目录里没有空侧文字 | 过渡期间空的一侧改用占位行 |
 | `send-modal.tsx` | 已登录的会话只是在重连、或钱包目录还在初始化时，打开着的弹窗显示警告框「Connect your wallet to send funds.」；Agent-only 会话也会看到 | 展示规则「钱包或地区规则尚未解析」与「已确认的 Agent-only 会话」两行 | 只在确认未连接时显示；涉及资金弹窗，单独一次改动 |
 | `transfer-modal.tsx` | 同上（「Connect your wallet to transfer funds.」）；Agent-only 会话同时看到这句与 Agent-only 的原因 | 同上 | 同上 |
 | `position-isolated-margin-modal.tsx` | 重连期间钱包地址短暂为空，弹窗显示红色的「Trading data changed while this dialog was open. Close and reopen it before submitting.」 | 展示规则「钱包或地区规则尚未解析」一行；真实的账户变化仍应提示 | 地址未解析时不显示，按钮保持禁用；真实变化照常提示 |
 | `position-tpsl-modal.tsx` | 同一个钱包只是在重连时，表单被「Connect wallet to view positions」整体替换。这一项只读代码确认，没有渲染复现 | 同上 | 会话解析中改用忙碌占位，保留草稿 |
 | `account-transfers-tab.tsx` | 已登录用户在会话解析完成前短暂看到「Connect your wallet to view deposits and withdrawals.」 | 同上。真正未连接时显示这句是既定做法，其它桌面账户页签相同 | `useAccountLedger` 暴露「会话解析中」，此时显示忙碌占位 |
-| `position-market-close-modal.tsx` | 提示框的加载变体（`role="status"` 加转圈）不可达：加载时提示本身为空 | 死代码；若可达即是可见的被动加载状态 | 删除该分支，同步 `status-motion-surface-contract` 的转圈登记 |
-| `position-limit-close-modal.tsx` | 同上 | 同上 | 同上 |
-| `trade-history-page.tsx` | 「No fills match the selected filters.」与标题「No matching fills」只在没有任何记录时才检查错误、离线与刷新；有保留的记录时，刷新失败、离线或刷新中仍会得出无匹配。这一项只读代码确认 | 展示规则「完整、当前、成功的空快照」一行 | 数据不当前时不下无匹配结论 |
-| `historical-orders-page.tsx` | 同上（「No orders match the selected filters.」「No matching orders」） | 同上 | 同上 |
-| `funding-history-page.tsx` | 同上（「No funding payments match the selected filters.」「No matching funding payments」） | 同上 | 同上 |
 | `mobile-trade-view.tsx` | 下单按钮在解析不出会话地址时显示「Connect Wallet」，已登录会话只是在重连时也一样。这一项只读代码确认 | 展示规则「钱包或地区规则尚未解析」一行；连接入口留在下单区是既定做法 | 会话解析中保留动作名称并禁用，与资金弹窗那一组一起处理 |
 | `mobile-account-view.tsx` | 地区检查未解析时，已连接账户的存款、提款与划转区域整体隐藏，而不是保留并禁用 | 展示规则「钱包或地区规则尚未解析」一行 | 只在确认受限时隐藏；Bridge 入口需一并核对 |
 
@@ -259,9 +276,9 @@ pnpm --dir apps/terminal exec vitest run \
 | 下单摘要的预估强平价 | 不着色；缺值显示 `N/A` | 距下单价 5% 以内时红色；缺值显示 `N/A` |
 | 仓位 TP/SL 弹窗的标记价 | 不着色 | 有实时标记价时警告色 |
 | 充值提现记录 | 有状态列，值为 `pending` 或 `completed`，纯文字；手续费非零时着色，为零显示 `--` | 状态恒为 `Completed`；手续费有值时红色 |
-| 筛选无匹配 | 只要开启筛选且没有行就显示 `No results match your filters.`，不看加载或失败 | 成交历史要求补拉成功且当前；委托历史与资金费见「待处理」 |
+| 筛选无匹配 | 只要开启筛选且没有行就显示 `No results match your filters.`，不看加载或失败 | 手机成交历史要求补拉成功且当前；手机委托历史、资金费与三个历史页要求快照当前，否则不下结论（见「受约束的入口」） |
 | 发送确认 | 目标地址没有发过交易时显示警告，并要求勾选确认；有手续费时说明金额 | 复核步骤有对应的两条提示 |
-| 订单簿空的一侧 | 文案目录里没有对应文字 | 显示「No orders」，见「待处理」 |
+| 订单簿空的一侧 | 文案目录里没有对应文字 | 手机分栏视图只在实时帧上显示「No orders」，过渡期间是占位行；紧凑视图没有空侧文字 |
 | 余额不足时的下单按钮 | 改名为 `Not Enough Margin` 或 `Insufficient Balance` 并禁用 | 按钮保留动作名称，由可用性布尔值禁用 |
 
 颜色上的差异都属于「数值含义的颜色」，不是被动数据提示，本规范不禁止。是否向官方对齐是设计决定，这次没有处理。

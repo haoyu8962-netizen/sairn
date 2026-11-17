@@ -16,6 +16,11 @@ const TWAP_HISTORY_STALE_TIME_MS = 30_000;
 export type TwapHistoryStatus = "idle" | "loading" | "ready" | "error";
 
 interface TwapHistoryResult {
+	/**
+	 * Presentation only. True when the REST snapshot is the answer to the last request, no request is running or
+	 * paused, and the stream is subscribed and not awaiting a fresh frame, so an empty list is a fact.
+	 */
+	canConfirmEmpty: boolean;
 	error: unknown;
 	hasMore: boolean;
 	history: TwapHistoryResponse;
@@ -100,6 +105,12 @@ export function useTwapHistory(): TwapHistoryResult {
 	}
 
 	return {
+		canConfirmEmpty:
+			status === "ready" &&
+			!historyQuery.isError &&
+			historyQuery.fetchStatus === "idle" &&
+			historySubscription.status === "active" &&
+			!historySubscription.isStale,
 		error:
 			status === "error"
 				? (historyQuery.error ?? (hasMalformedHistory ? new MalformedHistoryPageError() : undefined))

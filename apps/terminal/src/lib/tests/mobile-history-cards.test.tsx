@@ -829,6 +829,108 @@ describe("mobile history disclosure cards", () => {
 		expect(container.textContent).not.toContain("No order history found.");
 	});
 
+	const NOT_CURRENT_STATES = [
+		["stale", "Stale"],
+		["offline", "Offline"],
+		["in error", "Error"],
+	] as const;
+
+	function setNotCurrent(source: "orders" | "funding", state: (typeof NOT_CURRENT_STATES)[number][1]) {
+		if (state === "Stale") mocks[`${source}Stale`] = true;
+		if (state === "Offline") mocks[`${source}Offline`] = true;
+		if (state === "Error") mocks[`${source}Error`] = new Error("WebSocket unavailable");
+	}
+
+	function getLiveAnnouncement() {
+		return container.querySelector('[aria-live="polite"]')?.textContent;
+	}
+
+	it("draws the order filter no-match sentence and count from a current snapshot", async () => {
+		render(<MobileOrdersHistoryTab scrollMode="page" />);
+		await selectOption("Order type", "Stop Market");
+		await selectOption("Direction", "Buy");
+
+		expect(container.querySelectorAll("article")).toHaveLength(0);
+		expect(container.textContent).toContain("No orders match these filters.");
+		expect(getLiveAnnouncement()).toBe("0 orders");
+		expect(container.querySelector('[data-slot="data-pending"]')).toBeNull();
+	});
+
+	it.each(NOT_CURRENT_STATES)(
+		"keeps the order filter result blank while the retained history is %s",
+		async (_label, state) => {
+			render(<MobileOrdersHistoryTab scrollMode="page" />);
+			await selectOption("Order type", "Stop Market");
+			await selectOption("Direction", "Buy");
+
+			setNotCurrent("orders", state);
+			render(<MobileOrdersHistoryTab scrollMode="page" />);
+
+			expect(container.querySelectorAll("article")).toHaveLength(0);
+			expect(container.textContent).not.toContain("No orders match these filters.");
+			expect(container.textContent).not.toContain("0 orders");
+			expect(getLiveAnnouncement()).toBe("-");
+			expect(container.querySelector('[data-slot="data-pending"]')?.getAttribute("aria-busy")).toBe("true");
+			expect(container.querySelector('[data-testid="mobile-order-history-filter-row"]')).not.toBeNull();
+			expect(container.querySelector('[role="alert"]')).toBeNull();
+
+			await selectOption("Direction", "Direction");
+			expect(container.querySelectorAll("article")).toHaveLength(1);
+			expect(container.querySelector('[data-slot="data-pending"]')).toBeNull();
+
+			mocks.ordersStale = false;
+			mocks.ordersOffline = false;
+			mocks.ordersError = undefined;
+			await selectOption("Direction", "Buy");
+			expect(container.textContent).toContain("No orders match these filters.");
+			expect(getLiveAnnouncement()).toBe("0 orders");
+		},
+	);
+
+	it("draws the funding direction no-match sentence and total from a current snapshot", async () => {
+		mocks.fundings = createFundings().filter((funding) => funding.coin === "ETH");
+		render(<MobileFundingTab scrollMode="page" />);
+		expect(getLiveAnnouncement()).toContain("-$0.75");
+		await selectOption("Direction", "Long");
+
+		expect(container.querySelectorAll("article")).toHaveLength(0);
+		expect(container.textContent).toContain("No funding payments match this direction.");
+		expect(getLiveAnnouncement()).toBe("Funding shown $0.00");
+		expect(container.querySelector('[data-slot="data-pending"]')).toBeNull();
+	});
+
+	it.each(NOT_CURRENT_STATES)(
+		"keeps the funding direction result and total blank while the retained payments are %s",
+		async (_label, state) => {
+			mocks.fundings = createFundings().filter((funding) => funding.coin === "ETH");
+			render(<MobileFundingTab scrollMode="page" />);
+			await selectOption("Direction", "Long");
+
+			setNotCurrent("funding", state);
+			render(<MobileFundingTab scrollMode="page" />);
+
+			expect(container.querySelectorAll("article")).toHaveLength(0);
+			expect(container.textContent).not.toContain("No funding payments match this direction.");
+			expect(container.textContent).not.toContain("$0.00");
+			expect(getLiveAnnouncement()).toBe("Funding shown -");
+			expect(container.querySelector('[data-slot="data-pending"]')?.getAttribute("aria-busy")).toBe("true");
+			expect(container.querySelector('[data-testid="mobile-funding-history-filter-row"]')).not.toBeNull();
+			expect(container.querySelector('[role="alert"]')).toBeNull();
+
+			await selectOption("Direction", "Short");
+			expect(container.querySelectorAll("article")).toHaveLength(1);
+			expect(getLiveAnnouncement()).toBe("Funding shown -");
+			expect(container.querySelector('[data-slot="data-pending"]')).toBeNull();
+
+			mocks.fundingStale = false;
+			mocks.fundingOffline = false;
+			mocks.fundingError = undefined;
+			await selectOption("Direction", "Long");
+			expect(container.textContent).toContain("No funding payments match this direction.");
+			expect(getLiveAnnouncement()).toBe("Funding shown $0.00");
+		},
+	);
+
 	it("filters non-TWAP trade history by type, side, and maker/taker role without carrying state to another owner", async () => {
 		render(<MobileHistoryTab scrollMode="page" />);
 		act(() => getDisclosureButtons()[0]?.click());

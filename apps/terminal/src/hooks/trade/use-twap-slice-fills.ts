@@ -16,6 +16,11 @@ const TWAP_SLICE_FILLS_STALE_TIME_MS = 30_000;
 export type TwapSliceFillsStatus = "idle" | "loading" | "ready" | "error";
 
 interface TwapSliceFillsResult {
+	/**
+	 * Presentation only. True when the REST snapshot is the answer to the last request, no request is running or
+	 * paused, and the stream is subscribed and not awaiting a fresh frame, so an empty list is a fact.
+	 */
+	canConfirmEmpty: boolean;
 	error: unknown;
 	fills: UserFillsResponse;
 	hasMore: boolean;
@@ -98,6 +103,12 @@ export function useTwapSliceFills(): TwapSliceFillsResult {
 	}
 
 	return {
+		canConfirmEmpty:
+			status === "ready" &&
+			!fillsQuery.isError &&
+			fillsQuery.fetchStatus === "idle" &&
+			fillsSubscription.status === "active" &&
+			!fillsSubscription.isStale,
 		error:
 			status === "error"
 				? (fillsQuery.error ?? (hasMalformedHistory ? new MalformedHistoryPageError() : undefined))

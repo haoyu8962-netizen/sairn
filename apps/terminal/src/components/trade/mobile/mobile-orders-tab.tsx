@@ -30,6 +30,7 @@ import {
 import {
 	buildOpenOrderModifyFormPlan,
 	createOpenOrderModifyFormTarget,
+	getDisplayableOpenOrderModifyBlock,
 	type OpenOrderModifyFormTarget,
 } from "@/domain/trade/open-order-modification-form";
 import { isAmbiguousExchangeRequestError } from "@/domain/trade/order-tracking";
@@ -1075,13 +1076,9 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 	const draftModifyPlan = modifyTarget
 		? buildPlanFromLive(modifyTarget, modifySize, modifyTriggerPrice, modifyLimitPrice)
 		: null;
-	const draftModifyError =
-		draftModifyPlan?.status === "blocked" &&
-		draftModifyPlan.reason !== "no-change" &&
-		draftModifyPlan.reason !== "snapshot-not-ready"
-			? getModifyBlockMessage(draftModifyPlan.reason)
-			: null;
-	const draftInvalidField = draftModifyPlan?.status === "blocked" ? draftModifyPlan.field : null;
+	const draftModifyBlock = getDisplayableOpenOrderModifyBlock(draftModifyPlan, !markets.isLoading && !markets.error);
+	const draftModifyError = draftModifyBlock ? getModifyBlockMessage(draftModifyBlock.reason) : null;
+	const draftInvalidField = draftModifyBlock?.field ?? null;
 	const modalError = visibleModifyValidationError ?? draftModifyError;
 	const actionError = visibleCancelValidationError ?? (modifyTarget ? null : modalError);
 	const hasActiveModification = sessionModifications.some((action) => action.phase !== "unconfirmed");

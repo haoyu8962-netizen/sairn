@@ -352,6 +352,89 @@ describe("TradeHistoryPage", () => {
 		expect(container.textContent).not.toContain("Refresh failed");
 	});
 
+	function selectFilter(label: string, value: string) {
+		const filter = container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+		if (!filter) throw new Error(`Missing filter: ${label}`);
+		act(() => {
+			filter.value = value;
+			filter.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		return filter;
+	}
+
+	function findRetry() {
+		return [...container.querySelectorAll("button")].find((button) => button.textContent === "Retry");
+	}
+
+	it("states the filter no-match pair for a current, successful snapshot that is not refreshing", () => {
+		renderPage();
+		selectFilter("Filter trade history by market", "PURR/USDC");
+		selectFilter("Filter trade history by direction", "buy");
+
+		expect(container.querySelectorAll("tbody tr")).toHaveLength(0);
+		expect(container.textContent).toContain("No matching fills");
+		expect(container.querySelector("output.sr-only")?.textContent).toBe("No fills match the selected filters.");
+		expect(container.querySelector('[data-slot="history-page-unavailable"]')).toBeNull();
+	});
+
+	it.each([
+		[
+			"its refresh failed",
+			() => {
+				mocks.history.error = new Error("refresh failed");
+			},
+			false,
+		],
+		[
+			"the page is offline",
+			() => {
+				mocks.history.isOffline = true;
+			},
+			true,
+		],
+		[
+			"a refresh is running",
+			() => {
+				mocks.history.isRefreshing = true;
+			},
+			true,
+		],
+	] as const)("draws no filter no-match conclusion from retained rows while %s", (_state, apply, waiting) => {
+		renderPage();
+		const first = selectFilter("Filter trade history by market", "PURR/USDC");
+		selectFilter("Filter trade history by direction", "buy");
+
+		apply();
+		renderPage();
+
+		expect(container.querySelectorAll("tbody tr")).toHaveLength(0);
+		expect(container.textContent).not.toContain("No matching fills");
+		expect(container.textContent).not.toContain("No fills match the selected filters.");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(first.isConnected).toBe(true);
+		expect(first.value).toBe("PURR/USDC");
+		const unavailable = container.querySelector('[data-slot="history-page-unavailable"]');
+		expect(unavailable).not.toBeNull();
+		expect(unavailable?.querySelector('[aria-busy="true"]') !== null).toBe(waiting);
+		expect(findRetry() === undefined).toBe(waiting);
+		if (!waiting) {
+			act(() => findRetry()?.click());
+			expect(mocks.history.refresh).toHaveBeenCalledOnce();
+		}
+
+		selectFilter("Filter trade history by market", "__all_trade_markets__");
+		selectFilter("Filter trade history by direction", "all");
+		expect(container.querySelectorAll("tbody tr").length).toBeGreaterThan(0);
+		expect(container.querySelector('[data-slot="history-page-unavailable"]')).toBeNull();
+
+		mocks.history.error = null;
+		mocks.history.isOffline = false;
+		mocks.history.isRefreshing = false;
+		selectFilter("Filter trade history by market", "PURR/USDC");
+		selectFilter("Filter trade history by direction", "buy");
+		expect(container.textContent).toContain("No matching fills");
+	});
+
 	it("shows an empty result only after the snapshot is ready", () => {
 		mocks.history.fills = [];
 		renderPage();

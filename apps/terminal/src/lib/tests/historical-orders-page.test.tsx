@@ -322,6 +322,89 @@ describe("HistoricalOrdersPage", () => {
 		expect(container.textContent).toContain(expectedText);
 	});
 
+	function selectFilter(label: string, value: string) {
+		const filter = container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+		if (!filter) throw new Error(`Missing filter: ${label}`);
+		act(() => {
+			filter.value = value;
+			filter.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		return filter;
+	}
+
+	function findRetry() {
+		return [...container.querySelectorAll("button")].find((button) => button.textContent === "Retry");
+	}
+
+	it("states the filter no-match pair for a current, successful snapshot that is not refreshing", () => {
+		renderPage();
+		selectFilter("Filter order history by market", "ETH");
+		selectFilter("Filter order history by direction", "buy");
+
+		expect(container.querySelectorAll("tbody tr")).toHaveLength(0);
+		expect(container.textContent).toContain("No matching orders");
+		expect(container.querySelector("output.sr-only")?.textContent).toBe("No orders match the selected filters.");
+		expect(container.querySelector('[data-slot="history-page-unavailable"]')).toBeNull();
+	});
+
+	it.each([
+		[
+			"its refresh failed",
+			() => {
+				mocks.history.error = new Error("refresh failed");
+			},
+			false,
+		],
+		[
+			"the page is offline",
+			() => {
+				mocks.history.isOffline = true;
+			},
+			true,
+		],
+		[
+			"a refresh is running",
+			() => {
+				mocks.history.isRefreshing = true;
+			},
+			true,
+		],
+	] as const)("draws no filter no-match conclusion from retained rows while %s", (_state, apply, waiting) => {
+		renderPage();
+		const first = selectFilter("Filter order history by market", "ETH");
+		selectFilter("Filter order history by direction", "buy");
+
+		apply();
+		renderPage();
+
+		expect(container.querySelectorAll("tbody tr")).toHaveLength(0);
+		expect(container.textContent).not.toContain("No matching orders");
+		expect(container.textContent).not.toContain("No orders match the selected filters.");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(first.isConnected).toBe(true);
+		expect(first.value).toBe("ETH");
+		const unavailable = container.querySelector('[data-slot="history-page-unavailable"]');
+		expect(unavailable).not.toBeNull();
+		expect(unavailable?.querySelector('[aria-busy="true"]') !== null).toBe(waiting);
+		expect(findRetry() === undefined).toBe(waiting);
+		if (!waiting) {
+			act(() => findRetry()?.click());
+			expect(mocks.history.refresh).toHaveBeenCalledOnce();
+		}
+
+		selectFilter("Filter order history by market", "__all_order_markets__");
+		selectFilter("Filter order history by direction", "all");
+		expect(container.querySelectorAll("tbody tr").length).toBeGreaterThan(0);
+		expect(container.querySelector('[data-slot="history-page-unavailable"]')).toBeNull();
+
+		mocks.history.error = null;
+		mocks.history.isOffline = false;
+		mocks.history.isRefreshing = false;
+		selectFilter("Filter order history by market", "ETH");
+		selectFilter("Filter order history by direction", "buy");
+		expect(container.textContent).toContain("No matching orders");
+	});
+
 	it("keeps an empty cached result busy while it refreshes, then offers a working Retry if the refresh fails", () => {
 		mocks.history.entries = [];
 		mocks.history.orders = [];

@@ -36,8 +36,11 @@ const mocks = vi.hoisted(() => ({
 	clientKey: "0x1111111111111111111111111111111111111111",
 	env: "Mainnet" as "Mainnet" | "Testnet",
 	markPx: "160",
+	marketsError: null as Error | null,
+	marketsLoading: false,
 	modifyOrders: vi.fn(),
 	orders: [] as OpenOrder[],
+	ordersStale: false,
 	resetCancelError: vi.fn(),
 	resetModifyError: vi.fn(),
 	toastError: vi.fn(),
@@ -123,7 +126,7 @@ vi.mock("@/lib/hyperliquid", () => ({
 	},
 	useHyperliquid: () => ({ clientKey: mocks.clientKey, env: mocks.env }),
 	useMarkets: () => ({
-		error: null,
+		error: mocks.marketsError,
 		getAssetId: () => mocks.assetId,
 		getMarket: () =>
 			mocks.assetId === undefined
@@ -136,7 +139,7 @@ vi.mock("@/lib/hyperliquid", () => ({
 						szDecimals: 3,
 					},
 		getSzDecimals: () => 3,
-		isLoading: false,
+		isLoading: mocks.marketsLoading,
 	}),
 	useMarketsInfo: () => ({
 		getMarketInfo: () => ({
@@ -145,7 +148,12 @@ vi.mock("@/lib/hyperliquid", () => ({
 			markPriceReceivedAt: mocks.markPriceLive ? Date.now() : undefined,
 		}),
 	}),
-	useSubscription: () => ({ data: { orders: mocks.orders }, error: null, isStale: false, status: "active" }),
+	useSubscription: () => ({
+		data: { orders: mocks.orders },
+		error: null,
+		isStale: mocks.ordersStale,
+		status: "active",
+	}),
 }));
 
 vi.mock("sonner", () => ({
@@ -212,7 +220,10 @@ describe("mobile order modification", () => {
 		mocks.env = "Mainnet";
 		mocks.markPx = "160";
 		mocks.markPriceLive = false;
+		mocks.marketsError = null;
+		mocks.marketsLoading = false;
 		mocks.orders = [triggerOrder];
+		mocks.ordersStale = false;
 		mocks.cancelOrders.mockReset();
 		mocks.modifyOrders.mockReset();
 		mocks.modifyOrders.mockImplementation(async (params: unknown) => {
@@ -437,6 +448,139 @@ describe("mobile order modification", () => {
 		);
 		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(true);
 		expect(mocks.modifyOrders).not.toHaveBeenCalled();
+	});
+
+	function expectQuietBlockedEditor(input: HTMLInputElement | null) {
+		expect(document.body.querySelector('[role="alert"]')).toBeNull();
+		expect(document.body.querySelector("[aria-invalid]")).toBeNull();
+		expect(input?.getAttribute("aria-describedby")).toBeNull();
+		expect(input?.closest("label")?.className).not.toContain("border-market-close-danger");
+		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(true);
+	}
+
+	it("keeps an edited trigger price quiet while the mark price is not live, and confirms once it is", async () => {
+		mocks.orders = [reduceOnlyStopOrder];
+		const { trigger } = openEditor();
+		act(() => {
+			if (trigger) changeInput(trigger, "175");
+		});
+
+		expectQuietBlockedEditor(trigger);
+		act(() => {
+			if (trigger) pressKey(trigger, "Enter");
+		});
+		expect(mocks.modifyOrders).not.toHaveBeenCalled();
+
+		mocks.markPriceLive = true;
+		act(() => root.render(<ReviewedOrders />));
+		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(false);
+		expect(document.body.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	it("still marks a trigger price on the wrong side of a live mark", () => {
+		mocks.markPriceLive = true;
+		mocks.orders = [reduceOnlyStopOrder];
+		const { trigger } = openEditor();
+		act(() => {
+			if (trigger) changeInput(trigger, "150");
+		});
+
+		expect(trigger?.getAttribute("aria-invalid")).toBe("true");
+		expect(trigger?.closest("label")?.className).toContain("border-market-close-danger");
+		expect(document.body.querySelector('[role="alert"]')?.textContent).toBe(
+			"The trigger price is invalid for this order direction.",
+		);
+	});
+
+	it("keeps an edited field quiet while the open-orders snapshot is stale", () => {
+		const { size } = openEditor();
+		act(() => {
+			if (size) changeInput(size, "1.500");
+		});
+		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(false);
+
+		mocks.ordersStale = true;
+		act(() => root.render(<ReviewedOrders />));
+
+		expect(size?.value).toBe("1.500");
+		expectQuietBlockedEditor(size);
+		act(() => {
+			if (size) pressKey(size, "Enter");
+		});
+		expect(mocks.modifyOrders).not.toHaveBeenCalled();
+
+		mocks.ordersStale = false;
+		act(() => root.render(<ReviewedOrders />));
+		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(false);
+	});
+
+	it.each([
+		[
+			"is loading",
+			() => {
+				mocks.marketsLoading = true;
+			},
+		],
+		[
+			"failed",
+			() => {
+				mocks.marketsError = new Error("markets request failed");
+			},
+		],
+	])("keeps the editor quiet while the market catalog %s", (_state, breakCatalog) => {
+		const { size } = openEditor();
+		act(() => {
+			if (size) changeInput(size, "1.500");
+		});
+
+		breakCatalog();
+		act(() => root.render(<ReviewedOrders />));
+
+		expect(size?.value).toBe("1.500");
+		expect(document.body.textContent).not.toContain("Market metadata changed");
+		expectQuietBlockedEditor(size);
+		act(() => {
+			if (size) pressKey(size, "Enter");
+		});
+		expect(mocks.modifyOrders).not.toHaveBeenCalled();
+	});
+
+	it("still reports a market whose binding differs once the catalog is loaded", () => {
+		const { size } = openEditor();
+		act(() => {
+			if (size) changeInput(size, "1.500");
+		});
+
+		mocks.assetId = 120_002;
+		act(() => root.render(<ReviewedOrders />));
+
+		expect(document.body.querySelector('[role="alert"]')?.textContent).toBe(
+			"Market metadata changed. Refresh and try again.",
+		);
+		expect(document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.disabled).toBe(true);
+	});
+
+	it("keeps the sentence of a confirmed modification the execution guard refused for a mark that stopped being live", async () => {
+		mocks.markPriceLive = true;
+		mocks.orders = [reduceOnlyStopOrder];
+		mocks.modifyOrders.mockImplementation(async (params: unknown) => {
+			mocks.markPriceLive = false;
+			mocks.batchModifyGuard?.(params);
+			return { response: { data: { statuses: [{ resting: { oid: 42 } }] } } };
+		});
+		const { trigger } = openEditor();
+		await act(async () => {
+			if (!trigger) return;
+			changeInput(trigger, "175");
+			pressKey(trigger, "Enter");
+			await Promise.resolve();
+		});
+
+		expect(mocks.modifyOrders).toHaveBeenCalledOnce();
+		expect(getPendingTradingActionSnapshot().modifications).toEqual([]);
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+			"Mark price is unavailable. Wait for market data and try again.",
+		);
 	});
 
 	it("closes with Escape without submitting", () => {

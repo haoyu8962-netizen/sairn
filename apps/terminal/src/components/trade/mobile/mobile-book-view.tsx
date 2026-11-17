@@ -775,8 +775,9 @@ function SplitOrderbook({
 		useOrderbookLadderRows(DEFAULT_LEVEL_COUNT, enabled, MOBILE_ORDERBOOK_ROW_METRICS.default);
 	const visibleAsks = useMemo(() => asks.slice(0, askLevelCount), [asks, askLevelCount]);
 	const visibleBids = useMemo(() => bids.slice(0, bidLevelCount), [bids, bidLevelCount]);
-	const hasAsks = visibleAsks.length > 0;
-	const hasBids = visibleBids.length > 0;
+	const holdsEmptySide = hasSnapshot && isTransitioning;
+	const showAskRows = holdsEmptySide || visibleAsks.length > 0;
+	const showBidRows = holdsEmptySide || visibleBids.length > 0;
 	const sizeToken = showOrderbookInQuote ? quoteToken : baseToken;
 	const askMaxTotal = getVisibleMaxTotal(visibleAsks, askLevelCount, showOrderbookInQuote);
 	const bidMaxTotal = getVisibleMaxTotal(visibleBids, bidLevelCount, showOrderbookInQuote);
@@ -853,7 +854,7 @@ function SplitOrderbook({
 					data-orderbook-side-container="bid"
 					className="min-h-0 overflow-hidden flex flex-col gap-[2px]"
 				>
-					{hasBids ? (
+					{showBidRows ? (
 						<>
 							{visibleBids.map((level, rank) => (
 								<SplitOrderbookRow
@@ -891,7 +892,7 @@ function SplitOrderbook({
 					data-orderbook-side-container="ask"
 					className="min-h-0 overflow-hidden flex flex-col gap-[2px]"
 				>
-					{hasAsks ? (
+					{showAskRows ? (
 						<>
 							{visibleAsks.map((level, rank) => (
 								<SplitOrderbookRow
@@ -938,14 +939,10 @@ function SplitOrderbook({
 	);
 }
 
-function OrderbookEmptySide({ compact }: { compact?: boolean }) {
+function OrderbookEmptySide() {
 	const { t } = useLingui();
 
-	return (
-		<div className={cn("grid flex-1 place-items-center px-2 text-fg-muted", compact ? "text-3xs" : "text-2xs")}>
-			{t`No orders`}
-		</div>
-	);
+	return <div className="grid flex-1 place-items-center px-2 text-2xs text-fg-muted">{t`No orders`}</div>;
 }
 
 function OrderbookBusyOverlay() {
