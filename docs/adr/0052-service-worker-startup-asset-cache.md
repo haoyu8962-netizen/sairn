@@ -1,6 +1,6 @@
 # ADR 0052：Service Worker 缓存启动资源，写壳路径保持 v10
 
-- 状态：已接受并实施（2026-11-12）。分支 `claude/fix-sw-asset-cache`，经集成分支 `claude/integration-2026-11-12` 汇总，未合入 `dev`、未发布。在原分支上编号为 0051，集成时改为 0052。集成复审后补了两点：六个懒加载语言目录进入对账范围，图表字体不再经字体缓存（见决策 4、7 与「后果与边界」）。核心决定在同一天经过多次替换：最初的「先存后换」被否决，见「考虑过而未采用的方案」与「过程」。没有对真实构建的连续两个版本做端到端验证，也没有 iPhone 真机验证。
+- 状态：已接受并实施（2026-11-12）。分支 `claude/fix-sw-asset-cache`，经集成分支 `claude/integration-2026-11-12` 汇总，未合入 `dev`、未发布。在原分支上编号为 0051，集成时改为 0052。集成复审后补了两点：六个懒加载语言目录进入对账范围，图表字体不再经字体缓存（见决策 4、7 与「后果与边界」）。核心决定在同一天经过多次替换：最初的「先存后换」被否决，见「考虑过而未采用的方案」与「过程」。没有对真实构建的连续两个版本做端到端验证，也没有 iPhone 真机验证。 2026-11-17 补记：2026-11-13 经最后一次 `dev` → `main` 合并（`b23cce99`）进 `main`，2026-11-15 随 p42 发布（[p42 发布记录](../work-memory/sessions/2026-11-15-cloudfront-release-p42.md)）；连续两个真实版本的端到端验证与 iPhone 真机验证仍未做。
 - 关联：[ADR 0005](0005-spa-static-shell.md)（静态 SPA 壳）；[ADR 0006](0006-startup-preloads-and-edge-caching.md) 第 10 条（热访问由 Service Worker 回答导航）；[ADR 0010](0010-blank-until-ready-startup.md)（空白到就绪的启动）；[ADR 0020](0020-legal-pages-in-app-shell.md)（Service Worker v10）；[运行时守则](../runtime-guardrails.md) §8；[CloudFront 部署](../../deploy/cloudfront/README.md)；[首屏加载调研](../architecture/hyperliquid-first-load-investigation.md)；审查记录 `docs/work-memory/sessions/2026-11-12-global-defect-review.md`（提交 `9395acca`，P1-6 与 P3 字体缓存）。
 
 ## 背景

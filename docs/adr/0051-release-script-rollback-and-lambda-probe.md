@@ -1,6 +1,6 @@
 # ADR 0051：发布脚本按内容上传与核对壳、Lambda 更新后立即探活
 
-- 状态：已接受并实施（2026-11-12）。分支 `claude/fix-release-script`，未合入 `dev`、未发布。没有做过回滚演练，也没有用 `--execute` 跑过新脚本：下文的上传顺序、内容核对与探活只在不触网的测试里验证过。
+- 状态：已接受并实施（2026-11-12）。分支 `claude/fix-release-script`，未合入 `dev`、未发布。没有做过回滚演练，也没有用 `--execute` 跑过新脚本：下文的上传顺序、内容核对与探活只在不触网的测试里验证过。 2026-11-17 补记：2026-11-13 经最后一次 `dev` → `main` 合并（`b23cce99`）进 `main`，p42（2026-11-15）第一次用新脚本以 `--execute` 发布，functions、lambda、sync、invalidate、verify 都成功（[p42 发布记录](../work-memory/sessions/2026-11-15-cloudfront-release-p42.md)）；回滚仍没有演练。
 - 关联：[CloudFront 发布手册](../../deploy/cloudfront/README.md)（「日常发布」「回滚」）；[Agent 工作手册](../agent-handbook.md)第 8 节；[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md)（CI 分层，本次在 `Production Builds` 加一步）；[ADR 0020](0020-legal-pages-in-app-shell.md)（六个遗留法律页由壳覆盖）；审查记录 `docs/work-memory/sessions/2026-11-12-global-defect-review.md`（提交 `9395acca`）的 P1-2、P2-7、P2-8；[任务记录](../work-memory/sessions/2026-11-12-release-script-rollback-and-lambda-probe.md)。
 
 ## 背景

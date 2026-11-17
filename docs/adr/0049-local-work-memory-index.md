@@ -1,6 +1,6 @@
 # ADR 0049：工作记忆索引只在本地生成，不入库
 
-- 状态：已接受并实施（2026-11-05）。决定来自运营方的要求：「在这里完成此任务：消除 INDEX.md 在并行 PR 间的冲突」。分支 `claude/local-work-memory-index`，未合入 `dev`。
+- 状态：已接受并实施（2026-11-05）。决定来自运营方的要求：「在这里完成此任务：消除 INDEX.md 在并行 PR 间的冲突」。分支 `claude/local-work-memory-index`，未合入 `dev`。 2026-11-17 补记：已经 PR #156 合入 `dev`，2026-11-12 随 p41 的晋升进 `main`（[p41 发布记录](../work-memory/sessions/2026-11-12-cloudfront-release-p41.md)）。
 - 关联：
   - [工作记录与检索约定](../work-memory/README.md)、[Agent 工作手册](../agent-handbook.md)、`scripts/work-memory.mjs`；
   - [ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md) D8：晋升覆盖判定，以及「直接推送 `dev` 会让下一次晋升全跑」。

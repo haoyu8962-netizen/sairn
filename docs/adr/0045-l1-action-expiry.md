@@ -1,6 +1,6 @@
 # ADR 0045：L1 动作带 15 秒过期时间
 
-- 状态：已接受并实施（2026-10-30；分支 `claude/p1-order-safety`，基于 `dev` `d99c2bc9`）；未合入 `dev`、未发布。同日运营方授权按官方实践处理待定事项后，补上与官方相同的关闭开关（决策第 6 条）。2026-10-31 按集成 PR #129 的审查修订决策第 3、4 条：样本不加往返时间的一半，经过时间只计单调时钟，两个时钟不一致时先重新取样，跨过休眠或改时的回答不用。
+- 状态：已接受并实施（2026-10-30；分支 `claude/p1-order-safety`，基于 `dev` `d99c2bc9`）；未合入 `dev`、未发布。同日运营方授权按官方实践处理待定事项后，补上与官方相同的关闭开关（决策第 6 条）。2026-10-31 按集成 PR #129 的审查修订决策第 3、4 条：样本不加往返时间的一半，经过时间只计单调时钟，两个时钟不一致时先重新取样，跨过休眠或改时的回答不用。 2026-11-17 补记：已经晋升 PR #133 进 `main`，2026-11-02 随 p36 发布（[p36 发布记录](../work-memory/sessions/2026-11-02-cloudfront-release-p36.md)）。
 - 关联：`packages/hl-react/src/internal/exchange/server-clock.ts`、`packages/hl-react/src/clients.ts`；[签名模型](../hyperliquid-signing.md)；[ADR 0022](0022-subscription-staleness-monotonic-clock.md)（陈旧判断取两个时钟较大者；过期估计只用单调时钟，见决策第 3 条）；[全功能审查记录](../work-memory/sessions/2026-10-30-full-feature-audit.md) M1。
 
 ## 背景

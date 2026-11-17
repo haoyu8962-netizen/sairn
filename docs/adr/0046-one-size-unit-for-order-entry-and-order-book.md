@@ -1,6 +1,6 @@
 # ADR 0046：订单簿与下单数量共用一个单位，盘口数字完整显示
 
-- 状态：已接受并实施（2026-11-01，运营方「需要决定的八项 请根据官方的实践来修复，确保符合规范」）；分支 `claude/audit-group2`，未合入 `dev`、未发布。
+- 状态：已接受并实施（2026-11-01，运营方「需要决定的八项 请根据官方的实践来修复，确保符合规范」）；分支 `claude/audit-group2`，未合入 `dev`、未发布。 2026-11-17 补记：已经晋升 PR #133 进 `main`，2026-11-02 随 p36 发布（[p36 发布记录](../work-memory/sessions/2026-11-02-cloudfront-release-p36.md)）。
 - 关联：[订单簿布局](../orderbook-layout.md)、[最近成交](../recent-trades.md)、[下单面板双端一致](../order-entry-surface-parity.md)；审查项 M2、M9、C5（[第二组记录](../work-memory/sessions/2026-11-01-audit-group2.md)）。
 
 ## 背景
