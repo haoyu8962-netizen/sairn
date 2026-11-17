@@ -14,7 +14,7 @@ import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
 import { getUserFillNotional } from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import { positionsPanelTableShellClass } from "./positions-panel-table-styles";
 
 const twapFillGridClass =
@@ -41,7 +41,8 @@ export function TwapFillHistoryTable() {
 	}
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view TWAP fill history.`}</Placeholder>;
+		if (!isConnected)
+			return <ConnectPlaceholder>{t`Connect your wallet to view TWAP fill history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
 		if (status !== "ready" || (fills.length === 0 && isRealtimeDegraded)) return <PassiveDataPlaceholder />;
 		if (fills.length === 0) return <Placeholder>{t`No TWAP fills found.`}</Placeholder>;

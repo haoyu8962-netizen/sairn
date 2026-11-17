@@ -202,6 +202,45 @@ Do not collapse these states into one boolean.
   version and drop that hunk only when the test passes without it. The same
   file carries a second, unrelated hunk for card funding (`fund()`'s result
   promise, below), so remove hunks, not the file.
+- A wallet session that is still resolving is not a disconnected one.
+  `useWalletSession().isResolving` is true while the session can still become
+  a wallet session: Privy is not ready in a browser that holds a stored Privy
+  session (`hasPersistedPrivySession()`, the rule the header menu uses for
+  its connecting indicator); or Privy is ready, the user is authenticated and
+  the wallet directory is not ready, or wagmi reports `connecting` or
+  `reconnecting` (which `@privy-io/wagmi` starts whenever `wallets` or `user`
+  changes, for example when Privy refreshes the user object after a smart
+  wallet links, [ADR 0033](adr/0033-silent-email-wallet-creation.md)), or the
+  expected wallet is in the directory and wagmi has no account yet. It is
+  false for an established wallet session, for an Agent-only session whatever
+  Privy is doing behind it, for a visitor who is not signed in (at once in a
+  browser without a stored session, otherwise as soon as Privy is ready), for
+  an authenticated session whose expected wallet is not in the directory
+  (missing, ambiguous or unavailable), and for a wagmi account that differs
+  from the expected wallet (an account switched in the wallet is a change,
+  not a wait).
+  - The wait is bounded. One module-level clock
+    (`lib/wallet/session-resolving-clock.ts`) serves every caller of the hook:
+    it starts when the session becomes unsettled and expires
+    `WALLET_SESSION_RESOLVING_MAX_MS` (10 seconds) later, whatever kept the
+    session unsettled, so a Privy that never becomes ready, a wagmi reconnect
+    that never returns and a wallet that never activates are all presented as
+    not connected from then on, on every surface at the same moment. The wait
+    closes only after the session has stayed settled for 2 seconds: the
+    adapter marks a wallet connected for an instant before each reconnect, and
+    that instant must not give a failing wallet a new 10 seconds. The cap is
+    independent of the 30-second Reload entry of the header menu
+    ([trading onboarding](trading-onboarding.md)).
+  - The flag is presentation only. `isConnected`, `hasWalletAccess`,
+    `address`, the Hyperliquid client key, signer readiness and every
+    execution guard are exactly what they were, so nothing becomes available
+    while it holds; a surface reads it only to avoid saying "connect your
+    wallet" or "trading data changed" too early, and keeps its actions
+    disabled from the availability booleans
+    ([mobile data presentation](mobile-data-presentation.md), 钱包会话解析中).
+  - An email session whose embedded wallet is still being created has no
+    wallet in the directory and is not covered by the flag; the legal gate
+    keeps its own `deriveEmailOwnerSetup` for that.
 - The nonempty embedded-wallet path (ordinary email trading) has no behavioral
   test: no test can log in a real embedded owner. The same test file only
   checks that the SDK's field comparison (address, chain, connector type and
@@ -284,6 +323,11 @@ inspect entry visibility at 375, 1100 and 1440 pixels without exposing a real ke
 - `apps/terminal/src/lib/tests/wallet-modal.test.tsx`
 - `apps/terminal/src/lib/tests/privy-wagmi.test.ts`
 - `apps/terminal/src/lib/tests/wallet-session.test.tsx`
+- `apps/terminal/src/lib/tests/wallet-session-resolving.test.tsx`
+- `apps/terminal/src/lib/tests/session-resolving-clock.test.ts`
+- `apps/terminal/src/lib/tests/desktop-account-tabs-session-resolving.test.tsx`
+- `apps/terminal/tests/trade-panel-session-resolving.test.tsx`
+- `apps/terminal/tests/mobile-trade-session-resolving.test.tsx`
 - `apps/terminal/src/lib/tests/mobile-agent-lifecycle.test.ts`
 - `apps/terminal/src/lib/tests/l1-agent-signing.test.ts`
 - `apps/terminal/src/lib/tests/legal-gate.test.ts`

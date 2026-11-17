@@ -68,8 +68,8 @@ export function MobileAccountView({ className }: MobileAccountViewProps) {
 	const transferDescriptionIds = internalTransferDisabledReason
 		? `${transferDescriptionId} ${transferUnavailableId}`
 		: transferDescriptionId;
-	const depositGeoBlocked =
-		depositAvailability.reason === "geo-restricted" || depositAvailability.reason === "geo-unresolved";
+	const depositGeoBlocked = depositAvailability.reason === "geo-restricted";
+	const geoUnresolved = depositAvailability.reason === "geo-unresolved";
 	const showsSecondaryFundsActions = isConnected && !depositGeoBlocked;
 
 	const showsEmailDeposit = !isConnected && depositAvailability.path === "sponsored";
@@ -288,8 +288,9 @@ export function MobileAccountView({ className }: MobileAccountViewProps) {
 									variant="outline"
 									intent="neutral"
 									size="md"
-									onClick={() => openDepositModal("bridge")}
-									{...depositModalIntentProps}
+									disabled={geoUnresolved}
+									onClick={geoUnresolved ? undefined : () => openDepositModal("bridge")}
+									{...(geoUnresolved ? undefined : depositModalIntentProps)}
 									aria-label={t`Bridge`}
 									iconLeft={<ArrowsLeftRightIcon className="size-4" />}
 									className="min-h-11 w-full"

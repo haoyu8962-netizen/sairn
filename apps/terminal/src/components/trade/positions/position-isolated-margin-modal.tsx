@@ -110,7 +110,7 @@ function PositionIsolatedMarginModalBody({ open, isMobile, position, onOpenChang
 	const coordinatingRef = useRef(false);
 
 	const { clientKey, env } = useHyperliquid();
-	const { address } = useWalletSession();
+	const { address, isResolving } = useWalletSession();
 	const sessionIdentity = useRef({
 		owner: position.owner.toLowerCase(),
 		env: position.env,
@@ -387,7 +387,9 @@ function PositionIsolatedMarginModalBody({ open, isMobile, position, onOpenChang
 
 	function renderPositionStatus() {
 		if (!identityMatches) {
-			return t`Trading data changed while this dialog was open. Close and reopen it before submitting.`;
+			return isResolving
+				? null
+				: t`Trading data changed while this dialog was open. Close and reopen it before submitting.`;
 		}
 		if (markets.isLoading || markets.error || positionLoading || positionError || positionStale) return null;
 		if (!hasLiveMarket) {

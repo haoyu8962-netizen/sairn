@@ -188,6 +188,62 @@ describe("Deposit order CTA", () => {
 		},
 	);
 
+	it.each(["desktop", "mobile"] as const)(
+		"keeps the order's name, disabled, on %s while the wallet session resolves, whatever else is unknown",
+		(surface) => {
+			function content(input: ButtonContentInput): ButtonContent {
+				if (surface === "desktop") return renderDesktop(input);
+				return getMobileOrderButtonContent({
+					...input,
+					hasBalanceError: input.hasBalanceError === true,
+					isBalanceLoading: input.isBalanceLoading === true,
+					canSubmit: input.validation.canSubmit,
+					needsApproval: input.validation.needsApproval,
+					isRegistering: false,
+					onApprove: input.onRegister,
+					onConnect: input.onConnectWallet,
+					labels: {
+						connect: "Connect Wallet",
+						deposit: "Deposit",
+						enableTrading: "Enable Trading",
+						signing: "Signing...",
+					},
+				});
+			}
+			const orderName = surface === "desktop" ? "Place Buy Order" : "Buy";
+			const variants: Partial<ButtonContentInput>[] = [
+				{},
+				{
+					isSignerReady: false,
+					validation: { canSubmit: false, errors: [], validationErrors: [], needsApproval: true, valid: false },
+				},
+				{ isAwaitingFirstDeposit: true, canDeposit: true },
+				{ hasBalanceError: true },
+				{
+					availableBalance: 100,
+					validation: { canSubmit: true, errors: [], validationErrors: [], needsApproval: false, valid: true },
+				},
+			];
+
+			for (const variant of variants) {
+				const input = createDesktopInput({ isConnected: false, isSessionResolving: true, ...variant });
+				const resolving = content(input);
+				expect(resolving).toMatchObject({ text: orderName, disabled: true });
+				expect(resolving.disabledReason).toBeUndefined();
+				resolving.action();
+				expect(input.onConnectWallet).not.toHaveBeenCalled();
+				expect(input.onDeposit).not.toHaveBeenCalled();
+				expect(input.onRegister).not.toHaveBeenCalled();
+				expect(input.onSubmit).not.toHaveBeenCalled();
+			}
+
+			const disconnected = createDesktopInput({ isConnected: false, isSessionResolving: false });
+			expect(content(disconnected)).toMatchObject({ text: "Connect Wallet", disabled: false });
+			content(disconnected).action();
+			expect(disconnected.onConnectWallet).toHaveBeenCalledOnce();
+		},
+	);
+
 	it("keeps explicit signer setup reachable before the funding snapshot resolves", () => {
 		const input = createDesktopInput({
 			isSignerReady: false,

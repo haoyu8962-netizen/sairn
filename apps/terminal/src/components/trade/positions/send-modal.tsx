@@ -169,7 +169,14 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		tokenId: "",
 		source: "spot" as "spot" | "perp",
 	});
-	const { address, hasWalletAccess, sessionMode: walletSessionMode, walletAddress, walletIntent } = useWalletSession();
+	const {
+		address,
+		hasWalletAccess,
+		isResolving,
+		sessionMode: walletSessionMode,
+		walletAddress,
+		walletIntent,
+	} = useWalletSession();
 	const submissionIdentityKey = [
 		env,
 		clientKey.toLowerCase(),
@@ -369,7 +376,10 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		!isPending &&
 		!isCheckingDestination;
 	const sendUnavailableNotice =
-		hasWalletAccess && (sendAvailability.reason === "geo-restricted" || sendAvailability.reason === "geo-unresolved")
+		(hasWalletAccess || walletSessionMode === "agent-only") &&
+		(sendAvailability.reason === "agent-only-session" ||
+			sendAvailability.reason === "geo-restricted" ||
+			sendAvailability.reason === "geo-unresolved")
 			? getFundsAvailabilityNotice(sendAvailability)
 			: null;
 	const reviewIsCurrent =
@@ -634,7 +644,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 							<span className="text-fg-muted">{t`Network`}</span>
 							<span>Hyperliquid (HyperCore)</span>
 						</div>
-						{!hasWalletAccess && (
+						{!hasWalletAccess && !isResolving && walletSessionMode !== "agent-only" && (
 							<div className="flex items-center gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5 text-xs text-warning">
 								<WarningCircleIcon className="size-3.5 shrink-0" />
 								<span className="flex-1">{t`Connect your wallet to send funds.`}</span>

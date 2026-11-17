@@ -16,7 +16,7 @@ import { formatClockDuration, useNumberFormat } from "@/lib/format";
 import { useMarkets, useSubscription } from "@/lib/hyperliquid";
 import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder } from "./placeholder";
 import { positionsPanelTableShellClass, positionsPanelTabRootClass } from "./positions-panel-table-styles";
 import { TwapFillHistoryTable } from "./twap-fill-history-table";
 import { TwapHistoryTable } from "./twap-history-table";
@@ -52,7 +52,7 @@ export function TwapTab() {
 	const viewState = getTwapViewState({ isConnected, status, hasData: twapStatesEvent !== undefined, isStale });
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view TWAP orders.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view TWAP orders.`}</ConnectPlaceholder>;
 		if (viewState !== "ready") return <PassiveDataPlaceholder busy={viewState === "loading"} />;
 		if (activeOrders.length === 0) {
 			return (

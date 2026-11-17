@@ -15,7 +15,7 @@ import { toNumber } from "@/lib/trade/numbers";
 import { getValueColorClass } from "@/lib/ui/value-color";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelRowHoverClass,
 	positionsPanelRowStripeClass,
@@ -41,7 +41,9 @@ export function AccountTransfersTab() {
 	const historyLimitReached = isIncompleteHistorySnapshotError(error);
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view deposits and withdrawals.`}</Placeholder>;
+		if (!isConnected) {
+			return <ConnectPlaceholder>{t`Connect your wallet to view deposits and withdrawals.`}</ConnectPlaceholder>;
+		}
 		if (status === "loading" || status === "idle") {
 			return <PassiveDataPlaceholder busy />;
 		}

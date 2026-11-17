@@ -22,7 +22,7 @@ import type { Side } from "@/lib/trade/types";
 import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 import { usePositionDialogActions } from "@/stores/use-position-dialog-store";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import type {
 	IsolatedMarginPositionRef,
 	LimitClosePositionData,
@@ -129,7 +129,7 @@ export function PositionsTab({ directionFilter, marketFilter, currentMarket }: P
 	}
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view positions.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view positions.`}</ConnectPlaceholder>;
 		if (positionsError || positionsStale) return <PassiveDataPlaceholder />;
 		if (positionsLoading) return <PassiveDataPlaceholder busy />;
 		if (positions.length === 0) return <Placeholder>{t`No active positions.`}</Placeholder>;

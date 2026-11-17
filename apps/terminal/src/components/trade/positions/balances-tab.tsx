@@ -27,7 +27,7 @@ import {
 } from "./balances-table-styles";
 import { DesktopTabToolbarPortal } from "./desktop-tab-toolbar-portal";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelRowHoverClass,
 	positionsPanelTableBodyClass,
@@ -266,7 +266,7 @@ export function BalancesTab({ toolbarTarget }: Props) {
 			if (depositAvailability.path === "sponsored") {
 				return renderDepositPlaceholder(t`Open Deposit to prepare your email wallet.`);
 			}
-			return <Placeholder>{t`Connect your wallet to view balances.`}</Placeholder>;
+			return <ConnectPlaceholder>{t`Connect your wallet to view balances.`}</ConnectPlaceholder>;
 		}
 		if (hasError || isDataStale) return <PassiveDataPlaceholder />;
 		if (isLoading || !accountDataReady || accountAbstraction === "unknown") return <PassiveDataPlaceholder busy />;

@@ -7,6 +7,7 @@ import type { ButtonContent, FormValidationResult, Side } from "@/lib/trade/type
 
 interface ButtonContentInput {
 	isConnected: boolean;
+	isSessionResolving?: boolean;
 	availableBalance: number;
 	reduceOnly?: boolean;
 	requiresAvailableBalance?: boolean;
@@ -49,6 +50,7 @@ export function useButtonContent(input: ButtonContentInput): ButtonContent {
 	return useMemo<ButtonContent>(() => {
 		const stage = getOrderActionStage({
 			isConnected: input.isConnected,
+			isSessionResolving: input.isSessionResolving,
 			needsApproval: input.validation.needsApproval,
 			isSignerReady: input.isSignerReady,
 			hasBalanceError: input.hasBalanceError === true,
@@ -102,6 +104,7 @@ export function useButtonContent(input: ButtonContentInput): ButtonContent {
 		};
 	}, [
 		input.isConnected,
+		input.isSessionResolving,
 		input.availableBalance,
 		input.reduceOnly,
 		input.requiresAvailableBalance,

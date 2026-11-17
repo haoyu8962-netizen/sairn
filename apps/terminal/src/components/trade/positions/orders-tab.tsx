@@ -95,7 +95,7 @@ import { CancelAllOrdersModal } from "./cancel-all-orders-modal";
 import { DesktopTabToolbarPortal } from "./desktop-tab-toolbar-portal";
 import { OrderInlineEdit } from "./order-inline-edit";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
-import { Placeholder } from "./placeholder";
+import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import {
 	positionsPanelRowHoverClass,
 	positionsPanelRowStripeClass,
@@ -1105,7 +1105,7 @@ export function OrdersTab({ toolbarTarget }: Props = {}) {
 		visibleModifyValidationError && actionError === visibleModifyValidationError ? modifyErrorId : undefined;
 
 	function renderPlaceholder() {
-		if (!isConnected) return <Placeholder>{t`Connect your wallet to view open orders.`}</Placeholder>;
+		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view open orders.`}</ConnectPlaceholder>;
 		if (!hasCurrentOrders) return <PassiveDataPlaceholder busy={status !== "error" && !isStale} />;
 		return null;
 	}

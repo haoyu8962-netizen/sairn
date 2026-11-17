@@ -8,6 +8,13 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- While a signed-in wallet session is only reconnecting or still starting up, the order button on
+  desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
+  no longer say the wallet is disconnected or that trading data changed: they stay as they were with
+  their actions disabled and keep what was typed, for at most 10 seconds. A wallet that is really
+  disconnected, a changed account and a visitor who never signed in are shown as before. On the phone
+  Account view the Deposit, Withdraw, transfer and Bridge buttons stay in place, disabled, while the
+  region check is unresolved.
 - The compact order book returns to twenty levels on its own after it fell back to five.
 - Terminating a TWAP while another action on the same market is in progress now waits up to 15
   seconds instead of failing at once.

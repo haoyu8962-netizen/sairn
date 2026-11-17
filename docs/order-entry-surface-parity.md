@@ -240,3 +240,12 @@ pnpm --dir apps/terminal exec playwright test \
 - 本终端的市价平仓、全部平仓与反向也使用这个设置（官方平仓固定用 8%），所以面板说明按本终端的行为写。市价 TP/SL 与官方相同，为 10%。
 - 数值保持原来的半粗字重。未连接钱包时清算价也显示 `N/A`（官方留空），让各行空值一致。
 - Scale 与 TWAP 的摘要没有改，仍用 `$` 金额并保留费用行；桌面摘要的空值与单位也没有改。是否一并对齐，待运营方决定。
+
+## 钱包会话解析中的下单按钮（2026-11-17）
+
+已登录的钱包会话只是在重连或初始化时，`useWalletSession()` 给不出地址，下单按钮原先两端都显示「Connect Wallet」。现在 `getOrderActionStage` 多一个输入 `isSessionResolving`，为真时两端都落到已有的「余额加载中」阶段：保留动作名称（桌面「Place Buy Order」、手机「Buy」）并禁用，点击什么也不做。它排在全部阶段之前，所以解析中不会出现「Connect Wallet」「Enable Trading」或「Deposit」。
+
+- 只改展示。`canExecuteOrder`、`handleApprove` 里对 `isConnected` 与地址的检查没有动；解析中这两个值本来就是假和空。
+- 标志的定义、10 秒上限与「从未登录的浏览器不等待」见 [运行时约束](runtime-guardrails.md) §1；确认未连接时仍是可点击的「Connect Wallet」。
+- 两端在同一个函数里取阶段，不各自判断。`deposit-order-cta.test.tsx` 用同一组输入比对两端的结果；`tests/trade-panel-session-resolving.test.tsx` 与 `tests/mobile-trade-session-resolving.test.tsx` 用真实的面板与真实的 `useWalletSession` 逐个会话阶段验证。
+- 没有验证真实钱包与真机上的表现。
