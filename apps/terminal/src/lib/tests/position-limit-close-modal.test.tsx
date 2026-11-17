@@ -627,10 +627,18 @@ describe("PositionLimitCloseModal", () => {
 		expect(container.textContent).not.toContain("Closing this dialog will not cancel it.");
 	});
 
-	it("fails closed when the live position is stale or changes direction", () => {
+	it("fails closed when the live position is loading, stale or changes direction", () => {
+		testState.positionIsLoading = true;
+		render();
+		expect(container.querySelector('[role="status"], [role="alert"], .animate-spin')).toBeNull();
+		expect(container.querySelector<HTMLButtonElement>('[data-testid="submit"]')?.disabled).toBe(true);
+		expect(testState.sliderProps).toMatchObject({ paused: true, disabled: false });
+
+		testState.positionIsLoading = false;
 		testState.positionIsStale = true;
 		render();
 		expect(container.textContent).not.toContain("Live position data is stale");
+		expect(container.querySelector('[role="status"], [role="alert"], .animate-spin')).toBeNull();
 		expect(container.querySelector<HTMLButtonElement>('[data-testid="submit"]')?.disabled).toBe(true);
 		expect(testState.sliderProps).toMatchObject({ paused: true, disabled: false });
 
@@ -638,6 +646,8 @@ describe("PositionLimitCloseModal", () => {
 		testState.livePosition = { szi: "-2.5", entryPx: "100", unrealizedPnl: "2.5" };
 		render();
 		expect(container.querySelector('[role="alert"]')?.textContent).toContain("This position changed sides");
+		expect(container.querySelector('[role="alert"]')?.getAttribute("aria-live")).toBe("assertive");
+		expect(container.querySelector('[role="status"], .animate-spin')).toBeNull();
 		expect(container.querySelector<HTMLButtonElement>('[data-testid="submit"]')?.disabled).toBe(true);
 		expect(testState.sliderProps).toMatchObject({ paused: false, disabled: true });
 	});

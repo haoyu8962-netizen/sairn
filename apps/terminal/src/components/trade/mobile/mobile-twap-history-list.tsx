@@ -22,7 +22,7 @@ export function MobileTwapHistoryList({ className, scrollMode = "contained" }: P
 	const { formatNumber, formatPrice } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { hasMore, history, isConnected, isRealtimeDegraded, loadMore, status } = useTwapHistory();
+	const { canConfirmEmpty, hasMore, history, isConnected, loadMore, status } = useTwapHistory();
 	const { getTwapHistoryStatusLabel } = useOrderDisplayLabels();
 	const navigateToMarket = useMarketNavigation();
 	const { setActiveTab } = useMobileTerminalTab();
@@ -38,7 +38,7 @@ export function MobileTwapHistoryList({ className, scrollMode = "contained" }: P
 		return <div className="flex-1" />;
 	}
 
-	if (status !== "ready" || (isRealtimeDegraded && history.length === 0)) {
+	if (status !== "ready" || (history.length === 0 && !canConfirmEmpty)) {
 		return <DataPendingState loading={status === "loading" || status === "idle"} />;
 	}
 

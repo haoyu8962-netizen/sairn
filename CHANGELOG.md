@@ -686,6 +686,21 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- Filter results and empty lists no longer draw a conclusion from data that is not current. On the phone,
+  "No orders match these filters." and "No funding payments match this direction." appear only while the
+  history is current; during a reconnect, offline or after a failed update the list area stays blank and
+  busy, and the screen-reader count and funding total show a dash. "No TWAP history found." and "No TWAP
+  fills found." wait for a successful, finished request and a live stream, and are withdrawn while the
+  phone is offline. On the Trade History, Order
+  History and Funding History pages the "No matching …" message waits for a successful snapshot that is
+  not refreshing; a failed refresh offers Retry below the filters instead.
+- The phone order book no longer says "No orders" on an empty side while it waits for a live book, for
+  example during a reconnect; that side shows blank rows until the book arrives.
+- The phone Modify Order sheet stays quiet while market data is catching up: an edited field is no longer
+  marked red, and "Mark price is unavailable…" or "Market metadata changed…" no longer appears, because
+  the mark price, the open-orders list or the market list is not current. Modify Order stays disabled
+  until the data is back, on the order card too while the market list is loading, and a submitted change
+  that is refused still says why.
 - Settings no longer overwrite each other across tabs: a tab that still held older settings used to write all of
   them back when you changed anything in it, which could undo an order confirmation, slippage limit or
   transaction-delay protection you had just tightened in another tab. Each tab now writes only what it changed and

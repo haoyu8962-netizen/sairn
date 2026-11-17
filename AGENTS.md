@@ -309,7 +309,11 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/vaults-domain.test.ts \
   src/lib/tests/mobile-fill-filter-backfill.test.tsx \
   src/lib/tests/trade-history.test.ts \
-  src/lib/tests/fill-filter-presentation.test.ts
+  src/lib/tests/fill-filter-presentation.test.ts \
+  src/lib/tests/mobile-history-cards.test.tsx \
+  src/lib/tests/mobile-twap-history-empty.test.tsx \
+  src/lib/tests/twap-activity-hooks.test.tsx \
+  src/lib/tests/historical-orders-page.test.tsx
 
 # Trading terminal visual contract
 pnpm --dir apps/terminal exec vitest run \

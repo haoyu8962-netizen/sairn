@@ -189,6 +189,31 @@ export function HistoricalOrdersPage({ address }: Props) {
 		return t`The response could not be verified. No partial order history is shown.`;
 	}
 
+	const isSnapshotUnconfirmed = Boolean(history.error) || history.isOffline || history.isRefreshing;
+	const unconfirmedEmpty = (
+		<HistoryPageUnavailable
+			offline={history.isOffline}
+			refreshing={history.isRefreshing}
+			description={getUnconfirmedEmptyDescription()}
+			onRetry={history.refresh}
+		/>
+	);
+	const noMatch = isSnapshotUnconfirmed ? (
+		unconfirmedEmpty
+	) : (
+		<div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
+			<output aria-live="polite" className="sr-only">
+				<Trans>No orders match the selected filters.</Trans>
+			</output>
+			<h2 className="text-base font-bold text-fg">
+				<Trans>No matching orders</Trans>
+			</h2>
+			<p className="mt-1 text-xs text-fg-muted">
+				<Trans>Choose different market, direction, type, or status filters.</Trans>
+			</p>
+		</div>
+	);
+
 	let content: ReactNode;
 	if (history.status === "disabled") {
 		content = (
@@ -234,15 +259,8 @@ export function HistoricalOrdersPage({ address }: Props) {
 				onRetry={history.refresh}
 			/>
 		);
-	} else if (history.entries.length === 0 && (history.error || history.isOffline || history.isRefreshing)) {
-		content = (
-			<HistoryPageUnavailable
-				offline={history.isOffline}
-				refreshing={history.isRefreshing}
-				description={getUnconfirmedEmptyDescription()}
-				onRetry={history.refresh}
-			/>
-		);
+	} else if (history.entries.length === 0 && isSnapshotUnconfirmed) {
+		content = unconfirmedEmpty;
 	} else if (history.entries.length === 0) {
 		content = (
 			<div className="flex min-h-80 flex-col items-center justify-center px-6 text-center">
@@ -315,17 +333,7 @@ export function HistoricalOrdersPage({ address }: Props) {
 					/>
 				</div>
 				{filteredEntries.length === 0 ? (
-					<div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
-						<output aria-live="polite" className="sr-only">
-							<Trans>No orders match the selected filters.</Trans>
-						</output>
-						<h2 className="text-base font-bold text-fg">
-							<Trans>No matching orders</Trans>
-						</h2>
-						<p className="mt-1 text-xs text-fg-muted">
-							<Trans>Choose different market, direction, type, or status filters.</Trans>
-						</p>
-					</div>
+					noMatch
 				) : (
 					<>
 						<div className="divide-y divide-stroke-weak min-[1001px]:hidden">

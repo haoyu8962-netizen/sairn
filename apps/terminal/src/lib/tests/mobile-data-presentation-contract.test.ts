@@ -291,23 +291,62 @@ describe("mobile passive data presentation contract", () => {
 			}
 		});
 
-		it("lists every pending presentation in the policy", () => {
-			const policy = readFileSync(resolve(root, "docs/mobile-data-presentation.md"), "utf8");
-			const start = policy.indexOf("## 待处理");
-			expect(start, "docs/mobile-data-presentation.md needs its 待处理 section").toBeGreaterThan(-1);
+		// The file names of the 待处理 table, or null when the section or its table header is missing. The
+		// table may be empty once every pending item is fixed, so the check anchors on the header instead of
+		// on a row count: without the header there is no table this reader could have read.
+		const PENDING_TABLE_HEADER = "| 文件 | 现状 | 依据 | 建议的修法 |\n| --- | --- | --- | --- |\n";
+
+		function readPendingPolicyRows(policy: string): string[] | null {
+			const start = policy.indexOf("\n## 待处理\n");
+			if (start === -1) return null;
 			const end = policy.indexOf("\n## ", start + 1);
 			const section = policy.slice(start, end === -1 ? undefined : end);
-			const rows = [...section.matchAll(/^\| `([\w-]+\.tsx?)` \|/gm)].map((match) => match[1]);
+			const header = section.indexOf(`\n${PENDING_TABLE_HEADER}`);
+			if (header === -1) return null;
+			const table = section.slice(header + 1 + PENDING_TABLE_HEADER.length).split("\n\n")[0] ?? "";
+			return [...table.matchAll(/^\| `([\w-]+\.tsx?)` \|/gm)].flatMap((match) => (match[1] ? [match[1]] : []));
+		}
+
+		it("lists every pending presentation in the policy", () => {
+			const policy = readFileSync(resolve(root, "docs/mobile-data-presentation.md"), "utf8");
+			const rows = readPendingPolicyRows(policy);
 			const pending = Object.entries(REVIEWED_PRESENTATION).filter(
 				([, entry]) => entry.why.pending !== undefined || copyKinds(entry).includes("pending"),
 			);
 			const pendingNames = pending.map(([file]) => file.split("/").at(-1));
-			expect(rows.length, "the 待处理 table has no rows this check can read").toBeGreaterThan(0);
-			expect(new Set(rows).size, "one row per file in 待处理").toBe(rows.length);
+			expect(
+				rows,
+				"docs/mobile-data-presentation.md needs its 待处理 section and that section's table header, even when the table is empty",
+			).not.toBeNull();
+			expect(new Set(rows).size, "one row per file in 待处理").toBe(rows?.length);
 			for (const [file, entry] of pending) expect(entry.why.pending, `${file}: say what is pending`).toBeDefined();
-			expect([...rows].sort(), "待处理 rows and pending registry entries must be the same files").toEqual(
+			expect([...(rows ?? [])].sort(), "待处理 rows and pending registry entries must be the same files").toEqual(
 				[...pendingNames].sort(),
 			);
+		});
+
+		it("reads the 待处理 table by its header, so an empty table is not a missing one", () => {
+			const table = (rows: string) =>
+				`# 规范\n\n## 待处理\n\n说明。\n\n${PENDING_TABLE_HEADER}${rows}\n后记。\n\n## 下一节\n`;
+
+			expect(
+				readPendingPolicyRows(table("| `a-modal.tsx` | 现状 | 依据 | 修法 |\n| `b-hook.ts` | 现状 | 依据 | 修法 |\n")),
+			).toEqual(["a-modal.tsx", "b-hook.ts"]);
+			expect(readPendingPolicyRows(table(""))).toEqual([]);
+			expect(
+				readPendingPolicyRows(
+					table("| `a-modal.tsx` | 现状 | 依据 | 修法 |\n| `a-modal.tsx` | 另一行 | 依据 | 修法 |\n"),
+				),
+			).toEqual(["a-modal.tsx", "a-modal.tsx"]);
+			expect(readPendingPolicyRows("# 规范\n\n## 待处理\n\n| `a-modal.tsx` | 没有表头 |\n\n## 下一节\n")).toBeNull();
+			expect(
+				readPendingPolicyRows(`# 规范\n\n## 别的\n\n${PENDING_TABLE_HEADER}| \`a-modal.tsx\` | x | y | z |\n`),
+			).toBeNull();
+			expect(
+				readPendingPolicyRows(
+					`# 规范\n\n## 待处理\n\n${PENDING_TABLE_HEADER}\n另一张表：\n\n| \`later.tsx\` | 不属于待处理表 |\n\n## 下一节\n\n| \`next.tsx\` | x |\n`,
+				),
+			).toEqual([]);
 		});
 
 		describe("scanner", () => {

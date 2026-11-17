@@ -139,11 +139,13 @@ function MobileOrdersHistoryTabContent({
 			.map((value) => ({ value, label: getStatusFilterLabel(value) })),
 	];
 
-	const headerCount = isConnected ? (
-		<Plural value={filteredEntries.length} one="# order" other="# orders" />
-	) : (
-		FALLBACK_VALUE_PLACEHOLDER
-	);
+	const isSnapshotCurrent = status === "ready" && !error && !isOffline && !isStale;
+	const headerCount =
+		isConnected && isSnapshotCurrent ? (
+			<Plural value={filteredEntries.length} one="# order" other="# orders" />
+		) : (
+			FALLBACK_VALUE_PLACEHOLDER
+		);
 	const isPageScroll = scrollMode === "page";
 
 	function handleSelectMarket(name: string) {
@@ -314,16 +316,20 @@ function MobileOrdersHistoryTabContent({
 		);
 	}
 
+	const noMatch = isSnapshotCurrent ? (
+		<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
+			{t`No orders match these filters.`}
+		</div>
+	) : (
+		<DataPendingState className="min-h-28" />
+	);
+
 	return (
 		<div className={cn("font-market-close min-h-0 flex flex-col", isPageScroll ? "min-h-0" : "flex-1", className)}>
 			{renderFilterRow(false)}
 			<div className={cn("min-h-0", !isPageScroll && "flex-1 overflow-y-auto overscroll-y-contain")}>
 				<div className="flex flex-col gap-2.5 px-3.5 pt-3">
-					{filteredEntries.length === 0 ? (
-						<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
-							{t`No orders match these filters.`}
-						</div>
-					) : null}
+					{filteredEntries.length === 0 ? noMatch : null}
 					<MobileProgressiveList key={`${typeFilter}:${directionFilter}:${statusFilter}`} items={filteredEntries}>
 						{(visibleEntries) =>
 							visibleEntries.map((entry) => {

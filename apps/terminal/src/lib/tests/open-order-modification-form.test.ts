@@ -3,6 +3,8 @@ import type { OpenOrderModifyMarketBinding } from "@/domain/trade/open-order-mod
 import {
 	buildOpenOrderModifyFormPlan,
 	createOpenOrderModifyFormTarget,
+	getDisplayableOpenOrderModifyBlock,
+	type OpenOrderModifyFormPlan,
 	type OpenOrderModifyFormTarget,
 } from "@/domain/trade/open-order-modification-form";
 import type { OpenOrder } from "@/lib/trade/open-orders";
@@ -196,6 +198,46 @@ describe("open order modification form", () => {
 			reason: "market-binding-changed",
 			field: "size",
 		});
+	});
+
+	it("displays input errors and confirmed changes of a blocked plan, never a read state", () => {
+		const blockedPlan = (
+			reason: Extract<OpenOrderModifyFormPlan, { status: "blocked" }>["reason"],
+		): OpenOrderModifyFormPlan => ({ status: "blocked", reason, field: "triggerPrice" });
+
+		expect(getDisplayableOpenOrderModifyBlock(null, true)).toBeNull();
+		for (const reason of ["no-change", "snapshot-not-ready", "mark-price-unavailable"] as const) {
+			expect(getDisplayableOpenOrderModifyBlock(blockedPlan(reason), true), reason).toBeNull();
+		}
+		expect(getDisplayableOpenOrderModifyBlock(blockedPlan("market-binding-changed"), false)).toBeNull();
+		expect(getDisplayableOpenOrderModifyBlock(blockedPlan("market-binding-changed"), true)).toMatchObject({
+			reason: "market-binding-changed",
+		});
+		for (const reason of [
+			"invalid-size",
+			"invalid-price",
+			"invalid-trigger-direction",
+			"size-exceeds-remaining",
+			"order-not-open",
+			"order-changed",
+			"session-changed",
+		] as const) {
+			for (const isMarketCatalogReady of [true, false]) {
+				expect(getDisplayableOpenOrderModifyBlock(blockedPlan(reason), isMarketCatalogReady), reason).toEqual({
+					status: "blocked",
+					reason,
+					field: "triggerPrice",
+				});
+			}
+		}
+	});
+
+	it("never displays a ready plan as a block", () => {
+		const order = makeLimitOrder();
+		const plan = build(capture(order), order, "1");
+
+		expect(plan.status).toBe("ready");
+		expect(getDisplayableOpenOrderModifyBlock(plan, true)).toBeNull();
 	});
 
 	it("does not expose the form target for unsupported orders", () => {
