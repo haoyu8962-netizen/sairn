@@ -94,7 +94,7 @@ Hyperliquid 会话上下文是按 `resolveSession` 手写的模型，不是真�
 - `pnpm --filter @sairn/terminal typecheck` 退出码 0（工作树里临时放了图表库，未入库）；改动的 TypeScript 文件 Biome 无问题。
 - 回归组与包体见下面两小节。
 - 没有验证的：真实钱包、真实 Privy 与 wagmi 的事件顺序、真机。「Privy 更新用户对象后 wagmi 重连」「加载时目录就绪到连接器建好之间有一帧」「wagmi 的重连没有超时」都是读库代码得出的，测试里的阶段是按这个读法构造的。
-- 没有运行全量终端单测与浏览器回归。
+- 全量终端单测跑了一次，没有取得全绿，见「全量单测」。没有运行浏览器回归。
 - 没有跑 Codex 推送前审查：CLI 额度到 2026-11-20 才恢复（来源：登记表任务记录）。
 
 ### 回归组
@@ -105,6 +105,17 @@ Hyperliquid 会话上下文是按 `resolveSession` 手写的模型，不是真�
 - 这个文件单独运行在本分支与基线上都全部通过；在机器高负载时（当时负载 21 至 36，另有构建与其它会话在跑）基线上同样超时。本次没有改它涉及的代码。判断为负载下的超时，不是本次改动引起的；没有在空闲机器上取得一次整组全绿的结果。
 - 更早的两次整组运行与构建同时进行，另有 `mobile-agent-sync-modal`、`status-motion-surface-contract` 的超时，单独运行同样通过。
 - 整组运行还暴露了本次新写的一项测试对时序敏感（充值提现页签「会话解析后显示账户列表」只等了一个事件循环），已改为等到列表出现。
+
+### 全量单测
+
+提交 `3e0eaf10` 的工作树，`vitest run --maxWorkers=6`：744 个文件里 739 个通过、1 个跳过、4 个失败；10,708 项里 10,669 项通过、7 项跳过、32 项失败。失败全部是超时（5 秒的用例超时与 30 秒的 hook 超时），没有断言失败：
+
+- `mobile-agent-sync-modal.test.tsx` 29 项；
+- `use-explicit-agent-approval.test.tsx` 2 项；
+- `modal-close-label-i18n-contract.test.ts` 1 项（随后单独运行通过）；
+- `positions-panel-preload.test.ts` 的 `beforeAll`。
+
+运行时机器负载在 31 至 46 之间（本机另有 Android Studio 与其它 Node 进程占用）。随后在同样的负载下，把 `positions-panel-preload`、`mobile-agent-sync-modal`、`use-explicit-agent-approval` 逐个放到基线 `6c45e83a` 的工作树里用 `--maxWorkers=1` 运行，三个文件同样因超时失败；负载较低时（约 24），`mobile-agent-sync-modal` 与 `use-explicit-agent-approval` 在本分支与基线上单独运行都全部通过。判断为本机负载下的超时，与本次改动无关。结论的限制：没有在空闲机器上取得一次全绿，CI 上的结果要等推送之后才有。
 
 ### 包体
 
