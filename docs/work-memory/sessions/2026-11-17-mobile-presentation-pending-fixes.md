@@ -7,15 +7,17 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["market-recovery", "pr-review"],
-  "summary": "登记式契约建好后留下 18 个 pending 文件。这次修掉其中只涉及展示的 11 个：改单抽屉的提示、红框与 aria-invalid 共用一份不含被动原因的可展示结果；手机委托历史、资金费页签与三个历史页的筛选无匹配只在快照当前时下结论；两个手机 TWAP 列表的空结论要求 hook 新增的 canConfirmEmpty；订单簿分栏视图的空侧在过渡期间用占位行；两个平仓弹窗删掉不可达的加载变体。执行守卫没有改动。每项有渲染真实组件的行为测试，34 个新用例在修复前失败。同机同条件的协议构建全部预算通过，trade-terminal-page 比基线少 20 字节，没有改基线。剩下 7 个文件属于会话解析与地区未解析一组，另行处理。没有做真机或浏览器验收。",
+  "summary": "登记式契约建好后留下 18 个 pending 文件。这次修掉其中只涉及展示的 11 个：改单抽屉的提示、红框与 aria-invalid 共用一份不含被动原因的可展示结果；手机委托历史、资金费页签与三个历史页的筛选无匹配只在快照当前时下结论；两个手机 TWAP 列表的空结论要求 hook 新增的 canConfirmEmpty；订单簿分栏视图的空侧在过渡期间用占位行；两个平仓弹窗删掉不可达的加载变体。执行守卫没有改动。每项有渲染真实组件的行为测试，34 个新用例在修复前失败。同机同条件的协议构建全部预算通过，trade-terminal-page 比基线少 20 字节，没有改基线。剩下 7 个文件属于会话解析与地区未解析一组，另行处理。PR #10 的 CI 随后发现两个平仓弹窗的圆角例外登记没有跟着 class 字符串更新，补了一个只改契约的提交。没有做真机或浏览器验收。",
   "thread": null,
   "baseCommit": "75b18fc0",
-  "commits": [],
+  "commits": ["8057f6fc"],
   "sources": [
     { "path": "docs/mobile-data-presentation.md" },
     { "path": "docs/work-memory/sessions/2026-11-17-mobile-presentation-contract-registry.md" },
     { "path": "apps/terminal/src/lib/tests/mobile-data-presentation-registry.ts" },
     { "path": "apps/terminal/src/lib/tests/mobile-data-presentation-contract.test.ts" },
+    { "path": "apps/terminal/src/lib/tests/dialog-notice-radius-contract.test.ts" },
+    { "url": "https://github.com/haoyu8962-netizen/sairn/pull/10" },
     { "path": "apps/terminal/src/domain/trade/open-order-modification-form.ts" },
     { "path": "apps/terminal/src/hooks/trade/use-twap-history.ts" },
     { "path": "apps/terminal/src/hooks/trade/use-twap-slice-fills.ts" },
@@ -93,8 +95,27 @@
 - 行为测试在 jsdom 里渲染真实组件，替换的是 hook 或传输层，不是真实浏览器、真实订阅或真实钱包。没有做手机真机或浏览器里的目视检查，也没有跑浏览器回归套件。
 - 「市场目录加载中或失败」「订阅在等新帧」这些状态由测试直接构造，没有在真实网络下观察。
 - 没有构建配对开启与发布配置；发布配置下的余量是按 p42 之前的差值估算的。
-- 没有跑全量终端单测。
+- 提交 `8057f6fc` 之前没有跑全量终端单测，只跑了上面三组。这个缺口让下一小节的失败留到了 CI。
 - 没有跑 Codex 推送前审查：上一条记录写明 CLI 额度到 2026-11-20 才恢复。
+
+### PR #10 的 CI 失败与补修（同日补记）
+
+经运营方同意，`8057f6fc` 推送并开了 [PR #10](https://github.com/haoyu8962-netizen/sairn/pull/10)。它的 CI 有一项失败：「Test terminal and release tooling (1/2)」里 `dialog-notice-radius-contract.test.ts` 的两个用例，都指向 `position-limit-close-modal.tsx`。
+
+- **原因**：这份契约把「圆角还不是 `rounded-16` 的弹窗提示」按 class 字符串登记为待定例外。删掉加载变体后，两个平仓弹窗提示框的 class 从 `cn()` 的两段变成了一个字符串，登记的片段（含已删除的 `text-fg-muted`）不再匹配。提示框的 class 集合与原来的非加载分支相同，渲染没有变，4px 圆角仍是待定的设计决定。
+- **市价平仓弹窗为什么没报**：它有同样的问题。两个用例都在循环里断言，遇到第一个失败就停，限价平仓排在前面。本地只改限价那一条后重跑，失败的就换成了市价平仓。
+- **补修**：两条例外的 `contains` 改为新的 class 片段，组件没有改。
+- **为什么本地没发现**：改的是弹窗的 class，却只跑了数据展示、订单簿与确认面三组，没有跑 `AGENTS.md` 的 Trading terminal visual contract 组，也没有跑全量。改动 class 字符串时，按字符串登记的契约都可能受影响，应当跑全量或至少加上视觉契约组。
+
+补修后的验证（同一工作树，机器负载仍在 26 到 40 之间）：
+
+- `dialog-notice-radius-contract.test.ts` 3 项通过；视觉契约组 16 个文件 418 项通过。
+- 全量 `pnpm --filter @sairn/terminal test`：738 个文件，727 通过、10 失败、1 跳过；10,618 项通过、53 项失败、1 项跳过，用时 816 秒。失败里有 15 处是超时（13 处 5 秒、1 处 15 秒、1 处钩子 10 秒），其余是同一文件里超时之后的连带失败。把这 10 个文件单独重跑：10 个文件 201 项全部通过，用时 11 秒。其中 8 个文件这次没有碰过；`status-motion-surface-contract.test.ts` 是上面记过的源码扫描超时；`mobile-order-modification.test.tsx` 失败的是既有的第一个用例（5 秒超时）。
+- 同一提交在 CI 上的全量结果是另一份证据：第一片只有上述两项失败（5,528 项通过），第二片通过。
+- `pnpm --filter @sairn/terminal typecheck` 无报错；Biome 对改动的文件无改动。
+- 查看了一次 PR #10 的检查：两次构建、静态检查、单测第二片、浏览器回归第二片通过；单测第一片失败（即上面两项）；浏览器回归第一片当时还在运行。
+
+补修提交只在本地，没有推送：运营方的同意只覆盖一次推送和开 PR。
 
 ## 后续与替代关系
 
