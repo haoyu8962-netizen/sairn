@@ -1,6 +1,7 @@
 import type { TwapHistoryResponse } from "@nktkas/hyperliquid";
 import { useState } from "react";
 import { MAX_HISTORY_ROWS, MAX_TWAP_HISTORY_ROWS, TWAP_HISTORY_PAGE_SIZE } from "@/config/trade";
+import { useOnlineStatus } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { useInfo, useSubscription } from "@/lib/hyperliquid";
 import { MalformedHistoryPageError } from "@/lib/trade/history-pagination";
@@ -17,8 +18,9 @@ export type TwapHistoryStatus = "idle" | "loading" | "ready" | "error";
 
 interface TwapHistoryResult {
 	/**
-	 * Presentation only. True when the REST snapshot is the answer to the last request, no request is running or
-	 * paused, and the stream is subscribed and not awaiting a fresh frame, so an empty list is a fact.
+	 * Presentation only. True when the device is online, the REST snapshot is the answer to the last request, no
+	 * request is running or paused, and the stream is subscribed and not awaiting a fresh frame, so an empty list is a
+	 * fact. The stream is event-driven and is not marked stale by a disconnect, hence the online check.
 	 */
 	canConfirmEmpty: boolean;
 	error: unknown;
@@ -35,6 +37,7 @@ interface TwapHistoryResult {
 
 export function useTwapHistory(): TwapHistoryResult {
 	const { address, isConnected } = useWalletSession();
+	const isOnline = useOnlineStatus();
 	const enabled = isConnected && !!address;
 	const user = address ?? EMPTY_ADDRESS;
 	const [realtimeRefreshKey, setRealtimeRefreshKey] = useState<number>();
@@ -107,6 +110,7 @@ export function useTwapHistory(): TwapHistoryResult {
 	return {
 		canConfirmEmpty:
 			status === "ready" &&
+			isOnline &&
 			!historyQuery.isError &&
 			historyQuery.fetchStatus === "idle" &&
 			historySubscription.status === "active" &&

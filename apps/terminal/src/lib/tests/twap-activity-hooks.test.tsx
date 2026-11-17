@@ -235,6 +235,31 @@ describe("TWAP activity hooks", () => {
 		}
 	});
 
+	it("does not confirm an empty list while the device is offline, although the request is settled and the stream active", () => {
+		const setOnline = (online: boolean) => {
+			Object.defineProperty(window.navigator, "onLine", { configurable: true, value: online });
+			window.dispatchEvent(new Event(online ? "online" : "offline"));
+		};
+		try {
+			expect(renderHooks().history.canConfirmEmpty).toBe(true);
+
+			act(() => setOnline(false));
+
+			expect(mocks.historyQuery.fetchStatus).toBe("idle");
+			expect(mocks.historySubscription).toMatchObject({ isStale: false, status: "active" });
+			expect(historyResult?.canConfirmEmpty).toBe(false);
+			expect(fillsResult?.canConfirmEmpty).toBe(false);
+			expect(historyResult?.status).toBe("ready");
+
+			act(() => setOnline(true));
+
+			expect(historyResult?.canConfirmEmpty).toBe(true);
+			expect(fillsResult?.canConfirmEmpty).toBe(true);
+		} finally {
+			setOnline(true);
+		}
+	});
+
 	it("refreshes the REST snapshot and creates fresh subscription identities on retry", () => {
 		mocks.historySubscription.status = "error";
 		mocks.fillsSubscription.status = "error";

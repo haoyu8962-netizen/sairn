@@ -168,7 +168,13 @@ describe("mobile TWAP history and fill lists: empty statement", () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+		setOnline(true);
 	});
+
+	function setOnline(online: boolean) {
+		Object.defineProperty(window.navigator, "onLine", { configurable: true, value: online });
+		window.dispatchEvent(new Event(online ? "online" : "offline"));
+	}
 
 	// A new element each time: rendering the same element again would skip the component.
 	function render(List: ComponentType) {
@@ -198,6 +204,33 @@ describe("mobile TWAP history and fill lists: empty statement", () => {
 			render(List);
 
 			expect(container.textContent).toContain(empty);
+		});
+
+		it("withdraws the empty statement when the device goes offline while the settled request stays idle", () => {
+			render(List);
+			expect(container.textContent).toContain(empty);
+
+			act(() => setOnline(false));
+
+			expect(mocks.query.fetchStatus).toBe("idle");
+			expect(mocks.stream).toMatchObject({ isStale: false, status: "active" });
+			expect(container.textContent).not.toContain(empty);
+			expect(container.querySelector('[data-slot="data-pending"]')).not.toBeNull();
+			expect(container.querySelector('[role="alert"]')).toBeNull();
+			expect(container.textContent).not.toMatch(/offline|Loading|Failed|Retry|unavailable/i);
+
+			act(() => setOnline(true));
+
+			expect(container.textContent).toContain(empty);
+		});
+
+		it("keeps loaded rows while the device is offline", () => {
+			mocks.query.data = [row];
+			render(List);
+			act(() => setOnline(false));
+
+			expect(container.querySelectorAll("article")).toHaveLength(1);
+			expect(container.querySelector('[data-slot="data-pending"]')).toBeNull();
 		});
 
 		it.each(NOT_CURRENT)("keeps loaded rows while $state", ({ apply }) => {

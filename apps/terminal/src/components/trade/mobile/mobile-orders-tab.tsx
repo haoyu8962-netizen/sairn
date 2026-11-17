@@ -230,6 +230,7 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 	const { setSide } = useOrderEntryActions();
 	const { getFullOrderTypeLabel, getOrderSideLabel } = useOrderDisplayLabels();
 	const markets = useMarkets();
+	const isMarketCatalogReady = !markets.isLoading && !markets.error;
 
 	function handleSelectMarket(name: string, side: Side) {
 		navigateToMarket(name, undefined, { displayedContent: "trade" });
@@ -346,7 +347,7 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 	);
 
 	function getMarketBinding(coin: string): OpenOrderModifyMarketBinding | null {
-		if (markets.isLoading || markets.error) return null;
+		if (!isMarketCatalogReady) return null;
 		const market = markets.getMarket(coin);
 		if (!market) return null;
 		const marketInfo = getMarketInfo(coin);
@@ -669,6 +670,7 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 
 	function handleRequestModify(order: OpenOrder) {
 		if (
+			!isMarketCatalogReady ||
 			modifyPhaseRef.current !== "idle" ||
 			pendingScopes.size > 0 ||
 			sharedCancellingOids.has(order.oid) ||
@@ -1076,7 +1078,7 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 	const draftModifyPlan = modifyTarget
 		? buildPlanFromLive(modifyTarget, modifySize, modifyTriggerPrice, modifyLimitPrice)
 		: null;
-	const draftModifyBlock = getDisplayableOpenOrderModifyBlock(draftModifyPlan, !markets.isLoading && !markets.error);
+	const draftModifyBlock = getDisplayableOpenOrderModifyBlock(draftModifyPlan, isMarketCatalogReady);
 	const draftModifyError = draftModifyBlock ? getModifyBlockMessage(draftModifyBlock.reason) : null;
 	const draftInvalidField = draftModifyBlock?.field ?? null;
 	const modalError = visibleModifyValidationError ?? draftModifyError;
@@ -1204,6 +1206,7 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 									actionsDisabled={isModifyBusy || pendingScopes.size > 0}
 									canModify={modifyCapability.supported}
 									modifyDisabled={
+										!isMarketCatalogReady ||
 										isModifyBusy ||
 										sessionModifications.some((action) => action.oid === order.oid) ||
 										pendingScopes.size > 0 ||

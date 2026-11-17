@@ -241,11 +241,11 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 		why: {
 			"action-feedback":
-				'The role="alert" line and the toasts report a Cancel or Modify the user requested, including the reply to a Modify tap while the trading client is not a valid owner or the market cannot be bound; getDisplayableOpenOrderModifyBlock() keeps the snapshot-not-ready and mark-price sentences out of the draft, so they only follow a confirmed submit.',
+				'The role="alert" line and the toasts report a Cancel or Modify the user requested, including the reply to a Modify tap while the trading client is not a valid owner; getDisplayableOpenOrderModifyBlock() keeps the snapshot-not-ready and mark-price sentences out of the draft, so they only follow a confirmed submit.',
 			"input-validation":
 				"What the user typed in the modify drawer against the order it edits; the message, the red border and aria-invalid come from the same displayable block.",
 			"confirmed-change":
-				"The order, the account, the network or the market binding differs from what the editor opened with; a draft shows the market sentence only while the market catalog is loaded.",
+				"The order, the account, the network or the market binding differs from what the editor opened with. The market sentence needs a loaded market catalog everywhere it is shown: in a draft, and as the reply to a Modify tap for a market the loaded catalog cannot bind. While the catalog is loading or failed, Modify Order is disabled and a tap is ignored.",
 			"confirmed-restriction":
 				"Modify capabilities derived from the order record itself (linked TP/SL, market order, unsupported type, incomplete record, outcome market).",
 			"confirmed-empty": "Rendered only when the open-orders snapshot is active, received and not stale (isDataReady).",
@@ -329,7 +329,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		why: {
 			"data-value": "Sell direction in the danger colour.",
 			"confirmed-empty":
-				"Rendered only when useTwapSliceFills().canConfirmEmpty holds (the last REST request succeeded, none is running or paused, the stream is active and not stale).",
+				"Rendered only when useTwapSliceFills().canConfirmEmpty holds (online, the last REST request succeeded, none is running or paused, the stream is active and not stale).",
 		},
 	},
 	"trade/mobile/mobile-twap-history-list.tsx": {
@@ -340,7 +340,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		why: {
 			"data-value": "Failed status and the exchange description of a TWAP that ended in error, in the danger colour.",
 			"confirmed-empty":
-				"Rendered only when useTwapHistory().canConfirmEmpty holds (the last REST request succeeded, none is running or paused, the stream is active and not stale).",
+				"Rendered only when useTwapHistory().canConfirmEmpty holds (online, the last REST request succeeded, none is running or paused, the stream is active and not stale).",
 		},
 	},
 	"trade/mobile/mobile-twap-tab.tsx": {

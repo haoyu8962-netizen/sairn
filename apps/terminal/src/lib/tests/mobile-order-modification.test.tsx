@@ -545,6 +545,60 @@ describe("mobile order modification", () => {
 		expect(mocks.modifyOrders).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		[
+			"is loading",
+			() => {
+				mocks.marketsLoading = true;
+			},
+		],
+		[
+			"failed",
+			() => {
+				mocks.marketsError = new Error("markets request failed");
+			},
+		],
+	])("keeps Modify Order named, disabled and silent while the market catalog %s", (_state, breakCatalog) => {
+		breakCatalog();
+		act(() => root.render(<ReviewedOrders />));
+		act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Expand ORCL order details"]')?.click());
+
+		const modify = findButton("Modify Order", container);
+		expect(modify?.disabled).toBe(true);
+		expect(modify?.getAttribute("aria-disabled")).toBe("true");
+		act(() => modify?.click());
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(document.body.textContent).not.toContain("Market metadata changed");
+		expect(document.body.querySelector('input[aria-label="Size"]')).toBeNull();
+		expect(findButton("Cancel", container)?.disabled).toBe(false);
+
+		mocks.marketsLoading = false;
+		mocks.marketsError = null;
+		act(() => root.render(<ReviewedOrders />));
+
+		const ready = findButton("Modify Order", container);
+		expect(ready?.disabled).toBe(false);
+		act(() => ready?.click());
+		expect(document.body.querySelector<HTMLInputElement>('input[aria-label="Size"]')?.value).toBe("2.000");
+	});
+
+	it("answers a Modify Order tap for a market a loaded catalog does not have", () => {
+		mocks.assetId = undefined;
+		act(() => root.render(<ReviewedOrders />));
+		act(() =>
+			container.querySelector<HTMLButtonElement>('button[aria-label="Expand xyz:ORCL order details"]')?.click(),
+		);
+
+		const modify = findButton("Modify Order", container);
+		expect(modify?.disabled).toBe(false);
+		act(() => modify?.click());
+
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+			"Market metadata changed. Refresh and try again.",
+		);
+		expect(document.body.querySelector('input[aria-label="Size"]')).toBeNull();
+	});
+
 	it("still reports a market whose binding differs once the catalog is loaded", () => {
 		const { size } = openEditor();
 		act(() => {
