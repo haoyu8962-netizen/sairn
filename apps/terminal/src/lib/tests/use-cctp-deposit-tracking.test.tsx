@@ -4,7 +4,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Address, Hash, Hex } from "viem";
-import { concatHex, encodeAbiParameters, encodeEventTopics, encodeFunctionData, numberToHex } from "viem";
+import {
+	concatHex,
+	decodeFunctionData,
+	encodeAbiParameters,
+	encodeEventTopics,
+	encodeFunctionData,
+	encodeFunctionResult,
+	numberToHex,
+} from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CCTP_DEPOSIT_NETWORKS, CCTP_FAST_FINALITY_THRESHOLD } from "@/config/cctp-deposit";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
@@ -14,6 +22,7 @@ import {
 	CCTP_EXTENSION_ABI,
 	CCTP_EXTENSION_V2_ABI,
 	encodeCctpForwardHookData,
+	USDC_EIP3009_AUTHORIZATION_ABI,
 } from "@/lib/trade/cctp-deposit";
 import {
 	ArbitrumCctpSourceReceiptError,
@@ -27,6 +36,9 @@ const OWNER = "0x1111111111111111111111111111111111111111";
 const SOURCE_HASH = `0x${"a".repeat(64)}` as Hash;
 const FORWARD_HASH = `0x${"b".repeat(64)}` as Hash;
 const AUTH_NONCE = `0x${"1".repeat(64)}` as Hash;
+const REPLACEMENT_HASH = `0x${"c".repeat(64)}` as Hash;
+const VALID_BEFORE = 1_800_000_000;
+const SOURCE_BLOCK = 400_000_000;
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -290,6 +302,142 @@ describe("useCctpDepositTracking cross-tab reactivity", () => {
 		expect(recoveryHash).toBeNull();
 		expect(fetch).toHaveBeenCalledTimes(2);
 	});
+
+	describe("an external wallet deposit whose tracked transaction has no receipt", () => {
+		function saveAuthorizedRecord() {
+			saveCctpSponsoredAuthorizationIntent({
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				owner: OWNER,
+				amount: "5",
+				validBefore: Math.floor(Date.now() / 1000) + 3_600,
+			});
+			saveCctpDepositTrackingRecord({
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: SOURCE_BLOCK,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: VALID_BEFORE,
+			});
+		}
+
+		function renderProbe() {
+			act(() => {
+				root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)));
+			});
+		}
+
+		it("follows the transaction that used the authorization after the wallet sped the deposit up", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({ authorizationUsed: true, consumer: REPLACEMENT_HASH });
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() =>
+					expect(trackingData).toEqual({ status: "forward-submitted", forwardTxHash: FORWARD_HASH }),
+				);
+			});
+
+			expect(chain.circleHashes).toEqual([REPLACEMENT_HASH]);
+			expect(chain.logFilters[0]).toMatchObject({
+				address: CCTP_DEPOSIT_NETWORKS.mainnet.usdc,
+				fromBlock: numberToHex(SOURCE_BLOCK),
+			});
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).toBeNull();
+			expect(recoveryHash).toBe(SOURCE_HASH);
+		});
+
+		it("settles the deposit as not executed once the unused authorization has expired on Arbitrum", async () => {
+			saveAuthorizedRecord();
+			vi.mocked(fetch).mockImplementation(
+				createAuthorizationChainFetch({ authorizationUsed: false, blockTimestamp: VALID_BEFORE }).fetch,
+			);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(trackingError).toMatchObject({ code: "source-receipt-mismatch" });
+			expect(recoveryHash).toBeNull();
+			expect(
+				window.localStorage.getItem(getCctpDepositTrackingRecordStorageKey("Mainnet", OWNER, SOURCE_HASH)),
+			).toBeNull();
+		});
+
+		it("keeps waiting while the unused authorization can still be executed", async () => {
+			saveAuthorizedRecord();
+			vi.mocked(fetch).mockImplementation(
+				createAuthorizationChainFetch({ authorizationUsed: false, blockTimestamp: VALID_BEFORE - 1 }).fetch,
+			);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingData).toEqual({ status: "waiting" }));
+			});
+
+			expect(trackingError).toBeNull();
+			expect(recoveryHash).toBe(SOURCE_HASH);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).not.toBeNull();
+		});
+
+		it("keeps the record when the authorization is used but its transaction is not visible yet", async () => {
+			saveAuthorizedRecord();
+			vi.mocked(fetch).mockImplementation(createAuthorizationChainFetch({ authorizationUsed: true }).fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(ArbitrumCctpSourceReceiptError));
+			});
+
+			expect(recoveryHash).toBe(SOURCE_HASH);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).not.toBeNull();
+		});
+
+		it("does not accept a confirmed transaction that carries a different authorization", async () => {
+			saveCctpDepositTrackingRecord({
+				authNonce: `0x${"2".repeat(64)}`,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: SOURCE_BLOCK,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: VALID_BEFORE,
+			});
+			vi.mocked(fetch).mockImplementation(createRecoveryFetch());
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(trackingError).toMatchObject({ code: "source-receipt-mismatch" });
+		});
+
+		it("does not follow a transaction from another account that used the authorization", async () => {
+			saveAuthorizedRecord();
+			vi.mocked(fetch).mockImplementation(
+				createAuthorizationChainFetch({
+					authorizationUsed: true,
+					consumer: REPLACEMENT_HASH,
+					consumerFrom: "0x2222222222222222222222222222222222222222",
+				}).fetch,
+			);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(trackingError).toMatchObject({ code: "source-receipt-mismatch" });
+			expect(recoveryHash).toBeNull();
+		});
+	});
 });
 
 function createSourceReceiptResponse(status: "0x0" | "0x1" | null): Response {
@@ -476,4 +624,85 @@ function createCircleCctpMessage({
 		numberToHex(1, { size: 32 }),
 		encodeCctpForwardHookData(owner),
 	]);
+}
+
+function createAuthorizationChainFetch({
+	authorizationUsed,
+	blockTimestamp = VALID_BEFORE - 600,
+	consumer,
+	consumerFrom = OWNER,
+}: {
+	authorizationUsed: boolean;
+	blockTimestamp?: number;
+	consumer?: Hash;
+	consumerFrom?: Address;
+}) {
+	const circleHashes: string[] = [];
+	const logFilters: Record<string, unknown>[] = [];
+	const config = CCTP_DEPOSIT_NETWORKS.mainnet;
+	async function handle(input: RequestInfo | URL, init?: RequestInit) {
+		const url = String(input);
+		if (!url.includes("arb1.arbitrum.io")) {
+			const hash = new URL(url).searchParams.get("transactionHash") ?? "";
+			circleHashes.push(hash);
+			return new Response(
+				JSON.stringify({
+					sourceTxHash: hash,
+					messages: [{ message: createCircleCctpMessage(), status: "complete", forwardTxHash: FORWARD_HASH }],
+				}),
+				{ status: 200 },
+			);
+		}
+		const request = JSON.parse(String(init?.body)) as { id: number; method: string; params: unknown[] };
+		const reply = (result: unknown) => new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+		const [first] = request.params;
+		switch (request.method) {
+			case "eth_getTransactionReceipt":
+				return reply(
+					first === consumer ? { transactionHash: consumer, status: "0x1", logs: [createBatchDepositLog()] } : null,
+				);
+			case "eth_getTransactionByHash": {
+				const transaction = createSourceTransactionPayload();
+				return reply({ ...transaction.result, hash: first, from: consumerFrom });
+			}
+			case "eth_getBlockByNumber":
+				return reply({ number: numberToHex(SOURCE_BLOCK + 50), timestamp: numberToHex(blockTimestamp) });
+			case "eth_call": {
+				const call = first as { to: string; data: Hex };
+				const decoded = decodeFunctionData({ abi: USDC_EIP3009_AUTHORIZATION_ABI, data: call.data });
+				expect(call.to).toBe(config.usdc);
+				expect(decoded.args).toEqual([OWNER, AUTH_NONCE]);
+				expect(request.params[1]).toBe(numberToHex(SOURCE_BLOCK + 50));
+				return reply(
+					encodeFunctionResult({
+						abi: USDC_EIP3009_AUTHORIZATION_ABI,
+						functionName: "authorizationState",
+						result: authorizationUsed,
+					}),
+				);
+			}
+			case "eth_getLogs":
+				logFilters.push(first as Record<string, unknown>);
+				return reply(
+					consumer
+						? [
+								{
+									address: config.usdc,
+									topics: encodeEventTopics({
+										abi: USDC_EIP3009_AUTHORIZATION_ABI,
+										eventName: "AuthorizationUsed",
+										args: { authorizer: OWNER, nonce: AUTH_NONCE },
+									}),
+									data: "0x",
+									transactionHash: consumer,
+									removed: false,
+								},
+							]
+						: [],
+				);
+			default:
+				throw new Error(`Unexpected Arbitrum method ${request.method}`);
+		}
+	}
+	return { circleHashes, fetch: handle, logFilters };
 }

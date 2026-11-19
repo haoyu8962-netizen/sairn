@@ -2,6 +2,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import Big from "big.js";
 import type { Address } from "viem";
+import { USDC_TRANSFER_DECIMALS } from "@/config/app";
 import {
 	ARBITRUM_CCTP_DOMAIN,
 	CCTP_AUTOMATIC_FORWARDING_DATA,
@@ -58,11 +59,16 @@ export function getWithdrawalRouteFee(route: WithdrawalRoute, cctpFee: string | 
 	return route === "arbitrum-legacy" ? LEGACY_WITHDRAWAL_FEE_USDC : cctpFee;
 }
 
+/**
+ * The smallest amount the form accepts. The CCTP minimum is twice the forwarding fee; a fee with
+ * more decimals than the two-decimal amount field is rounded up to the first amount that can be
+ * typed, never down, so the displayed minimum is always one the user can submit.
+ */
 export function getMinimumWithdrawal(route: WithdrawalRoute, routeFee: string | null): string | null {
 	if (route === "arbitrum-legacy") return LEGACY_MINIMUM_WITHDRAWAL_USDC;
 	if (routeFee === null) return null;
 	const fee = toUnsignedBig(routeFee);
-	return fee ? fee.times(CCTP_MINIMUM_FEE_MULTIPLIER).toFixed() : null;
+	return fee ? fee.times(CCTP_MINIMUM_FEE_MULTIPLIER).round(USDC_TRANSFER_DECIMALS, Big.roundUp).toFixed() : null;
 }
 
 export function getMaximumWithdrawal(available: string, activationFee: string): string {

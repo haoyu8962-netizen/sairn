@@ -148,3 +148,5 @@ Sairn 的状态未知指引、CCTP 跟踪与资金动作锁比官方更严格，
 ## 2026-10-10 无源哈希存款的未知结果
 
 状态：本地已实施，未发布；真实充值故障的原始钱包响应仍待捕获。有源哈希且结果不明时，沿用“Arbitrum 已提交、确认未知”的常驻通知；赞助提交没有返回哈希时，改为“钱包未返回交易哈希、已签署授权可能仍有效”，不推断链上广播或 Circle 正在处理。此类通知关闭弹窗后，原始 SDK 错误仍会按既有 reset 清理，但提交阶段与脱敏错误类别先通过现有错误上报通道记录。无哈希授权拦截提示与真实源交易跟踪拦截分开；不删除有效授权、不自动重签。规范和诊断边界见 [CCTP recovery](cctp-deposits.md#submission-diagnostics-and-unknown-outcomes)。
+
+2026-11-19 外部钱包补记（本地实现，未发布）：外部钱包在请求钱包广播前，于资金锁内写入与赞助路径相同的未决授权记录；没拿到哈希且不是钱包在广播前明确拒绝时，记录保留到授权 `validBefore`（最长一小时），期间同一环境与 owner 的任何新存款在签名前被拦下，沿用现有 “A previous deposit authorization is still active…” 文案，原页面仍显示既有的常驻 `Deposit status unknown` 通知。已有哈希的记录在旧哈希没有回执时，按 USDC `authorizationState` 与 `AuthorizationUsed` 日志找出真正消耗该授权的交易并继续跟踪；授权过期仍未使用时按源交易失败结清。规则与出处见 [CCTP 外部钱包授权与替换交易](cctp-deposits.md#external-wallet-authorization-intent-and-replaced-transactions)。

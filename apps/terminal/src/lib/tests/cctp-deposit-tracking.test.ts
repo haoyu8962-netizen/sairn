@@ -286,9 +286,10 @@ describe("Arbitrum CCTP source receipt recovery", () => {
 
 		await expect(
 			fetchArbitrumCctpSourceReceiptStatus({ ...TRACKING_RECORD, fetchImpl: mainnetFetch }),
-		).resolves.toEqual({ status: "confirmed-success" });
+		).resolves.toEqual({ status: "confirmed-success", sourceHash: SOURCE_HASH });
 		await expect(fetchArbitrumCctpSourceReceiptStatus({ ...testnetRecord, fetchImpl: testnetFetch })).resolves.toEqual({
 			status: "confirmed-success",
+			sourceHash: SOURCE_HASH,
 		});
 
 		expect(mainnetFetch.mock.calls[0]?.[0]).toBe("https://arb1.arbitrum.io/rpc");
@@ -313,6 +314,7 @@ describe("Arbitrum CCTP source receipt recovery", () => {
 		});
 		expect(parseArbitrumCctpSourceReceiptResponse(createSourceReceiptPayload("0x1"), TRACKING_RECORD)).toEqual({
 			status: "confirmed-success",
+			sourceHash: SOURCE_HASH,
 		});
 	});
 
@@ -339,7 +341,7 @@ describe("Arbitrum CCTP source receipt recovery", () => {
 				createSourceReceiptPayload("0x1", SOURCE_HASH, [createSponsoredDepositLog()]),
 				SPONSORED_TRACKING_RECORD,
 			),
-		).toEqual({ status: "confirmed-success" });
+		).toEqual({ status: "confirmed-success", sourceHash: SOURCE_HASH });
 	});
 
 	it.each([
@@ -484,6 +486,39 @@ describe("CCTP deposit tracking persistence", () => {
 
 		expect(record).toMatchObject({ authNonce: AUTH_NONCE, mode: "sponsored", version: 2 });
 		expect(JSON.stringify(record)).not.toContain("signature");
+	});
+
+	it("persists the external wallet authorization identity and rejects a partial one", () => {
+		const storage = new MemoryStorage();
+		const record = saveCctpDepositTrackingRecord(
+			{
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: 400_000_000n,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: 1_800_000_000n,
+			},
+			{ storage, nowMs: NOW_MS },
+		);
+
+		expect(record).toMatchObject({
+			authNonce: AUTH_NONCE,
+			mode: "direct",
+			sourceBlock: 400_000_000,
+			validBefore: 1_800_000_000,
+			version: 2,
+		});
+		expect(readCctpDepositTrackingRecords("Mainnet", OWNER, { storage, nowMs: NOW_MS })).toEqual([record]);
+
+		const key = getCctpDepositTrackingRecordStorageKey("Mainnet", OWNER, SOURCE_HASH);
+		const { sourceBlock: _sourceBlock, ...partial } = record;
+		storage.setItem(key, JSON.stringify(partial));
+		expect(() => readCctpDepositTrackingRecords("Mainnet", OWNER, { storage, nowMs: NOW_MS })).toThrow(
+			"cannot be trusted",
+		);
 	});
 
 	it("persists a minimal unresolved sponsored authorization before submission", () => {

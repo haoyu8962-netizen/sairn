@@ -10585,6 +10585,7 @@ msgstr "Type"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "Impossible de vérifier l'adresse de destination. Rien n'a été envoyé."
 
@@ -10602,6 +10603,7 @@ msgstr "Impossible de charger le solde USDC sur Arbitrum"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "Impossible de charger les frais actuels de retrait CCTP."
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "Impossible d'envoyer des fonds à cette adresse."
@@ -10655,6 +10657,7 @@ msgstr "Impossible de vérifier la disponibilité régionale. Le trading est tem
 #~ msgid "Unable to verify regional availability. Vault actions are temporarily unavailable."
 #~ msgstr "Impossible de vérifier la disponibilité régionale. Les actions sur les coffres sont temporairement indisponibles."
 
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."

@@ -8,7 +8,7 @@ import { Button } from "@sairn/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { type Address, formatUnits, isAddress, parseUnits, zeroAddress } from "viem";
+import { type Address, formatUnits, parseUnits, zeroAddress } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
@@ -28,6 +28,7 @@ import {
 	isQuoteBalanceSharedWithPerps,
 } from "@/domain/trade/balances";
 import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { isFundsDestinationAddress } from "@/domain/trade/funds-destination-address";
 import { assertFreshFundsAmountWithFee, FundsExecutionError } from "@/domain/trade/funds-execution-guard";
 import {
 	assertPreTransferCheckMatchesReview,
@@ -569,7 +570,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		: null;
 	const isWithdrawDestinationValid =
 		!requiresWithdrawDestination ||
-		(!!normalizedWithdrawDestination && isAddress(normalizedWithdrawDestination) && !withdrawDestinationIssue);
+		(isFundsDestinationAddress(normalizedWithdrawDestination) && !withdrawDestinationIssue);
 	const withdrawDestinationError = getWithdrawDestinationError();
 	const withdrawalPrerequisitesPending =
 		isWithdrawalPreflighting ||
@@ -932,7 +933,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 
 	function getWithdrawDestinationError(): string | null {
 		if (!requiresWithdrawDestination || !normalizedWithdrawDestination) return null;
-		if (!isAddress(normalizedWithdrawDestination)) return t`Invalid destination address`;
+		if (!isFundsDestinationAddress(normalizedWithdrawDestination)) return t`Invalid destination address`;
 		if (withdrawDestinationIssue === "self") {
 			return t`Withdrawing to yourself is not allowed because it would automatically trigger a deposit. Enter a different address.`;
 		}
@@ -944,7 +945,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		const deadline = startExchangeActionDeadline();
 		if (!canSubmitWithdraw || !walletAddress || withdrawalRouteFee === null) return;
 		const destination = requiresWithdrawDestination ? normalizedWithdrawDestination : walletAddress;
-		if (!isAddress(destination)) return;
+		if (!isFundsDestinationAddress(destination)) return;
 		if (
 			requiresWithdrawDestination &&
 			getWithdrawDestinationIssue(destination, [walletAddress, embeddedWalletAddress]) !== null

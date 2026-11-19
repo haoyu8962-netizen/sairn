@@ -107,6 +107,21 @@ export function getInternalTransferAvailability({
 	return { available: true, reason: null };
 }
 
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		function abort() {
+			reject(signal.reason);
+		}
+		signal.addEventListener("abort", abort, { once: true });
+		promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+	});
+}
+
+/**
+ * Stops waiting as soon as the signal aborts. The refresh is a TanStack Query refetch, which pauses
+ * while the browser is offline and only resumes when it is back online; a caller holding the funds
+ * lock bounds it with a signal so a paused check cannot keep the lock.
+ */
 export async function assertFreshFundsActionGeo({
 	refresh,
 	restrictedMessage,
@@ -117,7 +132,7 @@ export async function assertFreshFundsActionGeo({
 
 	let result: FreshGeoRefreshResult;
 	try {
-		result = await refresh();
+		result = await untilAborted(refresh(), signal);
 	} catch {
 		signal.throwIfAborted();
 		throw new Error(unavailableMessage);

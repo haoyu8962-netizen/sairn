@@ -1,5 +1,15 @@
 import type { Hash, TransactionReceipt } from "viem";
-import { isAddress, isHex, numberToHex, size, sliceHex } from "viem";
+import {
+	decodeFunctionResult,
+	encodeEventTopics,
+	encodeFunctionData,
+	isAddress,
+	isHex,
+	numberToHex,
+	padHex,
+	size,
+	sliceHex,
+} from "viem";
 import { getCctpDepositConfig } from "@/config/cctp-deposit";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import {
@@ -8,6 +18,7 @@ import {
 	assertCctpDepositSourceTransaction,
 	assertCctpSponsoredDepositReceipt,
 	encodeCctpForwardHookData,
+	USDC_EIP3009_AUTHORIZATION_ABI,
 } from "@/lib/trade/cctp-deposit";
 
 export type CctpDepositEnvironment = "Mainnet" | "Testnet";
@@ -24,8 +35,20 @@ interface CctpDepositTrackingRecordBase {
 	status: "source-submitted";
 }
 
+interface CctpDirectAuthorization {
+	authNonce: Hash;
+	validBefore: number;
+	sourceBlock: number;
+}
+
+type WithoutDirectAuthorization = { [Key in keyof CctpDirectAuthorization]?: never };
+
 export type CctpDepositTrackingRecord = CctpDepositTrackingRecordBase &
-	({ mode: "direct"; authNonce?: never } | { mode: "sponsored"; authNonce: Hash });
+	(
+		| ({ mode: "direct" } & WithoutDirectAuthorization)
+		| ({ mode: "direct" } & CctpDirectAuthorization)
+		| { mode: "sponsored"; authNonce: Hash; validBefore?: never; sourceBlock?: never }
+	);
 
 interface SaveCctpDepositTrackingRecordInputBase {
 	env: CctpDepositEnvironment;
@@ -36,7 +59,11 @@ interface SaveCctpDepositTrackingRecordInputBase {
 }
 
 export type SaveCctpDepositTrackingRecordInput = SaveCctpDepositTrackingRecordInputBase &
-	({ mode?: "direct"; authNonce?: never } | { mode: "sponsored"; authNonce: string });
+	(
+		| ({ mode?: "direct" } & WithoutDirectAuthorization)
+		| { mode: "direct"; authNonce: string; validBefore: bigint | number; sourceBlock: bigint | number }
+		| { mode: "sponsored"; authNonce: string; validBefore?: never; sourceBlock?: never }
+	);
 
 export interface CctpDepositTrackingStorageOptions {
 	storage?: Storage;
@@ -82,7 +109,9 @@ export interface FetchArbitrumCctpSourceReceiptStatusInput {
 	owner: string;
 	amount: string;
 	mode?: "direct";
-	authNonce?: never;
+	authNonce?: string;
+	validBefore?: number;
+	sourceBlock?: number;
 	signal?: AbortSignal;
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
@@ -95,12 +124,14 @@ export interface FetchArbitrumSponsoredCctpSourceReceiptStatusInput {
 	amount: string;
 	mode: "sponsored";
 	authNonce: string;
+	validBefore?: never;
+	sourceBlock?: never;
 	signal?: AbortSignal;
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
 }
 
-export type ArbitrumCctpSourceReceiptStatus = { status: "pending" } | { status: "confirmed-success" };
+export type ArbitrumCctpSourceReceiptStatus = { status: "pending" } | { status: "confirmed-success"; sourceHash: Hash };
 
 export const CCTP_DEPOSIT_TRACKING_VERSION = 2;
 export const CCTP_DEPOSIT_TRACKING_MAX_RECORDS = 20;
@@ -117,6 +148,10 @@ const CCTP_V2_BURN_MINT_RECIPIENT_OFFSET = CCTP_V2_HEADER_BYTES + 36;
 const CCTP_V2_BURN_AMOUNT_OFFSET = CCTP_V2_HEADER_BYTES + 68;
 const CCTP_V2_BURN_MESSAGE_SENDER_OFFSET = CCTP_V2_HEADER_BYTES + 100;
 const CCTP_V2_BURN_HOOK_DATA_OFFSET = CCTP_V2_HEADER_BYTES + 228;
+const [AUTHORIZATION_USED_TOPIC] = encodeEventTopics({
+	abi: USDC_EIP3009_AUTHORIZATION_ABI,
+	eventName: "AuthorizationUsed",
+});
 const CCTP_DEPOSIT_TRACKING_CHANGE_EVENT = "sairn:cctp-deposit-tracking-change";
 const CCTP_DEPOSIT_TRACKING_PROBE_PREFIX = "sairn:cctp-deposit-tracking-probe:v1";
 const CCTP_SOURCE_RECEIPT_TIMEOUT_MS = 10_000;
@@ -129,6 +164,19 @@ const CIRCLE_CCTP_API_ORIGINS = {
 } as const;
 const LEGACY_TRACKING_RECORD_KEYS = ["amount", "createdAt", "env", "owner", "sourceHash", "status", "version"];
 const DIRECT_TRACKING_RECORD_KEYS = ["amount", "createdAt", "env", "mode", "owner", "sourceHash", "status", "version"];
+const DIRECT_AUTHORIZED_TRACKING_RECORD_KEYS = [
+	"amount",
+	"authNonce",
+	"createdAt",
+	"env",
+	"mode",
+	"owner",
+	"sourceBlock",
+	"sourceHash",
+	"status",
+	"validBefore",
+	"version",
+];
 const SPONSORED_TRACKING_RECORD_KEYS = [
 	"amount",
 	"authNonce",
@@ -182,6 +230,8 @@ export async function fetchArbitrumCctpSourceReceiptStatus({
 	amount,
 	mode = "direct",
 	authNonce,
+	validBefore,
+	sourceBlock,
 	signal,
 	fetchImpl = fetch,
 	timeoutMs = CCTP_SOURCE_RECEIPT_TIMEOUT_MS,
@@ -190,7 +240,19 @@ export async function fetchArbitrumCctpSourceReceiptStatus({
 	| FetchArbitrumSponsoredCctpSourceReceiptStatusInput): Promise<ArbitrumCctpSourceReceiptStatus> {
 	const normalizedSourceHash = normalizeHash(sourceHash, "CCTP source transaction hash");
 	const normalizedOwner = normalizeOwner(owner);
-	const normalizedAuthNonce = mode === "sponsored" ? normalizeHash(authNonce, "CCTP authorization nonce") : undefined;
+	const normalizedAuthNonce =
+		authNonce === undefined ? undefined : normalizeHash(authNonce, "CCTP authorization nonce");
+	if (mode === "sponsored" && normalizedAuthNonce === undefined) {
+		throw new ArbitrumCctpSourceReceiptError("Sponsored CCTP tracking requires its authorization nonce.");
+	}
+	const directAuthorization =
+		mode === "direct" && normalizedAuthNonce !== undefined
+			? {
+					authNonce: normalizedAuthNonce,
+					validBefore: normalizeAuthorizationValidBefore(validBefore),
+					sourceBlock: normalizeBlockNumber(sourceBlock),
+				}
+			: undefined;
 	if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
 		throw new ArbitrumCctpSourceReceiptError("Arbitrum CCTP source receipt timeout is invalid.");
 	}
@@ -207,46 +269,37 @@ export async function fetchArbitrumCctpSourceReceiptStatus({
 
 	try {
 		const config = getCctpDepositConfig(env === "Testnet");
-		const receiptResponse = await fetchArbitrumJsonRpc({
-			fetchImpl,
-			rpcUrl: config.rpcUrl,
-			request: {
-				jsonrpc: "2.0",
-				id: 1,
-				method: "eth_getTransactionReceipt",
-				params: [normalizedSourceHash],
-			},
-			signal: controller.signal,
-		});
-		const receiptStatus = parseArbitrumCctpSourceReceiptResponse(receiptResponse, {
-			amount,
-			authNonce: normalizedAuthNonce,
-			env,
-			mode,
-			owner: normalizedOwner,
-			sourceHash: normalizedSourceHash,
-		});
-		if (receiptStatus.status === "pending") return receiptStatus;
-		if (mode === "sponsored") return receiptStatus;
+		const request = (id: number, method: string, params: unknown[]) =>
+			fetchArbitrumJsonRpc({
+				fetchImpl,
+				rpcUrl: config.rpcUrl,
+				request: { jsonrpc: "2.0", id, method, params },
+				signal: controller.signal,
+			});
+		const identity = { amount, authNonce: normalizedAuthNonce, env, mode, owner: normalizedOwner };
+		async function confirmSourceTransaction(hash: Hash): Promise<ArbitrumCctpSourceReceiptStatus> {
+			const receiptStatus = parseArbitrumCctpSourceReceiptResponse(
+				await request(1, "eth_getTransactionReceipt", [hash]),
+				{ ...identity, sourceHash: hash },
+			);
+			if (receiptStatus.status === "pending" || mode === "sponsored") return receiptStatus;
+			parseArbitrumCctpSourceTransactionResponse(await request(2, "eth_getTransactionByHash", [hash]), {
+				...identity,
+				sourceHash: hash,
+			});
+			return receiptStatus;
+		}
 
-		const transactionResponse = await fetchArbitrumJsonRpc({
-			fetchImpl,
-			rpcUrl: config.rpcUrl,
-			request: {
-				jsonrpc: "2.0",
-				id: 2,
-				method: "eth_getTransactionByHash",
-				params: [normalizedSourceHash],
-			},
-			signal: controller.signal,
-		});
-		parseArbitrumCctpSourceTransactionResponse(transactionResponse, {
-			amount,
-			env,
+		const sourceStatus = await confirmSourceTransaction(normalizedSourceHash);
+		if (sourceStatus.status !== "pending" || !directAuthorization) return sourceStatus;
+		const consumingHash = await findDirectAuthorizationConsumer({
+			authorization: directAuthorization,
 			owner: normalizedOwner,
-			sourceHash: normalizedSourceHash,
+			request,
+			usdc: config.usdc,
 		});
-		return receiptStatus;
+		if (!consumingHash || consumingHash === normalizedSourceHash) return sourceStatus;
+		return await confirmSourceTransaction(consumingHash);
 	} catch (cause) {
 		if (signal?.aborted) throw signal.reason ?? cause;
 		if (cause instanceof DefinitiveDepositSourceFailureError) throw cause;
@@ -261,6 +314,112 @@ export async function fetchArbitrumCctpSourceReceiptStatus({
 		clearTimeout(timeout);
 		signal?.removeEventListener("abort", handleAbort);
 	}
+}
+
+async function findDirectAuthorizationConsumer({
+	authorization,
+	owner,
+	request,
+	usdc,
+}: {
+	authorization: CctpDirectAuthorization;
+	owner: `0x${string}`;
+	request: (id: number, method: string, params: unknown[]) => Promise<unknown>;
+	usdc: `0x${string}`;
+}): Promise<Hash | null> {
+	const latestBlock = readJsonRpcResult(await request(3, "eth_getBlockByNumber", ["latest", false]), 3);
+	if (!isRecord(latestBlock)) {
+		throw new ArbitrumCctpSourceReceiptError("Arbitrum latest block response is malformed.");
+	}
+	const blockNumber = readRpcQuantity(latestBlock.number, "block number");
+	const blockTimestamp = readRpcQuantity(latestBlock.timestamp, "block timestamp");
+	const blockTag = numberToHex(blockNumber);
+	const authorizationStateResult = readJsonRpcResult(
+		await request(4, "eth_call", [
+			{
+				to: usdc,
+				data: encodeFunctionData({
+					abi: USDC_EIP3009_AUTHORIZATION_ABI,
+					functionName: "authorizationState",
+					args: [owner, authorization.authNonce],
+				}),
+			},
+			blockTag,
+		]),
+		4,
+	);
+	let authorizationUsed: boolean;
+	try {
+		authorizationUsed = decodeFunctionResult({
+			abi: USDC_EIP3009_AUTHORIZATION_ABI,
+			functionName: "authorizationState",
+			data: authorizationStateResult as `0x${string}`,
+		});
+	} catch (cause) {
+		throw new ArbitrumCctpSourceReceiptError("Arbitrum USDC authorization state response is malformed.", { cause });
+	}
+
+	if (!authorizationUsed) {
+		if (blockTimestamp < BigInt(authorization.validBefore)) return null;
+		throw new DefinitiveDepositSourceFailureError(
+			"source-receipt-mismatch",
+			"The deposit authorization expired on Arbitrum without being used",
+		);
+	}
+
+	const logs = readJsonRpcResult(
+		await request(5, "eth_getLogs", [
+			{
+				address: usdc,
+				topics: [AUTHORIZATION_USED_TOPIC, padHex(owner, { size: 32 }), authorization.authNonce],
+				fromBlock: numberToHex(authorization.sourceBlock),
+				toBlock: blockTag,
+			},
+		]),
+		5,
+	);
+	if (!Array.isArray(logs)) {
+		throw new ArbitrumCctpSourceReceiptError("Arbitrum USDC authorization log response is malformed.");
+	}
+	const expectedTopics = [AUTHORIZATION_USED_TOPIC, padHex(owner, { size: 32 }), authorization.authNonce].map((topic) =>
+		topic.toLowerCase(),
+	);
+	const consumers = new Set(
+		logs
+			.filter(
+				(log) =>
+					isRecord(log) &&
+					log.removed !== true &&
+					typeof log.address === "string" &&
+					log.address.toLowerCase() === usdc.toLowerCase() &&
+					Array.isArray(log.topics) &&
+					log.topics.length === expectedTopics.length &&
+					log.topics.every(
+						(topic, index) => typeof topic === "string" && topic.toLowerCase() === expectedTopics[index],
+					),
+			)
+			.map((log) => normalizeHash((log as Record<string, unknown>).transactionHash, "Arbitrum authorization log hash")),
+	);
+	if (consumers.size !== 1) {
+		throw new ArbitrumCctpSourceReceiptError(
+			"Arbitrum reports the deposit authorization as used, but its transaction is not visible yet.",
+		);
+	}
+	return [...consumers][0] ?? null;
+}
+
+function readJsonRpcResult(value: unknown, id: number): unknown {
+	if (!isRecord(value) || value.jsonrpc !== "2.0" || value.id !== id || !("result" in value)) {
+		throw new ArbitrumCctpSourceReceiptError("Arbitrum JSON-RPC response is malformed.");
+	}
+	return value.result;
+}
+
+function readRpcQuantity(value: unknown, label: string): bigint {
+	if (typeof value !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]*)$/i.test(value)) {
+		throw new ArbitrumCctpSourceReceiptError(`Arbitrum ${label} is malformed.`);
+	}
+	return BigInt(value);
 }
 
 export function parseArbitrumCctpSourceReceiptResponse(
@@ -318,12 +477,12 @@ export function parseArbitrumCctpSourceReceiptResponse(
 	} catch (cause) {
 		throw createSourceReceiptMismatchError(cause);
 	}
-	return { status: "confirmed-success" };
+	return { status: "confirmed-success", sourceHash: normalizedExpectedSourceHash };
 }
 
 export function parseArbitrumCctpSourceTransactionResponse(
 	value: unknown,
-	record: Pick<CctpDepositTrackingRecord, "amount" | "env" | "owner" | "sourceHash">,
+	record: Pick<CctpDepositTrackingRecord, "amount" | "env" | "owner" | "sourceHash"> & { authNonce?: Hash },
 ): void {
 	const normalizedExpectedSourceHash = normalizeHash(record.sourceHash, "Expected CCTP source transaction hash");
 	if (!isRecord(value) || value.jsonrpc !== "2.0" || value.id !== 2 || !("result" in value)) {
@@ -355,6 +514,7 @@ export function parseArbitrumCctpSourceTransactionResponse(
 	try {
 		assertCctpDepositSourceTransaction({
 			amountRaw: parseCctpTrackingAmountRaw(record.amount),
+			authNonce: record.authNonce,
 			config: getCctpDepositConfig(record.env === "Testnet"),
 			from: value.result.from,
 			input: value.result.input,
@@ -374,7 +534,7 @@ async function fetchArbitrumJsonRpc({
 }: {
 	fetchImpl: typeof fetch;
 	rpcUrl: string;
-	request: { jsonrpc: "2.0"; id: number; method: string; params: [Hash] };
+	request: { jsonrpc: "2.0"; id: number; method: string; params: unknown[] };
 	signal: AbortSignal;
 }): Promise<unknown> {
 	const response = await fetchImpl(rpcUrl, {
@@ -802,9 +962,7 @@ export function saveCctpDepositTrackingRecord(
 			sourceHash: normalizeHash(input.sourceHash, "CCTP source transaction hash"),
 			amount: input.amount,
 			createdAt: input.createdAt ?? nowMs,
-			...(input.mode === "sponsored"
-				? { mode: "sponsored", authNonce: normalizeHash(input.authNonce, "CCTP authorization nonce") }
-				: { mode: "direct" }),
+			...getSavedRecordMode(input),
 			status: "source-submitted",
 		},
 		input.env,
@@ -818,6 +976,19 @@ export function saveCctpDepositTrackingRecord(
 	);
 	readCctpDepositTrackingRecords(input.env, record.owner, { storage, nowMs });
 	return record;
+}
+
+function getSavedRecordMode(input: SaveCctpDepositTrackingRecordInput) {
+	if (input.mode === "sponsored") {
+		return { mode: "sponsored", authNonce: normalizeHash(input.authNonce, "CCTP authorization nonce") } as const;
+	}
+	if (input.authNonce === undefined) return { mode: "direct" } as const;
+	return {
+		mode: "direct",
+		authNonce: normalizeHash(input.authNonce, "CCTP authorization nonce"),
+		validBefore: normalizeAuthorizationValidBefore(input.validBefore),
+		sourceBlock: normalizeBlockNumber(input.sourceBlock),
+	} as const;
 }
 
 export function removeCctpDepositTrackingRecord(
@@ -856,7 +1027,10 @@ function normalizeTrackingRecord(
 	} else {
 		throw new Error("Unexpected or unsupported CCTP tracking fields");
 	}
-	const expectedKeys = mode === "sponsored" ? SPONSORED_TRACKING_RECORD_KEYS : DIRECT_TRACKING_RECORD_KEYS;
+	const hasDirectAuthorization = mode === "direct" && "authNonce" in value;
+	let expectedKeys = DIRECT_TRACKING_RECORD_KEYS;
+	if (mode === "sponsored") expectedKeys = SPONSORED_TRACKING_RECORD_KEYS;
+	else if (hasDirectAuthorization) expectedKeys = DIRECT_AUTHORIZED_TRACKING_RECORD_KEYS;
 	if (
 		!isLegacyDirect &&
 		(value.version !== CCTP_DEPOSIT_TRACKING_VERSION ||
@@ -888,10 +1062,17 @@ function normalizeTrackingRecord(
 		createdAt: value.createdAt,
 		status: "source-submitted",
 	} as const;
-	if (mode === "direct") return { ...commonRecord, mode };
+	if (mode === "direct" && !hasDirectAuthorization) return { ...commonRecord, mode };
 	const authNonce = normalizeHash(value.authNonce, "Stored CCTP authorization nonce");
 	if (authNonce !== value.authNonce) throw new Error("Stored CCTP authorization nonce must be normalized");
-	return { ...commonRecord, mode, authNonce };
+	if (mode === "sponsored") return { ...commonRecord, mode, authNonce };
+	return {
+		...commonRecord,
+		mode,
+		authNonce,
+		validBefore: normalizeAuthorizationValidBefore(value.validBefore),
+		sourceBlock: normalizeBlockNumber(value.sourceBlock),
+	};
 }
 
 function normalizeSponsoredAuthorizationIntent(
@@ -947,6 +1128,14 @@ function normalizeAuthorizationValidBefore(value: unknown): number {
 		throw new Error("Invalid CCTP sponsored authorization expiry");
 	}
 	return value;
+}
+
+function normalizeBlockNumber(value: unknown): number {
+	const blockNumber = typeof value === "bigint" ? Number(value) : value;
+	if (typeof blockNumber !== "number" || !Number.isSafeInteger(blockNumber) || blockNumber < 0) {
+		throw new Error("Invalid CCTP source block number");
+	}
+	return blockNumber;
 }
 
 function writeSponsoredAuthorizationIntent(

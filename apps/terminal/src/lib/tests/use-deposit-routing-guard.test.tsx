@@ -21,13 +21,19 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EmbeddedDepositAutoBridge } from "@/components/trade/tradebox/embedded-deposit-auto-bridge";
 import { CCTP_DEPOSIT_NETWORKS } from "@/config/cctp-deposit";
+import { DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { getDepositExecutionState } from "@/lib/hyperliquid/deposit-execution-state";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import { type DepositReview, type UseDepositResult, useDeposit } from "@/lib/hyperliquid/use-deposit";
-import { addressToBytes32, CCTP_EXTENSION_ABI, CCTP_EXTENSION_V2_ABI } from "@/lib/trade/cctp-deposit";
+import {
+	addressToBytes32,
+	CCTP_EXTENSION_ABI,
+	CCTP_EXTENSION_V2_ABI,
+	USDC_EIP3009_AUTHORIZATION_ABI,
+} from "@/lib/trade/cctp-deposit";
 import {
 	getCctpSponsoredAuthorizationIntentStorageKey,
 	readCctpDepositTrackingRecords,
@@ -87,6 +93,18 @@ function createSuccessfulCctpReceipt(): TransactionReceipt {
 	} as unknown as TransactionReceipt;
 }
 
+function createAuthorizationUsedLog(authNonce: Hex) {
+	return {
+		address: CCTP_DEPOSIT_NETWORKS.mainnet.usdc,
+		topics: encodeEventTopics({
+			abi: USDC_EIP3009_AUTHORIZATION_ABI,
+			eventName: "AuthorizationUsed",
+			args: { authorizer: WALLET_ADDRESS, nonce: authNonce },
+		}),
+		data: "0x",
+	};
+}
+
 function stubSuccessfulCctpCapacity(
 	balanceRaw = 5_000_000n,
 	balanceBeforeSubmissionRaw = balanceRaw,
@@ -137,6 +155,7 @@ const testState = vi.hoisted(() => {
 		publicClient: {
 			estimateContractGas: vi.fn(),
 			getBalance: vi.fn(),
+			getBlockNumber: vi.fn(),
 			getGasPrice: vi.fn(),
 			getTransaction: vi.fn(),
 			getTransactionCount: vi.fn(),
@@ -290,6 +309,7 @@ describe("useDeposit fresh USDC route guard", () => {
 		testState.publicClient.estimateContractGas.mockResolvedValue(21_000n);
 		testState.publicClient.getBalance.mockResolvedValue(1_000_000_000_000_000n);
 		testState.publicClient.getGasPrice.mockResolvedValue(1n);
+		testState.publicClient.getBlockNumber.mockResolvedValue(400_000_000n);
 		testState.publicClient.getTransactionCount.mockResolvedValue(0);
 		testState.publicClient.readContract.mockResolvedValue(0n);
 		testState.getUserRole.mockResolvedValue({ role: "user" });
@@ -1357,6 +1377,159 @@ describe("useDeposit fresh USDC route guard", () => {
 		expect(capturedDeposit?.error?.message).toContain("Another Circle CCTP deposit is still pending");
 	});
 
+	describe("external wallet submission without a transaction hash", () => {
+		function providerError(code: number, message: string) {
+			return Object.assign(new Error(message), { code });
+		}
+
+		async function submitAgainAfterReset() {
+			act(() => capturedDeposit?.reset());
+			act(() => root.unmount());
+			root = createRoot(container);
+			await submit("wallet", "cctp");
+		}
+
+		it("blocks a second signature after the wallet disconnects without returning a hash, also after a reload", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.walletWriteContract.mockRejectedValue(providerError(4900, "Provider disconnected"));
+
+			await submit("wallet", "cctp");
+
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(true);
+
+			await submitAgainAfterReset();
+
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+			expect(capturedDeposit?.error?.message).toContain("A previous deposit authorization is still active");
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toMatchObject({
+				amount: "5",
+				owner: WALLET_ADDRESS,
+				status: "submission-unresolved",
+			});
+		});
+
+		it("keeps the block when a disconnection carries a rejection-like message", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.walletWriteContract.mockRejectedValue(
+				providerError(4900, "Request rejected: the wallet session was disconnected"),
+			);
+
+			await submit("wallet", "cctp");
+
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(true);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+		});
+
+		it("lets the account deposit again after the wallet rejected the transaction before broadcasting", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.walletWriteContract.mockRejectedValue(providerError(4001, "User rejected the request."));
+
+			await submit("wallet", "cctp");
+
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+
+			await submitAgainAfterReset();
+
+			expect(testState.permitSign).toHaveBeenCalledTimes(2);
+			expect(testState.walletWriteContract).toHaveBeenCalledTimes(2);
+		});
+
+		it("releases the block once the earlier authorization has expired", async () => {
+			vi.useFakeTimers({ toFake: ["Date"] });
+			vi.setSystemTime(new Date("2026-11-19T12:00:00Z"));
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.walletWriteContract.mockRejectedValue(providerError(4900, "Provider disconnected"));
+
+			await submit("wallet", "cctp");
+			const intent = readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS);
+			expect(intent).not.toBeNull();
+
+			vi.setSystemTime(((intent?.validBefore ?? 0) - 1) * 1000);
+			await submitAgainAfterReset();
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+
+			vi.setSystemTime((intent?.validBefore ?? 0) * 1000);
+			await submitAgainAfterReset();
+			expect(testState.permitSign).toHaveBeenCalledTimes(2);
+			expect(testState.walletWriteContract).toHaveBeenCalledTimes(2);
+		});
+
+		it.each([
+			["keeps", false],
+			["clears", true],
+		] as const)(
+			"%s the authorization block after a success receipt that proves its use: %s",
+			async (_label, withProof) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				testState.walletWriteContract.mockResolvedValue(SOURCE_HASH);
+				testState.publicClient.getTransactionReceipt.mockImplementation(async () => {
+					const receipt = createSuccessfulCctpReceipt();
+					const authNonce = (testState.walletWriteContract.mock.calls[0]?.[0] as { args: [{ authNonce: Hex }] }).args[0]
+						.authNonce;
+					return withProof
+						? ({ ...receipt, logs: [...receipt.logs, createAuthorizationUsedLog(authNonce)] } as TransactionReceipt)
+						: receipt;
+				});
+
+				await submit("wallet", "cctp");
+
+				expect(capturedDeposit?.status).toBe("success");
+				const call = testState.walletWriteContract.mock.calls[0]?.[0] as {
+					args: [{ authNonce: Hex; authValidBefore: bigint }];
+				};
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({
+						authNonce: call.args[0].authNonce,
+						mode: "direct",
+						sourceBlock: 400_000_000,
+						sourceHash: SOURCE_HASH,
+						validBefore: Number(call.args[0].authValidBefore),
+					}),
+				]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS) === null).toBe(withProof);
+			},
+		);
+
+		it("blocks a queued tab while another tab's external wallet submission is unresolved", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			let releaseWallet: (error: Error) => void = () => undefined;
+			testState.walletWriteContract.mockImplementationOnce(
+				() =>
+					new Promise((_resolve, reject) => {
+						releaseWallet = reject;
+					}),
+			);
+			const firstTab = renderMode("wallet", "cctp");
+			let firstRequest: Promise<void> = Promise.resolve();
+			await act(async () => {
+				firstRequest = firstTab.deposit("5");
+				for (let attempt = 0; attempt < 50 && testState.walletWriteContract.mock.calls.length === 0; attempt += 1) {
+					await Promise.resolve();
+				}
+			});
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+
+			await act(async () => {
+				releaseWallet(providerError(4900, "Provider disconnected"));
+				await firstRequest;
+			});
+			await submitAgainAfterReset();
+
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+		});
+	});
+
 	it("fails closed before CCTP signing when recovery storage cannot pass a write/readback probe", async () => {
 		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 		const persistSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -1497,14 +1670,42 @@ describe("useDeposit fresh USDC route guard", () => {
 				successfulProbeWrites += 1;
 				return originalSetItem.call(this, key, value);
 			}
+			if (key.startsWith("sairn:cctp-sponsored-authorization-intent:v1:")) {
+				return originalSetItem.call(this, key, value);
+			}
 			throw new DOMException("quota exceeded", "QuotaExceededError");
 		});
 
-		await submit("wallet", "cctp");
+		try {
+			await submit("wallet", "cctp");
+		} finally {
+			persistSpy.mockRestore();
+		}
 
 		expect(capturedDeposit).toMatchObject({ status: "success", cctpRecoveryUnavailable: true });
 		expect(successfulProbeWrites).toBe(1);
-		persistSpy.mockRestore();
+	});
+
+	it("does not broadcast an external wallet deposit whose unresolved authorization cannot be saved", async () => {
+		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+		stubSuccessfulCctpCapacity();
+		const originalSetItem = Storage.prototype.setItem;
+		const persistSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+			if (key.startsWith("sairn:cctp-sponsored-authorization-intent:v1:")) {
+				throw new DOMException("quota exceeded", "QuotaExceededError");
+			}
+			return originalSetItem.call(this, key, value);
+		});
+
+		try {
+			await submit("wallet", "cctp");
+		} finally {
+			persistSpy.mockRestore();
+		}
+
+		expect(testState.permitSign).toHaveBeenCalledOnce();
+		expect(testState.walletWriteContract).not.toHaveBeenCalled();
+		expect(capturedDeposit).toMatchObject({ status: "error", submissionOutcomeUnknown: false });
 	});
 
 	it.each(["wallet", "smart"] as const)(
@@ -1821,8 +2022,66 @@ describe("useDeposit fresh USDC route guard", () => {
 		expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
 	});
 
+	it.each(["smart", "wallet"] as const)(
+		"releases the funds lock and signs nothing when the %s regional check never answers, also once it answers late",
+		async (mode) => {
+			vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			let answerLate!: () => void;
+			testState.geoRefetch.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						answerLate = () =>
+							resolve({ data: { country: "GB", proxy: false, tradeRestricted: false }, isError: false });
+					}),
+			);
+			let lockHeld = false;
+			testState.lockRequest.mockImplementation(
+				async (
+					name: string,
+					_options: LockOptions,
+					callback: (lock: Lock | null) => unknown | PromiseLike<unknown>,
+				) => {
+					lockHeld = true;
+					try {
+						return await callback({ name, mode: "exclusive" } as Lock);
+					} finally {
+						lockHeld = false;
+					}
+				},
+			);
+			const depositHook = renderMode(mode, "cctp", "automatic");
+
+			await act(async () => {
+				const request = depositHook.deposit("5");
+				for (let attempt = 0; attempt < 50 && testState.geoRefetch.mock.calls.length === 0; attempt += 1) {
+					await vi.advanceTimersByTimeAsync(0);
+				}
+				expect(testState.geoRefetch).toHaveBeenCalledOnce();
+				expect(lockHeld).toBe(true);
+				await vi.advanceTimersByTimeAsync(DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS);
+				await request;
+			});
+
+			expect(lockHeld).toBe(false);
+			expect(capturedDeposit?.error?.message).toContain("Unable to verify regional availability");
+			await act(async () => {
+				answerLate();
+				await vi.advanceTimersByTimeAsync(1_000);
+			});
+			expect(testState.getUserRole).not.toHaveBeenCalled();
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+			expect(testState.walletWriteContract).not.toHaveBeenCalled();
+		},
+	);
+
 	describe("click deadline of a manual deposit", () => {
 		const SPONSORED_EXECUTION_KEY = `mainnet:manual:smart:${WALLET_ADDRESS.toLowerCase()}`;
+		// Each check inside the funds lock has its own bound, so a delay past the click deadline is
+		// split between the regional check and the recipient lookup that follows it.
+		const LOCKED_CHECK_DELAY_MS = 10_000;
 
 		async function submitWithDelayedRegionalCheck({
 			delayMs,
@@ -1838,14 +2097,18 @@ describe("useDeposit fresh USDC route guard", () => {
 			vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
+			const regionalDelayMs = Math.min(delayMs, LOCKED_CHECK_DELAY_MS);
 			testState.geoRefetch.mockImplementation(
 				() =>
 					new Promise((resolve) => {
 						setTimeout(
 							() => resolve({ data: { country: "GB", proxy: false, tradeRestricted: false }, isError: false }),
-							delayMs,
+							regionalDelayMs,
 						);
 					}),
+			);
+			testState.getUserRole.mockImplementation(
+				() => new Promise((resolve) => setTimeout(() => resolve({ role: "user" }), delayMs - regionalDelayMs)),
 			);
 			const depositHook = renderMode(mode, "cctp", executionScope);
 			const review: DepositReview | undefined =
@@ -1869,7 +2132,13 @@ describe("useDeposit fresh USDC route guard", () => {
 				}
 				expect(testState.geoRefetch).toHaveBeenCalledTimes(regionalChecksBefore + 1);
 				expect(testState.permitSign).toHaveBeenCalledTimes(signaturesBefore);
+				let settled = false;
+				const markSettled = () => {
+					settled = true;
+				};
+				void request.then(markSettled, markSettled);
 				await vi.advanceTimersByTimeAsync(delayMs);
+				for (let attempt = 0; attempt < 50 && !settled; attempt += 1) await vi.advanceTimersByTimeAsync(100);
 				await request;
 			});
 		}

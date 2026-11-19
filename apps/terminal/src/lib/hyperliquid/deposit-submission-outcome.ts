@@ -20,10 +20,15 @@ export function getWalletErrorCode(error: unknown): number | undefined {
 	return undefined;
 }
 
+/**
+ * A provider code decides on its own: a rejection-like message never overrides a code such as
+ * 4900, whose transaction may already have been broadcast. The message is used only when the
+ * error carries no code at all.
+ */
 export function isDefinitiveWalletSubmissionFailure(error: unknown, userRejected: boolean): boolean {
-	if (userRejected) return true;
 	const code = getWalletErrorCode(error);
-	return code !== undefined && DEFINITIVE_WALLET_SUBMISSION_ERROR_CODES.has(code);
+	if (code === undefined) return userRejected;
+	return DEFINITIVE_WALLET_SUBMISSION_ERROR_CODES.has(code);
 }
 
 interface DepositSubmissionOutcomeInput {

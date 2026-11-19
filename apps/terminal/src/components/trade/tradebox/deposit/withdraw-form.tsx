@@ -70,7 +70,7 @@ export function WithdrawForm({
 	showSpotFundsNotice = false,
 	onTransferClick,
 }: Props) {
-	const { formatNumber } = useNumberFormat();
+	const { formatDecimalString, formatNumber } = useNumberFormat();
 	const { t: translate } = useLingui();
 	const amountInputId = useId();
 	const amountErrorId = useId();
@@ -186,7 +186,7 @@ export function WithdrawForm({
 							mobileSafe
 							maxLabel={
 								<span className="font-semibold tabular-nums">
-									<Trans>Max</Trans>: {formatNumber(maximumAmount, USDC_TRANSFER_DECIMALS)}
+									<Trans>Max</Trans>: {formatDecimalString(maximumAmount)}
 								</span>
 							}
 							onMaxClick={() => onAmountChange(maximumAmount)}

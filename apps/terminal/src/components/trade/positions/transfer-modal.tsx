@@ -28,7 +28,7 @@ import {
 	formatFundsActionFeedback,
 	fundsActionFeedbackCause,
 } from "@/lib/trade/funds-action-feedback";
-import { floorToString, limitDecimalInput } from "@/lib/trade/numbers";
+import { floorToString, limitDecimalInput, toPlainDecimal } from "@/lib/trade/numbers";
 import { PendingActionModal } from "../components/pending-action-modal";
 
 type TransferDirection = "toSpot" | "toPerp";
@@ -65,7 +65,7 @@ interface BodyProps {
 
 function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) {
 	const { t } = useLingui();
-	const { formatDecimalString, formatNumber } = useNumberFormat();
+	const { formatDecimalString } = useNumberFormat();
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<TransferSubmission | null>(null);
@@ -259,7 +259,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		const transferSummary = (
 			<span>
 				<bdi dir="ltr">
-					{formatNumber(amount)} {DEFAULT_QUOTE_TOKEN}
+					{formatDecimalString(toPlainDecimal(amount))} {DEFAULT_QUOTE_TOKEN}
 				</bdi>{" "}
 				· {fromLabel} → {toLabel}
 			</span>

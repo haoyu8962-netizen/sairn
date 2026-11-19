@@ -3,6 +3,8 @@
 import { createHash } from "node:crypto";
 import { i18n, type Messages } from "@lingui/core";
 import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import { ExchangeResponseUnverifiedError } from "@sairn/hl-react/internal/exchange/action-acknowledgement";
+import { ExchangeRequestInvalidatedError } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement, Fragment, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -600,12 +602,17 @@ describe("funds action balance wiring", () => {
 		expect(container.querySelector("h2")).toBe(title);
 	});
 
-	it("wires the fresh mode and region checks into each mode-dependent SDK boundary", async () => {
+	it("wires the fresh mode and region checks into each mode-dependent SDK boundary, and refuses a send guard without a current submission", async () => {
 		act(() => root.render(createElement(SendModal, { onOpenChange: vi.fn(), open: true })));
 		const signal = new AbortController().signal;
 
-		await testState.exchangeGuards.get("sendAsset")?.({ amount: "1", sourceDex: "spot", token: "USDC:0" }, signal);
-		await testState.exchangeGuards.get("spotSend")?.({ amount: "1", token: "USDC:0" }, signal);
+		await expect(
+			testState.exchangeGuards.get("sendAsset")?.({ amount: "1", sourceDex: "spot", token: "USDC:0" }, signal),
+		).rejects.toBeInstanceOf(ExchangeRequestInvalidatedError);
+		await expect(
+			testState.exchangeGuards.get("spotSend")?.({ amount: "1", token: "USDC:0" }, signal),
+		).rejects.toBeInstanceOf(ExchangeRequestInvalidatedError);
+		expect(testState.exchangeIdentity.info.preTransferCheck).not.toHaveBeenCalled();
 		expect(testState.assertAccountAbstraction).toHaveBeenCalledTimes(2);
 		expect(testState.assertAccountAbstraction).toHaveBeenNthCalledWith(1, signal);
 		expect(testState.assertAccountAbstraction).toHaveBeenNthCalledWith(2, signal);
@@ -798,6 +805,39 @@ describe("funds action balance wiring", () => {
 		expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
 	});
 
+	it("reports a large confirmed send with the exact amount it sent", async () => {
+		testState.balances.withdrawable = "1000000000000000.999999";
+		const onOpenChange = vi.fn();
+		renderValidSend(root, container, onOpenChange, "perp");
+		act(() => setInputValue(getAmountInput(container), "99999999999999.99"));
+
+		await clickAndFlush(getButton(container, "Send"));
+
+		await vi.waitFor(() =>
+			expect(toastMocks.success).toHaveBeenCalledExactlyOnceWith("Sent 99,999,999,999,999.99 USDC"),
+		);
+		expect(testState.exchangeMutations.sendAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: "99999999999999.99" }),
+		);
+	});
+
+	it("reports a large confirmed transfer with the exact amount it moved", async () => {
+		testState.balances.withdrawable = "1000000000000000.999999";
+		const onOpenChange = vi.fn();
+		renderValidTransfer(root, container, onOpenChange);
+		act(() => setInputValue(getAmountInput(container), "99999999999999.99"));
+
+		await clickAndFlush(getGuardedSubmitButton("usdClassTransfer"));
+
+		await vi.waitFor(() => expect(toastMocks.success).toHaveBeenCalledOnce());
+		const options = toastMocks.success.mock.calls[0]?.[1] as { description: ReactNode };
+		const host = document.createElement("div");
+		const descriptionRoot = createI18nRoot(host);
+		act(() => descriptionRoot.render(createElement(Fragment, null, options.description)));
+		expect(host.querySelector('bdi[dir="ltr"]')?.textContent).toBe("99,999,999,999,999.99 USDC");
+		act(() => descriptionRoot.unmount());
+	});
+
 	it("shows a renamed spot token by its display name and sends it by its protocol name", async () => {
 		const spotBalances = testState.balances.spotBalances;
 		spotBalances.push({ coin: "UBTC", entryNtl: "0", hold: "0", token: 197, total: "2" });
@@ -860,27 +900,36 @@ describe("funds action balance wiring", () => {
 	});
 
 	it.each([
-		["send", "spotSend", "Send status unknown"],
-		["transfer", "usdClassTransfer", "Transfer status unknown"],
-	] as const)("keeps an unconfirmed %s on screen as a warning until it is dismissed", async (kind, method, title) => {
-		testState.exchangeMutations[method].mockRejectedValueOnce(new HttpRequestError({ detail: "Request timed out" }));
-		const onOpenChange = vi.fn();
-		if (kind === "send") renderValidSend(root, container, onOpenChange);
-		else renderValidTransfer(root, container, onOpenChange);
+		["send", "spotSend", "Send status unknown", "timed out"],
+		["transfer", "usdClassTransfer", "Transfer status unknown", "timed out"],
+		["send", "spotSend", "Send status unknown", "unacknowledged"],
+		["transfer", "usdClassTransfer", "Transfer status unknown", "unacknowledged"],
+	] as const)(
+		"keeps an unconfirmed %s on screen as a warning until it is dismissed (%s, %s)",
+		async (kind, method, title, cause) => {
+			testState.exchangeMutations[method].mockRejectedValueOnce(
+				cause === "timed out"
+					? new HttpRequestError({ detail: "Request timed out" })
+					: new ExchangeResponseUnverifiedError(method),
+			);
+			const onOpenChange = vi.fn();
+			if (kind === "send") renderValidSend(root, container, onOpenChange);
+			else renderValidTransfer(root, container, onOpenChange);
 
-		await clickAndFlush(getGuardedSubmitButton(method));
+			await clickAndFlush(getGuardedSubmitButton(method));
 
-		await vi.waitFor(() =>
-			expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(title, {
-				closeButton: true,
-				description: STATUS_UNKNOWN_DESCRIPTION,
-				duration: Number.POSITIVE_INFINITY,
-				icon: unknownStatusToastIcon(),
-			}),
-		);
-		expect(toastMocks.error).not.toHaveBeenCalled();
-		expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
-	});
+			await vi.waitFor(() =>
+				expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(title, {
+					closeButton: true,
+					description: STATUS_UNKNOWN_DESCRIPTION,
+					duration: Number.POSITIVE_INFINITY,
+					icon: unknownStatusToastIcon(),
+				}),
+			);
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+		},
+	);
 
 	it("forgets a restored send draft when the resend's outcome is unknown", async () => {
 		testState.exchangeMutations.spotSend
@@ -1506,6 +1555,107 @@ describe("funds action balance wiring", () => {
 		await clickAndFlush(getButton(container, "Send"));
 
 		expect(toastMocks.error).toHaveBeenCalledWith("Unable to send funds to this address.");
+		expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
+	});
+
+	describe("when the destination answer changes before signing", () => {
+		const KNOWN_DESTINATION = { fee: "0.0", isSanctioned: false, userExists: true, userHasSentTx: true };
+		const ACTIVATION_FEE_CHANGED =
+			"The account activation fee changed before signing. Review the updated fee and try again.";
+
+		async function sendWithRecheckAnswer(answer: unknown, initialAccountType: "spot" | "perp" = "spot") {
+			testState.runGuardsOnMutation = true;
+			testState.exchangeIdentity.info.preTransferCheck
+				.mockResolvedValueOnce(KNOWN_DESTINATION)
+				.mockResolvedValueOnce(answer);
+			const onOpenChange = vi.fn();
+			renderValidSend(root, container, onOpenChange, initialAccountType);
+			await clickAndFlush(getButton(container, "Send"));
+			await vi.waitFor(() => expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false));
+		}
+
+		it.each(["spot", "perp"] as const)(
+			"asks again inside the funds lock and sends nothing from the %s account when a fee appeared",
+			async (accountType) => {
+				await sendWithRecheckAnswer(
+					{ fee: "1.0", isSanctioned: false, userExists: false, userHasSentTx: false },
+					accountType,
+				);
+
+				const check = testState.exchangeIdentity.info.preTransferCheck;
+				expect(check).toHaveBeenCalledTimes(2);
+				expect(check.mock.calls[1]?.[0]).toEqual({
+					user: "0x2222222222222222222222222222222222222222",
+					source: "0x1111111111111111111111111111111111111111",
+				});
+				expect(check.mock.calls[1]?.[1]).toBeInstanceOf(AbortSignal);
+				expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
+				expect(testState.exchangeMutations.sendAsset).not.toHaveBeenCalled();
+				expect(toastMocks.error).toHaveBeenCalledExactlyOnceWith(ACTIVATION_FEE_CHANGED);
+				expect(toastMocks.success).not.toHaveBeenCalled();
+			},
+		);
+
+		it("sends nothing when the destination became sanctioned", async () => {
+			await sendWithRecheckAnswer({ ...KNOWN_DESTINATION, isSanctioned: true });
+
+			expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
+			expect(toastMocks.error).toHaveBeenCalledExactlyOnceWith("Unable to send funds to this address.");
+		});
+
+		it.each([
+			["a failed request", new Error("down")],
+			["an answer without userExists", { fee: "0.0", isSanctioned: false, userHasSentTx: true }],
+		])("sends nothing after %s inside the funds lock", async (_case, answer) => {
+			testState.runGuardsOnMutation = true;
+			testState.exchangeIdentity.info.preTransferCheck.mockResolvedValueOnce(KNOWN_DESTINATION);
+			if (answer instanceof Error) testState.exchangeIdentity.info.preTransferCheck.mockRejectedValueOnce(answer);
+			else testState.exchangeIdentity.info.preTransferCheck.mockResolvedValueOnce(answer);
+			renderValidSend(root, container);
+			await clickAndFlush(getButton(container, "Send"));
+
+			await vi.waitFor(() =>
+				expect(toastMocks.error).toHaveBeenCalledExactlyOnceWith(
+					"Unable to check the destination address. Nothing was sent.",
+				),
+			);
+			expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
+		});
+
+		it("keeps the draft of a send stopped by the recheck", async () => {
+			await sendWithRecheckAnswer({ fee: "1.0", isSanctioned: false, userExists: false, userHasSentTx: false });
+
+			act(() => root.render(createElement(SendModal, { onOpenChange: vi.fn(), open: false })));
+			act(() => root.render(createElement(SendModal, { onOpenChange: vi.fn(), open: true })));
+			expect(container.querySelector<HTMLInputElement>('input[placeholder="Destination address"]')?.value).toBe(
+				"0x2222222222222222222222222222222222222222",
+			);
+			expect(getAmountInput(container).value).toBe("1");
+		});
+
+		it("sends a reviewed fee send once when the fresh answer still shows the reviewed fee", async () => {
+			testState.runGuardsOnMutation = true;
+			await openFeeReview("1");
+			await clickAndFlush(getButton(container, "Send with Fee"));
+
+			await vi.waitFor(() => expect(testState.exchangeMutations.spotSend).toHaveBeenCalledOnce());
+			expect(testState.exchangeIdentity.info.preTransferCheck).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	it("refuses the zero address as a Send destination without checking or sending", async () => {
+		act(() => root.render(createElement(SendModal, { onOpenChange: vi.fn(), open: true })));
+		const destinationInput = container.querySelector<HTMLInputElement>('input[placeholder="Destination address"]');
+		if (!destinationInput) throw new Error("Destination input not found");
+		act(() => {
+			setInputValue(destinationInput, "0x0000000000000000000000000000000000000000");
+			setInputValue(getAmountInput(container), "1");
+		});
+
+		expect(container.querySelector('[data-testid="field-error"]')?.textContent).toBe(INVALID_DESTINATION);
+		expect(getButton(container, "Send").disabled).toBe(true);
+		await clickAndFlush(getButton(container, "Send"));
+		expect(testState.exchangeIdentity.info.preTransferCheck).not.toHaveBeenCalled();
 		expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
 	});
 

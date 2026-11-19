@@ -395,8 +395,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"border-stroke-error-strong": 2,
 		},
 		copy: {
-			"Unable to send funds to this address.": "action-feedback",
-			"Unable to check the destination address. Nothing was sent.": ["action-feedback", 2],
+			"Unable to send funds to this address.": ["action-feedback", 2],
+			"Unable to check the destination address. Nothing was sent.": ["action-feedback", 3],
 			"Send status unknown": "action-feedback",
 			"Check your balances and the Deposits & Withdrawals history before retrying.": "action-feedback",
 			"Send failed": "action-feedback",

@@ -9415,6 +9415,7 @@ msgstr "タイプ"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "送信先アドレスを確認できませんでした。何も送金されていません。"
 
@@ -9432,6 +9433,7 @@ msgstr "Arbitrum の USDC 残高を読み込めません"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "現在の CCTP 出金手数料を読み込めません。"
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "このアドレスには送金できません。"
@@ -9485,6 +9487,7 @@ msgstr "地域別の利用可否を確認できません。取引は一時的に
 #~ msgid "Unable to verify regional availability. Vault actions are temporarily unavailable."
 #~ msgstr "地域別の利用可否を確認できません。ボールト操作は一時的に利用できません。"
 
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."

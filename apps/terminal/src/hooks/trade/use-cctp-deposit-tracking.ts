@@ -108,11 +108,16 @@ export function useCctpDepositTracking({
 				sourceHash: trackedSourceHash ?? "",
 				...(recoveryRecord.mode === "sponsored"
 					? { mode: "sponsored" as const, authNonce: recoveryRecord.authNonce }
-					: { mode: "direct" as const }),
+					: {
+							mode: "direct" as const,
+							authNonce: recoveryRecord.authNonce,
+							validBefore: recoveryRecord.validBefore,
+							sourceBlock: recoveryRecord.sourceBlock,
+						}),
 				signal,
 			});
 			if (sourceReceipt.status === "pending") return { status: "waiting" } as const;
-			if (recoveryRecord.mode === "sponsored") {
+			if (recoveryRecord.authNonce) {
 				try {
 					removeCctpSponsoredAuthorizationIntent(env, recoveryRecord.owner, recoveryRecord.authNonce);
 				} catch {
@@ -124,7 +129,7 @@ export function useCctpDepositTracking({
 				env,
 				mode: recoveryRecord.mode,
 				owner: recoveryRecord.owner,
-				sourceHash: trackedSourceHash ?? "",
+				sourceHash: sourceReceipt.sourceHash,
 				signal,
 			});
 		},

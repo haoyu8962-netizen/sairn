@@ -927,6 +927,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			"0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 			"Cannot withdraw to the USDC contract address.",
 		],
+		["the zero address", "0x0000000000000000000000000000000000000000", "Invalid destination address"],
 	])("refuses an email withdrawal to %s", async (_case, destination, message) => {
 		testState.walletAddress = "0x52908400098527886e0f7030069857d2e4169ee7";
 		testState.hyperliquidClientKey = testState.walletAddress;

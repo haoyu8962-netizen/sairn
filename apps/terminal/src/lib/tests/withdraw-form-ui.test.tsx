@@ -209,9 +209,17 @@ describe("WithdrawForm UI", () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
-	it("preserves the exact protocol minimum instead of rounding it down", async () => {
+	it("rounds a sub-cent protocol minimum up to the first amount the field accepts, never down", async () => {
 		await renderForm({ routeFee: "0.200001" });
-		expect(container.textContent).toContain("Minimum 0.400002 USDC");
+		expect(container.textContent).toContain("Minimum 0.41 USDC");
+	});
+
+	it("labels Max with the exact amount it fills, without rounding through a JavaScript number", async () => {
+		const onAmountChange = vi.fn();
+		await renderForm({ maxAmount: "1000000000000000.999999", onAmountChange });
+		expect(container.textContent).toContain("Max: 1,000,000,000,000,000.99");
+		act(() => getButton("Max").click());
+		expect(onAmountChange).toHaveBeenCalledWith("1000000000000000.99");
 	});
 
 	it("shows the exact external owner destination read-only with a persistent label", async () => {
