@@ -44,14 +44,27 @@ async function listFiles(root, directory = "") {
 	return names;
 }
 
-async function readManifestFile(root, relativePath, entry) {
-	const file = join(root, ...relativePath.split("/"));
-	let stats;
+async function lstatManifestPath(path, relativePath) {
 	try {
-		stats = await lstat(file);
+		return await lstat(path);
 	} catch {
 		throw new Error(`Chart library file is missing: ${relativePath}`);
 	}
+}
+
+// Every directory below the root on a manifest path must be a real directory, as the file itself must be a
+// regular file, so a symbolic link cannot point a manifest path elsewhere. The root is the operator's choice.
+async function readManifestFile(root, relativePath, entry) {
+	const parts = relativePath.split("/");
+	let directory = root;
+	for (const part of parts.slice(0, -1)) {
+		directory = join(directory, part);
+		if (!(await lstatManifestPath(directory, relativePath)).isDirectory()) {
+			throw new Error(`Chart library path has a component that is not a real directory: ${relativePath}`);
+		}
+	}
+	const file = join(directory, parts.at(-1));
+	const stats = await lstatManifestPath(file, relativePath);
 	if (!stats.isFile()) throw new Error(`Chart library file is not a regular file: ${relativePath}`);
 	const contents = await readFile(file);
 	if (contents.length !== entry.size) {
@@ -98,17 +111,29 @@ async function exists(path) {
 	}
 }
 
+// CHART_LIBRARY_REPOSITORY may carry a token in its user information; Git leaves it out of its own messages.
+function withoutCredentials(repository) {
+	try {
+		const url = new URL(repository);
+		url.username = "";
+		url.password = "";
+		return url.href;
+	} catch {
+		return repository;
+	}
+}
+
 async function cloneSource(repository) {
 	const directory = await mkdtemp(join(tmpdir(), "chart-library-"));
 	try {
-		execFileSync("git", ["clone", "--quiet", "--depth", "1", repository, directory], {
+		execFileSync("git", ["clone", "--quiet", "--depth", "1", "--", repository, directory], {
 			stdio: ["ignore", "ignore", "inherit"],
 			env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
 		});
 	} catch {
 		await rm(directory, { recursive: true, force: true });
 		throw new Error(
-			`Cannot clone the private chart library from ${repository}. Sign in with access to it (for example \`gh auth setup-git\`), or pass --from <directory> with a copy of the library.`,
+			`Cannot clone the private chart library from ${withoutCredentials(repository)}. Sign in with access to it (for example \`gh auth setup-git\`), or pass --from <directory> with a copy of the library.`,
 		);
 	}
 	return directory;

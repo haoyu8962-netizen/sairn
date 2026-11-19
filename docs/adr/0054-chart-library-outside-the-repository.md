@@ -35,6 +35,30 @@
 - Actions 的密钥与变量、分支保护需要在新仓库重新配置；公开仓库的 Actions 不计费，[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md) 里按计费分钟做的取舍可以重新评估。
 - 历史扫描：对公开副本运行过 gitleaks，582 条命中集中在两个生成的市场数据文件与测试夹具里，按文件与变量名判断不是真实密钥，没有逐条核对值。
 
+## 2026-11-19 补记：安装脚本的路径与克隆参数
+
+公开仓库安全审查（Codex 提出，Claude 核对）的两项低风险发现，已改：
+
+- 清单路径上根目录以下的每一级目录必须是真实目录，文件本身仍须是普通文件（此前只用 `lstat` 检查最后一级）。目录软链能把清单路径指到别处；内容仍受 SHA-256 约束，所以影响只是读到「哈希相同的别处文件」，改动是为了让「清单文件都是真实文件」这条规则完整。库的根目录不检查：`--from`、`CHART_LIBRARY_DIR` 由操作者指定，经软链给出也照常使用。
+- `git clone` 在仓库地址前加 `--`，以 `-` 开头的 `CHART_LIBRARY_REPOSITORY` 不再被当作选项。克隆失败的提示去掉地址里的用户名与密码（地址可能带令牌）；Git 自己的报错照常输出，Git 会自行隐去地址里的凭据（本机 Git 2.54 实测）。
+- `scripts/fetch-chart-library.test.mjs` 用合成库与记录参数的 Git 替身覆盖这几条，不需要私有库或网络。
+
+## 2026-11-19 补记：CI 里图表库与 PR 代码在同一个作业（审查后保持现状）
+
+审查指出：四个工作流在同一个作业里检出私有库、运行 PR 检出中的脚本、安装依赖并构建或测试，PR 控制的代码能读到图表库。核对结论是机制属实，但工作流不改，理由如下。
+
+- **谁能让带密钥的运行执行自己的代码。** fork 的 PR 拿不到仓库密钥（GitHub 文档「Using secrets in GitHub Actions」），检出私有库那一步直接失败；Dependabot 触发的运行也拿不到 Actions 密钥；工作流里没有 `pull_request_target` 与 `workflow_run`；手动触发和推标签需要写权限。所以走带密钥路径的代码都来自有写权限的人，而 GitHub 文档写明有写权限的人本来就能读取仓库的全部密钥（「Secure use reference」）。目前写权限只有仓库所有者。
+- **剩下的真实暴露面是供应链。** 被投毒的依赖或 action 在这些作业里运行时能读磁盘上的图表库，也可能取到本作业引用的 `CHART_LIBRARY_TOKEN`（同一文档：被攻破的 action 能访问仓库配置的密钥）。
+- **图表库的字节本来就公开提供。** 生产站在 `/charting_library/*` 下原样提供整个库（`deploy/cloudfront/distribution-config.mjs` 的 `CHART_PATH_PATTERNS`），浏览器都能下载；许可禁止的是在公开仓库里再分发。供应链攻击者从 CI 读到的，不比从网站下载的多。
+- **拆成两个作业反而更糟。** 由受信任作业取库再交给 PR 作业，只能经构件或缓存传递：构件对有读权限的人开放（「Downloading workflow artifacts」），公开仓库就是所有人；基分支的缓存任何能开 PR 的人都能读（「Dependency caching reference」）。这等于把库公开。PR 作业照样执行依赖代码、持有库字节，只少了令牌。
+- **调换顺序或 `--ignore-scripts` 没有作用。** pnpm 10 默认不运行依赖的生命周期脚本（v10.0.0 发布说明），本仓库没有配置 `onlyBuiltDependencies`，本机 `node_modules/.modules.yaml` 的 `ignoredBuilds` 列出了 esbuild、lefthook 等 9 个包；而类型检查、构建和测试本身就执行全部依赖代码。
+- **环境（environment）加必需审批换不来隔离。** 部署分支规则按 `GITHUB_REF` 匹配，PR 运行是 `refs/pull/<N>/merge`，要让 PR 检查拿到密钥就得放行所有 PR；必需审批则要求所有者为自己的每次推送点批准（「Deployments and environments」）。
+- 同一批依赖也在运营方本机（有云账号与发布凭据）和发给用户的前端包里运行，CI 隔离不是防供应链的主要位置。
+
+需要运营方在 GitHub 设置里做、代码不变的事：`CHART_LIBRARY_TOKEN` 保持细粒度、只授权 `gatu-chart-library`、只读 Contents，并设置到期日、按期轮换（「Managing your personal access tokens」建议设到期日）；怀疑泄露时先撤销；fork PR 的运行保持需要批准；发布标签用规则集保护；不引入 `pull_request_target`、`workflow_run` 或自托管 runner。如需让被盗令牌很快失效，可改用 GitHub App 的短期安装令牌，这要新建 App，由运营方决定。
+
+前提：结论依赖「能在本仓库推分支或触发运行的只有所有者」。以后加入协作者，或让自动化（例如 Claude 工作流）凭外部输入推送分支时，要重新评估。
+
 ## 验证
 
 在公开仓库的克隆上（Node 22.15.0）：
