@@ -30,8 +30,8 @@
 
 - 远端只有 `origin`，即 `haoyu8962-netizen/sairn`，是公开仓库（2026-11-13 起；原账号 `zora4523-bot` 被封停，见 [ADR 0054](adr/0054-chart-library-outside-the-repository.md)）。TradingView Advanced Charts 的许可不允许公开再分发，所以它不在这个仓库里，也不能提交进来：文件在私有仓库 `haoyu8962-netizen/gatu-chart-library`，克隆后跑一次 `pnpm chart:fetch` 装到被忽略的 `apps/terminal/public/charting_library/`。2026-11-13 之前的记录里引用的提交号与 PR 编号属于原仓库，在这里查不到。
 - 分支流向见 [ADR 0055](adr/0055-single-main-branch-and-release-tags.md) 与 [git 规则](../.claude/rules/git.md)：功能分支进 `main`，用 merge commit 合并。任务记录与 ADR 引用分支上的提交号，所以不能 squash 或 rebase。新分支用 `git switch --no-track -c <name> origin/main`，`--no-track` 防止误推到 `main`。2026-11-13 之前的记录里出现的 `dev`、晋升 PR 与 `Promotion coverage` 是原仓库的做法（[ADR 0016](adr/0016-dev-first-pull-requests-and-ci-tiers.md)），已不适用。
-- **合并 PR 之前**先读机器人的审查意见：`gh api repos/haoyu8962-netizen/sairn/pulls/<N>/comments` 与 `.../reviews`。没有开 Auto-fix 的 PR 收到意见时不会有任何通知。逐条对照代码核实后再决定改不改，机器人也会出错：2026-10-03 PR #74 的 P2 把 `dev` 的状态当成了 `main` 的，用 `git merge-base` 核对后确认不成立。
-- **CI 成本**：仓库自 2026-11-13 起是公开仓库，Actions 不计费，下面的计费分钟读数是原私有仓库的，只作历史参考；`dev → main` 晋升与 `Promotion coverage` 已取消（ADR 0055）。原文：GitHub Actions 额度是每月 3,000 分钟。代码 PR 每推送一次，五个工作流都触发时约 64–68 计费分钟（2026-11-01 PR #130 两轮实测，按作业向上取整）。2026-09-20 PR #32 合入后实测约 33，之后单测拆成两片，单测与浏览器套件也都变长了。工作流都按路径过滤，只改 `docs/`、`notes/`、`.claude/`、`.agents/` 或根目录 Markdown 的 PR 不触发任何检查，`gh pr checks` 显示 no checks reported，可以直接合并。改 `apps/**`（包括其中的 README）、`deploy/**`、`brand/**`、`legal/**` 会触发构建和测试。纯文档补记随下一个 PR 带上。进 `main` 的 PR 另外跑配对开关打开的构建。`dev → main` 的晋升 PR 先由各工作流的 `Promotion coverage` 作业核对 `dev` 是否已经测过同一棵树：测过就只跑静态检查和配对开启构建（预计约 14 计费分钟），否则全跑（约 70 计费分钟），见 [ADR 0016](adr/0016-dev-first-pull-requests-and-ci-tiers.md) D8 与第 8 节。
+- **合并 PR 之前**先读机器人的审查意见：`gh api repos/haoyu8962-netizen/sairn/pulls/<N>/comments` 与 `.../reviews`。没有开 Auto-fix 的 PR 收到意见时不会有任何通知。逐条对照代码核实后再决定改不改，机器人也会出错：2026-10-03 原仓库 PR #74 的 P2 把 `dev` 的状态当成了 `main` 的，用 `git merge-base` 核对后确认不成立。
+- **CI 成本与覆盖**：仓库自 2026-11-13 起是公开仓库，Actions 不计费；原私有仓库的计费分钟与晋升覆盖记录见 [ADR 0016](adr/0016-dev-first-pull-requests-and-ci-tiers.md)，现行分支和构建规则见 [ADR 0055](adr/0055-single-main-branch-and-release-tags.md)。五个构建与测试工作流按路径过滤；纯文档补记随下一个 PR 带上。原仓库 PR #130 在 2026-11-01 的两轮实测约 64–68 计费分钟，PR #32 合入后在 2026-09-20 实测约 33，均只作历史参考。`Production Builds` 对触发它的 PR 构建配对开关的两种状态。
 - **少跑一轮的做法**（2026-10-12 与运营方商定）：一个代码 PR 尽量只推一次。开 PR 前在工作树跑完改动文件的 Biome、`typecheck`、`node --test scripts/*.test.mjs`（改了工作流或脚本时）和**全量终端 Vitest**（`pnpm --filter @sairn/terminal test --maxWorkers=4`，2026-10-12 实测 678 个文件约 3 分钟；2026-11-13 起 CI 的 `Terminal Tests` 跑终端全部 Vitest 文件（两片，每片 `--maxWorkers=4`）；本机全量仍建议在推送前跑一遍，以免一轮 CI 才发现失败。此前 CI 只跑手选清单，两次漏掉了清单外的文件），涉及滑杆、资金、下单的再跑对应浏览器套件；推送后先等一两分钟看 Codex 机器人的评论，成立的和 CI 失败一起改，攒成第二次推送，不要一条评论推一次。代码 PR 的 CI 跑完后如果只剩文档补记，另开一个不触发工作流的文档 PR，不要为它再推一次代码分支。`Terminal Tests` 与浏览器回归各两片并行，一轮等待约等于较慢的那一片；只改 `*.test.ts(x)` 的 PR 不跑浏览器回归（[ADR 0016](adr/0016-dev-first-pull-requests-and-ci-tiers.md) 2026-10-12 补记）。
 - **不默认开 Auto-fix**（运营方 2026-11-05）：开 PR 后不主动提议开启 Auto-fix，运营方明确要求时才开。原因：
   - Auto-fix 会为每个 CI 失败、冲突或评论推一次修复，每推送一次就全跑一轮，形成「修复 → 推送 → 跑 CI」的循环，与上一条「尽量只推一次」冲突。
@@ -41,9 +41,9 @@
 - **运行器镜像**：安装 Playwright 浏览器的作业（浏览器回归、官网构建）固定在 `ubuntu-24.04`。2026-11-12 `ubuntu-latest` 变成 26.04 后，Playwright 1.59.1 报「does not support chromium on ubuntu26.04-x64」，这两类作业一分钟内失败，与 PR 内容无关。升级 Playwright 时再评估改回 `ubuntu-latest`。
 - **Claude Code 工作流**：`claude.yml` 在评论里出现 @claude 时运行，需要仓库密钥 `CLAUDE_CODE_OAUTH_TOKEN`；`Claude Code Review` 工作流已手动停用。2026-10-08 查询时仓库没有任何 Actions 密钥，所以 @claude 目前不能用；要启用，由运营方用自己的 Claude 账号生成令牌后写入。
 - **集成 PR**（把多个完成的分支合成一个 PR）：
-  - 先确认对应会话已结束、工作树干净、本地分支头等于远端。从最新的 `origin/dev` 建分支，按依赖顺序逐个 `git merge --no-ff`。
+  - 先确认对应会话已结束、工作树干净、本地分支头等于远端。从最新的 `origin/main` 建分支，按依赖顺序逐个 `git merge --no-ff`。
   - 用 `git merge-tree --write-tree --name-only origin/main <branch>` 预演冲突；用 `git cherry -v origin/main <branch>` 查哪些补丁已经以别的提交进了 `main`。
-  - 冲突多在工作记录、CHANGELOG 与 ADR 目录。同名记录取两边的超集。`INDEX.md` 不入库（ADR 0049），不会冲突；早于 ADR 0049 的分支如果改过它，合并时保留删除（`git rm docs/work-memory/INDEX.md`）。`main` 后来新增的源码契约测试会在合并后才报错，所以每次合并后先跑契约测试，再提交合并。两边都往 CI 清单加了同一个测试文件时要去重。
+  - 冲突多在工作记录、CHANGELOG 与 ADR 目录。同名记录取两边的超集。`INDEX.md` 不入库（ADR 0049），不会冲突；早于 ADR 0049 的分支如果改过它，合并时保留删除（`git rm docs/work-memory/INDEX.md`）。`main` 后来新增的源码契约测试会在合并后才报错，所以每次合并后先跑契约测试，再提交合并。
   - 合并后跑全量单测与相关的浏览器套件；开 PR 前按 CI 环境做一次生产构建量包体（第 6 节）；另写一条集成任务记录。被集成的 PR 会在集成 PR 合并后被 GitHub 自动标为已合并。
   - 签名、下单、资金相关的改动和独立功能单独开 PR；小而无关的低风险改动可以合批。
 - **同步 `main`**：`git fetch origin main` 再 `git merge --no-ff origin/main`，推送前再 fetch 一次。合并跨过依赖升级时先跑 `pnpm install --frozen-lockfile`（比较 `node_modules/.pnpm/lock.yaml` 与 `pnpm-lock.yaml` 可知是否需要），否则测试和构建用的还是旧依赖。
@@ -51,7 +51,7 @@
 ## 4. 共享检出与工作树
 
 - 主检出 `gatu/` 可能同时被其他 Claude 会话、Codex 或运营方使用。改动放在独立工作树（`.claude/worktrees/<名称>`），不要在主检出上切分支，也不要替别人提交。
-- 桌面应用自动建的工作树可能停在 `main` 或主检出当时的 HEAD，而不是 `origin/dev`。动手前先 `git fetch` 并核对基线，没有独有提交的分支直接 `git merge --ff-only origin/dev`。
+- 桌面应用自动建的工作树可能停在 `main` 或主检出当时的 HEAD，而不是 `origin/main`。动手前先 `git fetch` 并核对基线，没有独有提交的分支直接 `git merge --ff-only origin/main`。
 - 新工作树装依赖用 `pnpm install --frozen-lockfile --prefer-offline`，几秒到半分钟。只有需要钱包登录的开发服务器才复制主检出的 `apps/terminal/.env.local`（复制即可，不读内容）；量包体的工作树不要放这个文件（第 6 节）。
 - **提交前**：`git log -1` 确认 HEAD 没被别的会话推进，`git diff --cached` 只含本任务的文件，出现不认识的改动就停手调查。只用显式路径 `git add`。下面几个机制会把别人的改动带进你的提交：
   - lefthook 的 pre-commit 会跑 `pnpm i18n:extract` 并把 `.po` 加进暂存区。它扫描整个工作区的源码，可能把别的会话还没提交的文案一起带进来。本任务没有新文案时，把这些 `.po` 撤出暂存区。
@@ -60,7 +60,7 @@
   - git stash 栈被所有工作树共享，不要用裸 `git stash` 或 `git stash pop`。
   - 工作树没装依赖时，提交钩子找不到 lefthook，会打印「Can't find lefthook in PATH」后放行，commitlint 与 Biome 都没跑，钩子的后备探测还会留下 Swift 的 `.build/` 目录。这时用主检出的 `node_modules/.bin/commitlint`（在主检出目录运行）手动校验提交信息，提交后删掉 `.build/`；改了代码的提交先装依赖再提交。
   - Claude 桌面应用的命令沙盒里，lefthook 找得到却启动不了钩子命令：commit-msg 在 0.00 秒内报 `operation not permitted` 并拒绝提交（2026-11-02 实测，同一条信息在沙盒外通过），所以提交在沙盒外执行。同一个沙盒里 `gh` 校验不了 TLS 证书（`x509: OSStatus -26276`），也要在沙盒外运行；`pnpm install` 用不了全局存储，会把依赖下载到工作树里 Git 忽略的 `.pnpm-store/`（约 1.4 GB），`prepare` 里的 `lefthook install` 因写不了 `.git/hooks` 而失败，钩子本来就在，不影响安装。
-- **清理工作树前**逐项核对：`git status --porcelain` 为空；分支提交都已在 `origin/dev`（只在 `main` 上的分支先核对 `origin/main` 的祖先关系）；没有 `.worklog/`；`.env.local` 与主检出 `cmp` 相同（不打印内容）；`lsof -d cwd -Fpcn` 显示没有进程以它为工作目录（`lsof +D` 会递归扫描 `node_modules`，非常慢）；没有打开的 PR。其他会话名下的工作树，要运营方逐个同意后才清理。发布工作树放在仓库外（`gatu-release-*`），保留到下一次发布，作为回滚产物。
+- **清理工作树前**逐项核对：`git status --porcelain` 为空；分支提交都已在 `origin/main`（核对祖先关系）；没有 `.worklog/`；`.env.local` 与主检出 `cmp` 相同（不打印内容）；`lsof -d cwd -Fpcn` 显示没有进程以它为工作目录（`lsof +D` 会递归扫描 `node_modules`，非常慢）；没有打开的 PR。其他会话名下的工作树，要运营方逐个同意后才清理。发布工作树放在仓库外（`gatu-release-*`），保留到下一次发布，作为回滚产物。
 - **shell 陷阱**：`| tail` 之类的管道会吞掉前一个命令的退出码，判断成败时单独取 `$?`；`pnpm build … | head` 会让构建收到 SIGPIPE 提前终止，应先写日志文件再 grep；zsh 不按空格拆分 `$var`，传文件列表要写 `${=var}`；不要用 `path`、`status` 作变量名；macOS 没有 `timeout` 命令；BSD `sed` 不认 `\|`，要用 `sed -E` 加 `|`。
 - **本机网络**：本机有 HTTP 代理（`127.0.0.1:6152`）和 fake-ip DNS（解析到 `198.18.x.x`）。核对 DNS 要问权威服务器（`dig @<权威 NS>`，看 `aa` 标志）；`curl --resolve` 要加 `--noproxy '*'`；经过代理时 `curl -I` 的第一行是 CONNECT 的 200，状态码要用 `-w '%{http_code}'` 取。经代理访问 GitHub HTTPS 偶有 TLS 重置，重试或改用 `gh api`。Claude 桌面应用的命令沙盒会拦下经 SOCKS 代理的 SSH（报 `nc: connection failed, SOCKS error 2`），`git fetch` 与 `git push` 要在沙盒外执行；运营方可以用 `/sandbox` 调整放行规则。
 
