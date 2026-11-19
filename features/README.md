@@ -12,6 +12,16 @@ This folder contains specifications for planned features. Each feature has its o
 | Spot Swap | High | Planned | [spot-swap.md](./spot-swap.md) |
 | Color Tokens and Theme Naming | High | In Progress | [color-tokens.md](./color-tokens.md) |
 
+## Historical Plans
+
+These early plans retain their original status fields as historical evidence. The current references describe implemented behavior and its limits.
+
+| Early plan | Current reference |
+| --- | --- |
+| [Arbitrum deposit](./arbitrum-deposit.md) | [CCTP deposits](../docs/cctp-deposits.md) |
+| [Isolated margin](./isolated-margin.md) | [Trading toolbar and isolated margin](../docs/trading-toolbar-redesign.md) |
+| [SDK API directory](./sdk-api-directory.md) | [Hyperliquid SDK directory](../docs/hyperliquid-sdk-directory.md) |
+
 ## Status Legend
 
 - **Planned** - Spec written, not started
