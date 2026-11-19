@@ -12,6 +12,7 @@ import {
 	cspDirectives,
 	serializeContentSecurityPolicy,
 } from "../../../apps/terminal/src/config/security-headers.ts";
+import { nonShellNavigationPaths, shellNavigationPaths } from "../../../apps/terminal/src/lib/tests/fixtures/shell-navigation-cases.ts";
 import { fillScriptHashes, FUNCTION_CODE_LIMIT_BYTES, readEdgeConfig } from "../function-code.mjs";
 import { createCspTemplate, renderCurrentResponseFunction, renderResponseFunction, RESPONSE_TEMPLATE_PATH } from "../render-functions.mjs";
 
@@ -36,6 +37,20 @@ test("the rendered response function matches the template and the application he
 	const committed = readFileSync(join(directory, "terminal-response.js"), "utf8");
 	assert.equal(committed, renderCurrentResponseFunction(), "run: node --experimental-strip-types deploy/cloudfront/render-functions.mjs");
 	assert.ok(Buffer.byteLength(committed, "utf8") <= FUNCTION_CODE_LIMIT_BYTES);
+});
+
+test("the viewer-request function fits the CloudFront function code limit", () => {
+	const source = readFileSync(join(directory, "terminal-request.js"), "utf8");
+	assert.ok(Buffer.byteLength(source, "utf8") <= FUNCTION_CODE_LIMIT_BYTES);
+});
+
+test("market navigation takes precedence over file extensions only on trade route shapes", () => {
+	for (const uri of shellNavigationPaths) {
+		assert.equal(onRequest(viewerRequest(uri)).uri, "/_shell.html", uri);
+	}
+	for (const uri of nonShellNavigationPaths) {
+		assert.equal(onRequest(viewerRequest(uri)).uri, uri, uri);
+	}
 });
 
 test("application navigations, legal pages included, rewrite to the shell", () => {

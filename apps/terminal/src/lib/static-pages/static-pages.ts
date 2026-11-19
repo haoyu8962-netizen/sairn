@@ -18,6 +18,7 @@ const POST_ONLY_SERVER_PATHS = new Set<string>([
 	CLIENT_ERROR_REPORT_API_PATH,
 	LEGACY_CLIENT_ERROR_REPORT_PATH,
 ]);
+const TRADE_MARKET_PATH = /^\/trade\/[^/]+(?:\/[^/]+)?$/;
 const FILE_EXTENSION = /\.[A-Za-z0-9]{1,16}$/;
 
 export type StaticPageDecision =
@@ -61,8 +62,8 @@ function classifyServerPath(pathname: string): StaticPageDecision | null {
  * Decides how the runtime answers a navigation without rendering routes on the server: every
  * application path gets the SPA shell, and server paths never fall through to page rendering.
  * GET-able API routes pass to their handlers, POST-only endpoints answer 405, unknown `/api/*`
- * paths answer 404, file-like paths never receive HTML, and the server-function transport is gone
- * because the client no longer uses it.
+ * paths answer 404, and the retired server-function transport answers 404. Trade market paths
+ * take precedence over the file extension rule, which keeps other file-like paths out of the shell.
  */
 export function classifyStaticPageRequest(method: string, rawPathname: string): StaticPageDecision {
 	if (method !== "GET" && method !== "HEAD") return { kind: "pass" };
@@ -72,7 +73,9 @@ export function classifyStaticPageRequest(method: string, rawPathname: string): 
 	const pathname = trimTrailingSlash(decoded);
 	const serverDecision = classifyServerPath(pathname);
 	if (serverDecision) return serverDecision;
-	if (FILE_EXTENSION.test(pathname)) return { kind: "not-found" };
+	if (!TRADE_MARKET_PATH.test(trimTrailingSlash(rawPathname)) && FILE_EXTENSION.test(pathname)) {
+		return { kind: "not-found" };
+	}
 
 	const marker = pathname === "/join" || pathname.startsWith("/join/") ? REFERRAL_JOIN_ROUTE_MARKER : null;
 	return { kind: "page", candidates: [STATIC_SHELL_FILE], marker };

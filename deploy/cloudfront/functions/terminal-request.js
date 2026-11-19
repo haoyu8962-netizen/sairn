@@ -3,9 +3,9 @@
 // Mirrors apps/terminal/src/lib/static-pages/static-pages.ts for an S3 origin: every application
 // path maps to the SPA shell, and server paths are left untouched so their cache behaviors route
 // them to the API origin. Missing files stay 404 (custom error response) instead of becoming
-// HTML. A final segment with a dot followed by 1-16 ASCII letters or digits is file-shaped,
-// including leading-dot files; the bound keeps longer dotted route segments from being mistaken
-// for files. The public host is copied into x-sairn-forwarded-host so the API origin can rebuild the
+// HTML. Trade market paths are navigations even when their final segment has a dot. Otherwise a
+// dot followed by 1-16 ASCII letters or digits at the end is file-shaped, including leading-dot
+// files. The public host is copied into x-sairn-forwarded-host so the API origin can rebuild the
 // public origin. Join paths and the pairing path are tagged so the viewer-response function can
 // expose the route marker and give the pairing page its uncached, referrer-free headers; a tag the
 // viewer sent itself is dropped first.
@@ -16,7 +16,8 @@ var RETIRED_PATH = '/mobile-agent-sync-ticket';
 var PAIRING_PATH = '/mobile-agent-sync';
 var SERVER_FUNCTION_PREFIX = '/_serverFn/';
 var SHELL = '/_shell.html';
-var EXTENSION = /^[A-Za-z0-9]{1,16}$/;
+var TRADE_MARKET_PATH = /^\/trade\/[^/]+(?:\/[^/]+)?$/;
+var FILE_EXTENSION = /\.[A-Za-z0-9]{1,16}$/;
 
 function trimTrailingSlash(uri) {
 	var end = uri.length;
@@ -36,12 +37,6 @@ function startsWithAny(value, prefixes) {
 		if (value.indexOf(prefixes[i]) === 0) return true;
 	}
 	return false;
-}
-
-function hasFileExtension(uri) {
-	var segment = uri.slice(uri.lastIndexOf('/') + 1);
-	var dot = segment.lastIndexOf('.');
-	return dot >= 0 && EXTENSION.test(segment.slice(dot + 1));
 }
 
 function notFound(message) {
@@ -66,7 +61,7 @@ function handler(event) {
 	if (uri.indexOf(SERVER_FUNCTION_PREFIX) === 0) return notFound('Server functions are not available');
 	if (uri === RETIRED_PATH || uri.indexOf(RETIRED_PATH + '/') === 0) return notFound('Not found');
 	if (includes(SERVER_PATHS, uri) || startsWithAny(uri, SERVER_PREFIXES)) return request;
-	if (hasFileExtension(uri)) return request;
+	if (!TRADE_MARKET_PATH.test(uri) && FILE_EXTENSION.test(uri)) return request;
 
 	if (uri === '/join' || uri.indexOf('/join/') === 0) {
 		request.headers['x-sairn-route'] = { value: 'referral-join' };
