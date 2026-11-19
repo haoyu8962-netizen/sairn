@@ -2,11 +2,13 @@
 
 import type { ExchangeParams } from "@sairn/hl-react";
 import { useExchange } from "@sairn/hl-react/hooks/useExchange";
+import { ExchangeResponseUnverifiedError } from "@sairn/hl-react/internal/exchange/action-acknowledgement";
 import { FundsActionLockTimeoutError } from "@sairn/hl-react/internal/exchange/funds-action-lock";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, useLayoutEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isAmbiguousExchangeActionError } from "@/lib/errors/format";
 
 const OWNER = "0x1234567890abcdef1234567890abcdef12345678";
 const SESSION_STORAGE_KEY = `hyperliquid_agent_registration_session_Mainnet_${OWNER}`;
@@ -576,5 +578,34 @@ describe("useExchange funds action lock integration", () => {
 		expect(clients.secondWithdraw).not.toHaveBeenCalled();
 		expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
 		expect(queryClient.getMutationCache().getAll()[0]?.state.failureCount).toBe(1);
+	});
+
+	it.each([
+		["an empty object", {}],
+		["null", null],
+		["an ok status without the default acknowledgement", { status: "ok", response: { type: "order" } }],
+	])(
+		"reports a withdrawal answered with %s as unknown instead of accepted, without retrying",
+		async (_case, answer) => {
+			installExclusiveLockManager();
+			clients.firstWithdraw.mockResolvedValueOnce(answer as never);
+			const mutations = renderProbe();
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await mutations.first({ destination: OWNER, amount: "10" }).catch((error: unknown) => error);
+			});
+
+			expect(rejection).toBeInstanceOf(ExchangeResponseUnverifiedError);
+			expect(isAmbiguousExchangeActionError(rejection)).toBe(true);
+			expect(clients.firstWithdraw).toHaveBeenCalledOnce();
+		},
+	);
+
+	it("still resolves a withdrawal the exchange acknowledged as documented", async () => {
+		installExclusiveLockManager();
+		const mutations = renderProbe();
+		await act(async () => {
+			await expect(mutations.first({ destination: OWNER, amount: "10" })).resolves.toEqual(clients.response);
+		});
 	});
 });

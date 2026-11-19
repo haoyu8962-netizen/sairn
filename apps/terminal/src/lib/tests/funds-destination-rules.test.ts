@@ -1,5 +1,8 @@
+import { zeroAddress } from "viem";
 import { describe, expect, it } from "vitest";
-import { getSendDestinationVerdict } from "@/domain/trade/send-destination";
+import { isFundsDestinationAddress } from "@/domain/trade/funds-destination-address";
+import { PreTransferCheckExecutionError } from "@/domain/trade/pre-transfer-check";
+import { assertSendDestinationUnchanged, getSendDestinationVerdict } from "@/domain/trade/send-destination";
 import { getWithdrawDestinationIssue } from "@/domain/trade/withdraw-destination";
 
 const OWNER = "0x1111111111111111111111111111111111111111";
@@ -49,8 +52,79 @@ describe("send destination verdict", () => {
 		{ fee: 1, isSanctioned: false, userHasSentTx: true },
 		{ fee: "0", isSanctioned: "no", userHasSentTx: true },
 		{ fee: "0", isSanctioned: false },
+		{ fee: "0", isSanctioned: false, userHasSentTx: true },
+		{ fee: "0", isSanctioned: false, userExists: "yes", userHasSentTx: true },
 	])("sends nothing for an answer without the documented shape: %o", (answer) => {
 		expect(getSendDestinationVerdict(answer)).toEqual({ kind: "unavailable" });
+	});
+});
+
+describe("send destination recheck before signing", () => {
+	const active = { fee: "0", destinationHasSentTx: true };
+	const reviewedNewAccount = { fee: "1", destinationHasSentTx: false };
+
+	function reasonOf(reviewed: { fee: string; destinationHasSentTx: boolean }, answer: unknown) {
+		try {
+			assertSendDestinationUnchanged(reviewed, answer);
+			return null;
+		} catch (error) {
+			if (error instanceof PreTransferCheckExecutionError) return error.reason;
+			throw error;
+		}
+	}
+
+	it("lets a send through when the fresh answer asks for nothing the user has not seen", () => {
+		expect(reasonOf(active, { fee: "0.0", isSanctioned: false, userExists: true, userHasSentTx: true })).toBeNull();
+		expect(
+			reasonOf(reviewedNewAccount, { fee: "1.0", isSanctioned: false, userExists: false, userHasSentTx: false }),
+		).toBeNull();
+		expect(
+			reasonOf(reviewedNewAccount, { fee: "1", isSanctioned: false, userExists: true, userHasSentTx: true }),
+		).toBeNull();
+	});
+
+	it("refuses a destination that became sanctioned", () => {
+		expect(reasonOf(active, { fee: "0", isSanctioned: true, userExists: true, userHasSentTx: true })).toBe(
+			"sanctioned",
+		);
+	});
+
+	it("refuses a fee other than the one the user saw", () => {
+		expect(reasonOf(active, { fee: "1", isSanctioned: false, userExists: false, userHasSentTx: false })).toBe(
+			"changed",
+		);
+		expect(
+			reasonOf(reviewedNewAccount, { fee: "2", isSanctioned: false, userExists: false, userHasSentTx: false }),
+		).toBe("changed");
+	});
+
+	it("refuses a loss warning the user did not see", () => {
+		expect(reasonOf(active, { fee: "0", isSanctioned: false, userExists: true, userHasSentTx: false })).toBe(
+			"unavailable",
+		);
+	});
+
+	it.each([
+		null,
+		{},
+		{ fee: "0", isSanctioned: false, userHasSentTx: true },
+		{ fee: "-1", isSanctioned: false, userExists: true, userHasSentTx: true },
+	])("refuses an answer without the documented shape: %o", (answer) => {
+		expect(reasonOf(active, answer)).toBe("unavailable");
+	});
+});
+
+describe("funds destination address", () => {
+	it("refuses the zero address in any letter case", () => {
+		expect(isFundsDestinationAddress(zeroAddress)).toBe(false);
+		expect(isFundsDestinationAddress("0X0000000000000000000000000000000000000000")).toBe(false);
+	});
+
+	it("accepts any other valid address and refuses malformed text", () => {
+		expect(isFundsDestinationAddress("0x2222222222222222222222222222222222222222")).toBe(true);
+		expect(isFundsDestinationAddress("0x0000000000000000000000000000000000000001")).toBe(true);
+		expect(isFundsDestinationAddress("not-an-address")).toBe(false);
+		expect(isFundsDestinationAddress("")).toBe(false);
 	});
 });
 

@@ -21,6 +21,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EmbeddedDepositAutoBridge } from "@/components/trade/tradebox/embedded-deposit-auto-bridge";
 import { CCTP_DEPOSIT_NETWORKS } from "@/config/cctp-deposit";
+import { DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
@@ -1959,8 +1960,66 @@ describe("useDeposit fresh USDC route guard", () => {
 		expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
 	});
 
+	it.each(["smart", "wallet"] as const)(
+		"releases the funds lock and signs nothing when the %s regional check never answers, also once it answers late",
+		async (mode) => {
+			vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			let answerLate!: () => void;
+			testState.geoRefetch.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						answerLate = () =>
+							resolve({ data: { country: "GB", proxy: false, tradeRestricted: false }, isError: false });
+					}),
+			);
+			let lockHeld = false;
+			testState.lockRequest.mockImplementation(
+				async (
+					name: string,
+					_options: LockOptions,
+					callback: (lock: Lock | null) => unknown | PromiseLike<unknown>,
+				) => {
+					lockHeld = true;
+					try {
+						return await callback({ name, mode: "exclusive" } as Lock);
+					} finally {
+						lockHeld = false;
+					}
+				},
+			);
+			const depositHook = renderMode(mode, "cctp", "automatic");
+
+			await act(async () => {
+				const request = depositHook.deposit("5");
+				for (let attempt = 0; attempt < 50 && testState.geoRefetch.mock.calls.length === 0; attempt += 1) {
+					await vi.advanceTimersByTimeAsync(0);
+				}
+				expect(testState.geoRefetch).toHaveBeenCalledOnce();
+				expect(lockHeld).toBe(true);
+				await vi.advanceTimersByTimeAsync(DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS);
+				await request;
+			});
+
+			expect(lockHeld).toBe(false);
+			expect(capturedDeposit?.error?.message).toContain("Unable to verify regional availability");
+			await act(async () => {
+				answerLate();
+				await vi.advanceTimersByTimeAsync(1_000);
+			});
+			expect(testState.getUserRole).not.toHaveBeenCalled();
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+			expect(testState.walletWriteContract).not.toHaveBeenCalled();
+		},
+	);
+
 	describe("click deadline of a manual deposit", () => {
 		const SPONSORED_EXECUTION_KEY = `mainnet:manual:smart:${WALLET_ADDRESS.toLowerCase()}`;
+		// Each check inside the funds lock has its own bound, so a delay past the click deadline is
+		// split between the regional check and the recipient lookup that follows it.
+		const LOCKED_CHECK_DELAY_MS = 10_000;
 
 		async function submitWithDelayedRegionalCheck({
 			delayMs,
@@ -1976,14 +2035,18 @@ describe("useDeposit fresh USDC route guard", () => {
 			vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
+			const regionalDelayMs = Math.min(delayMs, LOCKED_CHECK_DELAY_MS);
 			testState.geoRefetch.mockImplementation(
 				() =>
 					new Promise((resolve) => {
 						setTimeout(
 							() => resolve({ data: { country: "GB", proxy: false, tradeRestricted: false }, isError: false }),
-							delayMs,
+							regionalDelayMs,
 						);
 					}),
+			);
+			testState.getUserRole.mockImplementation(
+				() => new Promise((resolve) => setTimeout(() => resolve({ role: "user" }), delayMs - regionalDelayMs)),
 			);
 			const depositHook = renderMode(mode, "cctp", executionScope);
 			const review: DepositReview | undefined =
@@ -2007,7 +2070,13 @@ describe("useDeposit fresh USDC route guard", () => {
 				}
 				expect(testState.geoRefetch).toHaveBeenCalledTimes(regionalChecksBefore + 1);
 				expect(testState.permitSign).toHaveBeenCalledTimes(signaturesBefore);
+				let settled = false;
+				const markSettled = () => {
+					settled = true;
+				};
+				void request.then(markSettled, markSettled);
 				await vi.advanceTimersByTimeAsync(delayMs);
+				for (let attempt = 0; attempt < 50 && !settled; attempt += 1) await vi.advanceTimersByTimeAsync(100);
 				await request;
 			});
 		}

@@ -357,11 +357,16 @@ implementation.
   transaction on Hyperliquid, opens a review step in the same dialog with the fee
   and a loss warning, and its static `Send` / `Send with Fee` control stays
   disabled until the user acknowledges that this is not a withdrawal to another
-  chain; a failed or malformed answer sends nothing. The draft is locked while
-  the check runs, and an answer that arrives after the account, network or
-  draft changed is dropped. The review belongs to the account it was checked
-  for: an account change discards it and its acknowledgement, and confirming
-  re-checks that identity. Max does not reserve the activation fee, as on the
+  chain; a failed or malformed answer (including one without `userExists`)
+  sends nothing. The draft is locked while the check runs, and an answer that
+  arrives after the account, network or draft changed is dropped. The SDK
+  pre-execution guard asks `preTransferCheck` again inside the funds lock, right
+  before signing, and sends nothing when the destination became sanctioned, the
+  activation fee differs from the one the user saw, or a loss warning the user
+  was not shown is now due (2026-11-19; the official terminal checks only at
+  the click). The zero address is not a valid destination. The review belongs
+  to the account it was checked for: an account change discards it and its
+  acknowledgement, and confirming re-checks that identity. Max does not reserve the activation fee, as on the
   official terminal (its Max is the withdrawable balance floored to 2 decimals,
   or to the token's decimals for spot). Max, the available label and the
   over-balance check read the exact balance string, the same one the execution
@@ -369,9 +374,9 @@ implementation.
   as `999999999.99999999`) up, so a Max taken from it could exceed the balance
   and be refused on every retry (2026-10-31, P2 D8).
 - Email-wallet withdrawals name their Arbitrum destination. Refuse the wallet's
-  own address (the automatic email-wallet deposit would put it straight back)
-  and the native USDC token contracts of both networks, in the form and again at
-  submission.
+  own address (the automatic email-wallet deposit would put it straight back),
+  the native USDC token contracts of both networks and the zero address
+  (`isFundsDestinationAddress`), in the form and again at submission.
 - Spot Swap and position Reverse trade, so they follow the trading region gate
   (`useGeoRestriction().actionsBlocked`) like order entry: the balances table
   hides Swap, the swap dialog disables its control and names the restriction, the

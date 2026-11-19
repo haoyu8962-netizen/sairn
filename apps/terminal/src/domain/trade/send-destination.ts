@@ -1,4 +1,5 @@
 import { toBig } from "@/lib/trade/numbers";
+import { normalizePreTransferCheck, type PreTransferCheck, PreTransferCheckExecutionError } from "./pre-transfer-check";
 
 /**
  * What a Send does after `preTransferCheck`, as on the official terminal: a sanctioned destination
@@ -12,15 +13,47 @@ export type SendDestinationVerdict =
 	| { kind: "sanctioned" }
 	| { kind: "unavailable" };
 
-export function getSendDestinationVerdict(check: unknown): SendDestinationVerdict {
-	if (!check || typeof check !== "object") return { kind: "unavailable" };
-	const { fee, isSanctioned, userHasSentTx } = check as Record<string, unknown>;
-	const feeValue = typeof fee === "string" && /^\d+(\.\d+)?$/.test(fee) ? toBig(fee) : null;
-	if (!feeValue || typeof isSanctioned !== "boolean" || typeof userHasSentTx !== "boolean") {
-		return { kind: "unavailable" };
+/** What the user saw about the destination when they confirmed the Send. */
+export interface SendDestinationReview {
+	fee: string;
+	destinationHasSentTx: boolean;
+}
+
+/** A Send that needed no review was shown no fee and no loss warning. */
+export const UNREVIEWED_SEND_DESTINATION: SendDestinationReview = { fee: "0", destinationHasSentTx: true };
+
+function readPreTransferCheck(check: unknown): PreTransferCheck | null {
+	try {
+		return normalizePreTransferCheck(check);
+	} catch {
+		return null;
 	}
-	if (isSanctioned) return { kind: "sanctioned" };
-	const feeDue = feeValue.gt(0);
-	if (!feeDue && userHasSentTx) return { kind: "send" };
-	return { kind: "review", fee: fee as string, feeDue, destinationHasSentTx: userHasSentTx };
+}
+
+export function getSendDestinationVerdict(check: unknown): SendDestinationVerdict {
+	const current = readPreTransferCheck(check);
+	if (!current) return { kind: "unavailable" };
+	if (current.isSanctioned) return { kind: "sanctioned" };
+	const feeDue = toBig(current.fee)?.gt(0) ?? false;
+	if (!feeDue && current.userHasSentTx) return { kind: "send" };
+	return { kind: "review", fee: current.fee, feeDue, destinationHasSentTx: current.userHasSentTx };
+}
+
+/**
+ * The destination check is asked again inside the funds lock, right before signing, because the
+ * answer can change while the review stays open or while another tab holds the lock. The Send goes
+ * ahead only when the fresh answer asks for nothing the user has not seen: the same activation fee,
+ * and a loss warning only if the user was shown one.
+ */
+export function assertSendDestinationUnchanged(reviewed: SendDestinationReview, check: unknown): void {
+	const current = readPreTransferCheck(check);
+	if (!current) throw new PreTransferCheckExecutionError("unavailable");
+	if (current.isSanctioned) throw new PreTransferCheckExecutionError("sanctioned");
+	const currentFee = toBig(current.fee);
+	const reviewedFee = toBig(reviewed.fee);
+	if (!currentFee || !reviewedFee) throw new PreTransferCheckExecutionError("unavailable");
+	if (!currentFee.eq(reviewedFee)) throw new PreTransferCheckExecutionError("changed");
+	if (!current.userHasSentTx && reviewed.destinationHasSentTx) {
+		throw new PreTransferCheckExecutionError("unavailable");
+	}
 }

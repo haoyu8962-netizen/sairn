@@ -15,6 +15,18 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - A deposit that the wallet sped up is now followed through the transaction that actually used the
   authorization, and one that was cancelled or dropped is settled once its authorization expires,
   instead of waiting on the original hash for up to 30 days.
+- Send asks Hyperliquid about the destination again right before signing and sends nothing when the
+  destination became sanctioned, the activation fee changed, or a loss warning the user did not see
+  now applies; a destination check answer without the full documented shape sends nothing.
+- Send and email-wallet withdrawals refuse the zero address as a destination.
+- A send, transfer or withdrawal that the exchange answers without its documented acknowledgement
+  is reported as status unknown instead of as a success.
+- A deposit no longer holds the funds lock indefinitely while its regional check waits for the
+  network: it stops after 15 seconds and signs nothing.
+- An automatic email-wallet deposit whose own submission ended without a hash now starts again once
+  its authorization has expired, instead of waiting for a balance change or a reload.
+- The withdrawal minimum is rounded up to an amount the two-decimal field accepts, Max shows the
+  exact amount it fills, and the Send and Transfer notifications show the exact amount sent.
 
 ### Changed
 

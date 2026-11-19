@@ -10611,6 +10611,7 @@ msgstr "类型"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "无法检查目标地址，未发送任何资产。"
 
@@ -10628,6 +10629,7 @@ msgstr "无法加载 Arbitrum USDC 余额"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "无法加载当前的 CCTP 提款手续费。"
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "无法向此地址发送资金。"

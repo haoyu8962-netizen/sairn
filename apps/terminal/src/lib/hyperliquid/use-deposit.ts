@@ -42,6 +42,7 @@ import {
 	DEPOSIT_POLL_INTERVAL_MS,
 	DEPOSIT_WALLET_RESPONSE_TIMEOUT_MS,
 } from "@/config/time";
+import { assertFreshFundsActionGeo } from "@/domain/trade/funds-action-availability";
 import { useFreshLegalActionGuard } from "@/hooks/trade/use-fresh-legal-action-guard";
 import { useAssertFreshDepositRoute } from "@/hooks/trade/use-usdc-routing";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
@@ -339,6 +340,8 @@ function sleep(ms: number) {
 }
 
 const CCTP_FEE_CHANGED_MESSAGE = msg`Circle fees changed before submission. Review the updated fee and retry.`;
+const DEPOSIT_GEO_RESTRICTED = "deposit-geo-restricted";
+const DEPOSIT_GEO_UNAVAILABLE = "deposit-geo-unavailable";
 
 /**
  * A fresh quote can raise Circle's fee until the amount no longer covers twice of it. The dialog
@@ -1250,16 +1253,22 @@ export function useDeposit({
 				const cctpDepositUser = ready.address;
 				const cctpTrackingEnv = network === "testnet" ? "Testnet" : "Mainnet";
 				const hash = await runWithFundsActionLock(cctpTrackingEnv, ready.address, async () => {
-					const freshGeo = await refreshGeoRestriction();
-					if (freshGeo.isError || !freshGeo.data?.country || !/^[A-Z]{2}$/.test(freshGeo.data.country)) {
+					const lockedGeoRead = createLockedRequestSignal();
+					try {
+						await assertFreshFundsActionGeo({
+							refresh: refreshGeoRestriction,
+							restrictedMessage: DEPOSIT_GEO_RESTRICTED,
+							signal: lockedGeoRead.signal,
+							unavailableMessage: DEPOSIT_GEO_UNAVAILABLE,
+						});
+					} catch (cause) {
 						throw new LocalizedActionError(
-							msg`Unable to verify regional availability. This deposit was not submitted.`,
+							cause instanceof Error && cause.message === DEPOSIT_GEO_RESTRICTED
+								? msg`Deposits are not available in your region. This deposit was not submitted.`
+								: msg`Unable to verify regional availability. This deposit was not submitted.`,
 						);
-					}
-					if (freshGeo.data.tradeRestricted || freshGeo.data.proxy) {
-						throw new LocalizedActionError(
-							msg`Deposits are not available in your region. This deposit was not submitted.`,
-						);
+					} finally {
+						lockedGeoRead.clear();
 					}
 					if (amountRaw > CCTP_MAX_DEPOSIT_USDC) {
 						throw new LocalizedActionError(msg`Circle CCTP deposits are limited to 10,000,000 USDC per transfer.`);

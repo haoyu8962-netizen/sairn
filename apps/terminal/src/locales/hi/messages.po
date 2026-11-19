@@ -10611,6 +10611,7 @@ msgstr "प्रकार"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "गंतव्य पता जाँचा नहीं जा सका। कुछ भी नहीं भेजा गया।"
 
@@ -10628,6 +10629,7 @@ msgstr "Arbitrum USDC बैलेंस लोड नहीं किया ज
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "वर्तमान CCTP निकासी शुल्क लोड नहीं हो सका।"
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "इस पते पर फ़ंड नहीं भेजे जा सकते।"

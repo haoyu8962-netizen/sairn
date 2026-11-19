@@ -329,7 +329,12 @@ attempt, so a balance change cannot replace the persistent unknown-status warnin
 with the "previous authorization is still active" failure of an attempt that could
 never sign. The host checks again one second after that authorization's
 `validBefore`, so the same balance is deposited once it has expired, without waiting
-for a balance change or a reload. An attempt that is still waiting for the browser
+for a balance change or a reload. This also holds for the host's own attempt that
+failed without a hash on the current page: until 2026-11-19 only an attempt that
+found an earlier authorization scheduled the check, and a page whose own attempt
+had failed stayed latched after expiry. When the check runs, the intent is read
+again; one that is still unresolved (another tab signed a newer one) keeps the
+attempt latched and moves the check to its expiry. An attempt that is still waiting for the browser
 lock or the balance refresh is dropped if the legal status stops allowing actions
 before it submits.
 
@@ -519,10 +524,12 @@ user rejection or a provider code that precedes any submission (`4001`, `4100`, 
 `-32003`, `-32600`, `-32601`, `-32602`; `deposit-submission-outcome.ts`). Disconnection codes
 (`4900`, `4901`) and generic server codes (`-32000`, `-32603`) stay unknown: a wallet can lose its
 connection after handing the transaction to a node, and nodes return the generic codes for
-"already known" and for timeouts. Requests made while the funds-action lock is held (the Circle fee and
-Fast Transfer allowance quotes, and the balance re-read of the locked amount) carry a 15-second
-deadline (`DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS`), so a hanging provider releases the lock as a
-failure before anything is signed.
+"already known" and for timeouts. Requests made while the funds-action lock is held (the regional
+check, the Circle fee and Fast Transfer allowance quotes, and the balance re-read of the locked
+amount) carry a 15-second deadline (`DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS`), so a hanging provider
+releases the lock as a failure before anything is signed. The regional check is a TanStack Query
+refetch, which pauses while the browser is offline; since 2026-11-19 the deposit stops waiting
+for it at the deadline (`Unable to verify regional availability`) and a late answer signs nothing.
 
 ### External-wallet authorization intent and replaced transactions
 

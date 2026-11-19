@@ -2,6 +2,7 @@ import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { type UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
 import { assertExchange, WalletAccountMismatchError } from "../errors";
 import { assertExchangeMutationAllowed, usePortfolioMarginActivationPolicy } from "../exchange-policy";
+import { assertExchangeActionAcknowledged } from "../internal/exchange/action-acknowledgement";
 import { requiresFundsActionLock, runWithFundsActionLock } from "../internal/exchange/funds-action-lock";
 import { getExchangeLegalCapability, verifyLegalActionAllowed } from "../internal/exchange/legal-execution";
 import {
@@ -214,9 +215,10 @@ export function useExchange<M extends ExchangeMethod>(
 				ownerSigner?.assertCurrent();
 				assertExchangeMutationAllowed(method, requestParams, portfolioMarginActivationEnabled);
 				assertExecutionAllowed(method, requestParams as ExchangeParams<M>, executionGuard);
-				return (requestParams !== undefined ? fn.call(exchange, requestParams) : fn.call(exchange)).catch(
-					unwrapExchangeSigningDeadline,
-				);
+				return (requestParams !== undefined ? fn.call(exchange, requestParams) : fn.call(exchange)).then((response) => {
+					assertExchangeActionAcknowledged(method, response);
+					return response;
+				}, unwrapExchangeSigningDeadline);
 			},
 			requestGeneration,
 			startWithLegalGate,

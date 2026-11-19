@@ -28,11 +28,17 @@ const AUTO_DEPOSIT_RETRY_DELAY_MS = 30_000;
 const AUTO_DEPOSIT_MAX_RETRY_DELAY_MS = 5 * 60_000;
 let notificationPresentationSequence = 0;
 
-function hasNoSponsoredAuthorizationIntent(env: "Mainnet" | "Testnet", owner: string): boolean {
+type SponsoredAuthorizationState =
+	| { kind: "none" }
+	| { kind: "unresolved"; validBefore: number }
+	| { kind: "unreadable" };
+
+function readSponsoredAuthorizationState(env: "Mainnet" | "Testnet", owner: string): SponsoredAuthorizationState {
 	try {
-		return readCctpSponsoredAuthorizationIntent(env, owner.toLowerCase()) === null;
+		const intent = readCctpSponsoredAuthorizationIntent(env, owner.toLowerCase());
+		return intent ? { kind: "unresolved", validBefore: intent.validBefore } : { kind: "none" };
 	} catch {
-		return false;
+		return { kind: "unreadable" };
 	}
 }
 
@@ -191,11 +197,17 @@ export function EmbeddedDepositAutoBridge() {
 			}, retryDelay);
 		}
 
-		function scheduleAuthorizationRecheck(validBeforeSeconds: number) {
+		function scheduleAuthorizationRecheck(validBeforeSeconds: number, owner: string) {
 			if (authorizationRecheckTimeoutRef.current) window.clearTimeout(authorizationRecheckTimeoutRef.current);
 			const delay = Math.max(1_000, validBeforeSeconds * 1_000 - Date.now() + 1_000);
 			authorizationRecheckTimeoutRef.current = window.setTimeout(() => {
 				authorizationRecheckTimeoutRef.current = null;
+				const authorization = readSponsoredAuthorizationState(cctpTrackingEnv, owner);
+				if (authorization.kind === "unresolved") {
+					scheduleAuthorizationRecheck(authorization.validBefore, owner);
+					return;
+				}
+				if (authorization.kind === "unreadable") return;
 				attemptKeyRef.current = null;
 				setAuthorizationRecheck((count) => count + 1);
 			}, delay);
@@ -267,16 +279,16 @@ export function EmbeddedDepositAutoBridge() {
 			}
 
 			// A rejected smart-account submission can still have reached the bundler.
-			// Keep the failed attempt latched until its balance/identity changes instead
-			// of signing a second EIP-3009 authorization automatically. A failure before
+			// Keep the failed attempt latched until its balance/identity changes, or until
+			// its unresolved authorization expires, instead of signing a second EIP-3009
+			// authorization automatically. A failure before
 			// any authorization reached the bundler (no hash, no unresolved intent, no
 			// unknown outcome) left nothing in flight, so it is retried with backoff; a
 			// retry already scheduled for this key is kept across re-renders.
-			const retrySafe =
-				!depositHash &&
-				!submissionOutcomeUnknown &&
-				!!depositEmbeddedWalletAddress &&
-				hasNoSponsoredAuthorizationIntent(cctpTrackingEnv, depositEmbeddedWalletAddress);
+			const authorization: SponsoredAuthorizationState = depositEmbeddedWalletAddress
+				? readSponsoredAuthorizationState(cctpTrackingEnv, depositEmbeddedWalletAddress)
+				: { kind: "unreadable" };
+			const retrySafe = !depositHash && !submissionOutcomeUnknown && authorization.kind === "none";
 			if (retrySafe) {
 				scheduleRetry(eligibleDepositKey);
 				return;
@@ -286,6 +298,9 @@ export function EmbeddedDepositAutoBridge() {
 				retryTimeoutRef.current = null;
 			}
 			retryKeyRef.current = null;
+			if (authorization.kind === "unresolved" && depositEmbeddedWalletAddress) {
+				scheduleAuthorizationRecheck(authorization.validBefore, depositEmbeddedWalletAddress);
+			}
 			return;
 		}
 
@@ -305,7 +320,7 @@ export function EmbeddedDepositAutoBridge() {
 			task: async () => {
 				const unresolvedAuthorization = readCctpSponsoredAuthorizationIntent(cctpTrackingEnv, normalizedWalletAddress);
 				if (unresolvedAuthorization) {
-					scheduleAuthorizationRecheck(unresolvedAuthorization.validBefore);
+					scheduleAuthorizationRecheck(unresolvedAuthorization.validBefore, normalizedWalletAddress);
 					return;
 				}
 				const currentBalanceRaw = await refreshBalance();

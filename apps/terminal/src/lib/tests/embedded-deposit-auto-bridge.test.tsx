@@ -387,6 +387,57 @@ describe.each([
 		expect(testState.deposit).toHaveBeenCalledTimes(1);
 	});
 
+	it("checks again one second after the authorization of its own failed no-hash attempt expires", async () => {
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		expect(testState.deposit).toHaveBeenCalledTimes(1);
+
+		testState.authorizationIntent = { authNonce: "0x01", validBefore: Math.floor(Date.now() / 1000) + 600 };
+		testState.depositStatus = "error";
+		testState.depositError = new Error("provider unavailable");
+		testState.submissionOutcomeUnknown = true;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		expect(testState.toastWarning).toHaveBeenCalledWith("Deposit status unknown", expect.anything());
+
+		await act(() => vi.advanceTimersByTimeAsync(600_000));
+		expect(testState.resetDeposit).not.toHaveBeenCalled();
+		expect(testState.deposit).toHaveBeenCalledTimes(1);
+
+		testState.authorizationIntent = null;
+		await act(() => vi.advanceTimersByTimeAsync(1_000));
+		expect(testState.resetDeposit).toHaveBeenCalledTimes(1);
+
+		testState.depositStatus = "idle";
+		testState.depositError = null;
+		testState.submissionOutcomeUnknown = false;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		expect(testState.refreshBalance).toHaveBeenCalledTimes(2);
+		expect(testState.deposit).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps a failed no-hash attempt latched while its authorization is still unresolved at the recheck", async () => {
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		testState.authorizationIntent = { authNonce: "0x01", validBefore: Math.floor(Date.now() / 1000) + 600 };
+		testState.depositStatus = "error";
+		testState.depositError = new Error("provider unavailable");
+		testState.submissionOutcomeUnknown = true;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+
+		testState.authorizationIntent = { authNonce: "0x01", validBefore: Math.floor(Date.now() / 1000) + 1_200 };
+		await act(() => vi.advanceTimersByTimeAsync(601_000));
+		expect(testState.resetDeposit).not.toHaveBeenCalled();
+		expect(testState.deposit).toHaveBeenCalledTimes(1);
+	});
+
 	it("drops a queued attempt when the legal status stops allowing actions before it submits", async () => {
 		let releaseBalance: (value: bigint) => void = () => {};
 		testState.refreshBalance.mockReturnValue(

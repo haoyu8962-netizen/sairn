@@ -101,6 +101,21 @@ describe("withdrawal amounts", () => {
 		).toEqual({ valid: true, error: null });
 	});
 
+	it("rounds a sub-cent minimum up to the two-decimal amount the form can submit", () => {
+		expect(getMinimumWithdrawal("arbitrum-cctp", "0.200001")).toBe("0.41");
+		expect(getMinimumWithdrawal("arbitrum-cctp", "0.205")).toBe("0.41");
+		expect(getMinimumWithdrawal("arbitrum-cctp", "0.21")).toBe("0.42");
+		expect(getMinimumWithdrawal("arbitrum-legacy", null)).toBe("1");
+		const validate = (amount: string) =>
+			validateWithdrawal(
+				{ amount, available: "10", route: "arbitrum-cctp", routeFee: "0.200001", activationFee: "0" },
+				(descriptor) => i18n._(descriptor),
+				getNumberFormatters(),
+			);
+		expect(validate("0.40")).toEqual({ valid: false, error: "Minimum withdrawal is $0.41" });
+		expect(validate("0.41")).toEqual({ valid: true, error: null });
+	});
+
 	it("accounts for the separate one-time HyperCore activation fee", () => {
 		expect(getMaximumWithdrawal("5.5", "1")).toBe("4.5");
 		expect(

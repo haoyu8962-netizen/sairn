@@ -57,7 +57,11 @@ submitted amount.
 
 The shared form displays one visible heading and static Asset / Network details;
 fixed protocol values are not disabled dropdowns. Minimum amount is visible
-before entry. The destination label remains visible with the value: external
+before entry. The CCTP minimum is twice the forwarding fee, rounded up to the
+two-decimal amount the field accepts, so a sub-cent fee never shows a minimum
+that cannot be typed (a 0.200001 fee shows 0.41, not 0.400002), and Max is
+labelled with the exact floored amount it fills, not a value rounded through a
+JavaScript number (2026-11-19). The destination label remains visible with the value: external
 wallets show the exact owner address read-only, while email sessions retain the
 explicit editable recipient. Fees come from the selected route, not from the
 reference application's Across bridge. Estimated arrival is confirmation-dependent;
@@ -125,7 +129,7 @@ would change the signed action and fee outside the protocol-selected route.
 
 ## Request and completion semantics
 
-Both SDK methods return an acknowledgement that Hyperliquid accepted the action; they do not return an Arbitrum transaction hash and do not prove destination-chain completion. The success screen therefore says `Withdrawal submitted`, not `Withdrawal completed`. Its notification keeps to the facts the user still needs: the title `Withdrawal submitted` and one sentence with the amount the destination account will receive once Arbitrum confirms, computed from the withdrawal amount and the route fee used for the submission. The route fee is not listed separately because the form showed it before the user confirmed. The amount is an estimate at the fee read when the user pressed Withdraw (see [CCTP route](#cctp-route)): it differs from the form's estimate if the fee changed after the form displayed it, and it does not reflect a change after that read. A one-time account activation fee is added as a second line only when it was actually charged.
+Both SDK methods return an acknowledgement that Hyperliquid accepted the action; they do not return an Arbitrum transaction hash and do not prove destination-chain completion. Only the documented acknowledgement `{"status":"ok","response":{"type":"default"}}` counts as accepted: the pinned SDK resolves any other JSON answer, `{}` included, so `useExchange` reports such an answer as an unknown outcome (`Withdrawal status unknown`), as for a timeout (2026-11-19). The success screen therefore says `Withdrawal submitted`, not `Withdrawal completed`. Its notification keeps to the facts the user still needs: the title `Withdrawal submitted` and one sentence with the amount the destination account will receive once Arbitrum confirms, computed from the withdrawal amount and the route fee used for the submission. The route fee is not listed separately because the form showed it before the user confirmed. The amount is an estimate at the fee read when the user pressed Withdraw (see [CCTP route](#cctp-route)): it differs from the form's estimate if the fee changed after the form displayed it, and it does not reflect a change after that read. A one-time account activation fee is added as a second line only when it was actually charged.
 
 HTTP timeouts, status 408, and 5xx responses are ambiguous: the request may already have been accepted. The UI instructs the user to check balances and transfer history and does not offer an immediate retry. Deterministic rejections, including HTTP 429, may return to the form for a fresh attempt.
 

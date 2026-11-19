@@ -9441,6 +9441,7 @@ msgstr "タイプ"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "送信先アドレスを確認できませんでした。何も送金されていません。"
 
@@ -9458,6 +9459,7 @@ msgstr "Arbitrum の USDC 残高を読み込めません"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "現在の CCTP 出金手数料を読み込めません。"
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "このアドレスには送金できません。"
