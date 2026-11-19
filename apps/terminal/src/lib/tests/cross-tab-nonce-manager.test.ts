@@ -8,8 +8,8 @@ const NOW = 1_800_000_000_000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1_000;
 const STORAGE_KEY = `hyperliquid_exchange_nonce_Mainnet_${SIGNER}`;
 
-function installExclusiveLockManager() {
-	const queues = new Map<string, Promise<void>>();
+function installLockManager() {
+	const queues = new Map<string, { writer: Promise<void>; readers: Promise<void>[] }>();
 	const manager = {
 		async request<T>(
 			name: string,
@@ -19,18 +19,22 @@ function installExclusiveLockManager() {
 			const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback;
 			if (!callback) throw new Error("Missing lock callback");
 
-			const previous = queues.get(name) ?? Promise.resolve();
+			const mode = typeof optionsOrCallback === "function" ? "exclusive" : (optionsOrCallback.mode ?? "exclusive");
+			const queue = queues.get(name) ?? { writer: Promise.resolve(), readers: [] };
+			queues.set(name, queue);
+			const previous = mode === "shared" ? queue.writer : Promise.all([queue.writer, ...queue.readers]);
 			let release = () => {};
 			const current = new Promise<void>((resolve) => {
 				release = resolve;
 			});
-			queues.set(
-				name,
-				previous.then(() => current),
-			);
+			if (mode === "shared") queue.readers.push(current);
+			else {
+				queue.writer = current;
+				queue.readers = [];
+			}
 			await previous;
 			try {
-				return await callback({ name, mode: "exclusive" } as Lock);
+				return await callback({ name, mode } as Lock);
 			} finally {
 				release();
 			}
@@ -46,7 +50,7 @@ function installExclusiveLockManager() {
 describe("cross-tab Hyperliquid nonce manager", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
-		installExclusiveLockManager();
+		installLockManager();
 		vi.spyOn(Date, "now").mockReturnValue(NOW);
 	});
 
@@ -60,10 +64,19 @@ describe("cross-tab Hyperliquid nonce manager", () => {
 	});
 
 	it("serializes concurrent allocations from independent manager instances", async () => {
+		const request = vi.spyOn(navigator.locks, "request");
 		const firstManager = createCrossTabNonceManager("Mainnet");
 		const secondManager = createCrossTabNonceManager("Mainnet");
 
 		await expect(Promise.all([firstManager(SIGNER), secondManager(SIGNER)])).resolves.toEqual([NOW, NOW + 1]);
+		expect(request).toHaveBeenCalledTimes(2);
+		for (const call of request.mock.calls) {
+			expect(call).toEqual([
+				`hyperliquid_exchange_nonce:Mainnet:${SIGNER}`,
+				{ mode: "exclusive" },
+				expect.any(Function),
+			]);
+		}
 		expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}")).toEqual({
 			version: 1,
 			nonce: NOW + 1,
@@ -134,8 +147,8 @@ describe("cross-tab Hyperliquid nonce manager", () => {
 		expect(window.localStorage.getItem(STORAGE_KEY)).toBe(persisted);
 	});
 
-	it("discards a record the exchange could never have accepted once the clock is back", async () => {
-		window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nonce: NOW + 400 * ONE_DAY_MS }));
+	it.each([1, 400])("discards a record %i day(s) ahead once the exchange clock is back", async (days) => {
+		window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nonce: NOW + days * ONE_DAY_MS }));
 		const manager = createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW });
 
 		await expect(manager(SIGNER)).resolves.toBe(NOW);

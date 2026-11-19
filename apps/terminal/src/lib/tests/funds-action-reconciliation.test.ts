@@ -114,6 +114,17 @@ describe("funds action reconciliation", () => {
 		).toMatchObject({ finalAmount: "12.1", commission: "0.3", closingCost: "0.1" });
 	});
 
+	it("leaves a withdrawal unmatched for a different owner with the same vault and amount", () => {
+		const marker = vaultReference("withdraw");
+		const delta = {
+			type: "vaultWithdraw",
+			vault: TARGET,
+			user: "0x3333333333333333333333333333333333333333",
+			requestedUsd: marker.displayAmount,
+		};
+		expect(reconcileVaultFundsAction(marker, [{ time: 1001, hash: HASH, delta }])).toBeNull();
+	});
+
 	it("fails closed when multiple exact new history candidates could explain one marker", () => {
 		expect(
 			reconcileVaultFundsAction(vaultReference("deposit"), [

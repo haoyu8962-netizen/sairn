@@ -619,6 +619,20 @@ describe("sponsored CCTP deposit parameters", () => {
 });
 
 describe("sponsored CCTP deposit receipt validation", () => {
+	it("rejects two matching success events for a single authorization", () => {
+		const receipt = createSponsoredReceipt();
+		receipt.logs.push(...createSponsoredReceipt().logs);
+		expect(() =>
+			assertCctpSponsoredDepositReceipt({
+				amountRaw: AMOUNT_RAW,
+				authNonce: NONCE,
+				config: CCTP_DEPOSIT_NETWORKS.mainnet,
+				receipt,
+				user: USER,
+			}),
+		).toThrow("missing one unambiguous burn event");
+	});
+
 	it("requires one matching success event and accepts unrelated batch events", () => {
 		const unrelatedReceipt = createSponsoredReceipt({
 			authNonce: NONCE,

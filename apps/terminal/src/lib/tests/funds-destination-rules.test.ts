@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getSendDestinationVerdict } from "@/domain/trade/send-destination";
 import { getWithdrawDestinationIssue } from "@/domain/trade/withdraw-destination";
 
-const OWNER = "0x1111111111111111111111111111111111111111";
+const OWNER = "0x52908400098527886E0F7030069857D2E4169EE7";
 
 describe("send destination verdict", () => {
 	it("sends at once to an active destination without a fee", () => {
@@ -56,8 +56,8 @@ describe("send destination verdict", () => {
 
 describe("withdraw destination rules", () => {
 	it("refuses the wallet itself in any letter case", () => {
-		expect(getWithdrawDestinationIssue(` ${OWNER.toUpperCase().replace("0X", "0x")} `, [OWNER])).toBe("self");
-		expect(getWithdrawDestinationIssue(OWNER, [null, OWNER])).toBe("self");
+		expect(getWithdrawDestinationIssue(` ${OWNER} `, [OWNER.toLowerCase()])).toBe("self");
+		expect(getWithdrawDestinationIssue(OWNER.toLowerCase(), [null, OWNER])).toBe("self");
 	});
 
 	it("refuses the USDC token contracts of both networks", () => {
