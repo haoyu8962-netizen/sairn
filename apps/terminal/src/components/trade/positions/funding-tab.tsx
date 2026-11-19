@@ -61,6 +61,7 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 	const { address } = useWalletSession();
 	const markets = useMarkets();
 	const totals = getFundingTotals(updates, markets.getMarket);
+	const unconfirmed = status !== "ready" || (updates.length === 0 && (error || isOffline || isStale));
 
 	const { exportCsv, isExporting } = useFundingHistoryCsvExport({
 		filename: "funding_history.csv",
@@ -92,8 +93,7 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 		if (!isConnected)
 			return <ConnectPlaceholder>{t`Connect your wallet to view funding payments.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <FundingLoadingPlaceholder />;
-		if (status !== "ready" || (updates.length === 0 && (error || isOffline || isStale)))
-			return <PassiveDataPlaceholder />;
+		if (unconfirmed) return <PassiveDataPlaceholder />;
 		if (updates.length === 0) return <Placeholder>{t`No funding payments found.`}</Placeholder>;
 		return null;
 	}
@@ -104,7 +104,7 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 		<div className={positionsPanelTabRootClass}>
 			<DesktopTabToolbarPortal target={toolbarTarget}>
 				<div data-testid="funding-history-toolbar" className="flex shrink-0 items-center gap-3 font-market-close">
-					{isConnected && status === "ready" ? (
+					{isConnected && !unconfirmed ? (
 						<span className="whitespace-nowrap text-xs text-market-close-muted">
 							{t`Funding shown`}{" "}
 							{totals.map((total, index) => (

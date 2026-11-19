@@ -28,6 +28,12 @@ describe("serializeCsv protocol identifiers and OWASP triggers", () => {
 			`'@107+1,'@01,'@SUM(A1),"'\n=1",'\t=1,"'\r=1",'＝1,'＋1,'－1,'＠A`,
 		);
 	});
+
+	it("neutralizes a formula trigger behind leading spaces, which importers that trim cells would expose", () => {
+		expect(serializeCsv([[" =1+1", "  @SUM(A1)", "\u3000=1", " -1", " BTC", "1 "]])).toBe(
+			"' =1+1,'  @SUM(A1),'\u3000=1,' -1, BTC,1 ",
+		);
+	});
 });
 
 describe("buildCsvRows", () => {

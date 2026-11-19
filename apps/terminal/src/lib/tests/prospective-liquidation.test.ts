@@ -353,6 +353,30 @@ describe("estimateProspectiveLiquidation", () => {
 			expect(sameSide.liqPrice).toBeCloseTo(current.liqPrice ?? Number.NaN, 12);
 		});
 
+		it("charges the execution fee only for the size a reduce-only order would fill", () => {
+			const current = estimateProspectiveLiquidation({ ...crossLong("1"), side: "buy", orderSize: "1e-30" });
+			const sameSide = estimateProspectiveLiquidation({
+				...crossLong("1"),
+				side: "buy",
+				orderSize: 5,
+				reduceOnly: true,
+				executionFee: "1",
+			});
+			const partialReduceOnly = estimateProspectiveLiquidation({
+				...crossLong("1"),
+				orderSize: 0.5,
+				reduceOnly: true,
+				executionFee: "0.1",
+			});
+			const partial = estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 0.5, executionFee: "0.1" });
+			const partialWithoutFee = estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 0.5 });
+
+			expect(sameSide.status).toBe("available");
+			expect(sameSide.liqPrice).toBeCloseTo(current.liqPrice ?? Number.NaN, 12);
+			expect(partialReduceOnly.liqPrice).toBeCloseTo(partial.liqPrice ?? Number.NaN, 12);
+			expect(partialReduceOnly.liqPrice).not.toBeCloseTo(partialWithoutFee.liqPrice ?? Number.NaN, 6);
+		});
+
 		it("shows N/A when the order closes the position exactly", () => {
 			expect(estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 1 })).toMatchObject({
 				status: "unavailable",

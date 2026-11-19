@@ -121,6 +121,14 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- Website Live market view: a one-sided best bid/offer keeps the quote withdrawn when an order-book
+  snapshot from the same block arrives after it; only a newer snapshot or bbo restores it. The 02
+  market section keeps its static content instead of failing when its inline market list is unreadable.
+- Release and setup scripts: `deploy.mjs sync` sends at most 500 files per upload command, as
+  `reupload` already did; `reupload` refuses file names with AWS CLI wildcard characters; `aliases`
+  removes its temporary distribution config even when the update fails; `pnpm chart:fetch` moves the
+  installed chart library aside instead of deleting it before the swap, restores it if the swap fails,
+  and recovers it on the next run after an interruption.
 - An external-wallet deposit whose wallet returned no transaction hash (for example after a
   disconnect) now blocks another deposit signature for the same account and network, across
   reloads and tabs, until the wallet's earlier authorization is shown to be used or has expired (at
@@ -128,6 +136,17 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - A deposit that the wallet sped up is now followed through the transaction that actually used the
   authorization, and one that was cancelled or dropped is settled once its authorization expires,
   instead of waiting on the original hash for up to 30 days.
+- Following a sped-up deposit no longer asks Arbitrum for every block since the deposit in one
+  request: it searches in 2,000-block steps and stops at the authorization's expiry, waits while the
+  network's node has not reached the deposit's block yet, and remembers the transaction it found so
+  later checks look only at that transaction. When Arbitrum shows that an authorization expired
+  unused, the next deposit is no longer blocked until this device's own clock passes the expiry.
+- When Arbitrum shows that a deposit's authorization was used but no complete search finds the
+  transaction that used it, the deposit is reported as status unknown about ten minutes after the
+  authorization's expiry and stops blocking the next deposit, instead of blocking it for up to 30
+  days. Failed or timed-out searches never count toward that conclusion.
+- After switching account or network, a pending check of the previous one's deposit authorization no
+  longer restarts the automatic email-wallet deposit of the current one.
 - Send asks Hyperliquid about the destination again right before signing and sends nothing when the
   destination became sanctioned, the activation fee changed, or a loss warning the user did not see
   now applies; a destination check answer without the full documented shape sends nothing.
@@ -148,6 +167,21 @@ changes, not evidence that a build has been deployed or accepted on real devices
   tab running an older version, an unrelated settings change in another tab or a settings record from a newer
   version can no longer turn them back off or widen them. Other open tabs follow a stricter choice at once; a looser
   choice applies to the tab where you made it and to tabs opened afterwards (ADR 0057).
+- When the browser's storage is full or read-only, opening the terminal keeps your stricter order
+  confirmation, max slippage and delay protection choices instead of resetting them to the defaults,
+  storage that cannot be read starts from the strictest values, and changing a setting no longer
+  raises an error. Clearing site data in another tab now tightens these protections in open tabs to
+  what a new tab would start with (ADR 0057).
+- Favorites and selected markets stored by a newer version of the terminal are no longer erased or
+  overwritten when an older version is opened; changes made there stay in that tab.
+- The desktop Funding tab no longer shows a "Funding shown" total of $0.00 while an empty funding
+  snapshot is stale, offline or failed; the phone trade history no longer announces "0 trades" to
+  screen readers while a filter search is loading or failed, and the three phone history tabs reset
+  their filters when you switch between Mainnet and Testnet.
+- On phones, the isolated margin button of a position now reads its margin amount to screen readers.
+- The estimated liquidation price of a cross reduce-only draft deducts the trading fee only for the
+  size that would fill, so a same-side reduce-only draft no longer moves it.
+- CSV exports also neutralize a formula character that follows leading spaces.
 - Trading links with dots in market names open correctly when visited directly or refreshed.
 - Once the terminal has read the exchange's clock, the counter that numbers each signed action follows
   that clock instead of the device's, so a device whose clock is wrong by more than a day can still

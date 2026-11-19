@@ -2,8 +2,11 @@
 const PLAIN_NUMBER = /^[-+]?\d+(?:\.\d+)?$/;
 /** A spot market's protocol name (`@107`) names no function or cell, so it is written as sent (ADR 0048). */
 const SPOT_MARKET_INDEX = /^@(?:0|[1-9]\d*)$/;
-/** OWASP CSV Injection: a text cell starting with these, full-width forms included, is read as a formula. */
-const FORMULA_TRIGGER = /^[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/;
+/**
+ * OWASP CSV Injection: a text cell starting with these, full-width forms included, is read as a formula.
+ * Leading whitespace counts too, because importers that trim cells would expose the trigger.
+ */
+const FORMULA_TRIGGER = /^\s*[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/;
 
 function escapeCsvCell(value: string): string {
 	const isFormulaText = FORMULA_TRIGGER.test(value) && !PLAIN_NUMBER.test(value) && !SPOT_MARKET_INDEX.test(value);

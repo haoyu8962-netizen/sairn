@@ -433,6 +433,81 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Fix integration second review round re-baseline (2026-11-20)
+
+The second review round of the same integration (uncommitted on `codex/integration` `e6790a3f`: deposit recovery
+that scans the authorization logs for a replacing transaction, keeps its consumer hash under a side key and settles
+an unfindable consumer as status unknown; trading-protection fallbacks when storage refuses a write; favourites
+merging; phone history tabs, position card, liquidation, CSV and `useExchange` fixes) exceeded the static-startup
+allowance again.
+
+Same setup as the section below (fixed identity, Node 22.15.0, pnpm 10.21.0, no `.env.local`,
+`NITRO_PRESET=node-server`), each build alone. The base is the first round's integration reading recorded below; the
+head is the working tree after the second round, 451 client chunks pairing off and 452 on. A copy of the head tree
+built in the `main` worktree read the same bytes in both configurations, so the two worktrees measure alike.
+
+| Metric | First round | Second round | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,397,254 | 3,399,732 | +2,478 | 5,597 |
+| Static trade startup | 1,669,606 | 1,671,303 | +1,697 | 1,294 |
+| Mobile runtime increment | 119,581 | 119,675 | +94 | 905 |
+| Desktop runtime increment | 205,375 | 205,696 | +321 | 6,987 |
+| `trade-terminal-page` | 128,819 | 128,852 | +33 | 292 |
+| `vaults-page` | 30,497 | 30,499 | +2 | 381 |
+| `token-selector-popup` | 15,343 | 15,366 | +23 | 489 |
+
+The other surfaces moved by 1 to 26 bytes.
+
+Static-startup growth by chunk:
+
+- `cctp-deposit-tracking` +733: the deposit recovery's authorization-log scan, consumer side key and unknown-outcome
+  settlement in `lib/trade/cctp-deposit-tracking.ts`. That chunk also holds the Privy, viem and Solana code the
+  wallet runtime loads at startup.
+- `use-cctp-deposit-tracking` +262: the hook's not-found poll count and settlement.
+- `validated-storage` +321, a new chunk: the market store stopped using `createValidatedStorage`, so the module
+  left the entry chunk and became a chunk of its own for the order-entry, HIP-3 disclaimer and diagnostics stores.
+- `vendor-tanstack-router` +157: favourites merging in the market store and the `useExchange` change.
+- About 220 more spread over chunks that each moved by less than 100.
+
+One cut was tried and not kept. The network half of recovery (receipt and log reads, the Circle query, about 540
+lines) was moved into a module that `cctp-deposit-tracking.ts` loads on first use, with the storage, the errors and the
+pending-deposit block left in startup. The behaviour held: the deposit, settings and store tests passed (43 files),
+and an added test showed that a failed load keeps the record and the block. Static startup fell by 625 pairing off
+(527 on). But the total grew by 5,397 (5,655 on), `trade-terminal-page` by 100 and the desktop runtime increment by
+696. The cause is that the lazy module shares its dependencies with startup chunks: `cctp-deposit.ts`, the CCTP
+configuration, the action errors and viem's ABI helpers. Rollup gave each of those its own chunk (seven more client
+chunks), and code gzipped alone compresses worse than inside the large chunk. The change was reverted. Trading
+startup bytes for more total and more desktop and trade-page bytes was not a saving.
+
+Change to the baselines, allowances unchanged:
+
+- all client JS + CSS raised by +2,478 to 3,395,329;
+- static trade startup raised by +1,697 to 1,662,597 (before the raise the build exceeded the allowance by 403);
+- `trade-terminal-page` raised by +33 to 125,144 (it passed without the raise, with 63 bytes left);
+- the runtime increments and the other surfaces are unchanged.
+
+Pairing on, same trees:
+
+| Metric | First round | Second round | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,400,644 | 3,403,213 | +2,569 | 2,116 |
+| Static trade startup | 1,670,634 | 1,672,459 | +1,825 | **138** |
+| Mobile runtime increment | 119,602 | 119,696 | +94 | 884 |
+| Desktop runtime increment | 205,488 | 205,735 | +247 | 6,948 |
+| `trade-terminal-page` | 128,821 | 128,856 | +35 | 288 |
+
+Limits:
+
+- With pairing on, static trade startup has 138 bytes left, and `trade-terminal-page` has 292 pairing off and 288 on.
+  Both are under the 300 the coordinator asked for, and static startup is under the release precheck's 200. Raising a
+  baseline only by measured growth keeps the room the trees had before, which was already 266 pairing on. Reaching
+  300 needs a real cut of at least 162 bytes from pairing-on static startup, or an operator decision on the
+  allowance or on measuring in the release configuration.
+- The release configuration (production `.env.local`, pairing on) was not built.
+- The confirming pairing-off build after the change, with the same source, passed every budget. It read 23 more in
+  total (3,399,755), 18 more in static startup (1,671,321, 1,276 left) and 6 more in `trade-terminal-page`
+  (128,858, 286 left). The pairing-on build, checked against the new baselines, passed as in the table.
+
 ## Fix integration total, static-startup and trade-page re-baseline (2026-11-19)
 
 The 2026-11-19 fix integration (branch `codex/integration`: `main` `79b268ea` plus 23 fix branches) failed the

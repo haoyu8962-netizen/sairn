@@ -106,6 +106,7 @@ export function MobilePositionCard({
 	const { t } = useLingui();
 	const [internalExpanded, setInternalExpanded] = useState(false);
 	const detailsId = useId();
+	const marginValueId = useId();
 	const isExpanded = expanded ?? internalExpanded;
 
 	const sizeValue = toBig(p.szi);
@@ -252,17 +253,18 @@ export function MobilePositionCard({
 		else setInternalExpanded(nextExpanded);
 	}
 
+	const marginTypeLabel = p.leverage.type === "isolated" ? t`Isolated` : t`Cross`;
 	const marginMetric = (
 		<PositionMetric
 			label={t`Margin`}
 			value={
 				<span className="inline-flex flex-wrap items-center gap-x-1">
 					<span>{marginDisplay}</span>
-					<span className="font-normal text-fg-muted">({p.leverage.type === "isolated" ? t`Isolated` : t`Cross`})</span>
+					<span className="font-normal text-fg-muted">({marginTypeLabel})</span>
 					{p.leverage.type === "isolated" ? <PencilIcon className="size-3 text-fg-muted" /> : null}
 				</span>
 			}
-			valueTitle={`${marginDisplay} (${p.leverage.type === "isolated" ? t`Isolated` : t`Cross`})`}
+			valueTitle={`${marginDisplay} (${marginTypeLabel})`}
 			wrapValue
 		/>
 	);
@@ -375,9 +377,13 @@ export function MobilePositionCard({
 								onClick={handleAdjustMargin}
 								disabled={isRowClosing}
 								aria-label={t`Adjust isolated margin for ${displayName}`}
+								aria-describedby={marginValueId}
 								className="group relative min-w-0 cursor-pointer rounded-xs text-start transition-colors duration-[120ms] after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] min-[1001px]:hover:text-market-close-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 							>
 								{marginMetric}
+								<span id={marginValueId} hidden>
+									{`${marginDisplay} ${marginTypeLabel}`}
+								</span>
 							</button>
 						) : (
 							<div className="min-w-0">{marginMetric}</div>

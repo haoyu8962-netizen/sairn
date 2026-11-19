@@ -86,7 +86,7 @@ export function MobileOrdersHistoryTab(props: Props) {
 
 	return (
 		<MobileOrdersHistoryTabContent
-			key={ownerKey}
+			key={`${env}:${ownerKey}`}
 			address={address}
 			disclosureIdentity={`${env}:${ownerKey}`}
 			{...props}

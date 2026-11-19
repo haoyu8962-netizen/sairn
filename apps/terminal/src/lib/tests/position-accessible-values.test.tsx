@@ -175,4 +175,17 @@ describe("position values reach assistive technology", () => {
 		const add = container.querySelector<HTMLButtonElement>('button[aria-label="Add TP/SL"]');
 		expect(add?.getAttribute("aria-describedby")).toBeNull();
 	});
+
+	it("keeps the mobile margin action named by verb and describes its amount", () => {
+		renderCard();
+		const margin = container.querySelector<HTMLButtonElement>('button[aria-label^="Adjust isolated margin for "]');
+		expect(margin?.getAttribute("aria-label")).not.toMatch(/\d/);
+		expect(describedText(margin)).toContain("137.19");
+		expect(describedText(margin)).toContain("Isolated");
+
+		renderCard({ position: { ...position, marginUsed: "42.5" } });
+		expect(describedText(container.querySelector('button[aria-label^="Adjust isolated margin for "]'))).toContain(
+			"42.5",
+		);
+	});
 });

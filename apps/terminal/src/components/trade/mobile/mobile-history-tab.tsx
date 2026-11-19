@@ -72,8 +72,9 @@ function isTradeHistoryRoleFilter(value: string | null): value is TradeHistoryRo
 export function MobileHistoryTab(props: Props) {
 	const { address, isConnected } = useWalletSession();
 	const ownerKey = isConnected && address ? address.toLowerCase() : "disconnected";
+	const isTestnet = useIsTestnet();
 
-	return <MobileHistoryTabContent key={ownerKey} address={address} ownerKey={ownerKey} {...props} />;
+	return <MobileHistoryTabContent key={`${isTestnet}:${ownerKey}`} address={address} ownerKey={ownerKey} {...props} />;
 }
 
 interface MobileHistoryTabContentProps extends Props {
@@ -112,8 +113,9 @@ function MobileHistoryTabContent({
 				(roleFilter === "all" || (roleFilter === "taker") === fill.crossed),
 		)
 		.slice(0, RECENT_ACCOUNT_HISTORY_ROWS);
+	const liveCurrent = status === "ready" && !error && !isOffline && !isStale;
 	const emptyPresentation = getFilteredFillsEmptyPresentation({
-		liveCurrent: status === "ready" && !error && !isOffline && !isStale,
+		liveCurrent,
 		snapshot: {
 			hasData: fillSnapshot.status === "ready",
 			failed: fillSnapshot.hasFailed,
@@ -146,11 +148,14 @@ function MobileHistoryTabContent({
 		{ value: "taker", label: t`Taker` },
 	];
 
-	const headerCount = isConnected ? (
-		<Plural value={filteredFills.length} one="# trade" other="# trades" />
-	) : (
-		FALLBACK_VALUE_PLACEHOLDER
-	);
+	const headerCount =
+		isConnected &&
+		liveCurrent &&
+		(!filtersActive || emptyPresentation === "noMatch" || emptyPresentation === "noMatchWithinLimit") ? (
+			<Plural value={filteredFills.length} one="# trade" other="# trades" />
+		) : (
+			FALLBACK_VALUE_PLACEHOLDER
+		);
 	const isPageScroll = scrollMode === "page";
 
 	function handleSelectMarket(name: string) {

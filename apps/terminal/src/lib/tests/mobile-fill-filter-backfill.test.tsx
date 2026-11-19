@@ -35,6 +35,7 @@ const live = vi.hoisted(() => {
 });
 
 const mocks = vi.hoisted(() => ({
+	testnet: false,
 	userFills: vi.fn(),
 }));
 
@@ -58,7 +59,7 @@ vi.mock("@/components/trade/mobile/use-mobile-terminal-tab", () => ({
 
 vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/stores/use-global-settings-store")>()),
-	useIsTestnet: () => false,
+	useIsTestnet: () => mocks.testnet,
 }));
 
 vi.mock("@/lib/hyperliquid", () => ({
@@ -132,6 +133,7 @@ describe("phone fills filter backfill", () => {
 		(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 		client = new QueryClient({ defaultOptions: { queries: { gcTime: Number.POSITIVE_INFINITY, retry: false } } });
 		mocks.userFills.mockReset();
+		mocks.testnet = false;
 		setLiveFills(recentBuys());
 		container = document.createElement("div");
 		document.body.appendChild(container);
@@ -443,5 +445,48 @@ describe("phone fills filter backfill", () => {
 		expect(container.querySelector('[aria-label="Switch to SOL market"]')).toBeNull();
 		expect(container.querySelectorAll("article")).toHaveLength(5);
 		expect(container.textContent).toContain("5 trades");
+	});
+
+	function announcedCount(): string | null | undefined {
+		return container.querySelector('[data-testid="mobile-trade-history-filter-row"] [aria-live="polite"]')?.textContent;
+	}
+
+	it("announces a filtered count only once the snapshot can confirm it", async () => {
+		const pending = deferUserFills();
+		await render();
+		expect(announcedCount()).toBe("30 trades");
+		await selectOption("Direction", "Sell");
+		expect(announcedCount()).not.toMatch(/\d/);
+
+		await act(async () => pending.shift()?.reject(new Error("upstream unavailable")));
+		await flush();
+		expect(retryButton()).toBeDefined();
+		expect(announcedCount()).not.toMatch(/\d/);
+
+		await act(async () => retryButton()?.click());
+		await act(async () => pending.shift()?.resolve(recentBuys()));
+		await flush();
+		expect(container.textContent).toContain("No fills match these filters.");
+		expect(announcedCount()).toBe("0 trades");
+
+		act(() => live.set({ isStale: true }));
+		await flush();
+		expect(announcedCount()).not.toMatch(/\d/);
+
+		await selectOption("Direction", "Direction");
+		expect(container.querySelectorAll("article")).toHaveLength(30);
+		expect(announcedCount()).not.toMatch(/\d/);
+	});
+
+	it("resets the filters when the network changes", async () => {
+		mocks.userFills.mockResolvedValue(recentBuys());
+		await render();
+		await selectOption("Direction", "Sell");
+		expect(container.textContent).toContain("No fills match these filters.");
+
+		mocks.testnet = true;
+		await render();
+		expect(container.textContent).not.toContain("No fills match these filters");
+		expect(container.querySelectorAll("article")).toHaveLength(30);
 	});
 });

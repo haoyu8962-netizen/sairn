@@ -335,8 +335,9 @@ function minBig(a: Big, b: Big): Big {
  * signed size plus the signed order size, with a reduce-only order capped at
  * the position it closes (and zero when it would not close it). Isolated margin
  * is released in proportion to the closed size, and the opened remainder adds
- * its initial margin. A projection that closes the position exactly has no
- * liquidation price.
+ * its initial margin. A cross account pays the execution fee only for the size
+ * that would fill, so a reduce-only remainder that cannot fill costs nothing. A
+ * projection that closes the position exactly has no liquidation price.
  */
 function getProjectedPosition(input: {
 	price: Big;
@@ -356,7 +357,7 @@ function getProjectedPosition(input: {
 	let otherMaintenance = Big(0);
 	let signedSize = Big(0);
 	if (cross) {
-		const accountValue = toBig(input.crossMarginAccount?.accountValue)?.minus(input.executionFee);
+		const accountValue = toBig(input.crossMarginAccount?.accountValue);
 		const maintenanceMarginUsed = toBig(input.crossMarginAccount?.maintenanceMarginUsed);
 		if (!accountValue || !maintenanceMarginUsed || maintenanceMarginUsed.lt(0)) return null;
 		equity = accountValue;
@@ -391,7 +392,9 @@ function getProjectedPosition(input: {
 	const orderSize = input.reduceOnly ? closedSize : input.orderSize;
 	const projectedSize = signedSize.plus(orderSize.times(orderSide));
 	if (projectedSize.eq(0)) return null;
-	if (!cross) {
+	if (cross) {
+		equity = equity.minus(input.executionFee.times(orderSize).div(input.orderSize));
+	} else {
 		if (closedSize.gt(0)) equity = equity.times(positionSize.minus(closedSize)).div(positionSize);
 		equity = equity.plus(orderSize.minus(closedSize).times(input.price).div(input.leverage));
 		if (equity.lte(0)) return null;

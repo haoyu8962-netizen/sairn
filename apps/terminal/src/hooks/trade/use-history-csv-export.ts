@@ -75,8 +75,8 @@ export function useHistoryExportRunner(requestedAddress?: `0x${string}`) {
 		};
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: an owner or network change ends the running export
 	useEffect(() => {
-		if (identityRef.current !== identity) return;
 		controllerRef.current?.abort();
 	}, [identity]);
 

@@ -117,3 +117,21 @@ Codex 的审查报告与修复报告原件在本机 `.worklog/2026-11-19/codex/`
 - 其余已在各记录列出：无名交易连接 Agent 在地区无法核实时是否拒绝、`updateLeverage` 等是否受本终端地区判定约束、探活失败后是否改为先核对再重传、并行发布锁、`CHART_LIBRARY_TOKEN` 范围、测试网验证 `normalTpsl` 父单被拒的真实回包。
 
 本记录不替代任何记录；各分支的结论以各自记录为准。
+
+## Gemini 终审第 1 轮后的修复
+
+- P3-10（部署与图表库脚本，成立，已修）：`buildSyncPlan` 按 500 键分块；`buildReuploadCommands` 调 `assertFilterSafeKeys`；`aliases --execute` 的临时配置 `wx`/`0600` 新建并在 `finally` 删除；`fetch-chart-library.mjs` 改为「旧目录改名到旁边 → 暂存改名为目标 → 删旧」，失败回滚，中断后下次运行恢复（只认真实目录，之后照常按清单核对）。补记在 ADR 0051、0054 与 `deploy/cloudfront/README.md`。测试修前红、修后绿，四类变异均被抓到；`pnpm test:cloudfront` 123/123，`node --test scripts/*.test.mjs` 92/92（`serve-spa-static` 一项在沙盒内因本地端口失败，沙盒外 10/10）。未运行任何真实 `aws` 命令。
+- P3-11（官网，成立，已修）：同一区块（同 `time`）的 `l2Book` 不再恢复被单边 `bbo` 撤回的报价，须 `book.t > quoteT`；`readInputs` 的 `JSON.parse` 失败退回空列表（保留静态内容）；删去未使用的 `PRE_IPO_QUOTE_BASES`。`pnpm --filter @sairn/website test` 102/102；`test:dist`（Node 24.15.0，沙盒外先构建）64/64；把 `>` 改回 `>=` 的变异使新用例变红。没有真实浏览器检查。
+- P2-2（交易保护冷启动，成立，已修）：基线写入、投影补写各自尽力而为，失败不改读出值；基线写入被拒时用内存里的旧记录值作回退基线，读取抛错时取最严格值。同时修了配额满时改任一设置会把 `QuotaExceededError` 抛给调用方的问题。ADR 0057 追加补记，运行时规则 §12 加两条。`global-settings-cross-window.test.ts` 新增 5 项（修前全红），三处关键行变异均被抓到。仅 jsdom 模拟，真实浏览器配额未验证。
+- P3-3（`clear()` / `removeItem` 存储事件，成立，已修）：`localStorage` 上的删除事件也按「取更严格者」同步，只收紧；另一窗口删掉更严格的独立键不放宽已打开窗口（有用例固定）。新增 2 项修前红，恢复旧的早退即变红。
+- P3-4（市场偏好更高版本，成立，已修）：`use-market-store.ts` 改为一次读取先判版本，版本高于 3 时不校验、不清除、不写回，冷启动显示其中能通过本版本校验的偏好，本窗口修改只留在内存。原有「较新版本被 v3 覆盖」的用例与新契约冲突，已改由新用例覆盖。新增 3 项修前红，三处变异均被抓到。
+- P3-2（`useExchange` 法律复核信号，成立但影响极小，已修）：用户签名资金动作锁内的 `verifyLegalAccess` 改用 `guardSignal`。读代码确认：守卫超时后启动闸门立即拒绝，调度器 `rejectEntry` 随即中止外层信号，原实现只是晚几个微任务结束等待，不会多发请求或签名。`use-exchange-funds-action-lock.test.tsx` 新增 1 项（守卫在 10 秒超时的同一时刻法律等待已被中止），修前红，换回其他信号的变异变红。资金锁语义未改。
+- P2-4（桌面 Funding 工具栏，成立，已修）：工具栏合计与正文共用 `unconfirmed` 条件，空快照过期/离线/出错时不再显示 `Funding shown $0.00`。`desktop-history-exports.test.tsx` 三例修前红、修后绿；去掉 `isStale` 的变异变红。
+- P3-6（手机历史页签，两处都成立，已修）：成交页签读屏条数按「实时快照当前，且筛选关闭或已能下结论」门控，与委托、资金费页签相同；三个手机页签内部组件键加网络。`mobile-fill-filter-backfill`、`mobile-order-funding-filter-backfill` 新用例修前红、修后绿；去掉 `liveCurrent` 或放开筛选条件的变异各自变红。
+- P3-8（手机逐仓按钮，成立，已修）：名称保持静态动词，`aria-describedby` 指向按钮内隐藏的「金额 + Isolated」。`position-accessible-values.test.tsx` 修前红、修后绿；描述去掉金额的变异变红。
+- P3-5（清算价手续费，成立，已修前半）：全仓权益按「整笔手续费 × 截量后下单量 ÷ 草稿数量」扣除，同方向只减仓不再扣费。`prospective-liquidation.test.ts` 修前红、修后绿，两种变异（扣整笔、不扣）均变红。`buildOrders` 不加只减仓与 TP/SL 互斥的兜底：静默丢 TP/SL 会让提交与确认框不一致，拒绝则要新增文案，`order-entry-surface-parity.md` 已记录草稿层互斥的取舍，未改。
+- P3-7（导出钩子与 CSV，成立，已修）：删去渲染期已赋值导致恒假的身份判断，身份变化时直接中止（`use-history-export-runner` 3/3，去掉中止的变异变红）。OWASP 页面（2026-11-20 读取）未列前导空格，但会裁剪单元格的导入器会暴露触发字符，且协议值从不以空白开头，故公式判断允许前导空白（含全角空格）；合法数字与 `@N` 不受影响。`csv.test.ts` 修前红、修后绿，只认 ASCII 空格的变异变红。各表格软件的实际导入行为未实测。
+- P2-1（外部钱包加速/替换存款的恢复扫描，成立，已修）：恢复 RPC 的最新块低于 `sourceBlock` 时按 pending 等待、不再查日志；`eth_getLogs` 每段 2,000 块（Arbitrum 官方未给公共 RPC 的范围上限，取常见 10,000 上限以下的保守值），每段同时取段末块时间，到达 `validBefore` 即停；校验通过的消耗交易哈希存进与记录同键的旁路条目（不改记录本身，避免旧版本标签页删除带未知字段的记录），之后只复核该交易。最坏情况：授权已用但任何一段都找不到日志时保持可重试，直到 30 天上限清除。`use-cctp-deposit-tracking` 新增 4 项修前红；`cctp-deposit-tracking` 新增 2 项存储用例。五处关键行变异均被抓到。未连真实 Arbitrum RPC。
+- P3-1（链上已确认授权过期，成立，已修）：链上确认过期未用时，连同该 nonce 的本地未决授权一起移除（`CctpDirectAuthorizationExpiredError`，沿用原文案）；回滚或回执不符时保留到过期，另一 nonce 的占位不动。新增 3 项，修前 1 项红；两处变异均被抓到。
+- P2-3（自动存款授权重检定时器，成立，已修）：定时器绑定「网络 + 账户」范围，范围变化或存款成功时取消，到期回调与安排时都核对当前范围。`embedded-deposit-auto-bridge.test.tsx` 新增切账户、切网络（两网各跑）与成功后三项，修前红；两道范围检查单独去掉任一仍绿（互为兜底），同时去掉变红；去掉成功时清理变红。不新增签名路径，符合 ADR 0040。
+- P2-1 收口（授权已用但完整扫描找不到日志，原残留「最长 30 天」，已修）：`authorizationState` 为真即不可重放，拦截新存款的理由已不成立。完整扫描（全部请求成功、覆盖到 `validBefore` 上界、链上时间超过 `validBefore` 600 秒）仍为空才算一次，查询不重试、每次相隔一个 5 秒轮询，3 次后按「结果未知」结清：删记录与该 nonce 的未决授权、停轮询，页面级通知器显示持久的 `Deposit status unknown`（复用现有文案，不画成失败）。请求失败、超时、窗口内为空均不计数。最坏约为签名后 70 分钟；RPC 一直不可用与 Circle 永不转发两行仍是 30 天上限（本次未改）。扫描进度不持久化（理由见 `docs/cctp-deposits.md`）。新增 4 项钩子用例、1 项通知器用例，修前红；6 处变异均被抓到。

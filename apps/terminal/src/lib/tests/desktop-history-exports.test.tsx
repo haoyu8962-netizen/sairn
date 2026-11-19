@@ -513,6 +513,42 @@ describe("desktop history exports", () => {
 		expect(mocks.downloadCsv).toHaveBeenCalledOnce();
 	});
 
+	it.each([
+		[
+			"stale",
+			() => {
+				mocks.fundingStale = true;
+			},
+		],
+		[
+			"offline",
+			() => {
+				mocks.fundingOffline = true;
+			},
+		],
+		[
+			"errored",
+			() => {
+				mocks.fundingError = new Error("WebSocket unavailable");
+			},
+		],
+	] as const)("withholds the funding total while an empty %s snapshot is unconfirmed", (_label, degrade) => {
+		const toolbarText = () => container.querySelector('[data-testid="funding-history-toolbar"]')?.textContent ?? "";
+		const retained = mocks.fundings;
+		mocks.fundings = [];
+		act(() => root.render(<FundingTab />));
+		expect(toolbarText()).toContain("Funding shown");
+
+		degrade();
+		act(() => root.render(<FundingTab />));
+		expect(container.querySelector('[data-slot="passive-data-placeholder"]')).not.toBeNull();
+		expect(toolbarText()).toBe("");
+
+		mocks.fundings = retained;
+		act(() => root.render(<FundingTab />));
+		expect(toolbarText()).toContain("+$1.25");
+	});
+
 	it("keeps funding rows visible when live updates pause", () => {
 		mocks.fundingError = new Error("WebSocket unavailable");
 		act(() => root.render(<FundingTab />));

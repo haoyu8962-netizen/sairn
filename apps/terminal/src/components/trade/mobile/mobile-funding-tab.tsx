@@ -56,7 +56,7 @@ export function MobileFundingTab(props: Props) {
 
 	return (
 		<MobileFundingTabContent
-			key={ownerKey}
+			key={`${env}:${ownerKey}`}
 			address={hasConnectedOwner ? address : undefined}
 			disclosureIdentity={`${env}:${ownerKey}`}
 			isConnected={hasConnectedOwner}

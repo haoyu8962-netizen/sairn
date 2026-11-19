@@ -41,6 +41,7 @@ const live = vi.hoisted(() => {
 });
 
 const mocks = vi.hoisted(() => ({
+	env: "Mainnet" as "Mainnet" | "Testnet",
 	historicalOrders: vi.fn(),
 	userFunding: vi.fn(),
 }));
@@ -83,7 +84,7 @@ vi.mock("@/components/ui/scroll-area", () => ({
 
 vi.mock("@/lib/hyperliquid", () => ({
 	useHyperliquid: () => ({
-		env: "Mainnet",
+		env: mocks.env,
 		info: { historicalOrders: mocks.historicalOrders, userFunding: mocks.userFunding },
 	}),
 	useMarkets: () => ({
@@ -209,6 +210,7 @@ describe("order and funding filter backfill", () => {
 		client = new QueryClient({ defaultOptions: { queries: { gcTime: Number.POSITIVE_INFINITY, retry: false } } });
 		mocks.historicalOrders.mockReset();
 		mocks.userFunding.mockReset();
+		mocks.env = "Mainnet";
 		live.reset();
 		setLiveOrders(recentOrders());
 		setLiveFundings(recentLongFundings());
@@ -435,5 +437,20 @@ describe("order and funding filter backfill", () => {
 			await flush();
 			expect(container.textContent).toContain("No funding payments match this direction.");
 		});
+	});
+
+	it.each([
+		["order", () => <MobileOrdersHistoryTab scrollMode="page" />, "Sell"],
+		["funding", () => <MobileFundingTab scrollMode="page" />, "Short"],
+	] as const)("resets the %s history filters when the network changes", async (_label, renderTab, option) => {
+		mocks.historicalOrders.mockResolvedValue(recentOrders());
+		mocks.userFunding.mockResolvedValue(fundingResponse(recentLongFundings()));
+		await render(renderTab());
+		await selectOption("Direction", option);
+		expect(container.querySelectorAll("article")).toHaveLength(0);
+
+		mocks.env = "Testnet";
+		await render(renderTab());
+		expect(container.querySelectorAll("article")).toHaveLength(30);
 	});
 });
