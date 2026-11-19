@@ -89,6 +89,27 @@ describe("Agent registration session records written by a newer version", () => 
 		expect(await isAgentRegistrationEpochCurrent(epoch)).toBe(true);
 	});
 
+	it("writes back every number a JSON.stringify writer can store as the same text", async () => {
+		const epoch = await captureEpoch();
+		const numericFields = JSON.stringify({
+			futureLargest: Number.MAX_VALUE,
+			futureSmallest: Number.MIN_VALUE,
+			futureSafe: Number.MAX_SAFE_INTEGER,
+			futureNested: [{ ratio: 0.1, at: 1763560000000.5 }, -1e-7],
+		}).slice(1, -1);
+		window.localStorage.setItem(
+			SESSION_STORAGE_KEY,
+			JSON.stringify(storedSession()).replace(/}$/, `,${numericFields}}`),
+		);
+		const privateKey = generatePrivateKey();
+
+		expect(await persistAgentForRegistration(epoch, privateKey, privateKeyToAccount(privateKey).address)).toEqual({
+			status: "stored",
+		});
+
+		expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toContain(numericFields);
+	});
+
 	it("keeps unknown fields through the pending approval, its resumption and its submission marker", async () => {
 		const epoch = await captureEpoch();
 		addNewerFields();
