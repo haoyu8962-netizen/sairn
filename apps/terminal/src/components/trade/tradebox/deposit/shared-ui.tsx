@@ -8,6 +8,7 @@ import {
 	BRAND_MOTION_AWAITING_RESULT,
 	BRAND_MOTION_ERROR,
 	BRAND_MOTION_SUCCESS,
+	BRAND_MOTION_UNKNOWN,
 	BRAND_MOTION_WALLET_AWAITING,
 } from "@/lib/brand/brand-motion.gen";
 import { cn } from "@/lib/cn";
@@ -24,6 +25,7 @@ const STATUS_SCREEN_MOTIONS = {
 	awaiting: BRAND_MOTION_AWAITING_RESULT,
 	success: BRAND_MOTION_SUCCESS,
 	error: BRAND_MOTION_ERROR,
+	unknown: BRAND_MOTION_UNKNOWN,
 } as const;
 
 interface StatusScreenProps {

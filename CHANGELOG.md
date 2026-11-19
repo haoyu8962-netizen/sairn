@@ -126,7 +126,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
   market section keeps its static content instead of failing when its inline market list is unreadable.
 - Release and setup scripts: `deploy.mjs sync` sends at most 500 files per upload command, as
   `reupload` already did; `reupload` refuses file names with AWS CLI wildcard characters; `aliases`
-  removes its temporary distribution config even when the update fails; `pnpm chart:fetch` moves the
+  removes its temporary distribution config even when the update fails, and stops without removing a
+  file of the same name that it did not create; `pnpm chart:fetch` moves the
   installed chart library aside instead of deleting it before the swap, restores it if the swap fails,
   and recovers it on the next run after an interruption.
 - An external-wallet deposit whose wallet returned no transaction hash (for example after a
@@ -145,6 +146,12 @@ changes, not evidence that a build has been deployed or accepted on real devices
   transaction that used it, the deposit is reported as status unknown about ten minutes after the
   authorization's expiry and stops blocking the next deposit, instead of blocking it for up to 30
   days. Failed or timed-out searches never count toward that conclusion.
+- A tracked deposit that ends as status unknown or as failed while the Deposit dialog is open now
+  stays on screen in the dialog with the transaction link until you close it, instead of the dialog
+  silently returning to an unlocked deposit form. A result the dialog did not show is still announced
+  once the dialog closes, even if a later deposit is being tracked by then.
+- A deposit whose checks finish more than 15 seconds after the click now says that the checks took
+  too long and nothing was signed or sent, instead of reporting the deposit route as unverifiable.
 - After switching account or network, a pending check of the previous one's deposit authorization no
   longer restarts the automatic email-wallet deposit of the current one.
 - Send asks Hyperliquid about the destination again right before signing and sends nothing when the
@@ -171,7 +178,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
   confirmation, max slippage and delay protection choices instead of resetting them to the defaults,
   storage that cannot be read starts from the strictest values, and changing a setting no longer
   raises an error. Clearing site data in another tab now tightens these protections in open tabs to
-  what a new tab would start with (ADR 0057).
+  what a new tab would start with (ADR 0057). A damaged settings or market record that the storage
+  refuses to delete no longer makes the terminal skip these protections at startup (it no longer
+  falls back to the default 2.5% slippage) or makes favorites fail to save.
 - Favorites and selected markets stored by a newer version of the terminal are no longer erased or
   overwritten when an older version is opened; changes made there stay in that tab.
 - The desktop Funding tab no longer shows a "Funding shown" total of $0.00 while an empty funding

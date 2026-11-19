@@ -647,6 +647,25 @@ it. Only which transaction used it, and how far Circle got, stay unknown. So:
   status could not be verified. Check the transaction before retrying.") with
   the explorer link of the original hash, never a failure. Circle forwarding of
   a burn that did happen continues without the tracker.
+- Since 2026-11-20 (Gemini final review round 2, P2) a settled outcome (status
+  unknown or a definitive source failure) is kept, per query client and per
+  environment and owner, in memory until the user has closed it, because the
+  record that used to carry it is already gone. While the Deposit dialog is
+  open on its deposit tab without a deposit of its own in flight, the dialog
+  shows it as a status screen (`Deposit status unknown` with the unknown glyph,
+  or `Deposit failed` with the classified failure, both with the original
+  hash's explorer link and one `Close` button), and the deposit form is not
+  reachable until the user closes that screen. Otherwise the page-level notifier
+  presents it as soon as the dialog is closed. Closing either the screen or the
+  persistent notification is what settles it; a notification that the notifier
+  itself removes because the account or network changed does not, so returning
+  to that account shows it again under a new presentation ID, while one the user
+  closed is never reopened. An outcome whose notification is still on screen
+  also takes the dialog's place when the dialog is opened, so no new deposit can
+  start from the dialog before the user has closed the result once. A later
+  deposit's record or hash never replaces an unsettled outcome, so its warning
+  cannot be lost. The kept outcomes live in memory, so a reload before the user
+  closes one loses it, as before.
 
 Since 2026-11-20 (Gemini final review, P2-1 follow-up) the longest a recovery
 record of an external-wallet deposit with an authorization nonce blocks a new

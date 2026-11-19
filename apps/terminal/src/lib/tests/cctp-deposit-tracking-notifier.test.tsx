@@ -23,7 +23,9 @@ const testState = vi.hoisted(() => ({
 		isError: false,
 		recoveryRecord: null as { sourceHash: string } | null,
 		trackedSourceHash: undefined as string | undefined,
+		unacknowledgedOutcomes: [] as Array<{ acknowledged: boolean; error: Error; sourceHash: string }>,
 	},
+	acknowledgedOutcomes: [] as string[],
 	walletSession: {
 		walletAddress: "0x1111111111111111111111111111111111111111" as string | undefined,
 		embeddedWalletAddress: undefined as string | undefined,
@@ -42,7 +44,15 @@ vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
 	useCctpDepositTracking: (options: Record<string, unknown>) => {
 		testState.trackingOptions = options;
-		return testState.tracking;
+		return {
+			...testState.tracking,
+			unacknowledgedOutcomes: testState.tracking.unacknowledgedOutcomes.filter(
+				(outcome) => !testState.acknowledgedOutcomes.includes(outcome.sourceHash),
+			),
+			acknowledgeOutcome: (sourceHash: string) => {
+				testState.acknowledgedOutcomes.push(sourceHash);
+			},
+		};
 	},
 }));
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({ useWalletSession: () => testState.walletSession }));
@@ -65,7 +75,9 @@ describe("CctpDepositTrackingNotifier", () => {
 			isError: false,
 			recoveryRecord: null,
 			trackedSourceHash: undefined,
+			unacknowledgedOutcomes: [],
 		};
+		testState.acknowledgedOutcomes = [];
 		testState.walletSession = {
 			walletAddress: EXTERNAL_WALLET,
 			embeddedWalletAddress: undefined,
@@ -84,6 +96,15 @@ describe("CctpDepositTrackingNotifier", () => {
 
 	function render() {
 		act(() => root.render(createElement(CctpDepositTrackingNotifier)));
+	}
+
+	function settle(error: Error, sourceHash = SOURCE_HASH) {
+		testState.tracking.error = error;
+		testState.tracking.isError = true;
+		testState.tracking.unacknowledgedOutcomes = [
+			...testState.tracking.unacknowledgedOutcomes,
+			{ acknowledged: false, error, sourceHash },
+		];
 	}
 
 	function trackWaitingDeposit() {
@@ -139,8 +160,7 @@ describe("CctpDepositTrackingNotifier", () => {
 	it("keeps a definitive source failure on screen until it is dismissed", () => {
 		trackWaitingDeposit();
 		render();
-		testState.tracking.error = new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted");
-		testState.tracking.isError = true;
+		settle(new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted"));
 		render();
 		render();
 
@@ -159,8 +179,7 @@ describe("CctpDepositTrackingNotifier", () => {
 	it("keeps a deposit whose outcome could not be determined on screen as status unknown, not as a failure", () => {
 		trackWaitingDeposit();
 		render();
-		testState.tracking.error = new CctpDepositOutcomeUnknownError();
-		testState.tracking.isError = true;
+		settle(new CctpDepositOutcomeUnknownError());
 		render();
 		testState.tracking = { ...testState.tracking, data: undefined, recoveryRecord: null };
 		render();
@@ -201,6 +220,63 @@ describe("CctpDepositTrackingNotifier", () => {
 		expect(toastMocks.loading).toHaveBeenCalledTimes(2);
 	});
 
+	it("announces an outcome that settled while the dialog was open after it closes, even once a later deposit is tracked", () => {
+		const laterHash = `0x${"d".repeat(64)}`;
+		testState.depositModalOpen = true;
+		trackWaitingDeposit();
+		render();
+		settle(new CctpDepositOutcomeUnknownError());
+		render();
+		testState.tracking = {
+			...testState.tracking,
+			data: { status: "waiting" },
+			error: null,
+			isError: false,
+			recoveryRecord: { sourceHash: laterHash },
+			trackedSourceHash: laterHash,
+		};
+		render();
+		expect(toastMocks.warning).not.toHaveBeenCalled();
+
+		testState.depositModalOpen = false;
+		render();
+		render();
+
+		expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(
+			"Deposit status unknown",
+			expect.objectContaining({
+				duration: Number.POSITIVE_INFINITY,
+				id: expect.stringMatching(
+					new RegExp(`^cctp-deposit:Mainnet:${EXTERNAL_WALLET}:${SOURCE_HASH}:presentation:\\d+$`),
+				),
+			}),
+		);
+		expect(toastMocks.loading).toHaveBeenCalledExactlyOnceWith(
+			"Forwarding deposit",
+			expect.objectContaining({ id: expect.stringContaining(laterHash) }),
+		);
+		expect(testState.acknowledgedOutcomes).toEqual([]);
+
+		const options = toastMocks.warning.mock.calls[0]?.[1] as { onDismiss: () => void };
+		options.onDismiss();
+		expect(testState.acknowledgedOutcomes).toEqual([SOURCE_HASH]);
+	});
+
+	it("does not announce again an outcome the deposit dialog already showed", () => {
+		testState.depositModalOpen = true;
+		trackWaitingDeposit();
+		render();
+		settle(new CctpDepositOutcomeUnknownError());
+		testState.acknowledgedOutcomes.push(SOURCE_HASH);
+		testState.tracking = { ...testState.tracking, data: undefined, recoveryRecord: null };
+		testState.depositModalOpen = false;
+		render();
+
+		expect(toastMocks.warning).not.toHaveBeenCalled();
+		expect(toastMocks.error).not.toHaveBeenCalled();
+		expect(toastMocks.loading).not.toHaveBeenCalled();
+	});
+
 	it("dismisses the progress notification when the tracked record disappears", () => {
 		trackWaitingDeposit();
 		render();
@@ -230,8 +306,7 @@ describe("CctpDepositTrackingNotifier", () => {
 	});
 	it.each(["owner", "network"])("clears even a persistent terminal error when the %s changes", (change) => {
 		trackWaitingDeposit();
-		testState.tracking.error = new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted");
-		testState.tracking.isError = true;
+		settle(new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted"));
 		render();
 		if (change === "owner") testState.walletSession.walletAddress = EMBEDDED_WALLET;
 		else testState.isTestnet = true;

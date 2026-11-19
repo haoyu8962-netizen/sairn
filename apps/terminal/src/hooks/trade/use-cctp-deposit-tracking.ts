@@ -1,5 +1,5 @@
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { Hash } from "viem";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
 import {
@@ -25,6 +25,79 @@ const CCTP_DEPOSIT_STATUS_POLL_MS = 5_000;
 export const CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN = 3;
 const EMPTY_TRACKING_SNAPSHOT = "";
 const consumerNotFoundPolls = new WeakMap<QueryClient, Map<string, number>>();
+
+/**
+ * A tracked deposit that ended in a definitive source failure or an unknown outcome. Its record is
+ * already removed, so the outcome itself is what keeps the result in front of the user: it stays
+ * unacknowledged until the user closes it, either the deposit dialog's status screen or the page-level
+ * notification (a notification removed because the account or network changed does not count), and a
+ * later deposit's record never replaces it.
+ */
+export interface SettledCctpDepositOutcome {
+	acknowledged: boolean;
+	error: Error;
+	sourceHash: Hash;
+}
+
+const NO_SETTLED_OUTCOMES: readonly SettledCctpDepositOutcome[] = [];
+
+class SettledOutcomeStore {
+	private readonly outcomes = new Map<string, readonly SettledCctpDepositOutcome[]>();
+	private readonly listeners = new Set<() => void>();
+
+	subscribe = (listener: () => void) => {
+		this.listeners.add(listener);
+		return () => {
+			this.listeners.delete(listener);
+		};
+	};
+
+	get(scope: string): readonly SettledCctpDepositOutcome[] {
+		return this.outcomes.get(scope) ?? NO_SETTLED_OUTCOMES;
+	}
+
+	record(scope: string, sourceHash: Hash, error: Error): void {
+		const outcomes = this.get(scope);
+		if (outcomes.some((outcome) => isSameHash(outcome.sourceHash, sourceHash))) return;
+		this.outcomes.set(scope, [...outcomes, { acknowledged: false, error, sourceHash }]);
+		this.emit();
+	}
+
+	acknowledge(scope: string, sourceHash: Hash): void {
+		const outcomes = this.get(scope);
+		if (!outcomes.some((outcome) => !outcome.acknowledged && isSameHash(outcome.sourceHash, sourceHash))) return;
+		this.outcomes.set(
+			scope,
+			outcomes.map((outcome) =>
+				isSameHash(outcome.sourceHash, sourceHash) ? { ...outcome, acknowledged: true } : outcome,
+			),
+		);
+		this.emit();
+	}
+
+	private emit(): void {
+		for (const listener of this.listeners) listener();
+	}
+}
+
+const settledOutcomeStores = new WeakMap<QueryClient, SettledOutcomeStore>();
+
+function getSettledOutcomeStore(queryClient: QueryClient): SettledOutcomeStore {
+	let store = settledOutcomeStores.get(queryClient);
+	if (!store) {
+		store = new SettledOutcomeStore();
+		settledOutcomeStores.set(queryClient, store);
+	}
+	return store;
+}
+
+function isSameHash(left: string, right: string): boolean {
+	return left.toLowerCase() === right.toLowerCase();
+}
+
+function getNoSettledOutcomes() {
+	return NO_SETTLED_OUTCOMES;
+}
 
 function getConsumerNotFoundPolls(queryClient: QueryClient): Map<string, number> {
 	let polls = consumerNotFoundPolls.get(queryClient);
@@ -99,26 +172,15 @@ export function useCctpDepositTracking({
 	const activeTrackedSourceHash = sourceHash ?? recoveryRecord?.sourceHash;
 	const trackingScope = `${env}:${owner?.toLowerCase() ?? ""}`;
 	const queryClient = useQueryClient();
-	const definitiveFailureRef = useRef<{
-		error: Error;
-		scope: string;
-		sourceHash: Hash;
-	} | null>(null);
-	useEffect(() => {
-		const previousFailure = definitiveFailureRef.current;
-		if (
-			previousFailure &&
-			(previousFailure.scope !== trackingScope ||
-				(activeTrackedSourceHash && previousFailure.sourceHash !== activeTrackedSourceHash))
-		) {
-			definitiveFailureRef.current = null;
-		}
-	}, [activeTrackedSourceHash, trackingScope]);
-	const retainedDefinitiveFailure =
-		definitiveFailureRef.current?.scope === trackingScope &&
-		(!activeTrackedSourceHash || definitiveFailureRef.current.sourceHash === activeTrackedSourceHash)
-			? definitiveFailureRef.current
-			: null;
+	const settledOutcomeStore = getSettledOutcomeStore(queryClient);
+	const getSettledOutcomes = useCallback(
+		() => (owner ? settledOutcomeStore.get(trackingScope) : NO_SETTLED_OUTCOMES),
+		[owner, settledOutcomeStore, trackingScope],
+	);
+	const settledOutcomes = useSyncExternalStore(settledOutcomeStore.subscribe, getSettledOutcomes, getNoSettledOutcomes);
+	const retainedDefinitiveFailure = activeTrackedSourceHash
+		? (settledOutcomes.find((outcome) => isSameHash(outcome.sourceHash, activeTrackedSourceHash)) ?? null)
+		: (settledOutcomes.at(-1) ?? null);
 	const trackedSourceHash = activeTrackedSourceHash ?? retainedDefinitiveFailure?.sourceHash;
 	const query = useQuery({
 		queryKey: [
@@ -208,11 +270,7 @@ export function useCctpDepositTracking({
 
 	useEffect(() => {
 		if (!owner || !trackedSourceHash || !query.error || !isSettledTrackingOutcome(query.error)) return;
-		definitiveFailureRef.current = {
-			error: query.error,
-			scope: trackingScope,
-			sourceHash: trackedSourceHash,
-		};
+		settledOutcomeStore.record(trackingScope, trackedSourceHash, query.error);
 		if (recoveryRecord?.sourceHash !== trackedSourceHash) return;
 		if (
 			(query.error instanceof CctpDirectAuthorizationExpiredError ||
@@ -235,6 +293,7 @@ export function useCctpDepositTracking({
 		query.error,
 		recoveryRecord?.authNonce,
 		recoveryRecord?.sourceHash,
+		settledOutcomeStore,
 		trackedSourceHash,
 		trackingScope,
 	]);
@@ -259,5 +318,7 @@ export function useCctpDepositTracking({
 		isError: !!definitiveFailure || query.isError,
 		recoveryRecord,
 		trackedSourceHash,
+		unacknowledgedOutcomes: settledOutcomes.filter((outcome) => !outcome.acknowledged),
+		acknowledgeOutcome: (outcomeSourceHash: Hash) => settledOutcomeStore.acknowledge(trackingScope, outcomeSourceHash),
 	};
 }
