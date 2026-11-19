@@ -11,6 +11,7 @@ import { JSDOM } from "jsdom";
 import {
 	combineDexTotals,
 	createRequestPlan,
+	dexOfCoin,
 	formatStatUsd,
 	META_AND_ASSET_CTXS_WEIGHT,
 	readDexTotals,
@@ -189,7 +190,7 @@ test("the page under test has the live strip, both pause controls and ten featur
 	assert.equal(document.querySelectorAll("[data-live-card]").length, 10);
 	assert.equal(document.querySelectorAll("[data-live-pause]").length, 2, "02's Pause updates and the footer's Pause live data");
 	assert.ok(document.querySelector("footer [data-live-pause]"));
-	assert.deepEqual(PLAN.dexes.slice(0, 3), ["", "io", "xyz"], "the stats band's and the featured cards' dexes come first");
+	assert.deepEqual(PLAN.dexes.slice(0, 3), ["", "io", "xyz"], "the featured cards' dexes come first");
 	assert.deepEqual(PLAN.dexes.slice(3).sort(), ["para"], "03's tab rows add the other listed dexes");
 	assert.ok(document.querySelectorAll("[data-live-row]").length >= 20, "03 tab rows carry live slots");
 	assert.equal(document.querySelectorAll("[data-live-mirror]").length, 10, "the marquee's mirror copy has one card per featured market");
@@ -279,6 +280,7 @@ test("a malformed or rejected answer shows no number for that dex", async () => 
 	});
 	try {
 		assert.deepEqual(page.filledCards(), []);
+		assert.equal(page.document.querySelector("[data-live-strip]").dataset.ticker, "static");
 		assert.equal(page.document.querySelector("[data-live-list]").getAttribute("aria-busy"), "true");
 		assert.equal(page.document.querySelector("[data-live-asof]").hidden, true);
 		await page.advance(2 * PLAN.requestSpacingMs + 1_000);
@@ -350,12 +352,14 @@ test("a hung request times out, and once retries are used up every number clears
 	const page = await boot((dex) => (dex === "xyz" ? "hang" : ok(dex)));
 	try {
 		await page.advance(PLAN.requestSpacingMs + 1_000);
+		assert.equal(page.document.querySelector("[data-live-strip]").dataset.ticker, "moving");
 		const firstXyz = page.calls.find((call) => call.dex === "xyz");
 		assert.ok(firstXyz, "xyz was requested");
 		await page.advance(REQUEST_TIMEOUT_MS);
 		assert.equal(firstXyz.signal.aborted, true, "the hung request was aborted by the timeout");
 		await page.advance(15 * 60_000);
 		assert.equal(page.allNumberText(), "");
+		assert.equal(page.document.querySelector("[data-live-strip]").dataset.ticker, "static");
 		assert.equal(page.locks.isHeldHere(), false, "the lock is released once the strip gives up");
 		const sent = page.calls.length;
 		assert.equal(page.calls.filter((call) => call.dex === "xyz").length, 6, "one request and five retries");
@@ -398,8 +402,10 @@ function statsSlots(document) {
 }
 
 test("the stats band sums exactly the dexes it names, with Big.js, once all of them have answered", async () => {
-	const dexes = JSON.parse(new JSDOM(HOME_HTML).window.document.querySelector("[data-live-stats]").dataset.liveStatsDexes);
-	assert.deepEqual(dexes, ["", "io", "xyz"]);
+	const { document } = new JSDOM(HOME_HTML).window;
+	const dexes = JSON.parse(document.querySelector("[data-live-stats]").dataset.liveStatsDexes);
+	const shownCoins = [...document.querySelectorAll("[data-market-coin]")].map((element) => element.dataset.marketCoin);
+	assert.deepEqual(new Set(dexes), new Set(shownCoins.map(dexOfCoin)));
 	const totals = Object.fromEntries(dexes.map((dex) => [dex, readDexTotals(ok(dex), dex)]));
 	const expected = combineDexTotals(dexes, totals);
 	const page = await boot((dex) => ok(dex));
@@ -410,6 +416,8 @@ test("the stats band sums exactly the dexes it names, with Big.js, once all of t
 			"one dex is not enough: the band shows nothing until every named dex has answered",
 		);
 		await page.advance(2 * PLAN.requestSpacingMs + 1_000);
+		assert.deepEqual(statsSlots(page.document).map(({ value }) => value), ["", ""], "wait for the Rates venue");
+		await page.advance(PLAN.requestSpacingMs);
 		const shown = statsSlots(page.document);
 		assert.deepEqual(shown.map((stat) => stat.key), ["volume", "openInterest"]);
 		assert.equal(shown[0].value, formatStatUsd(expected.dayNtlVlm));
@@ -427,24 +435,24 @@ test("the stats band sums exactly the dexes it names, with Big.js, once all of t
 });
 
 test("the stats band stays empty, never '—' or '$0', when a named dex fails or answers with a bad number", async () => {
-	const badXyz = await boot((dex) =>
-		dex === "xyz" ? { status: 200, body: setEntry(fixtureBody("xyz"), "xyz:CL", "ctx", { dayNtlVlm: "n/a" }) } : ok(dex),
+	const badRates = await boot((dex) =>
+		dex === "para" ? { status: 200, body: setEntry(fixtureBody("para"), "para:10Y", "ctx", { dayNtlVlm: "n/a" }) } : ok(dex),
 	);
 	try {
-		await badXyz.advance(2 * PLAN.requestSpacingMs + 1_000);
-		assert.ok(badXyz.filledCards().length > 0, "prices still show: only the totals failed");
-		for (const stat of statsSlots(badXyz.document)) {
+		await badRates.advance(3 * PLAN.requestSpacingMs + 1_000);
+		assert.ok(badRates.filledCards().length > 0, "prices still show: only the totals failed");
+		for (const stat of statsSlots(badRates.document)) {
 			assert.equal(stat.value, "");
 			assert.equal(stat.pending, false);
 			assert.equal(stat.busy, "true");
 			assert.equal(stat.asOf, true);
 		}
 	} finally {
-		badXyz.close();
+		badRates.close();
 	}
 	const rejected = await boot((dex) => (dex === "io" ? { status: 429, body: null } : ok(dex)));
 	try {
-		await rejected.advance(2 * PLAN.requestSpacingMs + 1_000);
+		await rejected.advance(3 * PLAN.requestSpacingMs + 1_000);
 		assert.deepEqual(statsSlots(rejected.document).map(({ value }) => value), ["", ""]);
 		assert.doesNotMatch(rejected.document.querySelector("[data-live-stats]").textContent, /—|\$0\b|NaN/);
 	} finally {
