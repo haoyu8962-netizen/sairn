@@ -146,6 +146,7 @@ queue 与 pending feedback 的可选 `execution` 保存 `filledSize`、实际主
 TWAP 终止在同一资产的锁被占用时排队等待，最多等 15 秒（与 ADR 0053 的时长相同，`TWAP_CANCEL_LOCK_WAIT_MS`），不再立即失败；排队期间按钮名字不变，重复点击不重复提交。以下情况下排队中的终止作废，不签名、不发送，结果通过通知报告：
 
 - 等满 15 秒（含计时器被浏览器推迟、拿到锁时才发现已超时）：提示 "The checks before this request took too long. Nothing was signed or sent. Try again."。这句是 ADR 0053 的现成文案，「checks」指的其实是同一市场上的另一个操作，不够贴切。
+- 拿到资产锁之后，入队 15 秒内没能调用签名器（排在别的请求后面、会话锁被占、复核或服务器时钟同步太慢，2026-11-19）：与等锁超时同一句提示，通知记为失败，可以立即再点。此前这一段不设上限，终止可能一直停在提交中；现在照官方终端「点击即发、失败提示、用户再点」的做法设上限（ADR 0053 的 2026-11-19 补记）。
 - 终止所在的列表卸载（切换账户页签、窗口宽度跨过 1000px）：结果代码 `twap-cancel-not-sent`，提示 "Request not submitted"。
 - 账户或网络变化：沿用原有的身份变化提示。
 - 签名身份变化（2026-11-19）：点击时记下签名身份（`useExchange` 的 `captureSigningIdentity`：会话租约、owner 签名器绑定、Agent 注册 epoch、Agent 公钥与 Agent-only 激活代际，与调度器请求代际是同一组事实），执行守卫在入队前与 SDK 边界各用 `isSameExchangeSigningIdentity` 比较一次，会话变化时也立即作废排队中的终止。所以同一 owner 从钱包会话换成导入的 Agent-only 会话（ADR 0039）或反过来、同一会话里的 Agent 密钥或注册 epoch 被替换，旧点击都不会由新身份签名。提示沿用上一条的 "The trading account or network changed. Review active TWAP orders before retrying."，对同一 owner 的会话或密钥更换只是近似说法。

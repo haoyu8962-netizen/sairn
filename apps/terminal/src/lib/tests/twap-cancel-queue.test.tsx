@@ -61,6 +61,7 @@ const sessionStorageKey = `hyperliquid_agent_registration_session_Mainnet_${stat
 const epoch = "11111111-1111-4111-8111-111111111111";
 const replacementEpoch = "22222222-2222-4222-8222-222222222222";
 const lockName = `sairn-order-asset-v1:mainnet:${state.owner}:7`;
+const sessionLockName = `hyperliquid_agent_registration_session:Mainnet:${state.owner}`;
 const roots: Root[] = [];
 const clients: QueryClient[] = [];
 
@@ -232,6 +233,51 @@ describe("TWAP cancellation before the SDK boundary", () => {
 			expect(tab.feedback()).toEqual({ tone: "error", message: "Request not submitted" });
 		},
 	);
+
+	it.each([
+		{ heldMs: 16_000, calls: 0 },
+		{ heldMs: 14_000, calls: 1 },
+	])("bounds the wait after the asset lock at 15 seconds (signing lock held $heldMs ms)", async ({ heldMs, calls }) => {
+		vi.useFakeTimers();
+		try {
+			installLocks();
+			let releaseSessionLock = () => {};
+			const sessionLockHeld = new Promise<void>((resolve) => {
+				releaseSessionLock = resolve;
+			});
+			void navigator.locks.request(sessionLockName, {}, () => sessionLockHeld);
+			const tab = await openTab();
+			let click: Promise<void> | undefined;
+			await act(async () => {
+				click = tab.click();
+			});
+			const [action] = tab.pending();
+			expect(action).toMatchObject({ phase: "submitting" });
+
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(heldMs);
+			});
+			await act(async () => {
+				releaseSessionLock();
+				await vi.advanceTimersByTimeAsync(0);
+				await click;
+			});
+
+			expect(state.wallet.twapCancel).toHaveBeenCalledTimes(calls);
+			if (calls === 0) {
+				expect(tab.pending()).toEqual([]);
+				expect(tab.task(action.id)).toMatchObject({ status: "failed" });
+				expect(tab.feedback()).toEqual({
+					tone: "error",
+					message: "The checks before this request took too long. Nothing was signed or sent. Try again.",
+				});
+			} else {
+				expect(tab.pending()[0]).toMatchObject({ phase: "awaiting", accepted: true });
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 
 	it("leaves a second tab's duplicate termination to the exchange and reports its answer", async () => {
 		const alreadyCancelled = {

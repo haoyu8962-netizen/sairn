@@ -369,12 +369,13 @@ describe("exchange request scheduler start deadline", () => {
 		await expect(request).resolves.toBe("cancelled");
 	});
 
-	it("limits every action to 15 seconds except the three cancels", () => {
+	it("limits every action to 15 seconds except the two order cancels", () => {
 		expect(EXCHANGE_ACTION_START_DEADLINE_MS).toBe(15_000);
-		for (const method of ["cancel", "cancelByCloid", "twapCancel"] as const) {
+		for (const method of ["cancel", "cancelByCloid"] as const) {
 			expect(getExchangeStartDeadlineMs(method)).toBeUndefined();
 		}
 		for (const method of [
+			"twapCancel",
 			"order",
 			"modify",
 			"batchModify",

@@ -19,7 +19,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Terminating a TWAP while another action on the same market is in progress now waits up to 15
   seconds instead of failing at once. A waiting termination is dropped without signing when the
   trading session or its signing key changes, even for the same account, and a termination clicked
-  while offline is not sent.
+  while offline is not sent. Once it has its turn, a termination that still cannot be signed within
+  15 seconds is reported as not sent instead of staying in progress, so it can be clicked again.
 - Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
   its own selected market.
 - CI runs every terminal unit test on each pull request. The daily website market check is removed: no
