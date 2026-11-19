@@ -1,3 +1,8 @@
+import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
+import { getToolbarFundingTotal } from "@/domain/trade/trading-toolbar-metrics";
+import type { FormatOptions, NumberFormatters } from "@/lib/format";
+import type { UnifiedMarket } from "@/lib/hyperliquid";
+import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
 import { toBig } from "@/lib/trade/numbers";
 import type { UserFunding } from "@/lib/trade/user-funding";
 
@@ -50,6 +55,59 @@ export function filterFundingHistory(
 		(funding) =>
 			(market === null || funding.coin === market) && (side === "all" || getFundingHistorySide(funding.szi) === side),
 	);
+}
+
+/**
+ * Funding paid or received in one collateral. Payments in different collaterals are never added
+ * together; a HIP-3 payment whose collateral the catalog cannot tell has no amount, not a USDC guess.
+ */
+export interface FundingTotal {
+	token: string | null;
+	symbol: string | null;
+	amount: string | null;
+}
+
+export function getFundingTotals(
+	fundings: readonly UserFunding[],
+	getMarket: (coin: string) => UnifiedMarket | undefined,
+): FundingTotal[] {
+	const groups = new Map<string | null, { symbol: string | null; payments: UserFunding[] }>();
+	for (const funding of fundings) {
+		const market = getMarket(funding.coin);
+		const token = getFundingCollateralToken(funding.coin, market);
+		let group = groups.get(token);
+		if (!group) {
+			group = { symbol: getFundingCollateralSymbol(funding.coin, market) ?? token, payments: [] };
+			groups.set(token, group);
+		}
+		group.payments.push(funding);
+	}
+	if (groups.size === 0) return [{ token: DEFAULT_QUOTE_TOKEN, symbol: DEFAULT_QUOTE_TOKEN, amount: "0" }];
+	return Array.from(groups, ([token, { symbol, payments }]) => ({
+		token,
+		symbol,
+		amount: token === null ? null : getToolbarFundingTotal(payments),
+	})).sort(compareFundingTotals);
+}
+
+/** USDC first, other collaterals by protocol name, payments of unknown collateral last. */
+function compareFundingTotals(left: FundingTotal, right: FundingTotal): number {
+	return getFundingTotalRank(left) - getFundingTotalRank(right) || (left.token ?? "").localeCompare(right.token ?? "");
+}
+
+function getFundingTotalRank(total: FundingTotal): number {
+	if (total.token === DEFAULT_QUOTE_TOKEN) return 0;
+	return total.token === null ? 2 : 1;
+}
+
+const fundingTotalFormat: FormatOptions = { compact: false, signDisplay: "exceptZero" };
+
+export function formatFundingTotal(
+	total: FundingTotal,
+	{ formatUSD, formatToken }: Pick<NumberFormatters, "formatUSD" | "formatToken">,
+): string {
+	if (total.token === DEFAULT_QUOTE_TOKEN) return formatUSD(total.amount, fundingTotalFormat);
+	return formatToken(total.amount, { ...fundingTotalFormat, decimals: 2, symbol: total.symbol ?? undefined });
 }
 
 export function getFundingHistoryPage(

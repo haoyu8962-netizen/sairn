@@ -2,6 +2,7 @@ import type { UserFillsResponse, UserTwapSliceFillsResponse } from "@nktkas/hype
 import Big from "big.js";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
 import { getToolbarNonZeroPnl } from "@/domain/trade/trading-toolbar-metrics";
+import type { NumberFormatters } from "@/lib/format";
 import type { UnifiedMarket } from "@/lib/hyperliquid";
 import type { Network } from "@/lib/network";
 import { fetchHistoryPageWithRetry, fetchTimeRangeHistory } from "@/lib/trade/history-pagination";
@@ -182,12 +183,13 @@ export async function fetchUserTwapSliceFillHistory(
 		...(options.maxPages === undefined ? {} : { maxPages: options.maxPages }),
 		requireAscending: true,
 		retainLatestItems: TWAP_SLICE_FILLS_EXPORT_LIMIT,
+		reportRetentionLoss: true,
 		signal: options.signal,
 		validateItem: isValidUserTwapSliceFillHistoryItem,
 	});
 	return {
 		items: normalizeUserTwapSliceFills(result.items),
-		truncated: result.truncated || result.items.length >= TWAP_SLICE_FILLS_EXPORT_LIMIT,
+		truncated: result.truncated,
 	};
 }
 
@@ -214,7 +216,7 @@ export function getUserFillNetClosedPnl(
 		const closedPnl = new Big(fill.closedPnl);
 		const fee = new Big(fill.fee);
 		if (fee.eq(0)) return getToolbarNonZeroPnl(closedPnl.toString());
-		const quoteToken = getUserFillQuoteToken(fill.coin, fill.feeToken, market);
+		const quoteToken = getUserFillQuoteToken(fill, market);
 		if (quoteToken === null) return null;
 		const feeInQuote = fill.feeToken === quoteToken ? fee : fee.times(fill.px);
 		return getToolbarNonZeroPnl(closedPnl.minus(feeInQuote).toString());
@@ -223,12 +225,30 @@ export function getUserFillNetClosedPnl(
 	}
 }
 
-function getUserFillQuoteToken(coin: string, feeToken: string, market: UnifiedMarket | undefined): string | null {
+export function getUserFillQuoteToken(
+	{ coin, feeToken }: Pick<UserFillsResponse[number], "coin" | "feeToken">,
+	market: UnifiedMarket | undefined,
+): string | null {
 	if (coin.startsWith("#")) return feeToken;
 	if (market?.kind === "spot") return market.tokensInfo[1]?.name ?? null;
 	if (market?.kind === "builderPerp") return market.quoteToken?.name ?? null;
 	if (market?.kind === "perp") return DEFAULT_QUOTE_TOKEN;
 	return coin.includes(":") || coin.includes("/") || coin.startsWith("@") ? null : DEFAULT_QUOTE_TOKEN;
+}
+
+export function formatUserFillNetPnl(
+	amount: string,
+	quoteToken: string | null,
+	{ formatToken, formatUSD }: Pick<NumberFormatters, "formatToken" | "formatUSD">,
+	getTokenDisplayName: (token: string) => string,
+): string {
+	if (quoteToken === DEFAULT_QUOTE_TOKEN) return formatUSD(amount, { signDisplay: "exceptZero" });
+	return formatToken(amount, {
+		compact: false,
+		decimals: 2,
+		signDisplay: "exceptZero",
+		symbol: quoteToken === null ? undefined : getTokenDisplayName(quoteToken),
+	});
 }
 
 export function hasUserFillExplorerTransaction(fill: UserFillsResponse[number]): boolean {

@@ -90,8 +90,25 @@ vi.mock("@/components/ui/scroll-area", () => ({
 	ScrollBar: () => null,
 }));
 
+vi.mock("@/hooks/trade/use-order-history", () => ({
+	useOrderHistory: () => ({
+		error: null,
+		hasFailed: false,
+		isFetching: false,
+		isOffline: false,
+		isRefreshing: false,
+		newestStatusTime: null,
+		orders: mocks.orders,
+		reachedLimit: false,
+		refresh: () => undefined,
+		status: "ready",
+	}),
+}));
+
 vi.mock("@/hooks/trade/use-historical-orders", () => ({
 	useHistoricalOrders: () => ({
+		bufferedOrders: mocks.orders,
+		oldestBufferedStatusTime: null,
 		entries: getOrderHistoryEntries(),
 		error: mocks.error,
 		isConnected: true,

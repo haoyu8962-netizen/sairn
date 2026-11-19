@@ -18,6 +18,18 @@ describe("serializeCsv", () => {
 	});
 });
 
+describe("serializeCsv protocol identifiers and OWASP triggers", () => {
+	it("writes a spot market's protocol name and signed protocol decimals exactly as sent", () => {
+		expect(serializeCsv([["@107", "@0", "-0.0100", "-1.2300"]])).toBe("@107,@0,-0.0100,-1.2300");
+	});
+
+	it("neutralizes every other text cell that starts with an OWASP formula trigger", () => {
+		expect(serializeCsv([["@107+1", "@01", "@SUM(A1)", "\n=1", "\t=1", "\r=1", "＝1", "＋1", "－1", "＠A"]])).toBe(
+			`'@107+1,'@01,'@SUM(A1),"'\n=1",'\t=1,"'\r=1",'＝1,'＋1,'－1,'＠A`,
+		);
+	});
+});
+
 describe("buildCsvRows", () => {
 	it("maps localized headers and the currently loaded records in column order", () => {
 		const rows = buildCsvRows(

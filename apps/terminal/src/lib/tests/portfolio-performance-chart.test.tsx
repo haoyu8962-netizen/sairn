@@ -111,8 +111,24 @@ describe("PortfolioPerformanceChart", () => {
 		const plot = getPlot(container);
 		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
 
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · -$7.00");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 12:30 AM · -$7.00");
 		expect(container.querySelector("[data-crosshair]")).not.toBeNull();
+	});
+
+	it("P3-3 gives different local time labels to equal-value intraday samples", () => {
+		renderChart(root, {
+			history: [
+				[LOCAL_DATE_TIMESTAMP, "10"],
+				[LOCAL_DATE_TIMESTAMP + 3_600_000, "10"],
+			],
+			period: "day",
+		});
+		const plot = getPlot(container);
+		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+		const first = plot.getAttribute("aria-valuetext");
+		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+		expect(plot.getAttribute("aria-valuetext")).not.toBe(first);
+		expect(getTooltip(container)?.textContent).toBe(plot.getAttribute("aria-valuetext"));
 	});
 
 	it("formats the complete tooltip date in Chinese local time", () => {
@@ -122,20 +138,20 @@ describe("PortfolioPerformanceChart", () => {
 		const plot = getPlot(container);
 		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
 
-		expect(getTooltip(container)?.textContent).toBe("2026年8月9日 · -$7.00");
+		expect(getTooltip(container)?.textContent).toBe("2026年8月9日 0:30 · -$7.00");
 	});
 
 	it("rewrites the selected point's date when the language changes", () => {
 		renderChart(root, { history: [[LOCAL_DATE_TIMESTAMP, "-7"]], period: "day" });
 		const plot = getPlot(container);
 		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
-		expect(plot.getAttribute("aria-valuetext")).toBe("August 9, 2026 · -$7.00");
+		expect(plot.getAttribute("aria-valuetext")).toBe("August 9, 2026 at 12:30 AM · -$7.00");
 
 		act(() => i18n.loadAndActivate({ locale: "zh", messages: {} }));
 
 		expect(getPlot(container)).toBe(plot);
-		expect(getTooltip(container)?.textContent).toBe("2026年8月9日 · -$7.00");
-		expect(plot.getAttribute("aria-valuetext")).toBe("2026年8月9日 · -$7.00");
+		expect(getTooltip(container)?.textContent).toBe("2026年8月9日 0:30 · -$7.00");
+		expect(plot.getAttribute("aria-valuetext")).toBe("2026年8月9日 0:30 · -$7.00");
 	});
 
 	it("rewrites the axis and the selected point when the number format changes", () => {
@@ -148,14 +164,14 @@ describe("PortfolioPerformanceChart", () => {
 		const plot = getPlot(container);
 		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
 		expect(container.querySelector("[data-y-tick='0.25'] text")?.textContent).toBe("$0.25");
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · -$0.40");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 12:30 AM · -$0.40");
 
 		mocks.formatLocale = "de-DE";
 		act(() => notifyNumberFormatChange());
 
 		expect(getPlot(container)).toBe(plot);
 		expect(container.querySelector("[data-y-tick='0.25'] text")?.textContent).toBe("$0,25");
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · -$0,40");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 12:30 AM · -$0,40");
 	});
 
 	it("creates finite adaptive ticks for an all-zero series", () => {
@@ -315,14 +331,14 @@ describe("PortfolioPerformanceChart", () => {
 		expect(container.querySelector("[data-active-point]")?.getAttribute("data-active-point")).toBe(
 			String(LOCAL_DATE_TIMESTAMP),
 		);
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · -$7.00");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 12:30 AM · -$7.00");
 		expectTooltipInsideChart(container, plotWidth, plotHeight);
 
 		movePointer(plot, plotWidth, plotHeight);
 		expect(container.querySelector("[data-active-point]")?.getAttribute("data-active-point")).toBe(
 			String(LOCAL_DATE_TIMESTAMP + 60 * 60 * 1000),
 		);
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · +$3.00");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 1:30 AM · +$3.00");
 		expectTooltipInsideChart(container, plotWidth, plotHeight);
 
 		movePointer(plot, 220, 90);
@@ -361,7 +377,7 @@ describe("PortfolioPerformanceChart", () => {
 		expect(container.querySelector("[data-active-point]")?.getAttribute("data-active-point")).toBe(
 			String(history[0][0]),
 		);
-		expect(plot.getAttribute("aria-valuetext")).toBe("August 9, 2026 · -$7.00");
+		expect(plot.getAttribute("aria-valuetext")).toBe("August 9, 2026 at 12:30 AM · -$7.00");
 		act(() => plot.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
 		expect(container.querySelector("[data-active-point]")?.getAttribute("data-active-point")).toBe(
 			String(history[1][0]),
@@ -388,7 +404,7 @@ describe("PortfolioPerformanceChart", () => {
 		act(() => accountValueTab?.click());
 		expect(getTooltip(container)).toBeNull();
 		act(() => getPlot(container).dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
-		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 · +$7.00");
+		expect(getTooltip(container)?.textContent).toBe("August 9, 2026 at 12:30 AM · +$7.00");
 
 		const pnlTab = [...container.querySelectorAll("button")].find((button) => button.textContent === "PNL");
 		act(() => pnlTab?.click());

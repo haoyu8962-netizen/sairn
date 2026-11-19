@@ -47,7 +47,11 @@ vi.mock("@/lib/hyperliquid", async () => {
 		...hyperliquidSessionMock,
 		useHyperliquid: () => ({ ...useHyperliquidSession(), info }),
 		useMarkets: () => ({ getTokenDisplayName: (name: string) => name }),
-		useSubscription: () => ({ data: undefined, status: "idle" }),
+		useSubscription: () => ({
+			data: { isSnapshot: true, nonFundingLedgerUpdates: [], user: "0x1111111111111111111111111111111111111111" },
+			isStale: false,
+			status: "active",
+		}),
 	};
 });
 

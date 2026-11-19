@@ -1,7 +1,13 @@
+/** A protocol decimal such as `-0.0100` is data, written as sent; a spreadsheet reads it as a number. */
 const PLAIN_NUMBER = /^[-+]?\d+(?:\.\d+)?$/;
+/** A spot market's protocol name (`@107`) names no function or cell, so it is written as sent (ADR 0048). */
+const SPOT_MARKET_INDEX = /^@(?:0|[1-9]\d*)$/;
+/** OWASP CSV Injection: a text cell starting with these, full-width forms included, is read as a formula. */
+const FORMULA_TRIGGER = /^[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/;
 
 function escapeCsvCell(value: string): string {
-	const safeValue = /^[=+\-@\t\r]/.test(value) && !PLAIN_NUMBER.test(value) ? `'${value}` : value;
+	const isFormulaText = FORMULA_TRIGGER.test(value) && !PLAIN_NUMBER.test(value) && !SPOT_MARKET_INDEX.test(value);
+	const safeValue = isFormulaText ? `'${value}` : value;
 	if (!/[",\r\n]/.test(safeValue)) return safeValue;
 	return `"${safeValue.replaceAll('"', '""')}"`;
 }

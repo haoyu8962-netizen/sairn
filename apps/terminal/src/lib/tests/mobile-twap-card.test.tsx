@@ -390,7 +390,7 @@ describe("MobileTwapTab card", () => {
 		expect(container.textContent).toContain("Trade Value");
 		expect(container.textContent).toContain("1,875.00 USDH");
 		expect(container.textContent).toContain("0.01000 USDC");
-		expect(container.textContent).toContain("+1.25 USDC");
+		expect(container.textContent).toContain("+1.25 USDH");
 	});
 
 	it("shows TWAP history prices at the market's protocol decimals, as the other history tables do", () => {
@@ -448,7 +448,7 @@ describe("MobileTwapTab card", () => {
 			act(() => fillHistoryTab?.click());
 
 			expect(container.textContent).toContain("0.01000 USDT");
-			expect(container.textContent).toContain("+1.25 USDT");
+			expect(container.textContent).toContain("+1.25 USDH");
 			expect(container.textContent).not.toContain("USDT0");
 		} finally {
 			mocks.twapFills = fills;

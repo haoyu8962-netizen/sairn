@@ -13,6 +13,8 @@ const testState = vi.hoisted(() => ({
 	exportTwapFills: vi.fn(async () => undefined),
 	exportListeners: new Set<() => void>(),
 	hasActiveOrder: true,
+	canConfirmEmpty: true,
+	isTwapHistoryEmpty: false,
 	hasMoreTwapFills: false,
 	hasMoreTwapHistory: false,
 	isExportingTwapFills: false,
@@ -106,7 +108,8 @@ vi.mock("@/hooks/trade/use-twap-history", () => ({
 		canConfirmEmpty: !testState.isTwapHistoryRealtimeDegraded,
 		error: undefined,
 		hasMore: testState.hasMoreTwapHistory,
-		history: testState.twapHistory,
+		history: testState.isTwapHistoryEmpty ? [] : testState.twapHistory,
+		canConfirmEmpty: testState.canConfirmEmpty,
 		isConnected: true,
 		isRealtimeDegraded: testState.isTwapHistoryRealtimeDegraded,
 		latestHistory: testState.twapHistory,
@@ -122,6 +125,7 @@ vi.mock("@/hooks/trade/use-twap-slice-fills", () => ({
 		canConfirmEmpty: testState.twapFillsStatus === "ready" && !testState.isTwapFillsRealtimeDegraded,
 		error: undefined,
 		fills: testState.isTwapFillsEmpty ? [] : testState.twapFills,
+		canConfirmEmpty: testState.canConfirmEmpty,
 		hasMore: testState.hasMoreTwapFills,
 		isConnected: testState.isWalletConnected,
 		isRealtimeDegraded: testState.isTwapFillsRealtimeDegraded,
@@ -191,6 +195,8 @@ describe("desktop TWAP toolbar", () => {
 		testState.twap.side = "B";
 		testState.cancellingTwapId = null;
 		testState.hasActiveOrder = true;
+		testState.canConfirmEmpty = true;
+		testState.isTwapHistoryEmpty = false;
 		testState.hasMoreTwapFills = false;
 		testState.hasMoreTwapHistory = false;
 		testState.isExportingTwapFills = false;
@@ -386,7 +392,7 @@ describe("desktop TWAP toolbar", () => {
 		expect(container.textContent).toContain("5.00 GOOGL");
 		expect(container.textContent).toContain("1,875.00 USDH");
 		expect(container.textContent).toContain("0.01000 USDC");
-		expect(container.textContent).toContain("+2.50 USDC");
+		expect(container.textContent).toContain("+2.50 USDH");
 		expect(container.textContent).toContain(
 			formatDateTime(Date.UTC(2026, 0, 1, 0, 5, 0), { dateStyle: "short", timeStyle: "short" }),
 		);
@@ -446,6 +452,31 @@ describe("desktop TWAP toolbar", () => {
 		}
 	});
 
+	it.each([
+		["History", "No TWAP history found."],
+		["Fill History", "No TWAP fills found."],
+	])("P2-4 only announces empty %s after the hook confirms the snapshot", (tab, message) => {
+		testState.isTwapHistoryEmpty = true;
+		testState.isTwapFillsEmpty = true;
+		testState.canConfirmEmpty = false;
+		render();
+		selectSubview(tab);
+		expect(container.textContent).not.toContain(message);
+	});
+
+	it("P2-1 labels gross TWAP PNL in the quote while labeling the fee in its own token", () => {
+		const fills = testState.twapFills;
+		testState.twapFills = fills.map((fill) => ({ ...fill, feeToken: "GOOGL" })) as UserFillsResponse;
+		try {
+			render();
+			selectSubview("Fill History");
+			expect(container.textContent).toContain("0.01000 GOOGL");
+			expect(container.textContent).toContain("+2.50 USDH");
+		} finally {
+			testState.twapFills = fills;
+		}
+	});
+
 	it("shows a slice fill's fee token by its display name", () => {
 		const fills = testState.twapFills;
 		testState.twapFills = fills.map((fill) => ({ ...fill, feeToken: "USDT0" })) as UserFillsResponse;
@@ -457,7 +488,7 @@ describe("desktop TWAP toolbar", () => {
 			act(() => fillHistoryTab?.click());
 
 			expect(container.textContent).toContain("0.01000 USDT");
-			expect(container.textContent).toContain("+2.50 USDT");
+			expect(container.textContent).toContain("+2.50 USDH");
 			expect(container.textContent).not.toContain("USDT0");
 		} finally {
 			testState.twapFills = fills;

@@ -3,6 +3,8 @@ import { HL_ALL_DEXS } from "@/config/app";
 import { addSpotMarketPriceAliases } from "@/domain/trade/balances";
 import { type AssetAvailabilityStatus, getStreamAvailabilityStatus } from "@/domain/trade/order/availability";
 import { useMarkets, useSubscription } from "@/lib/hyperliquid";
+import { isSpotMetaValid } from "@/lib/hyperliquid/markets/market-catalog-state";
+import type { MarketsContextValue } from "@/lib/hyperliquid/markets/use-markets";
 
 interface SpotTokenUsdPriceState {
 	prices: Record<string, string>;
@@ -31,9 +33,10 @@ export function useSpotTokenUsdPriceState(enabled: boolean): SpotTokenUsdPriceSt
  * catalog has loaded, a token without a price may simply be one whose market is not known yet, so the
  * prices count as current only once the catalog is ready; a failed catalog leaves them unavailable.
  */
-function getSpotCatalogStatus(markets: { isLoading: boolean; error: Error | null }): AssetAvailabilityStatus {
+function getSpotCatalogStatus(markets: MarketsContextValue): AssetAvailabilityStatus {
 	if (markets.error) return "error";
-	return markets.isLoading ? "loading" : "success";
+	if (markets.isLoading) return "loading";
+	return isSpotMetaValid(markets.catalogQueries.spotMeta.data) ? "success" : "error";
 }
 
 export function useSpotTokenUsdPrices(enabled: boolean): Record<string, string> {

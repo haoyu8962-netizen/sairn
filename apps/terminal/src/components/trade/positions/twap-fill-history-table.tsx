@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useMarkets } from "@/lib/hyperliquid";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
-import { getUserFillNotional } from "@/lib/trade/user-fills";
+import { getUserFillNotional, getUserFillQuoteToken } from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
 import { ConnectPlaceholder, Placeholder } from "./placeholder";
@@ -85,6 +85,7 @@ export function TwapFillHistoryTable() {
 									const notional = getUserFillNotional(fill);
 									const quoteToken = getMarketQuoteToken(market);
 									const feeToken = markets.getTokenDisplayName(fill.feeToken);
+									const pnlQuote = getUserFillQuoteToken(fill, market);
 
 									return (
 										<tr
@@ -137,7 +138,7 @@ export function TwapFillHistoryTable() {
 													compact: false,
 													decimals: 2,
 													signDisplay: "exceptZero",
-													symbol: feeToken,
+													symbol: pnlQuote === null ? undefined : markets.getTokenDisplayName(pnlQuote),
 												})}
 											</td>
 										</tr>

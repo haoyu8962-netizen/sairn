@@ -2514,7 +2514,6 @@ msgstr "क्रिप्टो"
 #: src/hooks/trade/use-account-ledger-csv.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
-#: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "CSV export reached the history limit. Some records were not included."
 msgstr "CSV निर्यात इतिहास सीमा तक पहुँच गया। कुछ रिकॉर्ड शामिल नहीं किए गए।"
@@ -7424,10 +7423,13 @@ msgstr "ट्रैकिंग फिर से शुरू करें"
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/layout/terminal-boot-error.tsx
+#: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/offline-banner.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -10834,6 +10836,9 @@ msgid "Up to {cctpFee} USDC in fees will be deducted from your deposit."
 msgstr "आपकी जमा राशि से शुल्क के रूप में अधिकतम {cctpFee} USDC काटे जाएंगे।"
 
 #: src/components/historical-orders/historical-orders-page.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
+#: src/hooks/trade/use-history-csv-export.ts
 msgid "Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders"
 msgstr "अधिकतम {ORDER_HISTORY_API_LIMIT} नवीनतम सामान्य ऑर्डर"
 

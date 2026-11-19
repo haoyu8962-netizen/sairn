@@ -33,3 +33,10 @@ export function formatCollateralAmount(
 	}
 	return numberFormat.formatQuoteAmount(value, collateralSymbol, { compact: false, decimals: 2, ...options });
 }
+
+/** The protocol name of a funding payment's collateral (`USDT0`, not its display name `USDT`), as CSV exports write it (ADR 0048). */
+export function getFundingCollateralToken(coin: string, market: UnifiedMarket | undefined): string | null {
+	if (market?.kind === "builderPerp") return market.quoteToken?.name ?? null;
+	if (market) return DEFAULT_QUOTE_TOKEN;
+	return coin.includes(":") ? null : DEFAULT_QUOTE_TOKEN;
+}

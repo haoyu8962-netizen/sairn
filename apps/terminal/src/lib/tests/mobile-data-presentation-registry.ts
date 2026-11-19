@@ -135,12 +135,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		copy: {
 			"No funding payments found.": "confirmed-empty",
 			"No funding payments match this direction.": "confirmed-empty",
+			Retry: "neutral-retry",
 		},
 		why: {
 			"value-announcement":
-				"Screen-reader-only live region announcing the funding total; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+				"Screen-reader-only live region announcing the funding total; a number only for a ready snapshot with no error, not offline and not stale and, while the direction filter is on, a 30-day backfill that allows a conclusion; the stable placeholder otherwise.",
 			"confirmed-empty":
-				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
+				'"No funding payments found." only for a ready live snapshot with no error, not offline, not stale and no filter; the direction no-match comes from getFilteredHistoryEmptyPresentation() on the 30-day userFunding backfill and current live payments, otherwise a blank busy region.',
+			"neutral-retry": "Neutral Retry after the backfill failed or no longer reaches the live payments.",
 			"data-value": "Short direction in the danger colour.",
 		},
 	},
@@ -201,12 +203,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		copy: {
 			"No order history found.": "confirmed-empty",
 			"No orders match these filters.": "confirmed-empty",
+			Retry: "neutral-retry",
 		},
 		why: {
 			"value-announcement":
-				"Screen-reader-only live region announcing the number of orders shown; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+				"Screen-reader-only live region announcing the number of orders shown; a number only for a ready snapshot with no error, not offline and not stale and, while a filter is on, a historicalOrders backfill that allows a conclusion; the stable placeholder otherwise.",
 			"confirmed-empty":
-				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
+				'"No order history found." only for a ready live snapshot with no error, not offline, not stale and no filter; the filter no-match comes from getFilteredHistoryEmptyPresentation() on the historicalOrders backfill and current live orders (naming the 2,000-order limit when the backfill reached it), otherwise a blank busy region.',
+			"neutral-retry": "Neutral Retry after the backfill failed or no longer reaches the live orders.",
 			"data-value":
 				"Sell direction in the danger colour; Canceled and Rejected status badge in the error colours (the official terminal leaves the status uncoloured).",
 		},

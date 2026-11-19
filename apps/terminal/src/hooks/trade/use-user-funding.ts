@@ -10,6 +10,10 @@ const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000";
 type UserFundingStatus = "error" | "idle" | "loading" | "offline" | "ready";
 
 interface UserFundingResult {
+	/** Every payment the subscription holds, newest first; `fundings` is the start of it. */
+	bufferedFundings: UserFunding[];
+	/** Time of the oldest payment the subscription still holds; null while it holds none. */
+	oldestBufferedFundingTime: number | null;
 	error: unknown;
 	fundings: UserFunding[];
 	isConnected: boolean;
@@ -44,10 +48,8 @@ export function useUserFunding(): UserFundingResult {
 		payload !== undefined && (typeof payload.user !== "string" || payload.user.toLowerCase() !== user.toLowerCase());
 	const hasMalformedRealtime = payload !== undefined && (hasMismatchedUser || normalizedRealtimeFundings === null);
 	const hasValidRealtime = payload !== undefined && !hasMalformedRealtime && normalizedRealtimeFundings !== null;
-	const fundings = mergeUserFundingSources(hasValidRealtime ? normalizedRealtimeFundings : undefined).slice(
-		0,
-		RECENT_FUNDING_ROWS,
-	);
+	const bufferedFundings = mergeUserFundingSources(hasValidRealtime ? normalizedRealtimeFundings : undefined);
+	const fundings = bufferedFundings.slice(0, RECENT_FUNDING_ROWS);
 
 	let status: UserFundingStatus = "loading";
 	if (!enabled) {
@@ -63,6 +65,8 @@ export function useUserFunding(): UserFundingResult {
 	}
 
 	return {
+		bufferedFundings,
+		oldestBufferedFundingTime: bufferedFundings.at(-1)?.time ?? null,
 		error: fundingSubscription.error ?? (hasMalformedRealtime ? new MalformedHistoryPageError() : undefined),
 		fundings,
 		isConnected: enabled,
