@@ -6,6 +6,8 @@ import {
 	EXCHANGE_ACTION_EXPIRY_MS,
 } from "../../../../../packages/hl-react/src/internal/exchange/server-clock";
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1_000;
+
 const http = {
 	serverOffset: 0,
 	testnetServerOffset: 0,
@@ -454,6 +456,43 @@ describe("exchange clients", () => {
 		expect(http.requests.some((request) => request.endpoint === "info")).toBe(false);
 	});
 
+	it.each([-3, 3])("uses the exchange clock for both action types with a device offset of %i days", async (offset) => {
+		vi.resetModules();
+		const { createExchangeClient } = await import("@sairn/hl-react/clients");
+		const owner = privateKeyToAccount(`0x${"0".repeat(63)}9`);
+		const client = createExchangeClient(owner, false);
+		http.serverOffset = -offset * ONE_DAY_MS;
+		const exchangeNow = Date.now() + http.serverOffset;
+
+		await client.cancel({ cancels: [{ a: 0, o: 1 }] });
+		await client.approveBuilderFee({ builder: "0x2222222222222222222222222222222222222222", maxFeeRate: "0.01%" });
+
+		expect(http.requests.map((request) => request.endpoint)).toEqual(["info", "exchange", "exchange"]);
+		const [, cancel, approval] = http.requests;
+		expect(cancel?.payload).toMatchObject({
+			nonce: exchangeNow,
+			expiresAfter: exchangeNow + EXCHANGE_ACTION_EXPIRY_MS,
+		});
+		expect(approval?.payload).toMatchObject({ nonce: exchangeNow + 1, action: { nonce: exchangeNow + 1 } });
+		expect(approval?.payload).not.toHaveProperty("expiresAfter");
+	});
+
+	it("falls back to the device clock for a user signature after sleep stops the monotonic clock", async () => {
+		vi.resetModules();
+		const { createExchangeClient } = await import("@sairn/hl-react/clients");
+		const owner = privateKeyToAccount(`0x${"0".repeat(63)}9`);
+		const client = createExchangeClient(owner, false);
+		await client.cancel({ cancels: [{ a: 0, o: 1 }] });
+		expect(http.requests.map((request) => request.endpoint)).toEqual(["info", "exchange"]);
+
+		vi.setSystemTime(Date.now() + 3 * ONE_DAY_MS);
+		http.requests = [];
+		await client.approveBuilderFee({ builder: "0x2222222222222222222222222222222222222222", maxFeeRate: "0.01%" });
+
+		expect(http.requests.map((request) => request.endpoint)).toEqual(["exchange"]);
+		expect(http.requests[0]?.payload).toMatchObject({ nonce: Date.now(), action: { nonce: Date.now() } });
+	});
+
 	it("judges a stored nonce against the exchange clock once the client has a sample", async () => {
 		vi.resetModules();
 		const { createExchangeClient } = await import("@sairn/hl-react/clients");
@@ -463,16 +502,15 @@ describe("exchange clients", () => {
 		await client.cancel({ cancels: [{ a: 0, o: 1 }] });
 		expect(http.requests.some((request) => request.endpoint === "info" && !request.testnet)).toBe(true);
 
-		const now = Date.now();
-		const oneDayMs = 24 * 60 * 60 * 1_000;
-		const beyondExchangeWindow = now + http.serverOffset + oneDayMs + 5_000;
+		const exchangeNow = Date.now() + http.serverOffset;
+		const beyondExchangeWindow = exchangeNow + ONE_DAY_MS;
 		localStorage.setItem(nonceKey, JSON.stringify({ version: 1, nonce: beyondExchangeWindow }));
 		http.requests = [];
 
 		await client.cancel({ cancels: [{ a: 0, o: 2 }] });
 
 		const [request] = http.requests.filter((entry) => entry.endpoint === "exchange");
-		expect(request?.payload.nonce).toBe(now);
-		expect(JSON.parse(localStorage.getItem(nonceKey) ?? "{}")).toEqual({ version: 1, nonce: now });
+		expect(request?.payload.nonce).toBe(exchangeNow);
+		expect(JSON.parse(localStorage.getItem(nonceKey) ?? "{}")).toEqual({ version: 1, nonce: exchangeNow });
 	});
 });

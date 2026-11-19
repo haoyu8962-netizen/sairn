@@ -143,12 +143,64 @@ describe("cross-tab Hyperliquid nonce manager", () => {
 		expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}")).toEqual({ version: 1, nonce: NOW + 1 });
 	});
 
+	it("keeps a future record after a device clock correction until an exchange sample is available", async () => {
+		const fastDeviceTime = NOW + 3 * ONE_DAY_MS;
+		vi.mocked(Date.now).mockReturnValue(fastDeviceTime);
+		await expect(createCrossTabNonceManager("Mainnet")(SIGNER)).resolves.toBe(fastDeviceTime);
+		const persisted = JSON.stringify({ version: 1, nonce: fastDeviceTime });
+		expect(window.localStorage.getItem(STORAGE_KEY)).toBe(persisted);
+
+		vi.mocked(Date.now).mockReturnValue(NOW);
+		await expect(createCrossTabNonceManager("Mainnet")(SIGNER)).rejects.toThrow(
+			"The persisted Hyperliquid nonce is outside the allowed future window.",
+		);
+		expect(window.localStorage.getItem(STORAGE_KEY)).toBe(persisted);
+		await expect(createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW })(SIGNER)).resolves.toBe(NOW);
+	});
+
 	it("keeps counting from a record ahead of the clock that is still inside the exchange window", async () => {
 		const ahead = NOW + 20 * 60 * 60 * 1_000;
 		window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nonce: ahead }));
+		vi.mocked(Date.now).mockReturnValue(NOW + 3 * ONE_DAY_MS);
 
 		await expect(createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW })(SIGNER)).resolves.toBe(
 			ahead + 1,
+		);
+		expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}")).toEqual({ version: 1, nonce: ahead + 1 });
+	});
+
+	it.each([
+		["behind", -60 * 60 * 1_000],
+		["ahead", 60 * 60 * 1_000],
+	])(
+		"keeps nonces unique and increasing across a tab with an exchange sample and one %s without",
+		async (_label, offset) => {
+			vi.mocked(Date.now).mockReturnValue(NOW + offset);
+			const withSample = createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW });
+			const withoutSample = createCrossTabNonceManager("Mainnet");
+
+			const nonces = await Promise.all([
+				withSample(SIGNER),
+				withoutSample(SIGNER),
+				withSample(SIGNER),
+				withoutSample(SIGNER),
+				withSample(SIGNER),
+			]);
+
+			for (let index = 1; index < nonces.length; index += 1) {
+				expect(nonces[index]).toBeGreaterThan(nonces[index - 1] ?? Number.POSITIVE_INFINITY);
+			}
+			expect(nonces[0]).toBe(NOW);
+			expect(nonces.at(-1)).toBeLessThan(NOW + ONE_DAY_MS);
+		},
+	);
+
+	it("counts up one by one through a burst within the same exchange millisecond", async () => {
+		vi.mocked(Date.now).mockReturnValue(NOW - 3 * ONE_DAY_MS);
+		const manager = createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW });
+
+		await expect(Promise.all(Array.from({ length: 20 }, () => manager(SIGNER)))).resolves.toEqual(
+			Array.from({ length: 20 }, (_, index) => NOW + index),
 		);
 	});
 
@@ -162,11 +214,21 @@ describe("cross-tab Hyperliquid nonce manager", () => {
 		);
 	});
 
-	it("refuses a nonce from a device clock beyond the exchange window instead of recording it", async () => {
-		await expect(
-			createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW - 2 * ONE_DAY_MS })(SIGNER),
-		).rejects.toThrow("The persisted Hyperliquid nonce is outside the allowed future window.");
-		expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+	it.each([-3, 3])("uses the exchange time with an empty record and a device offset of %i days", async (offset) => {
+		vi.mocked(Date.now).mockReturnValue(NOW + offset * ONE_DAY_MS);
+
+		await expect(createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW })(SIGNER)).resolves.toBe(NOW);
+		expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}")).toEqual({ version: 1, nonce: NOW });
+	});
+
+	it("does not advance an in-window record to the exclusive future boundary", async () => {
+		const persisted = JSON.stringify({ version: 1, nonce: NOW + ONE_DAY_MS - 1 });
+		window.localStorage.setItem(STORAGE_KEY, persisted);
+
+		await expect(createCrossTabNonceManager("Mainnet", { readExchangeNow: () => NOW })(SIGNER)).rejects.toThrow(
+			"The persisted Hyperliquid nonce is outside the allowed future window.",
+		);
+		expect(window.localStorage.getItem(STORAGE_KEY)).toBe(persisted);
 	});
 
 	it("fails closed when the Web Locks API is unavailable", async () => {
