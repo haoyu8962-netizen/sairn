@@ -6,9 +6,10 @@ import { i18n } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { ExchangeActionDeadlineError } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, type ReactNode, useState } from "react";
+import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ReferralActionModal } from "@/components/referrals/referral-action-modal";
 import {
 	type ReferralAction,
 	ReferralActionStatusUnknownError,
@@ -17,6 +18,26 @@ import {
 import { classifyActionErrorOr, formatActionFailure, isAmbiguousExchangeActionError } from "@/lib/errors/action-error";
 import type { ReferralData } from "@/lib/trade/referral";
 import type { Translate } from "@/lib/translate";
+import { clearFeedback, latestFeedback } from "./harness/order-feedback";
+import { createI18nRoot } from "./harness/react";
+
+vi.mock("@phosphor-icons/react", () => ({ WarningCircleIcon: () => null }));
+
+vi.mock("@sairn/ui", () => ({
+	AdaptiveModal: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	Button: ({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) => (
+		<button type="button" disabled={disabled} onClick={onClick}>
+			{children}
+		</button>
+	),
+	ModalContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	ModalDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+	ModalFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
+	ModalHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
+	ModalTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+	TextInput: () => null,
+}));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
 
 const OWNER = "0x1111111111111111111111111111111111111111" as const;
 const OTHER_OWNER = "0x2222222222222222222222222222222222222222" as const;
@@ -43,6 +64,8 @@ const testState = vi.hoisted(() => ({
 				reason: "invalid_response" | "missing_config" | "missing_ip" | "provider_error";
 				status: "unavailable";
 		  },
+	boundReferral: vi.fn(),
+	infoNetworks: [] as boolean[],
 	legalRefetch: vi.fn(),
 	registerReferrer: vi.fn(),
 	setReferrer: vi.fn(),
@@ -55,6 +78,17 @@ vi.mock("@/lib/geo/get-referral-action-geo", () => ({
 		return testState.geoDecision;
 	}),
 }));
+
+vi.mock("@sairn/hl-react", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@sairn/hl-react")>();
+	return {
+		...original,
+		getInfoClient: (isTestnet: boolean) => {
+			testState.infoNetworks.push(isTestnet);
+			return { referral: testState.boundReferral };
+		},
+	};
+});
 
 vi.mock("@/lib/hyperliquid", async (importOriginal) => {
 	const original = await importOriginal<typeof import("@/lib/hyperliquid")>();
@@ -132,6 +166,20 @@ function Probe() {
 	return null;
 }
 
+function ConfirmationProbe() {
+	const actions = useReferralActions(hookInput);
+	const [open, setOpen] = useState(true);
+	return open ? (
+		<ReferralActionModal
+			action="apply"
+			initialCode="SAIRN"
+			unclaimedRewards={[]}
+			onClose={() => setOpen(false)}
+			onSubmit={actions.submit}
+		/>
+	) : null;
+}
+
 describe("useReferralActions", () => {
 	let container: HTMLDivElement;
 	let queryClient: QueryClient;
@@ -139,9 +187,11 @@ describe("useReferralActions", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		clearFeedback();
 		testState.clientKey = OWNER;
 		testState.env = "Mainnet";
 		testState.executionGuards = {};
+		testState.infoNetworks = [];
 		testState.geoDelayMs = 0;
 		testState.geoDecision = {
 			checkedAt: Date.now(),
@@ -160,7 +210,7 @@ describe("useReferralActions", () => {
 		container = document.createElement("div");
 		document.body.appendChild(container);
 		queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } });
-		root = createRoot(container);
+		root = createI18nRoot(container);
 		hookValue = null;
 	});
 
@@ -188,6 +238,84 @@ describe("useReferralActions", () => {
 			),
 		);
 	}
+
+	async function confirmThenChange(change: "owner" | "network" | "unmount", outcome: "accepted" | "ambiguous") {
+		const response = deferred<void>();
+		testState.setReferrer.mockImplementationOnce(async () => {
+			await response.promise;
+			if (outcome === "ambiguous") throw createHttpRequestError();
+			return { status: "ok" };
+		});
+		const refetchReferral = vi.fn().mockResolvedValue(createReferralData());
+		const refreshAfterAction = vi.fn();
+		hookInput = { refetchReferral, refreshAfterAction };
+		const renderConfirmation = () =>
+			root.render(
+				<QueryClientProvider client={queryClient}>
+					<ConfirmationProbe />
+				</QueryClientProvider>,
+			);
+		act(renderConfirmation);
+		await act(async () => {
+			Array.from(container.querySelectorAll("button"))
+				.find((button) => button.textContent === "Confirm")
+				?.click();
+			await vi.waitFor(() => expect(testState.setReferrer).toHaveBeenCalledOnce());
+		});
+		const pendingId = latestFeedback("pending")?.id;
+		expect(pendingId).toBeDefined();
+		act(() => {
+			if (change === "unmount") {
+				root.render(null);
+				return;
+			}
+			if (change === "owner") {
+				testState.clientKey = OTHER_OWNER;
+				testState.walletAddress = OTHER_OWNER;
+			} else {
+				testState.env = "Testnet";
+			}
+			renderConfirmation();
+		});
+		return { pendingId, refetchReferral, refreshAfterAction, response };
+	}
+
+	describe.each(["owner", "network", "unmount"] as const)("after the %s changes once the request is sent", (change) => {
+		it.each(["accepted", "ambiguous"] as const)(
+			"records the %s request's verified result on the initiating account's task",
+			async (outcome) => {
+				testState.boundReferral.mockResolvedValue(
+					createReferralData({ referredBy: { code: "SAIRN", referrer: OTHER_OWNER } }),
+				);
+				const { pendingId, refetchReferral, refreshAfterAction, response } = await confirmThenChange(change, outcome);
+				await act(async () => {
+					response.resolve();
+					await vi.waitFor(() => expect(latestFeedback("success")).toBeDefined());
+				});
+				expect(latestFeedback("success")).toMatchObject({ id: pendingId, owner: OWNER, env: "Mainnet" });
+				expect(latestFeedback("failed")).toBeUndefined();
+				expect(testState.boundReferral).toHaveBeenCalledWith({ user: OWNER }, expect.any(AbortSignal));
+				expect(testState.infoNetworks).toEqual([false]);
+				expect(testState.setReferrer).toHaveBeenCalledOnce();
+				expect(refetchReferral).toHaveBeenCalledOnce();
+				expect(refreshAfterAction).not.toHaveBeenCalled();
+			},
+		);
+
+		it("reports an unverified result as unconfirmed on the initiating account's task, never as failed", async () => {
+			vi.useFakeTimers({ toFake: ["setTimeout"] });
+			testState.boundReferral.mockResolvedValue(createReferralData());
+			const { pendingId, response } = await confirmThenChange(change, "accepted");
+			await act(async () => {
+				response.resolve();
+				await vi.advanceTimersByTimeAsync(5_000);
+			});
+			expect(latestFeedback("unconfirmed")).toMatchObject({ id: pendingId, owner: OWNER, env: "Mainnet" });
+			expect(latestFeedback("failed")).toBeUndefined();
+			expect(testState.boundReferral).toHaveBeenCalledTimes(6);
+			expect(testState.setReferrer).toHaveBeenCalledOnce();
+		});
+	});
 
 	it("sets a referral code only after fresh legal and referral checks", async () => {
 		const before = createReferralData();

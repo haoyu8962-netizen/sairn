@@ -403,9 +403,11 @@ export function useApiWalletController({
 
 	async function verifyAgain(): Promise<void> {
 		const current = activeActionRef.current;
-		if (!current || current.state.stage !== "done" || current.state.result !== "unknown") return;
+		if (!mountedRef.current || !current || current.state.stage !== "done" || current.state.result !== "unknown") {
+			return;
+		}
 		const target = toReconciliationTarget(current);
-		if (!target || !isCurrentIdentityOperable(current.identityKey, identityKeyRef.current, pageState)) return;
+		if (!target || !isCurrentIdentityReadable(current.identityKey, identityKeyRef.current, pageState)) return;
 		const lease = startExecution(current.identityKey);
 		updateAction({ ...current, state: transitionApiWalletAction(current.state, { type: "retry" }) });
 		await reconcileCurrentAction(lease, target);
@@ -658,6 +660,14 @@ function isCurrentIdentityOperable(
 	pageState: ApiWalletViewProps["pageState"],
 ): boolean {
 	return expected === current && isApiWalletPageOperable(pageState);
+}
+
+function isCurrentIdentityReadable(
+	expected: string,
+	current: string,
+	pageState: ApiWalletViewProps["pageState"],
+): boolean {
+	return expected === current && pageState !== "disconnected" && pageState !== "nonMaster";
 }
 
 function isDeterministicApprovalError(error: unknown): boolean {

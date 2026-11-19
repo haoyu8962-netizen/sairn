@@ -1,7 +1,5 @@
 import { getCanonicalNetworkForOrigin } from "@/config/public-origins";
-
-const UNSAFE_CODE_PATTERN = /[/\\\p{Cc}\p{Cf}\p{Cs}]|^\.{1,2}$/u;
-const ENCODED_UNSAFE_PATTERN = /%(?:00|2e|2f|5c)/i;
+import { isValidReferralCode, normalizeReferralCode } from "./referral";
 
 export interface ReferralJoinIntent {
 	code: string;
@@ -9,7 +7,8 @@ export interface ReferralJoinIntent {
 }
 
 export function isSafeReferralJoinCode(code: string): boolean {
-	return code.length >= 1 && code.length <= 20 && !UNSAFE_CODE_PATTERN.test(code) && !ENCODED_UNSAFE_PATTERN.test(code);
+	const normalized = normalizeReferralCode(code);
+	return normalized !== null && isValidReferralCode(normalized);
 }
 
 export function parseReferralJoinPath(pathname: string): string | null {
