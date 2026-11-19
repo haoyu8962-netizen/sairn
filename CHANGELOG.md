@@ -20,6 +20,7 @@ changes, not evidence that a build has been deployed or accepted on real devices
   seconds instead of failing at once.
 - Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
   its own selected market.
+- Trading links with dots in market names open correctly when visited directly or refreshed.
 - CI runs every terminal unit test on each pull request. The daily website market check is removed: no
   workflow runs on a schedule or calls a third-party API (ADR 0056).
 

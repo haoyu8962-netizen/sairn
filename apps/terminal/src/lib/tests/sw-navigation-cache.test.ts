@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 import { classifyStaticPageRequest } from "@/lib/static-pages/static-pages";
+import { nonShellNavigationPaths, shellNavigationPaths } from "./fixtures/shell-navigation-cases";
 
 const terminalRoot = resolve(__dirname, "../../..");
 const serviceWorker = readFileSync(resolve(terminalRoot, "public/sw.js"), "utf8");
@@ -74,6 +75,16 @@ function createHarness() {
 }
 
 describe("service worker navigation caching", () => {
+	it.each(shellNavigationPaths)("uses the cached shell for %s when offline", async (path) => {
+		const harness = createHarness();
+		const cache = await harness.open("shell-v11");
+		await cache.put(`${origin}/shell-v11`, html("cached shell"));
+		harness.fetch.mockRejectedValueOnce(new TypeError("offline"));
+		const navigation = harness.navigate(path);
+		expect(await (await navigation.response)?.text()).toBe("cached shell");
+		await Promise.all(navigation.background);
+	});
+
 	it("stores the shell when the page consumes a network miss before the background refresh settles", async () => {
 		const harness = createHarness();
 		const network = html("first shell");
@@ -145,6 +156,7 @@ describe("service worker navigation caching", () => {
 	});
 
 	it.each([
+		...nonShellNavigationPaths,
 		"/join",
 		"/join/",
 		"/join/abc",
@@ -155,7 +167,6 @@ describe("service worker navigation caching", () => {
 		"/docs/index.html",
 		"/font.woff2/",
 		"/api",
-		"/api/geo",
 		"/client-error-report",
 		"/mobile-agent-sync-ticket",
 		"/mobile-agent-sync-ticket/abc",
