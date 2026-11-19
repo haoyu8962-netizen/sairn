@@ -123,6 +123,35 @@ describe("PositionReverseConfirmationModal", () => {
 		expect(onConfirm).toHaveBeenCalledOnce();
 	});
 
+	it.each([
+		["long", "Long", "Short"],
+		["short", "Short", "Long"],
+	] as const)(
+		"points the decorative %s reversal arrow at the target in either reading direction",
+		(current, from, to) => {
+			act(() =>
+				root.render(
+					<PositionReverseConfirmationModal
+						open
+						marketLabel="AAPL"
+						currentDirection={current}
+						reverseSizeLabel="10.000 AAPL"
+						onOpenChange={vi.fn()}
+						onConfirm={vi.fn()}
+					/>,
+				),
+			);
+			const direction = [...container.querySelectorAll<HTMLElement>("dl > div")]
+				.find((row) => row.querySelector("dt")?.textContent === "Direction")
+				?.querySelector("dd");
+			const visual = direction?.querySelector<HTMLElement>('[aria-hidden="true"]');
+			const parts = [...(visual?.children ?? [])].map((node) => node.textContent);
+			expect(parts).toEqual([from, "→", to]);
+			expect(visual?.children[1]?.classList).toContain("rtl:-scale-x-100");
+			expect(direction?.querySelector(".sr-only")?.textContent).toBe(`${from} to ${to}`);
+		},
+	);
+
 	it("renders the direction-aware buy action when reversing a short position", () => {
 		act(() =>
 			root.render(

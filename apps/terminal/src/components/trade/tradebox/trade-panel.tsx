@@ -943,7 +943,9 @@ export function TradePanel() {
 							{displayValidationError && <div className="text-xs text-error">{displayValidationError}</div>}
 
 							{approvalError && (
-								<div className="text-xs text-error">{getApprovalErrorMessage(approvalError.cause)}</div>
+								<div role="alert" className="text-xs text-error">
+									{getApprovalErrorMessage(approvalError.cause)}
+								</div>
 							)}
 
 							{tradeRestricted && !buttonContent.disabledReason ? (

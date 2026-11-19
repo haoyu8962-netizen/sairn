@@ -566,6 +566,8 @@ function PositionTpSlForm({
 	const [slippageWarningHeld, setSlippageWarningHeld] = useState<boolean | null>(null);
 	const [closedSlippageWarning, setClosedSlippageWarning] = useState<boolean | null>(null);
 	const amountErrorId = useId();
+	const tpLimitErrorId = useId();
+	const slLimitErrorId = useId();
 
 	function getSubmitFeedback(error: PositionTpSlSubmitError): OrderQueueItem["error"] {
 		if (!("kind" in error) || error.kind === "order-submission") {
@@ -1424,6 +1426,7 @@ function PositionTpSlForm({
 						<div>
 							<NumberInput
 								aria-label={t`Configured TP/SL amount`}
+								aria-describedby={sizeError ? amountErrorId : undefined}
 								value={sizeInput}
 								onChange={(event) => {
 									setSizeInput(event.target.value);
@@ -1487,6 +1490,7 @@ function PositionTpSlForm({
 							<div>
 								<NumberInput
 									aria-label={t`Take profit limit price`}
+									aria-describedby={tpLimitError ? tpLimitErrorId : undefined}
 									placeholder={t`Take profit limit`}
 									value={tpLimitPriceInput}
 									onChange={(event) => {
@@ -1497,11 +1501,16 @@ function PositionTpSlForm({
 									className="h-11 rounded-[10px] border-market-close-stroke-input bg-modal font-semibold tabular-nums"
 									disabled={isSubmitting || !hasTp}
 								/>
-								{tpLimitError ? <p className="mt-1 text-xs text-error">{tpLimitError}</p> : null}
+								{tpLimitError ? (
+									<p id={tpLimitErrorId} className="mt-1 text-xs text-error">
+										{tpLimitError}
+									</p>
+								) : null}
 							</div>
 							<div>
 								<NumberInput
 									aria-label={t`Stop loss limit price`}
+									aria-describedby={slLimitError ? slLimitErrorId : undefined}
 									placeholder={t`Stop loss limit`}
 									value={slLimitPriceInput}
 									onChange={(event) => {
@@ -1512,7 +1521,11 @@ function PositionTpSlForm({
 									className="h-11 rounded-[10px] border-market-close-stroke-input bg-modal font-semibold tabular-nums"
 									disabled={isSubmitting || !hasSl}
 								/>
-								{slLimitError ? <p className="mt-1 text-xs text-error">{slLimitError}</p> : null}
+								{slLimitError ? (
+									<p id={slLimitErrorId} className="mt-1 text-xs text-error">
+										{slLimitError}
+									</p>
+								) : null}
 							</div>
 						</div>
 					) : null}

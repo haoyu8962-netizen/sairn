@@ -15,7 +15,7 @@ import {
 	Select,
 	TextInput,
 } from "@sairn/ui";
-import { type ChangeEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { NumberInput } from "@/components/ui/number-input";
@@ -137,6 +137,7 @@ interface BodyProps {
 
 function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }: BodyProps) {
 	const { t } = useLingui();
+	const amountErrorId = useId();
 	const { formatDecimalString } = useNumberFormat();
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
@@ -393,6 +394,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 	const isValidDestination = isFundsDestinationAddress(destination);
 	const destinationError = destination && !isValidDestination ? t`Enter a valid Ethereum address.` : undefined;
 	const isValidAmount = isAmountWithinBalance(amount, availableBalanceExact);
+	const amountExceedsBalance = accountDataReady && exceedsBalance(amount, availableBalanceExact);
 	const canSend =
 		sendAvailability.available &&
 		accountModeReady &&
@@ -749,6 +751,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 								</>
 							}
 							onLabelValueClick={handleMaxClick}
+							aria-describedby={amountExceedsBalance ? amountErrorId : undefined}
 							placeholder="0.00"
 							value={amount}
 							onChange={(e: ChangeEvent<HTMLInputElement>) => handleAmountChange(e.target.value)}
@@ -756,11 +759,14 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 							mobileSafe
 							className={cn(
 								"w-full tabular-nums max-[1000px]:h-11",
-								accountDataReady &&
-									exceedsBalance(amount, availableBalanceExact) &&
-									"border-stroke-error-strong focus:border-stroke-error-strong",
+								amountExceedsBalance && "border-stroke-error-strong focus:border-stroke-error-strong",
 							)}
 						/>
+						{amountExceedsBalance ? (
+							<span id={amountErrorId} hidden>
+								{t`Insufficient balance`}
+							</span>
+						) : null}
 
 						<Button variant="filled" intent="neutral" onClick={handleSendClick} disabled={!canSend} className="w-full">
 							<PaperPlaneTiltIcon className="me-2 size-3.5" />

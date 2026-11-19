@@ -68,7 +68,7 @@ export function PositionReverseConfirmationModal({
 								<span className="sr-only">{t`${currentDirectionLabel} to ${targetDirectionLabel}`}</span>
 								<span aria-hidden="true" className="inline-flex items-center gap-1.5">
 									<span>{currentDirectionLabel}</span>
-									<span className="text-market-close-subtle">→</span>
+									<span className="text-market-close-subtle rtl:-scale-x-100">→</span>
 									<span
 										className={targetDirection === "long" ? "text-market-close-success" : "text-market-close-danger"}
 									>

@@ -113,7 +113,7 @@ async function expectHeaderHitTargets(page: Page) {
 		balanceHeight: 15,
 		totalHeight: 93,
 	});
-	const available = page.getByRole("button", { name: /^(Use max available balance|使用全部可用余额)/ });
+	const available = page.getByTitle(/^(Use max available balance|使用全部可用余额)$/);
 	expect(
 		await available.evaluate((node) => {
 			const rect = node.getBoundingClientRect();
@@ -203,7 +203,7 @@ for (const viewport of [
 				await expect(tab).toHaveAttribute("aria-selected", "true");
 				await expect(size).toHaveValue("1");
 			}
-			const available = page.getByRole("button", { name: /^Use max available balance/ });
+			const available = page.getByTitle("Use max available balance", { exact: true });
 			const bounds = await available.boundingBox();
 			if (!bounds) throw new Error("Missing available balance");
 			await page.touchscreen.tap(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 - 11);
@@ -397,9 +397,7 @@ test("preserves quantity, its denomination and reduce-only through real desktop/
 		await page.setViewportSize({ width, height: 900 });
 		await expect(size).toHaveValue("100.00");
 		await expect(page.getByRole("checkbox", { name: "Reduce Only", exact: true })).toBeChecked();
-		if (width > 1000)
-			await expect(page.getByRole("button", { name: "Toggle size mode", exact: true })).toHaveText("USDC");
-		else await expect(page.getByRole("button", { name: "USDC", exact: true })).toBeVisible();
+		await expect(page.getByRole("button", { name: "USDC", exact: true })).toBeVisible();
 	}
 	await page.getByRole("button", { name: "USDC", exact: true }).click();
 	await expect(size).toHaveValue("1.000");

@@ -175,6 +175,7 @@ vi.mock("@sairn/ui", () => ({
 
 vi.mock("@/components/ui/number-input", () => ({
 	NumberInput: ({
+		"aria-describedby": ariaDescribedBy,
 		disabled,
 		label,
 		labelValue,
@@ -187,6 +188,7 @@ vi.mock("@/components/ui/number-input", () => ({
 		onChange: (event: { target: { value: string } }) => void;
 		onLabelValueClick: () => void;
 		value: string;
+		"aria-describedby"?: string;
 		disabled?: boolean;
 	}) =>
 		createElement(
@@ -199,6 +201,7 @@ vi.mock("@/components/ui/number-input", () => ({
 				labelValue,
 			),
 			createElement("input", {
+				"aria-describedby": ariaDescribedBy,
 				"aria-label": label,
 				disabled,
 				onChange,
@@ -421,6 +424,37 @@ describe("funds action balance wiring", () => {
 			expect(getButton(container, "Send").disabled).toBe(false);
 			act(() => setInputValue(getAmountInput(container), "1000000000000001"));
 			expect(getButton(container, "Send").disabled).toBe(true);
+		},
+	);
+
+	it.each(["transfer", "send"] as const)(
+		"describes an amount above the confirmed balance in text for %s, and only while the balance is confirmed",
+		(dialog) => {
+			const render = () =>
+				act(() =>
+					root.render(
+						dialog === "transfer"
+							? createElement(TransferModal, { onOpenChange: vi.fn(), open: true })
+							: createElement(SendModal, { initialAccountType: "perp", onOpenChange: vi.fn(), open: true }),
+					),
+				);
+			const describedText = () =>
+				(getAmountInput(container).getAttribute("aria-describedby") ?? "")
+					.split(/\s+/)
+					.filter(Boolean)
+					.map((id) => document.getElementById(id)?.textContent ?? "")
+					.join(" ");
+			render();
+			act(() => setInputValue(getAmountInput(container), "40"));
+			expect(getAmountInput(container).getAttribute("aria-describedby")).toBeNull();
+
+			act(() => setInputValue(getAmountInput(container), "40.01"));
+			expect(describedText()).toBe("Insufficient balance");
+			expect(container.querySelector('[role="alert"]')).toBeNull();
+
+			testState.balances.isDataStale = true;
+			render();
+			expect(getAmountInput(container).getAttribute("aria-describedby")).toBeNull();
 		},
 	);
 

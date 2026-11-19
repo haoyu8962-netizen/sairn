@@ -4278,6 +4278,8 @@ msgstr "Solde {quoteToken} insuffisant avec le glissement maximal"
 msgid "Insufficient <0/> balance"
 msgstr "Solde <0/> insuffisant"
 
+#: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/transfer-modal.tsx
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
@@ -5337,6 +5339,11 @@ msgstr "Nom"
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 msgid "Navigation"
 msgstr "Navigation"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
+msgid "Near liquidation"
+msgstr "Proche de la liquidation"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "Negative PNL"

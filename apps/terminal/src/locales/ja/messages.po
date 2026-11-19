@@ -3838,6 +3838,8 @@ msgstr "最大スリッページで計算すると {quoteToken} の残高が不�
 msgid "Insufficient <0/> balance"
 msgstr "<0/> の残高が不足しています"
 
+#: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/transfer-modal.tsx
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
@@ -4771,6 +4773,11 @@ msgstr "名前"
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 msgid "Navigation"
 msgstr "ナビゲーション"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
+msgid "Near liquidation"
+msgstr "清算間近"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "Negative PNL"

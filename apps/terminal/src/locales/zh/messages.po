@@ -4278,6 +4278,8 @@ msgstr "按最大滑点计算，{quoteToken} 余额不足"
 msgid "Insufficient <0/> balance"
 msgstr "<0/> 余额不足"
 
+#: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/transfer-modal.tsx
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
@@ -5337,6 +5339,11 @@ msgstr "名称"
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 msgid "Navigation"
 msgstr "导航"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
+msgid "Near liquidation"
+msgstr "接近强平"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "Negative PNL"

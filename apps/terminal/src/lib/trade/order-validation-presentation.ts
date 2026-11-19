@@ -58,3 +58,15 @@ export function isInlineTpSlValidationError(error: ValidationError, priceErrors:
 		error.id === "tpsl-return-invalid"
 	);
 }
+
+const PRICE_FIELD_ERROR_IDS: Record<"limit" | "trigger", ReadonlySet<string>> = {
+	limit: new Set(["enter-limit-price", "spot-enter-limit-price", "limit-price-tick"]),
+	trigger: new Set(["enter-trigger-price", "trigger-price-tick"]),
+};
+
+export function getOrderPriceFieldErrorMessage(errors: readonly ValidationError[], field: "limit" | "trigger"): string {
+	return errors
+		.filter((error) => PRICE_FIELD_ERROR_IDS[field].has(error.id))
+		.map((error) => error.message)
+		.join(" • ");
+}
