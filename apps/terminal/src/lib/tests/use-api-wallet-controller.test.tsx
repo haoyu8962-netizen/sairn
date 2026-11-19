@@ -16,6 +16,7 @@ import {
 	type ApiWalletControllerOptions,
 	useApiWalletController,
 } from "@/components/api-wallet/use-api-wallet-controller";
+import { TradingRegionBlockedError } from "@/lib/geo/trading-region";
 import { createI18nRoot } from "./harness/react";
 
 const OWNER = "0x1111111111111111111111111111111111111111" as const;
@@ -257,6 +258,26 @@ describe("useApiWalletController", () => {
 
 		expect(current().action?.validityLabel).toBe("未报告");
 	});
+
+	it.each([
+		[true, "Trading is not available in your region"],
+		[false, "Unable to verify regional availability. Trading is temporarily unavailable."],
+	] as const)(
+		"returns a region refusal (restricted: %s) to review as not sent, without reconciling",
+		async (restricted, message) => {
+			prepareAuthorization();
+			testState.refetch
+				.mockResolvedValueOnce(createQueryResult([]))
+				.mockRejectedValue(new Error("unexpected reconcile"));
+			testState.approveAgent.mockRejectedValueOnce(new TradingRegionBlockedError(restricted));
+
+			await act(async () => current().onConfirmAction());
+
+			expect(testState.approveAgent).toHaveBeenCalledOnce();
+			expect(testState.refetch).toHaveBeenCalledOnce();
+			expect(current().action).toMatchObject({ stage: "review", locked: false, errorMessage: message });
+		},
+	);
 
 	it.each([
 		["ValidationError", "invalid agent payload", "The request could not be prepared. Refresh the page and try again."],

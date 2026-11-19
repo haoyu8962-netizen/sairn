@@ -15,6 +15,9 @@ const OWNER = "0x1111111111111111111111111111111111111111";
 const AGENT = "0x2222222222222222222222222222222222222222";
 const OTHER_OWNER = "0x3333333333333333333333333333333333333333";
 const SESSION_CHANGED = "The active wallet or network changed. Review the account and try again.";
+const GEO_QUERY_KEY = ["geo", null];
+const REGION_RESTRICTED = "Trading is not available in your region";
+const REGION_UNVERIFIED = "Unable to verify regional availability. Trading is temporarily unavailable.";
 
 interface Deferred<T> {
 	promise: Promise<T>;
@@ -63,6 +66,10 @@ const testState = vi.hoisted(() => ({
 		account: { address: "0x1111111111111111111111111111111111111111" },
 	} as { account: { address: string } } | undefined,
 	walletIntent: "embedded" as "embedded" | "external" | "ambiguous" | "unavailable",
+}));
+
+vi.mock("@/lib/geo/get-geo", () => ({
+	getGeo: vi.fn().mockRejectedValue(new Error("Geo restriction check unavailable")),
 }));
 
 vi.mock("@privy-io/react-auth", () => ({
@@ -133,6 +140,7 @@ describe("useExplicitAgentApproval", () => {
 		document.body.appendChild(container);
 		root = createRoot(container);
 		queryClient = new QueryClient();
+		queryClient.setQueryData(GEO_QUERY_KEY, { country: "GB", proxy: false, tradeRestricted: false });
 		approval = undefined;
 		Probe = undefined;
 		testState.beforeSubmit = undefined;
@@ -203,6 +211,165 @@ describe("useExplicitAgentApproval", () => {
 		if (!approval) throw new Error("Approval hook did not render");
 		return approval;
 	}
+
+	function setRegion(region: "allowed" | "restricted" | "proxy" | "unavailable") {
+		if (region === "unavailable") {
+			queryClient
+				.getQueryCache()
+				.find({ queryKey: GEO_QUERY_KEY })
+				?.setState({ status: "error", error: new Error("Geo restriction check unavailable") });
+			return;
+		}
+		queryClient.setQueryData(GEO_QUERY_KEY, {
+			country: region === "allowed" ? "GB" : "US",
+			proxy: region === "proxy",
+			tradeRestricted: region !== "allowed",
+		});
+	}
+
+	function mockSubmittingClient() {
+		testState.createExchangeClient.mockImplementation(
+			(_signer: unknown, _isTestnet: boolean, _cacheKey: undefined, transport: TestTransport) => ({
+				approveAgent: async () => {
+					if (!testState.beforeSubmit) throw new Error("Missing pre-submit guard");
+					await testState.beforeSubmit();
+					return transport.request("exchange", { action: "approveAgent" });
+				},
+			}),
+		);
+	}
+
+	describe("trading region", () => {
+		it.each([
+			{ region: "restricted", wallet: "embedded", message: REGION_RESTRICTED },
+			{ region: "proxy", wallet: "external", message: REGION_RESTRICTED },
+			{ region: "unavailable", wallet: "embedded", message: REGION_UNVERIFIED },
+			{ region: "unavailable", wallet: "external", message: REGION_UNVERIFIED },
+		] as const)(
+			"refuses a named Agent grant before any signer when the region is $region ($wallet wallet)",
+			async ({ region, wallet, message }) => {
+				testState.walletIntent = wallet;
+				testState.enforceLegalActions = true;
+				setRegion(region);
+				const hook = await renderApprovalHook();
+
+				await act(async () => {
+					await expect(hook.mutateAsync({ agentAddress: AGENT, agentName: "Bot" })).rejects.toThrow(message);
+				});
+
+				expect(testState.verifyLegalActionAllowed).not.toHaveBeenCalled();
+				expect(testState.createPrivyAgentSigner).not.toHaveBeenCalled();
+				expect(testState.createExternalAgentSigner).not.toHaveBeenCalled();
+				expect(testState.createExchangeClient).not.toHaveBeenCalled();
+				expect(testState.transportRequest).not.toHaveBeenCalled();
+			},
+		);
+
+		it("refuses a named Agent grant when the region turns restricted during the legal check", async () => {
+			testState.enforceLegalActions = true;
+			testState.verifyLegalActionAllowed.mockImplementationOnce(async () => {
+				setRegion("restricted");
+				return {};
+			});
+			const hook = await renderApprovalHook();
+
+			await act(async () => {
+				await expect(hook.mutateAsync({ agentAddress: AGENT, agentName: "Bot" })).rejects.toThrow(REGION_RESTRICTED);
+			});
+
+			expect(testState.createPrivyAgentSigner).not.toHaveBeenCalled();
+			expect(testState.createExchangeClient).not.toHaveBeenCalled();
+		});
+
+		it.each(["embedded", "external"] as const)(
+			"does not send a signed named Agent grant when the region becomes unverified after the %s wallet signs",
+			async (wallet) => {
+				testState.walletIntent = wallet;
+				mockSubmittingClient();
+				testState.isRegistrationLeaseCurrent.mockImplementationOnce(async () => {
+					setRegion("unavailable");
+					return true;
+				});
+				const hook = await renderApprovalHook();
+
+				await act(async () => {
+					await expect(hook.mutateAsync({ agentAddress: AGENT, agentName: "Bot" })).rejects.toThrow(REGION_UNVERIFIED);
+				});
+
+				expect(testState.transportRequest).not.toHaveBeenCalled();
+			},
+		);
+
+		it("reports the region, not a session change, when it turns restricted while the send waits for the lock", async () => {
+			mockSubmittingClient();
+			let calls = 0;
+			testState.startRegistrationExecution.mockImplementation(
+				async (_lease: unknown, canStart: () => boolean, execute: () => Promise<unknown>) => {
+					calls += 1;
+					if (calls === 2) setRegion("restricted");
+					return canStart() ? { status: "started", execution: execute() } : { status: "invalidated" };
+				},
+			);
+			const hook = await renderApprovalHook();
+
+			await act(async () => {
+				await expect(hook.mutateAsync({ agentAddress: AGENT, agentName: "Bot" })).rejects.toThrow(REGION_RESTRICTED);
+			});
+
+			expect(calls).toBe(2);
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		});
+
+		it("unwraps a region refusal that the SDK wrapped around the signer error", async () => {
+			testState.createExchangeClient.mockImplementation(() => ({
+				approveAgent: async () => {
+					setRegion("restricted");
+					try {
+						if (!testState.beforeSubmit) throw new Error("Missing pre-submit guard");
+						await testState.beforeSubmit();
+					} catch (cause) {
+						throw new Error("Failed to sign the typed data using the wallet", { cause });
+					}
+					return { status: "ok" };
+				},
+			}));
+			const hook = await renderApprovalHook();
+
+			await act(async () => {
+				await expect(hook.mutateAsync({ agentAddress: AGENT, agentName: "Bot" })).rejects.toThrow(REGION_RESTRICTED);
+			});
+		});
+
+		it.each(["restricted", "unavailable"] as const)(
+			"keeps the unnamed trading-connection Agent available when the region is %s",
+			async (region) => {
+				setRegion(region);
+				const hook = await renderApprovalHook();
+
+				await act(async () => {
+					await hook.mutateAsync({ agentAddress: AGENT }, { registrationPublicKey: AGENT });
+				});
+
+				expect(testState.clientApproveAgent).toHaveBeenCalledOnce();
+			},
+		);
+
+		it.each(["restricted", "unavailable"] as const)(
+			"keeps removing a named Agent (zero address) available when the region is %s",
+			async (region) => {
+				testState.enforceLegalActions = true;
+				setRegion(region);
+				const hook = await renderApprovalHook();
+
+				await act(async () => {
+					await hook.mutateAsync({ agentAddress: "0x0000000000000000000000000000000000000000", agentName: "Bot" });
+				});
+
+				expect(testState.verifyLegalActionAllowed).toHaveBeenCalledOnce();
+				expect(testState.clientApproveAgent).toHaveBeenCalledOnce();
+			},
+		);
+	});
 
 	it("passes an unnamed default-Agent approval through without inventing a name", async () => {
 		const hook = await renderApprovalHook();

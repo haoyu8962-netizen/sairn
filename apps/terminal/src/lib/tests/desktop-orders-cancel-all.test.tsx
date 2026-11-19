@@ -4,6 +4,7 @@ import { LOADING_INDICATOR_SELECTOR } from "./harness/loading-indicator";
 import { createHash } from "node:crypto";
 import { i18n, type Messages } from "@lingui/core";
 import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,10 +24,34 @@ import {
 } from "@/stores/use-pending-trading-action-store";
 import { createI18nRoot } from "./harness/react";
 
+const GEO_QUERY_KEY = ["geo", null];
+const REGION_RESTRICTED = "Trading is not available in your region";
+const REGION_UNVERIFIED = "Unable to verify regional availability. Trading is temporarily unavailable.";
+const queryClient = new QueryClient();
+
+function setRegion(region: "allowed" | "restricted" | "unavailable") {
+	if (region === "unavailable") {
+		queryClient
+			.getQueryCache()
+			.find({ queryKey: GEO_QUERY_KEY })
+			?.setState({ status: "error", error: new Error("Geo restriction check unavailable") });
+		return;
+	}
+	queryClient.setQueryData(GEO_QUERY_KEY, {
+		country: region === "allowed" ? "GB" : "US",
+		proxy: false,
+		tradeRestricted: region === "restricted",
+	});
+}
+
 let queueItems: OrderQueueItem[] = [];
 function ReviewedOrders() {
 	queueItems = useOrderQueue();
-	return <OrdersTab />;
+	return (
+		<QueryClientProvider client={queryClient}>
+			<OrdersTab />
+		</QueryClientProvider>
+	);
 }
 
 function cancelRejection(text: string) {
@@ -110,6 +135,10 @@ function getMessageId(message: string): string {
 const arabicMessages: Messages = {
 	[getMessageId(MODIFICATION_UNCONFIRMED_MESSAGE)]: MODIFICATION_UNCONFIRMED_MESSAGE_AR,
 };
+
+vi.mock("@/lib/geo/get-geo", () => ({
+	getGeo: vi.fn().mockRejectedValue(new Error("Geo restriction check unavailable")),
+}));
 
 vi.mock("@/components/trade/components/asset-badge", () => ({
 	AssetBadge: ({ coin }: { coin: string }) => <span>{coin}</span>,
@@ -272,6 +301,8 @@ describe("desktop cancel all orders confirmation", () => {
 	});
 
 	beforeEach(() => {
+		queryClient.clear();
+		setRegion("allowed");
 		i18n.loadAndActivate({ locale: "en", messages: {} });
 		getPendingTradingActionActions().reset();
 		container = document.createElement("div");
@@ -340,6 +371,110 @@ describe("desktop cancel all orders confirmation", () => {
 		act(() => root.render(<ReviewedOrders />));
 		expect(container.querySelector('[data-slot="passive-data-placeholder"]')).toBeNull();
 		expect(container.textContent).toContain("No open orders.");
+	});
+
+	describe("trading region", () => {
+		const openingOrder = { ...order, reduceOnly: false } as OpenOrder;
+
+		async function editSize(value: string) {
+			const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit xyz:ORCL order size"]');
+			act(() => edit?.click());
+			const size = container.querySelector<HTMLInputElement>('input[aria-label="Edit xyz:ORCL order size"]');
+			if (!size) throw new Error("Order size editor did not open");
+			await act(async () => {
+				changeInput(size, value);
+				pressKey(size, "Enter");
+				await Promise.resolve();
+			});
+		}
+
+		function trackSdkCall(changeRegionBetweenGuards?: "restricted" | "unavailable") {
+			const sdkModify = vi.fn();
+			mocks.modifyOrders.mockImplementationOnce(async (params: unknown) => {
+				mocks.batchModifyGuard?.(params);
+				if (changeRegionBetweenGuards) setRegion(changeRegionBetweenGuards);
+				mocks.batchModifyGuard?.(params);
+				sdkModify(params);
+				return { response: { data: { statuses: [{ resting: { oid: 42 } }] } } };
+			});
+			return sdkModify;
+		}
+
+		it.each([
+			["restricted", REGION_RESTRICTED],
+			["unavailable", REGION_UNVERIFIED],
+		] as const)("refuses to replace an order that can open exposure when the region is %s", async (region, message) => {
+			mocks.orders = [openingOrder];
+			setRegion(region);
+			const sdkModify = trackSdkCall();
+			act(() => root.render(<ReviewedOrders />));
+
+			await editSize("1.000");
+
+			expect(mocks.modifyOrders).toHaveBeenCalledOnce();
+			expect(sdkModify).not.toHaveBeenCalled();
+			expect(getPendingTradingActionSnapshot().modifications).toHaveLength(0);
+			expect(document.body.textContent).toContain(message);
+		});
+
+		it.each([
+			["restricted", REGION_RESTRICTED],
+			["unavailable", REGION_UNVERIFIED],
+		] as const)(
+			"stops at the SDK boundary when the region becomes %s after the request was queued",
+			async (region, message) => {
+				mocks.orders = [openingOrder];
+				const sdkModify = trackSdkCall(region);
+				act(() => root.render(<ReviewedOrders />));
+
+				await editSize("1.000");
+
+				expect(sdkModify).not.toHaveBeenCalled();
+				expect(getPendingTradingActionSnapshot().modifications).toHaveLength(0);
+				expect(document.body.textContent).toContain(message);
+			},
+		);
+
+		it("replaces an order that can open exposure when the region is allowed", async () => {
+			mocks.orders = [openingOrder];
+			const sdkModify = trackSdkCall();
+			act(() => root.render(<ReviewedOrders />));
+
+			await editSize("1.000");
+
+			expect(sdkModify).toHaveBeenCalledOnce();
+		});
+
+		it.each(["restricted", "unavailable"] as const)(
+			"keeps editing a reduce-only order available when the region is %s",
+			async (region) => {
+				mocks.orders = [order];
+				setRegion(region);
+				const sdkModify = trackSdkCall();
+				act(() => root.render(<ReviewedOrders />));
+
+				await editSize("1.000");
+
+				expect(sdkModify).toHaveBeenCalledOnce();
+				const params = sdkModify.mock.calls[0]?.[0] as { modifies: { order: { r: boolean } }[] };
+				expect(params.modifies[0]?.order.r).toBe(true);
+			},
+		);
+
+		it.each(["restricted", "unavailable"] as const)(
+			"keeps cancelling an order that can open exposure available when the region is %s",
+			(region) => {
+				mocks.orders = [openingOrder];
+				setRegion(region);
+				act(() => root.render(<ReviewedOrders />));
+				act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Cancel order"]')?.click());
+
+				expect(mocks.cancelOrders).toHaveBeenCalledWith(
+					{ cancels: [{ a: 120_001, o: 42 }] },
+					expect.objectContaining({ onSuccess: expect.any(Function) }),
+				);
+			},
+		);
 	});
 
 	it("renders the twelve production order fields and derives remaining metrics from sz", () => {

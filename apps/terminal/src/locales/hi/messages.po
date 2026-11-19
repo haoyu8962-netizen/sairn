@@ -10270,6 +10270,7 @@ msgstr "इस खाते पर ट्रेडिंग अभी सक्�
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "आपके क्षेत्र में ट्रेडिंग उपलब्ध नहीं है"
@@ -10645,6 +10646,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "क्षेत्रीय उपलब्धता सत्यापित नहीं हो सकी। यह रेफ़रल अनुरोध सबमिट नहीं किया गया।"
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "क्षेत्रीय उपलब्धता सत्यापित नहीं की जा सकी। ट्रेडिंग अस्थायी रूप से उपलब्ध नहीं है।"

@@ -712,6 +712,11 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- While this terminal cannot verify your region, or your region is restricted, creating an API wallet,
+  linking a mobile device and editing an open order that is not reduce-only are refused before anything
+  is signed, as placing a new order already was. Removing an API wallet, cancelling orders and editing
+  reduce-only orders stay available.
+
 - Filter results and empty lists no longer draw a conclusion from data that is not current. On the phone,
   "No orders match these filters." and "No funding payments match this direction." appear only while the
   history is current; during a reconnect, offline or after a failed update the list area stays blank and
