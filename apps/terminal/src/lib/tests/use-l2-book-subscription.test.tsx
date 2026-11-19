@@ -199,6 +199,69 @@ describe("useL2BookSubscription", () => {
 		expect(calls[1]?.payload).toEqual({ type: "l2", c: "BTC", s: 5, m: 2 });
 	});
 
+	it("does not reach the transport when the last consumer leaves while the grouping gate holds it", async () => {
+		const { transport, calls } = createTransport();
+		store = createHyperliquidStore({ wsTransport: transport, ssr: false });
+		const blocker = await acquireL2SubscriptionGate(transport, { type: "l2", c: "BTC", s: 5, m: 2 });
+
+		function Consumer({ enabled }: { enabled: boolean }) {
+			useL2BookSubscription({ coin: "BTC" }, { enabled });
+			return null;
+		}
+
+		act(() => root.render(createElement(Wrapper, null, createElement(Consumer, { enabled: true }))));
+		await act(() => vi.advanceTimersByTimeAsync(0));
+		act(() => root.render(createElement(Wrapper, null, createElement(Consumer, { enabled: false }))));
+		await act(async () => {
+			await blocker.release(async () => {});
+		});
+		await act(() => vi.advanceTimersByTimeAsync(0));
+
+		expect(calls).toHaveLength(0);
+		const next = await acquireL2SubscriptionGate(transport, { type: "l2", c: "BTC", s: 5, m: 2 });
+		await next.release(async () => {});
+	});
+
+	it("keeps a gated shared subscription while another consumer still wants it", async () => {
+		const { transport, calls } = createTransport();
+		store = createHyperliquidStore({ wsTransport: transport, ssr: false });
+		const blocker = await acquireL2SubscriptionGate(transport, { type: "l2", c: "BTC", s: 5, m: 2 });
+
+		function Consumer({ enabled }: { enabled: boolean }) {
+			useL2BookSubscription({ coin: "BTC" }, { enabled });
+			return null;
+		}
+
+		act(() =>
+			root.render(
+				createElement(
+					Wrapper,
+					null,
+					createElement(Consumer, { enabled: true }),
+					createElement(Consumer, { enabled: true }),
+				),
+			),
+		);
+		await act(() => vi.advanceTimersByTimeAsync(0));
+		act(() =>
+			root.render(
+				createElement(
+					Wrapper,
+					null,
+					createElement(Consumer, { enabled: false }),
+					createElement(Consumer, { enabled: true }),
+				),
+			),
+		);
+		await act(async () => {
+			await blocker.release(async () => {});
+		});
+		await act(() => vi.advanceTimersByTimeAsync(0));
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.payload).toEqual({ type: "l2", c: "BTC" });
+	});
+
 	it("skips a superseded grouping while the previous unsubscribe is pending", async () => {
 		let resolveFirstUnsubscribe: (() => void) | undefined;
 		let unsubscribeCount = 0;

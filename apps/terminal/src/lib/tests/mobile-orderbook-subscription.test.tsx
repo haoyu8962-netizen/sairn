@@ -691,6 +691,35 @@ describe("mobile orderbook subscription lifecycle", () => {
 		expect(latestL2SubscriptionCall().options.enabled).toBe(false);
 	});
 
+	it("pauses the retry wait immediately when the book is hidden while keeping the fallback warm", () => {
+		vi.useFakeTimers();
+		render({ active: true });
+		act(() => {
+			mocks.l2SubscriptionState = { error: new Error("probe failed"), isStale: false, status: "error" };
+			for (const listener of mocks.l2SubscriptionListeners) listener();
+		});
+		act(() => {
+			mocks.l2SubscriptionState = { isStale: false, status: "subscribing" };
+			for (const listener of mocks.l2SubscriptionListeners) listener();
+		});
+		act(() => vi.advanceTimersByTime(55_000));
+		render({ active: false });
+		expect(latestSubscriptionCall().options.enabled).toBe(true);
+
+		act(() => vi.advanceTimersByTime(5_000));
+		expect(latestL2SubscriptionCall().options.enabled).toBe(false);
+		expect(latestSubscriptionCall().options.enabled).toBe(true);
+		act(() => vi.advanceTimersByTime(5_000));
+		expect(latestSubscriptionCall().options.enabled).toBe(false);
+
+		render({ active: true });
+		act(() => vi.advanceTimersByTime(4_999));
+		expect(latestL2SubscriptionCall().options.enabled).toBe(false);
+		act(() => vi.advanceTimersByTime(1));
+		expect(latestL2SubscriptionCall().options.enabled).toBe(true);
+		expect(latestSubscriptionCall().options.enabled).toBe(true);
+	});
+
 	it("never presents an old market snapshot under the newly selected market", () => {
 		const previousMarket = mocks.market.name;
 		setSubscriptionState({

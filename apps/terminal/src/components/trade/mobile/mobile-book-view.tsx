@@ -208,6 +208,7 @@ export function MobileBookView({
 	} = useOrderbookFeed({
 		compact: Boolean(compact),
 		enabled: subscriptionEnabled,
+		shown: isBookViewActive,
 		env,
 		params: subscriptionParams,
 	});

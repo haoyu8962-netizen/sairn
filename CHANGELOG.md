@@ -16,6 +16,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
   Account view the Deposit, Withdraw, transfer and Bridge buttons stay in place, disabled, while the
   region check is unresolved.
 - The compact order book returns to twenty levels on its own after it fell back to five.
+  While the book is hidden, including the ten seconds it stays subscribed after you leave it, the
+  retry waits instead of starting.
 - Terminating a TWAP while another action on the same market is in progress now waits up to 15
   seconds instead of failing at once.
 - Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
