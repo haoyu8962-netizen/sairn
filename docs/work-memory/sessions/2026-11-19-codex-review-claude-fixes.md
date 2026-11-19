@@ -142,3 +142,21 @@ Codex 的审查报告与修复报告原件在本机 `.worklog/2026-11-19/codex/`
 - P2（存款弹窗打开期间跟踪结清，三步均成立，已修）：结清结果从各 hook 实例的 ref 移到按 QueryClient 共享的内存存储（按网络 + owner 分组，`unacknowledgedOutcomes` / `acknowledgeOutcome`），新记录不再替换未呈现的结果。弹窗在存款页且无在途存款时显示 `Deposit status unknown`（新增 `unknown` 图标，用现有 `BRAND_MOTION_UNKNOWN`）或 `Deposit failed` 状态屏，关闭即确认；否则弹窗关闭后由通知器呈现并确认，呈现过的不再重复。`deposit-modal-withdrawal-routing-guard` 新增 3 项真实 `DepositModal` + 真实跟踪 hook + 通知器 + 模拟 Arbitrum RPC 的联合用例（修前 3 项全红），通知器新增 2 项、hook 新增 1 项；RPC 替身移到 `harness/cctp-authorization-chain.ts` 共用。5 处变异（弹窗不显示、关闭不确认、通知器跳过、hook 不过滤已确认、见下 P3）均变红。不新增文案；仅 jsdom，未在真实浏览器或真实钱包验证。
 - P3-1（存款点击时限的错误归类，成立，已修）：`handleDepositSubmit()` 的 `catch` 单独识别 `ExchangeActionDeadlineError`，表单显示现成的「checks took too long」文案、路由状态保持就绪；原 16 秒用例改断言新反馈（修前红、修后绿，改回 `unavailable` 的变异变红）。ADR 0053 补记一行。
 - P2 补修（全量测试发现，`cctp-deposit-notification-lifecycle.test.tsx` 6 项红）：6 项共同报错是模拟缺 `unacknowledgedOutcomes`，补齐模拟（按网络 + owner 记录确认）后 5 项转绿，「快速离开再回到 owner 后失败通知仍在」仍红，是实现回归：通知器在创建通知时就确认结果，切换身份时系统移除通知后切回不再显示。改为只有用户关闭通知（`onDismiss` 且不是身份切换或弹窗打开时的系统移除，`retired` 标记）或关闭弹窗状态页才确认；通知还在屏上时打开弹窗也先显示状态页。3 处变异（身份清理不标 `retired`、关闭不确认、恢复创建即确认）均变红。引用该 hook / 通知器 / 模拟该模块的测试共 9 个文件，连同部署弹窗相关契约共 33 个文件 1199 项通过；typecheck、biome 通过。
+
+## Gemini 终审三轮的分数与遗留（2026-11-20）
+
+终审用 Antigravity CLI 的 `gemini-4-neon-xhigh`，只读、沙盒、计划模式，评审对象是 `codex/integration` 相对 `origin/main` 的全部差异。评审原文在本机 `.worklog/2026-11-19/codex/gemini/`（Git 忽略）。运营方的过线标准是大于 9 分。
+
+| 轮次 | 总分 | 阻塞（P0/P1） | 合并前应修（P2） | 处理 |
+|---|---:|---|---|---|
+| 第 1 轮 | 8.4 | 无 | 4 | 见「Gemini 终审第 1 轮后的修复」 |
+| 第 2 轮 | 8.9 | 无 | 1（第 1 轮修复带出的存款弹窗终态展示） | 见「Gemini 终审第 2 轮后的修复」 |
+| 第 3 轮 | 9.5 | 无 | 无 | 过线，停止 |
+
+第 3 轮留下 3 条可延后的小问题，都在存款结清结果的通知同步上，评审判定不影响资金与签名安全，本次没有修：
+
+- 页面级终态通知已在屏上时，用户改从存款弹窗的状态屏关闭确认，原通知不会自动关闭，切换语言时还会重新弹出（`cctp-deposit-tracking-notifier.tsx`）。
+- 在途存款在 `confirming` 期间链上回滚时，跟踪轮询可能抢先写入共享结清存储，弹窗关闭后多弹一条 `Deposit failed`，再开弹窗时被同一笔失败再拦一次（`deposit-modal.tsx`、`embedded-deposit-auto-bridge.tsx`）。属于多报，不是漏报。
+- 查看旧交易的终态状态屏时另一笔在途存款恰好转发完成，关闭会连带删掉新交易的跟踪记录，之后不再提示它已提交（`deposit-modal.tsx` 的 `handleClose`）。
+
+评审无法证实、要在真实环境里验证的事项：Arbitrum 公共 RPC 上分片扫描的限流与耗时、`normalTpsl` 父单被拒的真实回包、发布配置下配对开启的包体余量（本机量法剩 138 字节）、真实钱包与真机与真实 CloudFront 的端到端行为。
