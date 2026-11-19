@@ -17,7 +17,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
   region check is unresolved.
 - The compact order book returns to twenty levels on its own after it fell back to five.
 - Terminating a TWAP while another action on the same market is in progress now waits up to 15
-  seconds instead of failing at once.
+  seconds instead of failing at once. A waiting termination is dropped without signing when the
+  trading session or its signing key changes, even for the same account, and a termination clicked
+  while offline is not sent. Once it has its turn, a termination that still cannot be signed within
+  15 seconds is reported as not sent instead of staying in progress, so it can be clicked again.
 - Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
   its own selected market.
 - Trading links with dots in market names open correctly when visited directly or refreshed.

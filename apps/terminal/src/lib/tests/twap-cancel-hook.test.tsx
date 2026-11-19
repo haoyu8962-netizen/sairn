@@ -55,6 +55,8 @@ const mocks = vi.hoisted(() => ({
 	assetId: 7 as number | undefined,
 	clientKey: "0x1111111111111111111111111111111111111111",
 	env: "Mainnet" as "Mainnet" | "Testnet",
+	exchangeSession: { active: true },
+	registrationEpoch: "test-epoch",
 	mutateAsync: vi.fn(),
 	exchange: vi.fn(),
 	beforeSdkBoundary: vi.fn(),
@@ -88,9 +90,14 @@ vi.mock("@/lib/hyperliquid", () => ({
 				return mocks.mutateAsync(requestParams);
 			},
 			reset: mocks.reset,
+			captureSigningIdentity: () => ({
+				exchangeSession: mocks.exchangeSession,
+				ownerSigner: null,
+				registrationLease: { epoch: { epoch: mocks.registrationEpoch } },
+			}),
 		};
 	},
-	useHyperliquid: () => ({ clientKey: mocks.clientKey, env: mocks.env }),
+	useHyperliquid: () => ({ clientKey: mocks.clientKey, env: mocks.env, exchangeSession: mocks.exchangeSession }),
 	useMarkets: () => ({ getAssetId: () => mocks.assetId }),
 	useSubscription: (method: string) => ({
 		data: method === "twapStates" ? mocks.activeTwaps : mocks.twapHistory,
@@ -190,6 +197,7 @@ describe("useTwapCancel", () => {
 		mocks.assetId = 7;
 		mocks.clientKey = USER;
 		mocks.env = "Mainnet";
+		mocks.registrationEpoch = "test-epoch";
 		mocks.guardPassesBeforeMutation = 2;
 		mocks.mutateAsync.mockReset();
 		mocks.exchange.mockReset();
@@ -271,6 +279,24 @@ describe("useTwapCancel", () => {
 		expect(getPendingTradingActionSnapshot().twapCancellations).toEqual([]);
 		expect(hookValue?.feedback).toBeNull();
 		expect(mocks.errorToast).not.toHaveBeenCalled();
+	});
+
+	it("rechecks the click's registration epoch at the SDK boundary", async () => {
+		mocks.beforeSdkBoundary.mockImplementationOnce(() => {
+			mocks.registrationEpoch = "replacement-epoch";
+		});
+
+		await act(async () => {
+			await hookValue?.cancelTwap("BTC", 42);
+		});
+
+		expect(mocks.beforeSdkBoundary).toHaveBeenCalledOnce();
+		expect(mocks.mutateAsync).not.toHaveBeenCalled();
+		expect(getPendingTradingActionSnapshot().twapCancellations).toEqual([]);
+		expect(queueItems.at(-1)).toMatchObject({
+			status: "failed",
+			error: { code: "twap-cancel-identity-changed" },
+		});
 	});
 
 	it.each([{ a: 8 }, { t: 99 }])("blocks modified SDK cancellation fields: %o", async (fields) => {
