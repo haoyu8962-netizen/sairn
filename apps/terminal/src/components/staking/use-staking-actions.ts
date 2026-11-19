@@ -557,6 +557,8 @@ export function useStakingActions(ownerAddress: `0x${string}` | undefined): Stak
 					fundsActionReferencesEqual(stored, lease.reference)
 				) {
 					if (!(await removeFundsActionMarkerSafely(lease.reference.id))) continue;
+					// The removal waits for a cross-tab lock; the owner may have changed meanwhile.
+					if (!executionIsCurrent(lease)) return;
 					const current = activeRef.current;
 					if (current) {
 						updateActive({

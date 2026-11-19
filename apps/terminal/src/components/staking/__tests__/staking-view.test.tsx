@@ -12,6 +12,7 @@ import type { StakingValidatorView } from "../domain/staking";
 import { StakingView, type StakingViewProps } from "../staking-view";
 
 const OWNER = "0x1111111111111111111111111111111111111111" as const;
+const OTHER_OWNER = "0x5555555555555555555555555555555555555555" as const;
 const ACTIVE = "0x2222222222222222222222222222222222222222" as const;
 const JAILED = "0x3333333333333333333333333333333333333333" as const;
 const INACTIVE = "0x4444444444444444444444444444444444444444" as const;
@@ -263,6 +264,63 @@ describe("StakingView", () => {
 		expect(allDelegateButtons.slice(1).every((candidate) => candidate.disabled)).toBe(true);
 		expect(container.querySelector("table")?.className).toContain("min-w-[var(--staking-validator-table-min)]");
 		expect(container.querySelector('[role="tablist"]')?.getAttribute("aria-label")).toBe("Staking detail views");
+	});
+
+	it.each([
+		["amount entry", "owner", { ownerAddress: OTHER_OWNER }],
+		["local review", "owner", { ownerAddress: OTHER_OWNER }],
+		["amount entry", "network", { env: "Testnet" }],
+		["local review", "network", { env: "Testnet" }],
+	] as const)("discards a delegation draft in %s when the %s changes", (stage, _identity, change) => {
+		const initial = props();
+		const next = { ...initial, ...change, onActionSubmit: vi.fn() };
+		act(() => root.render(<StakingView {...initial} />));
+		act(() => button(container, "Delegate").click());
+		act(() => button(document.body, "Max").click());
+		expect(document.body.querySelector<HTMLInputElement>('[role="dialog"] input[inputmode="decimal"]')?.value).toBe(
+			"2.00",
+		);
+		if (stage === "local review") {
+			act(() => button(document.body, "Review").click());
+			expect(button(document.body, "Continue securely").disabled).toBe(false);
+		}
+
+		act(() => root.render(<StakingView {...next} />));
+		const oldDialog = document.body.querySelector('[role="dialog"]');
+		if (oldDialog) {
+			if (stage === "amount entry") act(() => button(document.body, "Review").click());
+			act(() => button(document.body, "Continue securely").click());
+		}
+		expect(next.onActionSubmit).not.toHaveBeenCalled();
+		expect(oldDialog).toBeNull();
+
+		act(() => root.render(<StakingView {...initial} />));
+		expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+		expect(initial.onActionSubmit).not.toHaveBeenCalled();
+
+		act(() => root.render(<StakingView {...next} />));
+		act(() => button(container, "Delegate").click());
+		expect(document.body.querySelector<HTMLInputElement>('[role="dialog"] input[inputmode="decimal"]')?.value).toBe("");
+		act(() => button(document.body, "Max").click());
+		act(() => button(document.body, "Review").click());
+		act(() => button(document.body, "Continue securely").click());
+		expect(next.onActionSubmit).toHaveBeenCalledExactlyOnceWith({
+			request: expect.objectContaining({ kind: "delegate", validator: ACTIVE }),
+			amount: "2",
+			wei: 200_000_000,
+		});
+	});
+
+	it("keeps the current owner's draft mounted when the language changes", () => {
+		act(() => root.render(<StakingView {...props()} />));
+		act(() => button(container, "Delegate").click());
+		act(() => button(document.body, "Max").click());
+		const amountInput = document.body.querySelector<HTMLInputElement>('[role="dialog"] input[inputmode="decimal"]');
+		expect(amountInput?.value).toBe("2.00");
+
+		act(() => i18n.loadAndActivate({ locale: "fr", messages: {} }));
+		expect(document.body.querySelector('[role="dialog"] input[inputmode="decimal"]')).toBe(amountInput);
+		expect(amountInput?.value).toBe("2.00");
 	});
 
 	it("isolates account, validator, HYPE, ratio, reward, and transaction values from RTL copy", () => {
