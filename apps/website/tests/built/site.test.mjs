@@ -42,6 +42,8 @@ const MARKETS_SECTION = sectionById("markets");
 const TICKER_SECTION = sectionById("markets-now");
 
 const TERMINAL_LINK = (element) => element.name === "a" && /[?&]utm_source=website(?:&|$)/.test(element.attrs.href ?? "");
+const TERMINAL_HOST_LINK = (element) =>
+	element.name === "a" && new URL(element.attrs.href ?? "", SITE_URL).hostname === APP_HOST;
 const NOT_SHARES = /\bnot shares\b|\bno ownership\b|\bno rights in the company\b/i;
 const COMPANY_REFERENCE = /\bstocks?\b|\bpre-IPO\b|\bcompan(?:y|ies)\b/i;
 const AROUND_THE_CLOCK = /24\/7|around the clock/i;
@@ -56,6 +58,24 @@ test("the build lists every page the plan expects, legal pages included", () => 
 test("no retired gatu name survives anywhere in the build", () => {
 	const hits = FILES.filter((file) => readFileSync(resolve(DIST, file)).toString("latin1").toLowerCase().includes("gatu"));
 	assert.deepEqual(hits, [], "ADR 0032 retired the gatu.ai domain and name");
+});
+
+test("every marketing link to the terminal host carries the website UTM set, so R6 below finds it", () => {
+	let checked = 0;
+	for (const page of MARKETING_PAGES) {
+		for (const link of findAll(readPage(page), TERMINAL_HOST_LINK)) {
+			checked += 1;
+			const url = new URL(link.attrs.href, SITE_URL);
+			for (const [key, value] of Object.entries({ utm_source: "website", utm_medium: "site", utm_campaign: "en_home" })) {
+				assert.deepEqual(url.searchParams.getAll(key), [value], `${page}: ${link.attrs.href} (${key})`);
+			}
+			const slots = url.searchParams.getAll("utm_content");
+			assert.equal(slots.length, 1);
+			assert.match(slots[0], /^[a-z0-9_]+$/);
+			if (page === "404.html" && closest(link, byName("main"))) assert.equal(slots[0], "not_found");
+		}
+	}
+	assert.ok(checked >= 10);
 });
 
 test("every block that links into the terminal carries the risk sentence (R6)", () => {

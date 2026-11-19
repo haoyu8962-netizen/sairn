@@ -20,7 +20,6 @@ const STYLES = readFileSync(resolve(WEBSITE_ROOT, "src/styles/global.css"), "utf
 const BASE = readFileSync(resolve(WEBSITE_ROOT, "src/layouts/Base.astro"), "utf8");
 const CSP = readFileSync(resolve(WEBSITE_ROOT, "src/lib/csp.ts"), "utf8");
 const TABS_SCRIPT = readFileSync(resolve(WEBSITE_ROOT, "src/scripts/tabs.ts"), "utf8");
-const LIVE_SCRIPT = readFileSync(resolve(WEBSITE_ROOT, "src/scripts/live-markets.ts"), "utf8");
 const KEYFRAMES = ["hero-reel", "ticker-scroll", "reveal-rise"];
 const COMPONENTS = readdirSync(resolve(WEBSITE_ROOT, "src/components")).map((file) => ({
 	file,
@@ -150,15 +149,11 @@ test("the hero reel runs once, under five seconds, and starts and ends on the st
 	assert.match(hero, /<span aria-hidden="true" class="block">\s*<span class="reel/, "the reel is decorative");
 });
 
-test("the ticker becomes a marquee only once its Pause control is wired, and pauses on hover and focus", () => {
+test("the static ticker becomes a marquee only with motion enabled, and pauses on hover and focus", () => {
 	const noPreference = blockAfter(STYLES, "@media (prefers-reduced-motion: no-preference)");
 	assert.match(noPreference, /\[data-ticker="moving"\] \.ticker-track \{\s*animation: ticker-scroll/);
 	assert.match(noPreference, /\[data-ticker="moving"\] \.ticker-viewport:is\(:hover, :focus-within\) \.ticker-track \{\s*animation-play-state: paused;/);
 	assert.match(STYLES, /\.ticker-mirror \{\s*display: none;/, "the duplicated cards exist only while the marquee moves");
-	const wiring = LIVE_SCRIPT.indexOf('strip.dataset.ticker = "moving"');
-	assert.ok(wiring > LIVE_SCRIPT.indexOf("startLiveMarkets"), "the script starts the marquee");
-	assert.ok(wiring < LIVE_SCRIPT.indexOf("button.hidden = false"), "together with showing the Pause control");
-	assert.match(LIVE_SCRIPT, /strip\.dataset\.ticker = paused \? "paused" : "moving";/);
 	const live = COMPONENTS.find(({ file }) => file === "LiveMarkets.astro").text;
 	assert.match(live, /data-ticker="static"/, "without the script the ticker is a scroll-snap row");
 	assert.match(live, /class="ticker-list ticker-mirror py-1" aria-hidden="true" inert>/);

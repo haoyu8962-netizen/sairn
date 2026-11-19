@@ -31,14 +31,16 @@ const DECIMAL = /^(0|[1-9]\d*)(\.\d+)?$/;
 
 /**
  * @param {readonly string[]} featuredCoins Exchange coin names, e.g. "BTC", "io:OAI".
+ * @param {readonly string[]} statsDexes Venues also represented by links without price slots.
  * @returns {RequestPlan}
  */
-export function createRequestPlan(featuredCoins) {
+export function createRequestPlan(featuredCoins, statsDexes = []) {
 	const dexes = [MAIN_DEX];
 	for (const coin of featuredCoins) {
 		const dex = dexOfCoin(coin);
 		if (!dexes.includes(dex)) dexes.push(dex);
 	}
+	for (const dex of statsDexes) if (!dexes.includes(dex)) dexes.push(dex);
 	const weightPerRequest = META_AND_ASSET_CTXS_WEIGHT;
 	const requestsPerWindow = Math.floor(WEIGHT_LIMIT / weightPerRequest);
 	if (requestsPerWindow < 1) throw new Error("a single request exceeds the weight budget");
