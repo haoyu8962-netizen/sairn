@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	renameSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -85,4 +98,73 @@ test("rejects manifest paths that leave the library directory", async () => {
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
+});
+
+for (const [label, linkPath, outside, kind] of [
+	["a directory on a manifest path that leads outside the source", "bundles", "elsewhere", "dir"],
+	["a directory on a manifest path that leads to another directory of the source", "bundles", "source/vendor", "dir"],
+	["a manifest file", "bundles/a.js", "elsewhere.js", "file"],
+]) {
+	test(`refuses a source where ${label} is a symbolic link and keeps the installed copy`, async (t) => {
+		const { root, source, target, manifestPath } = fixture();
+		t.after(() => rmSync(root, { recursive: true, force: true }));
+		const link = join(source, linkPath);
+		const destination = join(root, outside);
+		renameSync(link, destination);
+		symlinkSync(destination, link, kind);
+		mkdirSync(target, { recursive: true });
+		writeFileSync(join(target, "keep.txt"), "previous install");
+		const files = await readChartLibraryManifest(manifestPath);
+		await assert.rejects(installChartLibrary({ source, target, files }), /not a (?:real directory|regular file): bundles\/a\.js/);
+		assert.equal(readFileSync(join(target, "keep.txt"), "utf8"), "previous install");
+	});
+}
+
+test("follows a source root that the operator names through a symbolic link", async (t) => {
+	const { root, source, target, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const alias = join(root, "source-alias");
+	symlinkSync(source, alias, "dir");
+	const files = await readChartLibraryManifest(manifestPath);
+	await installChartLibrary({ source: alias, target, files });
+	await verifyChartLibrary(target, files, { exact: true });
+});
+
+function runFailingClone(t, repository) {
+	const { root, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const script = join(root, "scripts", "fetch-chart-library.mjs");
+	mkdirSync(join(root, "scripts"));
+	mkdirSync(join(root, "deploy", "manifests"), { recursive: true });
+	copyFileSync(new URL("./fetch-chart-library.mjs", import.meta.url), script);
+	copyFileSync(manifestPath, join(root, "deploy", "manifests", "tradingview-charting-library.json"));
+	const bin = join(root, "bin");
+	mkdirSync(bin);
+	const argsFile = join(root, "git-args.json");
+	writeFileSync(
+		join(bin, "git"),
+		`#!${process.execPath}\nrequire("node:fs").writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(process.argv.slice(2)));\nconsole.error("synthetic git failure");\nprocess.exit(128);\n`,
+		{ mode: 0o700 },
+	);
+	const result = spawnSync(process.execPath, [realpathSync(script)], {
+		cwd: root,
+		encoding: "utf8",
+		env: { PATH: bin, TMPDIR: root, CHART_LIBRARY_REPOSITORY: repository },
+	});
+	assert.equal(result.status, 1);
+	return { args: JSON.parse(readFileSync(argsFile, "utf8")), stderr: result.stderr };
+}
+
+test("hands the repository to git clone after the end of its options", (t) => {
+	const repository = "--upload-pack=touch injected";
+	const { args } = runFailingClone(t, repository);
+	assert.deepEqual(args.slice(0, -1), ["clone", "--quiet", "--depth", "1", "--", repository]);
+});
+
+test("a failed clone keeps the Git diagnostics and leaves credentials in the repository address out", (t) => {
+	const { stderr } = runFailingClone(t, "https://reader:s3cret-token@git.example.test/owner/library.git");
+	assert.match(stderr, /synthetic git failure/);
+	assert.match(stderr, /Cannot clone the private chart library from https:\/\/git\.example\.test\/owner\/library\.git/);
+	assert.equal(stderr.includes("s3cret-token"), false);
+	assert.equal(stderr.includes("reader"), false);
 });

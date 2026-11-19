@@ -631,6 +631,8 @@ mobile regressions.
   ignored `apps/terminal/public/charting_library/` and checks every file
   against `deploy/manifests/tradingview-charting-library.json`
   (`docs/adr/0054-chart-library-outside-the-repository.md`). Never commit it.
+  Every directory below the library root on a manifest path must be a real
+  directory and each manifest file a regular file.
 - The vendored loader (`charting_library.js` and its esm/cjs/standalone
   copies) carries one local patch in `_create`: the `innerWindowLoad`
   listener is registered after `document.open()` and before
