@@ -9,14 +9,20 @@ import {
 	normalizeNumberFormatLocale,
 	resolveNumberFormatLocale,
 } from "@/config/i18n";
-import {
-	DEFAULT_MARKET_ORDER_SLIPPAGE_PERCENT,
-	MARKET_ORDER_SLIPPAGE_MAX_PERCENT,
-	MARKET_ORDER_SLIPPAGE_MIN_PERCENT,
-} from "@/config/trade";
 import { getNetwork, type Network, subscribeNetworkStorage, switchNetwork } from "@/lib/network";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
-import { createValidatedStorage } from "@/lib/storage/validated-storage";
+import {
+	clampMarketOrderSlippage,
+	DEFAULT_TRADING_PROTECTIONS,
+	ensureTradingProtectionBaseline,
+	legacyTradingProtections,
+	readTradingProtections,
+	stricterTradingProtections,
+	TRADING_PROTECTION_STORAGE_KEYS,
+	type TradingProtections,
+	tradingProtectionsEqual,
+	writeTradingProtection,
+} from "@/lib/storage/trading-protection-storage";
 import { applyThemeColor } from "@/lib/theme-color";
 import type { MarginMode } from "@/lib/trade/margin-mode";
 import { z } from "@/lib/zod";
@@ -43,16 +49,12 @@ const globalSettingsSchema = z.object({
 	}),
 });
 
-const validatedStorage = createValidatedStorage(globalSettingsSchema, "global settings");
-
 const DEFAULT_GLOBAL_SETTINGS = {
 	hideSmallBalances: true,
 	animateOrderbook: true,
 	showChartScanlines: false,
-	skipOrderConfirmation: false,
-	transactionDelayProtection: true,
+	...DEFAULT_TRADING_PROTECTIONS,
 	numberFormatLocale: defaultNumberFormatLocale,
-	marketOrderSlippagePercent: DEFAULT_MARKET_ORDER_SLIPPAGE_PERCENT,
 	marginMode: "cross" as MarginMode,
 	positionsActiveTab: "positions",
 	mobileActiveTab: "trade",
@@ -60,14 +62,11 @@ const DEFAULT_GLOBAL_SETTINGS = {
 	network: getNetwork(),
 } as const;
 
-interface GlobalSettingsStore {
+interface GlobalSettingsStore extends TradingProtections {
 	hideSmallBalances: boolean;
 	animateOrderbook: boolean;
 	showChartScanlines: boolean;
-	skipOrderConfirmation: boolean;
-	transactionDelayProtection: boolean;
 	numberFormatLocale: NumberFormatLocale;
-	marketOrderSlippagePercent: number;
 	marginMode: MarginMode;
 	positionsActiveTab: string;
 	mobileActiveTab: string;
@@ -89,9 +88,18 @@ interface GlobalSettingsStore {
 	};
 }
 
+// The settings record keeps version 4 so that a rolled-back release reads it without a migration.
+// The three trading protections live in their own keys (ADR 0057); the record carries them only
+// for releases that predate those keys.
 const GLOBAL_SETTINGS_VERSION = 4;
 
-type PersistedGlobalSettings = Partial<Omit<GlobalSettingsStore, "actions" | "network">>;
+type StoredSettingsState = z.infer<typeof globalSettingsSchema>["state"];
+type PersistedGlobalSettings = Partial<Omit<GlobalSettingsStore, "actions" | "network" | keyof TradingProtections>>;
+
+type StoredSettings =
+	| { kind: "missing" }
+	| { kind: "supported"; state: StoredSettingsState; version: unknown }
+	| { kind: "future"; state: StoredSettingsState | null };
 
 // Settings every window shares live. The two active-tab fields stay per window: another window's
 // tab choice is kept in storage but never moves the tab this window is showing.
@@ -105,17 +113,14 @@ const SHARED_SETTING_KEYS = [
 	"marketOrderSlippagePercent",
 	"marginMode",
 	"theme",
-] as const satisfies readonly (keyof PersistedGlobalSettings)[];
+] as const satisfies readonly (keyof GlobalSettingsStore)[];
 
 function partializeGlobalSettings(state: GlobalSettingsStore): PersistedGlobalSettings {
 	return {
 		hideSmallBalances: state.hideSmallBalances,
 		animateOrderbook: state.animateOrderbook,
 		showChartScanlines: state.showChartScanlines,
-		skipOrderConfirmation: state.skipOrderConfirmation,
-		transactionDelayProtection: state.transactionDelayProtection,
 		...(state.numberFormatLocale === defaultNumberFormatLocale ? {} : { numberFormatLocale: state.numberFormatLocale }),
-		marketOrderSlippagePercent: state.marketOrderSlippagePercent,
 		marginMode: state.marginMode,
 		positionsActiveTab: state.positionsActiveTab,
 		mobileActiveTab: state.mobileActiveTab,
@@ -124,23 +129,16 @@ function partializeGlobalSettings(state: GlobalSettingsStore): PersistedGlobalSe
 }
 
 function migrateGlobalSettings(persisted: unknown): PersistedGlobalSettings {
-	const state = persisted as Partial<GlobalSettingsStore>;
-	return {
-		...state,
-		numberFormatLocale: normalizeNumberFormatLocale(state.numberFormatLocale),
-	};
+	const state = persisted as StoredSettingsState;
+	return { ...state, numberFormatLocale: normalizeNumberFormatLocale(state.numberFormatLocale) };
 }
 
-function mergeGlobalSettings(persisted: unknown, current: GlobalSettingsStore): GlobalSettingsStore {
-	const p = (persisted ?? {}) as Partial<GlobalSettingsStore>;
-	const skipOrderConfirmation =
-		typeof p.skipOrderConfirmation === "boolean"
-			? p.skipOrderConfirmation
-			: DEFAULT_GLOBAL_SETTINGS.skipOrderConfirmation;
-	const slippagePercent = Math.min(
-		Math.max(p.marketOrderSlippagePercent ?? DEFAULT_MARKET_ORDER_SLIPPAGE_PERCENT, MARKET_ORDER_SLIPPAGE_MIN_PERCENT),
-		MARKET_ORDER_SLIPPAGE_MAX_PERCENT,
-	);
+function mergeGlobalSettings(
+	persisted: unknown,
+	current: GlobalSettingsStore,
+	protections: TradingProtections,
+): GlobalSettingsStore {
+	const p = (persisted ?? {}) as StoredSettingsState;
 	return {
 		...current,
 		...DEFAULT_GLOBAL_SETTINGS,
@@ -148,12 +146,9 @@ function mergeGlobalSettings(persisted: unknown, current: GlobalSettingsStore): 
 		numberFormatLocale: normalizeNumberFormatLocale(p.numberFormatLocale),
 		animateOrderbook:
 			typeof p.animateOrderbook === "boolean" ? p.animateOrderbook : DEFAULT_GLOBAL_SETTINGS.animateOrderbook,
-		skipOrderConfirmation,
-		transactionDelayProtection:
-			typeof p.transactionDelayProtection === "boolean"
-				? p.transactionDelayProtection
-				: DEFAULT_GLOBAL_SETTINGS.transactionDelayProtection,
-		marketOrderSlippagePercent: slippagePercent,
+		skipOrderConfirmation: protections.skipOrderConfirmation,
+		transactionDelayProtection: protections.transactionDelayProtection,
+		marketOrderSlippagePercent: protections.marketOrderSlippagePercent,
 		marginMode: p.marginMode === "isolated" ? "isolated" : "cross",
 		theme: p.theme === "light" ? "light" : "dark",
 		network: getNetwork(),
@@ -164,16 +159,101 @@ function mergeGlobalSettings(persisted: unknown, current: GlobalSettingsStore): 
 // only the fields that differ from it, on top of whatever another window stored meanwhile.
 let lastSyncedSettings: PersistedGlobalSettings | null = null;
 let applyingStoredSettings = false;
+let startupProtections: TradingProtections = DEFAULT_TRADING_PROTECTIONS;
 
-function readStoredSettings(): PersistedGlobalSettings | null {
-	const raw = validatedStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-	if (typeof raw !== "string") return null;
-	const stored = JSON.parse(raw) as { state: unknown; version?: unknown };
-	if (typeof stored.version !== "number" || stored.version === GLOBAL_SETTINGS_VERSION) {
-		return stored.state as PersistedGlobalSettings;
+function browserStorage(): Storage | null {
+	if (typeof window === "undefined") return null;
+	try {
+		return window.localStorage;
+	} catch {
+		return null;
 	}
-	if (stored.version > GLOBAL_SETTINGS_VERSION) return null;
-	return migrateGlobalSettings(stored.state);
+}
+
+// One read decides the version and the content, so a record a newer release writes in between is
+// never validated against this release's schema, cleared or overwritten.
+function readStoredSettings(storage: Storage | null = browserStorage()): StoredSettings {
+	if (!storage) return { kind: "missing" };
+	let raw: string | null;
+	try {
+		raw = storage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+	} catch {
+		return { kind: "missing" };
+	}
+	if (raw === null) return { kind: "missing" };
+	let record: unknown;
+	try {
+		record = JSON.parse(raw);
+	} catch (error) {
+		console.warn("[global settings] persisted state could not be parsed, clearing", error);
+		storage.removeItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+		return { kind: "missing" };
+	}
+	const version = (record as { version?: unknown } | null)?.version;
+	const parsed = globalSettingsSchema.safeParse(record);
+	if (typeof version === "number" && version > GLOBAL_SETTINGS_VERSION) {
+		return { kind: "future", state: parsed.success ? parsed.data.state : null };
+	}
+	if (parsed.success) return { kind: "supported", state: parsed.data.state, version };
+	console.warn("[global settings] persisted state failed schema validation, clearing", parsed.error.issues);
+	storage.removeItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+	return { kind: "missing" };
+}
+
+// The three protections an older release reads from the record: never looser than what that
+// release last stored there, nor than the value this release resolves from its own keys.
+function rollbackProtections(storage: Storage, previous: StoredSettingsState | undefined): TradingProtections {
+	return stricterTradingProtections(legacyTradingProtections(previous ?? {}), readTradingProtections(storage));
+}
+
+function writeSettingsRecord(storage: Storage, state: object, previous: StoredSettingsState | undefined) {
+	storage.setItem(
+		STORAGE_KEYS.GLOBAL_SETTINGS,
+		JSON.stringify({
+			state: { ...state, ...rollbackProtections(storage, previous) },
+			version: GLOBAL_SETTINGS_VERSION,
+		}),
+	);
+}
+
+function hydrateStoredSettings(): string | null {
+	const storage = browserStorage();
+	const stored = readStoredSettings(storage);
+	startupProtections = DEFAULT_TRADING_PROTECTIONS;
+	if (storage) {
+		try {
+			if (stored.kind !== "future") {
+				ensureTradingProtectionBaseline(
+					storage,
+					legacyTradingProtections(stored.kind === "supported" ? stored.state : {}),
+				);
+			}
+			startupProtections = readTradingProtections(storage);
+			if (stored.kind === "supported") {
+				const previous = legacyTradingProtections(stored.state);
+				if (!tradingProtectionsEqual(rollbackProtections(storage, stored.state), previous)) {
+					writeSettingsRecord(storage, stored.state, stored.state);
+				}
+			}
+		} catch {
+			startupProtections = DEFAULT_TRADING_PROTECTIONS;
+		}
+	}
+	if (stored.kind === "missing" || stored.state === null) return null;
+	const version = stored.kind === "supported" ? stored.version : GLOBAL_SETTINGS_VERSION;
+	return JSON.stringify({ state: stored.state, version });
+}
+
+// Protections reach an open window from storage only when they are stricter than its own; a
+// window loosens a protection only through its own explicit action.
+function withStricterStoredProtections(next: GlobalSettingsStore): GlobalSettingsStore {
+	const storage = browserStorage();
+	if (!storage) return next;
+	try {
+		return { ...next, ...stricterTradingProtections(next, readTradingProtections(storage)) };
+	} catch {
+		return next;
+	}
 }
 
 function applySharedSettings(next: GlobalSettingsStore) {
@@ -193,11 +273,12 @@ function applySharedSettings(next: GlobalSettingsStore) {
 	lastSyncedSettings = partializeGlobalSettings(useGlobalSettingsStore.getState());
 }
 
-function combineWithStoredSettings(outgoing: PersistedGlobalSettings): GlobalSettingsStore | null {
+function combineWithStoredSettings(
+	outgoing: PersistedGlobalSettings,
+	stored: StoredSettingsState,
+): GlobalSettingsStore | null {
 	const previous = lastSyncedSettings as Record<string, unknown> | null;
 	if (!previous) return null;
-	const stored = readStoredSettings();
-	if (!stored) return null;
 	const changes = outgoing as Record<string, unknown>;
 	const combined: Record<string, unknown> = { ...stored };
 	for (const key of new Set([...Object.keys(previous), ...Object.keys(changes)])) {
@@ -205,33 +286,56 @@ function combineWithStoredSettings(outgoing: PersistedGlobalSettings): GlobalSet
 		if (key in changes) combined[key] = changes[key];
 		else delete combined[key];
 	}
-	return mergeGlobalSettings(combined, useGlobalSettingsStore.getState());
+	const current = useGlobalSettingsStore.getState();
+	return mergeGlobalSettings(combined, current, current);
 }
 
 const crossWindowSettingsStorage: StateStorage = {
-	getItem: (name) => validatedStorage.getItem(name),
-	setItem: (name, value) => {
+	getItem: hydrateStoredSettings,
+	setItem: (_name, value) => {
 		if (applyingStoredSettings) return;
-		const outgoing = JSON.parse(value) as { state: PersistedGlobalSettings; version: number };
-		const combined = combineWithStoredSettings(outgoing.state);
+		const storage = browserStorage();
+		const stored = readStoredSettings(storage);
+		if (!storage || stored.kind === "future") return;
+		const outgoing = JSON.parse(value) as { state: PersistedGlobalSettings };
+		const previous = stored.kind === "supported" ? stored.state : undefined;
+		const combined = previous ? combineWithStoredSettings(outgoing.state, previous) : null;
 		if (!combined) {
-			validatedStorage.setItem(name, value);
+			writeSettingsRecord(storage, outgoing.state, previous);
 			lastSyncedSettings = outgoing.state;
 			return;
 		}
-		validatedStorage.setItem(
-			name,
-			JSON.stringify({ state: partializeGlobalSettings(combined), version: outgoing.version }),
-		);
-		applySharedSettings(combined);
+		writeSettingsRecord(storage, partializeGlobalSettings(combined), previous);
+		applySharedSettings(withStricterStoredProtections(combined));
 	},
-	removeItem: (name) => validatedStorage.removeItem(name),
+	removeItem: (name) => {
+		const storage = browserStorage();
+		if (storage && readStoredSettings(storage).kind !== "future") storage.removeItem(name);
+	},
 };
 
 function syncStoredSettings() {
 	const stored = readStoredSettings();
-	if (!stored) return;
-	applySharedSettings(mergeGlobalSettings(stored, useGlobalSettingsStore.getState()));
+	const current = useGlobalSettingsStore.getState();
+	const next = stored.kind === "supported" ? mergeGlobalSettings(stored.state, current, current) : current;
+	applySharedSettings(withStricterStoredProtections(next));
+}
+
+function setTradingProtection<K extends keyof TradingProtections>(
+	set: (update: Partial<GlobalSettingsStore>) => void,
+	field: K,
+	value: TradingProtections[K],
+) {
+	const storage = browserStorage();
+	if (storage) {
+		try {
+			writeTradingProtection(storage, field, value);
+		} catch {
+			// A refused write keeps the choice in this window only; the next read of storage can
+			// tighten it again but never loosen it.
+		}
+	}
+	set({ [field]: value });
 }
 
 const useGlobalSettingsStore = create<GlobalSettingsStore>()(
@@ -242,18 +346,15 @@ const useGlobalSettingsStore = create<GlobalSettingsStore>()(
 				setHideSmallBalances: (next) => set({ hideSmallBalances: next }),
 				setAnimateOrderbook: (next) => set({ animateOrderbook: next }),
 				setShowChartScanlines: (next) => set({ showChartScanlines: next }),
-				setSkipOrderConfirmation: (next) => set({ skipOrderConfirmation: next }),
-				setTransactionDelayProtection: (next) => set({ transactionDelayProtection: next }),
+				setSkipOrderConfirmation: (next) => setTradingProtection(set, "skipOrderConfirmation", next),
+				setTransactionDelayProtection: (next) => setTradingProtection(set, "transactionDelayProtection", next),
 				setNumberFormatLocale: (next) => set({ numberFormatLocale: next }),
 				setMarketOrderSlippagePercent: (percent) => {
 					const current = get().marketOrderSlippagePercent;
 					if (!Number.isFinite(percent)) return current;
-					const next = Math.min(
-						Math.max(percent, MARKET_ORDER_SLIPPAGE_MIN_PERCENT),
-						MARKET_ORDER_SLIPPAGE_MAX_PERCENT,
-					);
+					const next = clampMarketOrderSlippage(percent);
 					if (current === next) return next;
-					set({ marketOrderSlippagePercent: next });
+					setTradingProtection(set, "marketOrderSlippagePercent", next);
 					return next;
 				},
 				setMarginMode: (mode) => set({ marginMode: mode }),
@@ -274,7 +375,7 @@ const useGlobalSettingsStore = create<GlobalSettingsStore>()(
 			storage: createJSONStorage(() => crossWindowSettingsStorage),
 			partialize: partializeGlobalSettings,
 			migrate: migrateGlobalSettings,
-			merge: mergeGlobalSettings,
+			merge: (persisted, current) => mergeGlobalSettings(persisted, current, startupProtections),
 			onRehydrateStorage: () => (state) => {
 				if (state) lastSyncedSettings = partializeGlobalSettings(state);
 			},
@@ -284,7 +385,8 @@ const useGlobalSettingsStore = create<GlobalSettingsStore>()(
 
 if (typeof window !== "undefined") {
 	window.addEventListener("storage", (event) => {
-		if (event.key !== STORAGE_KEYS.GLOBAL_SETTINGS || event.newValue === null) return;
+		if (event.key === null || event.newValue === null) return;
+		if (event.key !== STORAGE_KEYS.GLOBAL_SETTINGS && !TRADING_PROTECTION_STORAGE_KEYS.has(event.key)) return;
 		if (event.storageArea && event.storageArea !== window.localStorage) return;
 		syncStoredSettings();
 	});

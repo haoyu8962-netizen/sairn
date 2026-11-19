@@ -714,9 +714,12 @@ changes, not evidence that a build has been deployed or accepted on real devices
   until the data is back, on the order card too while the market list is loading, and a submitted change
   that is refused still says why.
 - Settings no longer overwrite each other across tabs: a tab that still held older settings used to write all of
-  them back when you changed anything in it, which could undo an order confirmation, slippage limit or
-  transaction-delay protection you had just tightened in another tab. Each tab now writes only what it changed and
-  follows the others; the visible table tab stays per window.
+  them back when you changed anything in it. Each tab now writes only what it changed and follows the others; the
+  visible table tab stays per window.
+- Order confirmation, market-order max slippage and transaction delay protection are now stored on their own, so a
+  tab running an older version, an unrelated settings change in another tab or a settings record from a newer
+  version can no longer turn them back off or widen them. Other open tabs follow a stricter choice at once; a looser
+  choice applies to the tab where you made it and to tabs opened afterwards (ADR 0057).
 - After your wallet signs a withdrawal, transfer, approval or the terms, the terminal checks that the signature was
   made by the selected account before sending it. A signature from another account of the same wallet, or one that
   cannot be checked (for example from a contract wallet), is not sent and is reported as a wallet mismatch.

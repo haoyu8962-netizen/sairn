@@ -60,5 +60,6 @@ ADR 记录采用某个方案的理由、备选方案和后果，完整实现契�
 | [0054](0054-chart-library-outside-the-repository.md) | 已接受并实施（2026-11-13）；经 PR #1 合入 `main`（`3c31c852`）；新仓库的 CI 已运行并通过（PR #4、PR #6） | 原账号被封停后仓库迁到 `haoyu8962-netizen/sairn` 并公开；TradingView 图表库从全部历史里移除（提交号全部改变，只迁 `dev` 与 `main`），改放私有仓库 `gatu-chart-library`，由 `pnpm chart:fetch` 按清单核对后安装到被忽略的 `apps/terminal/public/charting_library/`；四个 CI 工作流用 `CHART_LIBRARY_TOKEN` 检出私有仓库 |
 | [0055](0055-single-main-branch-and-release-tags.md) | 已接受并实施（2026-11-13）；经 PR #1 合入 `main`（`3c31c852`）；p42（2026-11-15，标签 `cloudfront-2026-11-15-p42`）是这一流程下的第一次发布 | 取代 ADR 0016 的分支流向与晋升分层：只保留 `main`，PR 直接进 `main`（merge commit），线上版本由 `cloudfront-<日期>-p<N>` 标签表示，紧急修复从发布标签开分支；删除晋升覆盖脚本与四个工作流里的覆盖作业，`Production Builds` 每次都构建配对开关的两种状态 |
 | [0056](0056-no-external-requests-from-automation.md) | 已接受并实施（2026-11-13，运营方要求）；经 PR #4 合入 `main`（`d96a8e84`） | 删除每日的官网行情检查工作流，仓库不再有定时工作流，任何工作流都不请求交易所接口；快照刷新是发布前的本机人工动作；单元测试拦截回环以外的连接，Playwright 的 Chromium 只解析回环地址；`ci-workflows.test.mjs` 钉住没有 `schedule` 与行情脚本 |
+| [0057](0057-trading-protection-storage.md) | 已在工作树实施（2026-11-19），未合入、未发布 | 下单确认、市价单最大滑点、延迟保护各用一个只由显式操作写入的键；已打开的窗口只跟随更严格的值；`global-settings-v2` 保持版本 4，并给旧版本写「旧值与新值中更严格者」；更高版本的记录不迁移、不清理、不覆盖 |
 
 新 ADR 至少包含：状态与日期、上下文、目标/约束、决策、备选方案及利弊、后果与边界、代码/测试/Reference 证据。验证命令与本次执行结果分别标明。文档维护要求见[文档体系](../documentation-system.md)。
