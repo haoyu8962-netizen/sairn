@@ -253,6 +253,46 @@ describe("account history CSV exports", () => {
 		expect(rows.every(([tid]) => Number(tid) % 5 !== 0)).toBe(true);
 	});
 
+	it("waits a full minute before retrying a rate-limited fills page that carries no Retry-After", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		try {
+			mocks.userFillsByTime
+				.mockRejectedValueOnce(
+					Object.assign(new Error("rate limited"), { response: { headers: { get: () => null }, status: 429 } }),
+				)
+				.mockResolvedValue([createFill()]);
+			let hookValue: ReturnType<typeof useUserFillsCsvExport> | null = null;
+			function Probe() {
+				hookValue = useUserFillsCsvExport({
+					filename: "fills.csv",
+					buildRows: (items) => items.map((fill) => [String(fill.tid)]),
+				});
+				return null;
+			}
+			act(() => root.render(<Probe />));
+			if (!hookValue) throw new Error("Missing fills export hook");
+
+			let pendingExport: Promise<void> | undefined;
+			act(() => {
+				pendingExport = hookValue?.exportCsv();
+			});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(59_000);
+			});
+			expect(mocks.userFillsByTime).toHaveBeenCalledTimes(1);
+			expect(toast.error).not.toHaveBeenCalled();
+
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1_000);
+			});
+			await act(async () => pendingExport);
+			expect(mocks.userFillsByTime).toHaveBeenCalledTimes(2);
+			expect(mocks.downloadCsv).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("keeps ordinary order export separate from TWAP lifecycle history", async () => {
 		mocks.historicalOrders.mockResolvedValue([createOrder()]);
 		let hookValue: ReturnType<typeof useHistoricalOrdersCsvExport> | null = null;

@@ -158,8 +158,20 @@ vi.mock("@/hooks/trade/use-user-fills", () => ({
 	}),
 }));
 
+const READY_HISTORY_SNAPSHOT = {
+	error: null,
+	hasFailed: false,
+	isFetching: false,
+	isOffline: false,
+	isRefreshing: false,
+	refresh: () => undefined,
+	status: "ready",
+};
+
 vi.mock("@/hooks/trade/use-historical-orders", () => ({
 	useHistoricalOrders: () => ({
+		bufferedOrders: mocks.orders,
+		oldestBufferedStatusTime: null,
 		entries: getOrderHistoryEntries(),
 		error: mocks.ordersError,
 		isConnected: true,
@@ -170,8 +182,28 @@ vi.mock("@/hooks/trade/use-historical-orders", () => ({
 	}),
 }));
 
+vi.mock("@/hooks/trade/use-order-history", () => ({
+	useOrderHistory: () => ({
+		...READY_HISTORY_SNAPSHOT,
+		newestStatusTime: null,
+		orders: mocks.orders,
+		reachedLimit: false,
+	}),
+}));
+
+vi.mock("@/hooks/trade/use-funding-history", () => ({
+	useFundingHistory: () => ({
+		...READY_HISTORY_SNAPSHOT,
+		fundings: mocks.fundings,
+		rangeEndTime: null,
+		rangeStartTime: null,
+	}),
+}));
+
 vi.mock("@/hooks/trade/use-user-funding", () => ({
 	useUserFunding: () => ({
+		bufferedFundings: [...mocks.fundings].sort((left, right) => Number(right.time) - Number(left.time)),
+		oldestBufferedFundingTime: null,
 		error: mocks.fundingError,
 		fundings: [...mocks.fundings].sort((left, right) => Number(right.time) - Number(left.time)),
 		isConnected: true,

@@ -8,6 +8,13 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- Order history filters (phone and desktop) and the phone funding Direction filter now search past the
+  latest 30 rows, as the official terminal does: while a filter is on they load the order history
+  snapshot (up to 2,000 orders) or the 30-day funding window and merge it with the live rows. The list
+  stays quiet while that loads, offers Retry if it fails, and says no rows match only once it can tell;
+  order types and statuses that only older orders have can now be chosen.
+- A trade history CSV export that is rate-limited without a `Retry-After` waits a full minute before
+  retrying, as the official export does, instead of 10 seconds.
 - While a signed-in wallet session is only reconnecting or still starting up, the order button on
   desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
   no longer say the wallet is disconnected or that trading data changed: they stay as they were with

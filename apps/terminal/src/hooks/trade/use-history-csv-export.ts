@@ -24,6 +24,8 @@ import { useIsTestnet } from "@/stores/use-global-settings-store";
 
 const USER_FILLS_API_PAGE_LIMIT = 2_000;
 const USER_FILLS_EXPORT_LIMIT = 10_000;
+/** Retry delay after a 429 without `Retry-After`: the per-IP budget is per minute, as the official export waits. */
+const USER_FILLS_EXPORT_RATE_LIMIT_FALLBACK_MS = 60_000;
 const USER_FUNDING_API_PAGE_LIMIT = 500;
 
 interface CsvExportOptions<T> {
@@ -167,7 +169,7 @@ export function useUserFillsCsvExport(options: AccountCsvExportOptions<UserFills
 									{ aggregateByTime: true, endTime: pageEndTime, startTime, user: address },
 									requestSignal,
 								),
-							{ signal: pageSignal },
+							{ rateLimitFallbackMs: USER_FILLS_EXPORT_RATE_LIMIT_FALLBACK_MS, signal: pageSignal },
 						),
 					getKey: getUserFillKey,
 					getTime: (fill) => fill.time,

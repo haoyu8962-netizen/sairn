@@ -28,12 +28,19 @@ export type FundingHistoryStatus = "disabled" | "error" | "loading" | "offline" 
 interface FundingHistoryResult {
 	error: unknown;
 	fundings: UserFunding[];
+	/** The latest request failed; an earlier snapshot may still be in `fundings`. */
+	hasFailed: boolean;
+	isFetching: boolean;
 	isOffline: boolean;
 	isRefreshing: boolean;
 	rangeEndTime: number | null;
 	rangeStartTime: number | null;
 	refresh: () => void;
 	status: FundingHistoryStatus;
+}
+
+interface FundingHistoryOptions {
+	enabled?: boolean;
 }
 
 export async function fetchFundingHistoryWindow(
@@ -64,10 +71,13 @@ export async function fetchFundingHistoryWindow(
 	return requireCompleteHistorySnapshot(result).reverse();
 }
 
-export function useFundingHistory(address: string): FundingHistoryResult {
+export function useFundingHistory(
+	address: string,
+	{ enabled: requested = true }: FundingHistoryOptions = {},
+): FundingHistoryResult {
 	const { env, info } = useHyperliquid();
 	const isOnline = useOnlineStatus();
-	const enabled = isFundingHistoryAddress(address);
+	const enabled = requested && isFundingHistoryAddress(address);
 	const normalizedAddress = address.toLowerCase();
 	const query = useQuery({
 		enabled,
@@ -94,6 +104,8 @@ export function useFundingHistory(address: string): FundingHistoryResult {
 	return {
 		error: query.error,
 		fundings: query.data?.fundings ?? [],
+		hasFailed: query.isError,
+		isFetching: query.isFetching,
 		isOffline: !isOnline || query.fetchStatus === "paused",
 		isRefreshing: query.isFetching && query.data !== undefined,
 		rangeEndTime: query.data?.endTime ?? null,

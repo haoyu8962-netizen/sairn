@@ -18,6 +18,8 @@ const EMPTY_ORDERS: HistoricalOrdersResponse = [];
 export interface OrderHistorySnapshot {
 	orders: HistoricalOrdersResponse;
 	reachedLimit: boolean;
+	/** Newest status time among the returned orders; null when the endpoint returned none. */
+	newestStatusTime: number | null;
 }
 
 export type OrderHistoryStatus = "disabled" | "error" | "loading" | "offline" | "ready";
@@ -25,12 +27,21 @@ export type OrderHistoryStatus = "disabled" | "error" | "loading" | "offline" | 
 interface OrderHistoryResult {
 	entries: OrdinaryOrderHistoryEntry[];
 	error: unknown;
+	/** The latest request failed; an earlier snapshot may still be in `orders`. */
+	hasFailed: boolean;
+	isFetching: boolean;
 	isOffline: boolean;
 	isRefreshing: boolean;
 	orders: HistoricalOrdersResponse;
+	/** `OrderHistorySnapshot.newestStatusTime` of the snapshot in `orders`. */
+	newestStatusTime: number | null;
 	reachedLimit: boolean;
 	refresh: () => void;
 	status: OrderHistoryStatus;
+}
+
+interface OrderHistoryOptions {
+	enabled?: boolean;
 }
 
 export async function fetchOrderHistorySnapshot(
@@ -49,16 +60,21 @@ export async function fetchOrderHistorySnapshot(
 		throw new MalformedHistoryPageError();
 	}
 
+	const orders = mergeHistoricalOrderSources(response as HistoricalOrdersResponse);
 	return {
-		orders: mergeHistoricalOrderSources(response as HistoricalOrdersResponse),
+		orders,
 		reachedLimit: response.length === ORDER_HISTORY_API_LIMIT,
+		newestStatusTime: orders[0]?.statusTimestamp ?? null,
 	};
 }
 
-export function useOrderHistory(address: string): OrderHistoryResult {
+export function useOrderHistory(
+	address: string,
+	{ enabled: requested = true }: OrderHistoryOptions = {},
+): OrderHistoryResult {
 	const { env, info } = useHyperliquid();
 	const isOnline = useOnlineStatus();
-	const enabled = isOrderHistoryAddress(address);
+	const enabled = requested && isOrderHistoryAddress(address);
 	const normalizedAddress = address.toLowerCase();
 	const query = useQuery({
 		enabled,
@@ -91,8 +107,11 @@ export function useOrderHistory(address: string): OrderHistoryResult {
 	return {
 		entries,
 		error: query.error,
+		hasFailed: query.isError,
+		isFetching: query.isFetching,
 		isOffline: !isOnline || query.fetchStatus === "paused",
 		isRefreshing: query.isFetching && query.data !== undefined,
+		newestStatusTime: query.data?.newestStatusTime ?? null,
 		orders,
 		reachedLimit: query.data?.reachedLimit ?? false,
 		refresh: () => void query.refetch({ cancelRefetch: false }),
