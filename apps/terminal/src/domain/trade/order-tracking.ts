@@ -160,7 +160,11 @@ export function isApiOrderResponseError(error: unknown): error is { response: un
 	return isRecord(error) && error.name === "ApiRequestError" && "response" in error;
 }
 
-export function resolveOrderBatchResponse(response: unknown, expectedCount: number): OrderBatchResolution | null {
+export function resolveOrderBatchResponse(
+	response: unknown,
+	expectedCount: number,
+	grouping?: TrackedOrderParams["grouping"],
+): OrderBatchResolution | null {
 	if (!Number.isSafeInteger(expectedCount) || expectedCount <= 0) return null;
 	if (isRecord(response) && response.status === "err" && typeof response.response === "string") {
 		return {
@@ -186,6 +190,14 @@ export function resolveOrderBatchResponse(response: unknown, expectedCount: numb
 		};
 	}
 	if (statuses.length !== expectedCount) return null;
+	// An attachment waiting on a rejected parent does not establish acceptance. Reconcile by cloid.
+	if (
+		grouping === "normalTpsl" &&
+		getOrderStatusError(statuses[0]) &&
+		statuses.slice(1).some(isWaitingOrderResponseStatus)
+	) {
+		return null;
+	}
 
 	const errors: ExchangeErrorEntry[] = [];
 	let acceptedCount = 0;
@@ -287,8 +299,12 @@ function getOrderStatusError(status: unknown): string | null {
 	return status.error;
 }
 
+function isWaitingOrderResponseStatus(status: unknown): boolean {
+	return status === "waitingForFill" || status === "waitingForTrigger";
+}
+
 function isAcceptedOrderResponseStatus(status: unknown): boolean {
-	if (status === "waitingForFill" || status === "waitingForTrigger") return true;
+	if (isWaitingOrderResponseStatus(status)) return true;
 	if (!isRecord(status)) return false;
 	if (isRecord(status.resting)) return isValidOrderId(status.resting.oid) && isValidOptionalCloid(status.resting.cloid);
 	if (!isRecord(status.filled)) return false;

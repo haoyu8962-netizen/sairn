@@ -168,7 +168,7 @@ export function useTrackedOrder(options: UseTrackedOrderOptions = {}) {
 						}
 					}
 				} else {
-					const resolution = resolveOrderBatchResponse(result, tracked.children.length);
+					const resolution = resolveOrderBatchResponse(result, tracked.children.length, tracked.params.grouping);
 					if (resolution?.status === "partial" || resolution?.status === "rejected") {
 						getPendingOrderActions().remove(submission.id);
 						throw new OrderBatchResolutionError(resolution);
@@ -191,7 +191,7 @@ export function useTrackedOrder(options: UseTrackedOrderOptions = {}) {
 									error.response,
 									tracked.params.orders.map((order) => String(order.s)),
 								)
-							: resolveOrderBatchResponse(error.response, tracked.children.length);
+							: resolveOrderBatchResponse(error.response, tracked.children.length, tracked.params.grouping);
 					if (resolution?.status === "partial" || resolution?.status === "rejected") {
 						getPendingOrderActions().remove(submission.id);
 						throw new OrderBatchResolutionError(resolution);
