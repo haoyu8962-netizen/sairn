@@ -3,6 +3,8 @@ import Big from "big.js";
 import { getPublicOrigin } from "@/config/public-origins";
 import { z } from "@/lib/zod";
 
+export { isValidReferralCode, normalizeReferralCode } from "./referral-code";
+
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const UNSIGNED_DECIMAL_PATTERN = /^[0-9]+(?:\.[0-9]+)?$/;
 
@@ -213,21 +215,6 @@ export function getOfficialReferralUrl(code: string, env: "Mainnet" | "Testnet")
 export function getBrandReferralUrl(code: string, env: "Mainnet" | "Testnet"): string {
 	const origin = getPublicOrigin(env === "Testnet" ? "testnet" : "mainnet");
 	return `${origin}/join/${encodeURIComponent(code)}`;
-}
-
-const REFERRAL_CODE_INPUT_PATTERN = /^[A-Za-z0-9]{0,20}$/;
-const REFERRAL_CODE_PATTERN = /^[A-Z0-9]{1,20}$/;
-
-/**
- * Referral codes are up to 20 letters or digits in upper case, as the official terminal enforces
- * when they are typed or created; anything else returns null so the field keeps its last value.
- */
-export function normalizeReferralCode(value: string): string | null {
-	return REFERRAL_CODE_INPUT_PATTERN.test(value) ? value.toUpperCase() : null;
-}
-
-export function isValidReferralCode(code: string): boolean {
-	return REFERRAL_CODE_PATTERN.test(code);
 }
 
 export function canApplyReferralCode(data: ReferralData): boolean {

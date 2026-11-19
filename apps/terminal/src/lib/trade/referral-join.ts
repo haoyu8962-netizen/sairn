@@ -1,5 +1,5 @@
 import { getCanonicalNetworkForOrigin } from "@/config/public-origins";
-import { isValidReferralCode, normalizeReferralCode } from "./referral";
+import { isValidReferralCode, normalizeReferralCode } from "./referral-code";
 
 export interface ReferralJoinIntent {
 	code: string;

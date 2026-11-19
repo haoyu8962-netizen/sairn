@@ -127,7 +127,11 @@ const budgets = {
 	// Raised 2026-11-13 by +6,793 for the third wave: local startup diagnostics and their lazy recorder, favourites
 	// merging across windows, the l2 retry after a fallback and the TWAP cancel queue. Fixed-identity pairing-off
 	// builds: 3,391,159 minus main cde6f75b's 3,384,366 (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_388_063,
+	// Raised 2026-11-19 by +4,788 for the 2026-11-19 fix integration (23 branches: history backfill on the phone tabs,
+	// trading-protection storage, deposit recovery, geo checks, acknowledgement checks, a11y text and others), after
+	// the referral code helpers moved out of the referral page module. Fixed-identity pairing-off builds: 3,397,254
+	// minus main 79b268ea's 3,392,466 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_392_851,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -155,7 +159,10 @@ const budgets = {
 		// the raise the build exceeded the allowance by 951.
 		// Raised 2026-11-13 by +3,499 for the third wave (see the total above): 1,662,706 minus main's 1,659,207.
 		// Before the raise the build exceeded the allowance by 1,334.
-		baselineGzipBytes: 1_654_871,
+		// Raised 2026-11-19 by +6,029 for the 2026-11-19 fix integration (see the total above): 1,669,606 minus main
+		// 79b268ea's 1,663,577. Before the raise the build exceeded the allowance by 4,735; the largest parts are the
+		// phone history tabs' backfill hooks (+3,961) and the per-key trading-protection storage (+847).
+		baselineGzipBytes: 1_660_900,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
@@ -202,7 +209,9 @@ const budgets = {
 		// since the 2026-11-05 baseline that no raise had counted, 128,557 for main cdf3a8f6 minus 127,808, less the
 		// +743 above. The release configuration reads about 150 bytes above this protocol build
 		// (docs/terminal-performance-baseline.md).
-		{ name: "trade-terminal-page", baselineGzipBytes: 124_915, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-19 by +196 for the 2026-11-19 fix integration (phone order form a11y text, order-book probe
+		// gating): 128,819 minus main 79b268ea's 128,623, so the room stays at main's 292.
+		{ name: "trade-terminal-page", baselineGzipBytes: 125_111, allowedIncreaseBytes: 4_000 },
 		{ name: "token-selector-popup", baselineGzipBytes: 14_355, allowedIncreaseBytes: 1_500 },
 		{ name: "api-wallet", baselineGzipBytes: 17_967, allowedIncreaseBytes: 2_000 },
 		{ name: "fundingHistory._address", baselineGzipBytes: 6_820, allowedIncreaseBytes: 1_500 },
