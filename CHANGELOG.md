@@ -18,6 +18,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
   reduce-only order counts only up to the position), isolated margin is released in proportion to the
   closed size, and an order that closes the position exactly shows no liquidation price.
 - Scale orders can have up to 100 orders instead of 20, the official terminal's limit.
+- A `/join/<code>` invitation link shows and applies its code in upper case, as the official terminal
+  does; a lower-case link still opens the invitation.
+- A leaderboard trader without a display name shows the full address when the pointer rests on the
+  shortened one.
 - While a signed-in wallet session is only reconnecting or still starting up, the order button on
   desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
   no longer say the wallet is disconnected or that trading data changed: they stay as they were with

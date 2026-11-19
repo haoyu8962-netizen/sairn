@@ -1,9 +1,10 @@
 import { msg } from "@lingui/core/macro";
+import { getInfoClient, infoQueryOptions } from "@sairn/hl-react";
 import {
 	assertExchangeSigningDeadline,
 	startExchangeActionDeadline,
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { accountLedgerQueryKey } from "@/hooks/trade/use-account-ledger";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
@@ -17,7 +18,10 @@ import {
 	hasUnclaimedReferralRewards,
 	isReferralMutationReconciled,
 	isValidReferralCode,
+	normalizeReferralResponse,
 } from "@/lib/trade/referral";
+
+const SUBMITTED_REFERRAL_READ_TIMEOUT_MS = 4_000;
 
 export type ReferralAction = "apply" | "claim" | "create";
 
@@ -74,14 +78,32 @@ function assertActionAvailable(action: ReferralAction, data: ReferralData, code?
 	if (!hasUnclaimedReferralRewards(data)) throw new Error("There are no unclaimed rewards available to claim");
 }
 
+function isSameIdentity(startIdentity: ReferralActionIdentity, currentIdentity: ReferralActionIdentity): boolean {
+	return (
+		currentIdentity.clientKey.toLowerCase() === startIdentity.clientKey.toLowerCase() &&
+		currentIdentity.env === startIdentity.env &&
+		currentIdentity.walletAddress?.toLowerCase() === startIdentity.walletAddress?.toLowerCase()
+	);
+}
+
 function assertIdentityUnchanged(startIdentity: ReferralActionIdentity, currentIdentity: ReferralActionIdentity): void {
-	if (
-		currentIdentity.clientKey.toLowerCase() !== startIdentity.clientKey.toLowerCase() ||
-		currentIdentity.env !== startIdentity.env ||
-		currentIdentity.walletAddress?.toLowerCase() !== startIdentity.walletAddress?.toLowerCase()
-	) {
+	if (!isSameIdentity(startIdentity, currentIdentity)) {
 		throw new Error("Wallet or network changed before the referral request could be confirmed");
 	}
+}
+
+async function readReferralForIdentity(
+	queryClient: QueryClient,
+	identity: ReferralActionIdentity,
+): Promise<ReferralData | null> {
+	const options = infoQueryOptions(
+		getInfoClient(identity.env === "Testnet"),
+		"referral",
+		{ user: identity.clientKey as `0x${string}` },
+		identity.env,
+		{ requestTimeoutMs: SUBMITTED_REFERRAL_READ_TIMEOUT_MS },
+	);
+	return normalizeReferralResponse(await queryClient.fetchQuery({ ...options, staleTime: 0, retry: false }));
 }
 
 function getDevGeoOverride(): string | null {
@@ -128,6 +150,16 @@ export function useReferralActions({ refetchReferral, refreshAfterAction }: Inpu
 	const assertRequestActive = (startIdentity: ReferralActionIdentity) => {
 		if (!mountedRef.current) throw new LocalizedActionError(msg`Referral request is no longer active.`);
 		assertIdentityUnchanged(startIdentity, identityRef.current);
+	};
+	const isRequestActive = (startIdentity: ReferralActionIdentity) =>
+		mountedRef.current && isSameIdentity(startIdentity, identityRef.current);
+	const readSubmittedReferral = async (startIdentity: ReferralActionIdentity): Promise<ReferralData | null> => {
+		try {
+			if (isRequestActive(startIdentity)) return await refetchReferral();
+			return await readReferralForIdentity(queryClient, startIdentity);
+		} catch {
+			return null;
+		}
 	};
 	const executionGuard = () => {
 		const pendingIdentity = pendingIdentityRef.current;
@@ -197,14 +229,7 @@ export function useReferralActions({ refetchReferral, refreshAfterAction }: Inpu
 
 			let reconciled = false;
 			for (let attempt = 0; attempt < 6; attempt += 1) {
-				assertRequestActive(startIdentity);
-				let after: ReferralData | null = null;
-				try {
-					after = await refetchReferral();
-				} catch {
-					after = null;
-				}
-				assertRequestActive(startIdentity);
+				const after = await readSubmittedReferral(startIdentity);
 				if (after && isReferralMutationReconciled(action, before, after, code)) {
 					reconciled = true;
 					break;
@@ -215,7 +240,6 @@ export function useReferralActions({ refetchReferral, refreshAfterAction }: Inpu
 			if (!reconciled) {
 				throw new ReferralActionStatusUnknownError(mutationError);
 			}
-			assertRequestActive(startIdentity);
 
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: infoKey("referral", { user: clientKey }, env), exact: true }),
@@ -228,9 +252,7 @@ export function useReferralActions({ refetchReferral, refreshAfterAction }: Inpu
 			if (action === "claim") {
 				await queryClient.invalidateQueries({ queryKey: accountLedgerQueryKey(env, clientKey), exact: true });
 			}
-			assertRequestActive(startIdentity);
-			await refreshAfterAction(action === "claim");
-			assertRequestActive(startIdentity);
+			if (isRequestActive(startIdentity)) await refreshAfterAction(action === "claim");
 		} finally {
 			geoLeaseRef.current = null;
 			if (pendingIdentityRef.current === startIdentity) pendingIdentityRef.current = null;

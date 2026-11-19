@@ -405,17 +405,19 @@ interface TraderLinkProps {
 }
 
 function TraderLink({ href, address, displayName }: TraderLinkProps) {
+	const visibleName = displayName?.trim() ? displayName : null;
 	return (
 		<a
 			href={href}
 			target="_blank"
 			rel="noopener"
+			title={visibleName ? undefined : address}
 			className="inline-flex min-w-0 items-center gap-2 rounded-8 font-semibold text-fg hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
 		>
 			<span className="grid size-6 shrink-0 place-items-center rounded-full bg-fill-weak text-icon">
-				{displayName ? <UserCircleIcon className="size-4" /> : <TrophyIcon className="size-4" />}
+				{visibleName ? <UserCircleIcon className="size-4" /> : <TrophyIcon className="size-4" />}
 			</span>
-			<span className="min-w-0 truncate">{displayName ?? <bdi dir="ltr">{shortenAddress(address, 6, 4)}</bdi>}</span>
+			<span className="min-w-0 truncate">{visibleName ?? <bdi dir="ltr">{shortenAddress(address, 6, 4)}</bdi>}</span>
 			<ArrowSquareOutIcon className="size-3.5 shrink-0" />
 		</a>
 	);
