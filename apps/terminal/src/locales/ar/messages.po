@@ -5161,7 +5161,7 @@ msgstr "الحد الأقصى للمعروض"
 msgid "Maximum withdrawable"
 msgstr "الحد الأقصى القابل للسحب"
 
-#. placeholder {0}: formatVaultUsd(availableAmount, numberFormat)
+#. placeholder {0}: formatVaultWithdrawalLimit(availableAmount, numberFormat)
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Maximum withdrawable: {0}"
 msgstr "الحد الأقصى القابل للسحب: {0}"

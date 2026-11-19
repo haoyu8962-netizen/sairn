@@ -5161,7 +5161,7 @@ msgstr "最大供应量"
 msgid "Maximum withdrawable"
 msgstr "最大可提款金额"
 
-#. placeholder {0}: formatVaultUsd(availableAmount, numberFormat)
+#. placeholder {0}: formatVaultWithdrawalLimit(availableAmount, numberFormat)
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Maximum withdrawable: {0}"
 msgstr "最大可提款金额：{0}"

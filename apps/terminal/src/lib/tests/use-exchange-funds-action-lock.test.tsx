@@ -22,6 +22,7 @@ const clients = vi.hoisted(() => {
 	const secondWithdraw = vi.fn(async () => response);
 	const tokenDelegate = vi.fn(async () => response);
 	const borrowLend = vi.fn(async () => response);
+	const vaultTransfer = vi.fn(async () => response);
 	return {
 		agentPublicKey: "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf" as const,
 		borrowLend,
@@ -32,7 +33,8 @@ const clients = vi.hoisted(() => {
 		second: { withdraw3: secondWithdraw },
 		secondWithdraw,
 		tokenDelegate,
-		trading: { borrowLend },
+		trading: { borrowLend, vaultTransfer },
+		vaultTransfer,
 	};
 });
 
@@ -406,6 +408,52 @@ describe("useExchange funds action lock integration", () => {
 		expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
 			clients.borrowLend.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY,
 		);
+	});
+
+	it("lets a Vault transfer re-read its funds inside the lock and sends nothing when they changed", async () => {
+		window.localStorage.setItem(
+			AGENT_STORAGE_KEY,
+			JSON.stringify({
+				privateKey: AGENT_PRIVATE_KEY,
+				publicKey: clients.agentPublicKey,
+				source: "local-registration",
+			}),
+		);
+		const locks = installExclusiveLockManager();
+		const spent = new Error("The amount exceeds the freshly verified maximum.");
+		const observed: boolean[] = [];
+		const guard = vi.fn(async () => {
+			observed.push(locks.isHeld(FUNDS_LOCK_NAME));
+			throw spent;
+		});
+		let vaultTransfer: ((params: ExchangeParams<"vaultTransfer">) => Promise<unknown>) | null = null;
+		function VaultProbe() {
+			vaultTransfer = useExchange("vaultTransfer", { preExecutionGuard: guard }).mutateAsync;
+			return null;
+		}
+		act(() => {
+			root.render(
+				<QueryClientProvider client={queryClient}>
+					<VaultProbe />
+				</QueryClientProvider>,
+			);
+		});
+		const otherTab = holdLock(FUNDS_LOCK_NAME);
+		let request: Promise<unknown> | undefined;
+		await act(async () => {
+			request = vaultTransfer?.({ vaultAddress: OWNER, isDeposit: true, usd: 80_000_000 });
+			request?.catch(() => {});
+			await flushMicrotasks();
+		});
+		expect(guard).not.toHaveBeenCalled();
+
+		await act(async () => {
+			otherTab.release();
+			await otherTab.held;
+			await expect(request).rejects.toBe(spent);
+		});
+		expect(observed).toEqual([true]);
+		expect(clients.vaultTransfer).not.toHaveBeenCalled();
 	});
 
 	it("rechecks the mounted attempt at the SDK boundary after deferred legal verification", async () => {

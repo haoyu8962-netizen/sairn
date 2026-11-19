@@ -240,6 +240,7 @@ function createData(hypeSupplied = "100", freshHypeSupplied = hypeSupplied): Ear
 		accountStatus: "ready",
 		interestStatus: "ready",
 		historyStatus: "ready",
+		canConfirmEmptyHistory: true,
 		snapshot: buildEarnSnapshot({ reserves, userState, ...snapshotInputs }),
 		snapshotInputs,
 		accountAbstraction: "unifiedAccount",
@@ -686,6 +687,16 @@ describe("earn action modal", () => {
 		expect(toastText(title)).toBe("Withdrew entire USDC supply");
 		expect(options.description).toBeUndefined();
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it("keeps Max exact when liquidity misses the full supply by less than one atomic unit", async () => {
+		render("withdraw", 0, createUsdcData({ supplied: "1.000000009", reserveBalance: "1.000000001" }));
+		act(() => container.querySelector<HTMLButtonElement>('[data-testid="max"]')?.click());
+		expect(getInput(container).value).toBe("1.00");
+		expect(container.textContent).not.toContain("Withdraws your entire USDC supply");
+		act(() => getSubmit(container).click());
+		await flush();
+		expect(testState.borrowLend).not.toHaveBeenCalledWith(expect.objectContaining({ amount: null }));
 	});
 
 	it("goes back to an exact amount once the user edits the Max value", async () => {

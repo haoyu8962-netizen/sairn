@@ -462,6 +462,62 @@ describe("earn minimum position and full withdrawals", () => {
 		expect(getEarnMinimumIssue("borrow", usdc, "0.1")).toBeNull();
 	});
 
+	it.each([
+		{ limit: "liquidity", token: 0, liquidity: "1.0000001", debt: "0", eligible: false },
+		{ limit: "collateral", token: 150, liquidity: "1.0000009", debt: "0.000000000000000000000001", eligible: false },
+		{ limit: "exact liquidity", token: 0, liquidity: "1.0000009", debt: "0", eligible: true },
+		{ limit: "exact collateral", token: 150, liquidity: "1.0000009", debt: "0", eligible: true },
+	])("checks unrounded $limit for Max, the fresh read and the SDK boundary", ({ token, liquidity, debt, eligible }) => {
+		const supplied = "1.0000009";
+		const userState = parseEarnUserState({
+			tokenToState: [0, 150].map((id) => [
+				id,
+				{
+					supply: { basis: "1", value: id === token ? supplied : "0" },
+					borrow: { basis: "0", value: id === 0 ? debt : "0" },
+				},
+			]),
+			healthFactor: null,
+		});
+		const reserves = parseEarnReserves(
+			RESERVES_RESPONSE.map(([id, state]) => [id, { ...(state as object), balance: id === token ? liquidity : "10" }]),
+		);
+		const inputs = {
+			...snapshotInputs(),
+			tokens: new Map([...TOKENS].map(([id, meta]) => [id, { ...meta, weiDecimals: 6 }])),
+		};
+		if (!reserves || !userState) throw new Error("fixture must parse");
+		const snapshot = buildEarnSnapshot({ reserves, userState, ...inputs });
+		const row = snapshot?.supplyRows.find((candidate) => candidate.token === token);
+		if (!snapshot || !row) throw new Error("missing withdrawal row");
+		const operation = "withdraw" as const;
+		const state = { operation, row, summary: snapshot.summary, spotAvailable: null };
+		const displayedMax = getEarnMaxAmount(state);
+		expect(displayedMax).toBe("1.00");
+		const full = { principal: "1" };
+		expect.soft(getEarnFullPosition(state)).toEqual(eligible ? full : null);
+		const request = { operation, token, amount: "1", displayedMax: "1.00", full };
+		const fresh = () => verifyFreshEarnSubmission({ request, reserves, userState, inputs, spotAvailable: null });
+		const boundary = () =>
+			verifyEarnSubmissionAtBoundary({
+				request,
+				verifiedAt: 100,
+				now: 100,
+				verifiedSnapshot: snapshot,
+				latestSnapshot: snapshot,
+				accountReady: true,
+				portfolioMargin: false,
+				spotAvailable: null,
+			});
+		if (eligible) {
+			expect(fresh().max).toBe(displayedMax);
+			expect(boundary).not.toThrow();
+		} else {
+			expect.soft(fresh).toThrow("exceedsFresh");
+			expect.soft(boundary).toThrow("exceedsFresh");
+		}
+	});
+
 	it("offers a full withdrawal only when nothing limits it", () => {
 		const { snapshot } = buildSnapshot();
 		const usdc = snapshot.supplyRows.find((row) => row.token === 0);

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
 import { i18n } from "@lingui/core";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EarnView } from "@/components/earn/earn-view";
 import { buildEarnSnapshot, type EarnTokenMeta, parseEarnReserves, parseEarnUserState } from "@/domain/earn";
-import type { EarnData } from "@/hooks/earn/use-earn-data";
+import { type EarnData, useEarnData } from "@/hooks/earn/use-earn-data";
 import { formatDateTime } from "@/lib/format";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { createI18nRoot } from "./harness/react";
@@ -16,6 +17,40 @@ const numberFormatSetting = vi.hoisted(() => ({ locale: "en-US" }));
 vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/stores/use-global-settings-store")>()),
 	getResolvedFormatLocale: () => numberFormatSetting.locale,
+}));
+
+const earnDataDeps = vi.hoisted(() => ({
+	ledger: {
+		status: "ready" as "error" | "idle" | "loading" | "ready" | "unavailable",
+		canConfirmEmpty: true,
+		earnRows: [] as unknown[],
+		retry: () => {},
+	},
+}));
+
+vi.mock("@/hooks/trade/use-account-ledger", () => ({ useAccountLedger: () => earnDataDeps.ledger }));
+
+vi.mock("@/hooks/wallet/use-wallet-session", () => ({
+	useWalletSession: () => ({ address: "0x1111111111111111111111111111111111111111", isConnected: true }),
+}));
+
+vi.mock("@/hooks/trade/use-account-balances", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/hooks/trade/use-account-balances")>()),
+	useDefaultDexBalances: () => ({
+		accountAbstraction: "unifiedAccount",
+		isSpotStateStale: false,
+		spotAvailableAfterMaintenance: [],
+		spotBalances: [],
+		spotStateReceivedAt: null,
+		spotStateStatus: "pending",
+	}),
+}));
+
+vi.mock("@/lib/hyperliquid", () => ({
+	infoQueryOptions: () => ({}),
+	useHyperliquid: () => ({ env: "Mainnet", info: { userBorrowLendInterest: () => new Promise(() => {}) } }),
+	useInfo: () => ({ data: undefined, isError: false, refetch: () => Promise.resolve({}) }),
+	useSpotTokens: () => ({ tokens: [] }),
 }));
 
 function passthrough(tag: string) {
@@ -90,6 +125,7 @@ function createData(accountStatus: EarnData["accountStatus"]): EarnData {
 		publicStatus: "ready",
 		accountStatus,
 		interestStatus: "loading",
+		canConfirmEmptyHistory: false,
 		historyStatus: "loading",
 		snapshot: buildEarnSnapshot({
 			reserves,
@@ -158,6 +194,31 @@ describe("earn view", () => {
 		const description = repay ? container.querySelector(`[id="${repay.getAttribute("aria-describedby")}"]`) : null;
 		expect(description?.textContent).toBe(NO_BORROWS);
 	});
+	it("confirms an empty action history only when the ledger can confirm it", () => {
+		const empty = "No earn actions yet";
+		render({ ...createData("ready"), historyStatus: "ready", canConfirmEmptyHistory: false });
+		expect(container.textContent).not.toContain(empty);
+		render({ ...createData("ready"), historyStatus: "ready", canConfirmEmptyHistory: true });
+		expect(container.textContent).toContain(empty);
+	});
+
+	it.each([
+		{ status: "ready", canConfirmEmpty: false },
+		{ status: "ready", canConfirmEmpty: true },
+	] as const)("passes the ledger empty-state proof through useEarnData: %o", ({ status, canConfirmEmpty }) => {
+		earnDataDeps.ledger = { ...earnDataDeps.ledger, status, canConfirmEmpty };
+		let data: EarnData | null = null;
+		function Probe() {
+			data = useEarnData();
+			return null;
+		}
+		const client = new QueryClient();
+		act(() => root.render(createElement(QueryClientProvider, { client }, createElement(Probe))));
+		expect(data).toMatchObject({ historyStatus: "ready", canConfirmEmptyHistory: canConfirmEmpty });
+		act(() => root.render(null));
+		client.clear();
+	});
+
 	it("disables every action while reserve data is failing, even with cached rows", () => {
 		render({ ...createData("ready"), publicStatus: "error" });
 		const headerButtons = [...container.querySelectorAll<HTMLButtonElement>("section button")].slice(0, 4);
