@@ -58,7 +58,15 @@ vi.mock("@/lib/hyperliquid", () => ({
 			select: options.select,
 			staleTime: Number.POSITIVE_INFINITY,
 		}),
-	useSubscription: () => ({ data: undefined, error: null, isStale: false, status: "idle" }),
+	useSubscription: (method: string, params: { user?: string }, options: { enabled?: boolean } = {}) =>
+		method === "userNonFundingLedgerUpdates" && options.enabled !== false
+			? {
+					data: { isSnapshot: true, nonFundingLedgerUpdates: [], user: params.user },
+					error: null,
+					isStale: false,
+					status: "active",
+				}
+			: { data: undefined, error: null, isStale: false, status: "idle" },
 	useTradingStatus: () => ({ refetchSigner: vi.fn(), signerMode: "agent" }),
 }));
 
