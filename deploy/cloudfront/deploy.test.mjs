@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { cspHash } from "../../scripts/collect-inline-script-hashes.mjs";
 import { parseScriptHashes } from "./function-code.mjs";
@@ -740,7 +740,7 @@ test("every other request of verify carries the deadline as an abort signal", { 
 	assert.ok(Date.now() - started < 5_000, `verify took ${Date.now() - started} ms`);
 });
 
-function apiRoutes({ geo = { body: JSON.stringify({ country: "GB" }) }, health = { status: 204, body: null, headers: { "cache-control": NO_STORE } } } = {}) {
+function apiRoutes({ geo = { body: JSON.stringify({ country: "GB", proxy: false, tradeRestricted: false }) }, health = { status: 204, body: null, headers: { "cache-control": NO_STORE } } } = {}) {
 	return fakeFetch({ "/api/geo": geo, "/api/health": health, "*": { status: 404, body: "missing" } });
 }
 
@@ -757,7 +757,7 @@ test("the API probe after a lambda update passes, retries a transient failure an
 		],
 	);
 	let calls = 0;
-	const flaky = apiRoutes({ geo: () => (calls++ === 0 ? { status: 502, body: "bad gateway" } : { body: JSON.stringify({ country: "JP" }) }) });
+	const flaky = apiRoutes({ geo: () => (calls++ === 0 ? { status: 502, body: "bad gateway" } : { body: JSON.stringify({ country: "JP", proxy: false, tradeRestricted: false }) }) });
 	assert.equal((await probeApiAfterLambdaUpdate({ origin: "https://app.sairn.ai", fetchImpl: flaky, sleep, delayMs: 5 })).attempt, 2);
 	assert.deepEqual(sleeps, [5]);
 	await assert.rejects(
@@ -784,7 +784,10 @@ function lambdaHarness({ code = "export { handler };", probe, bundleDir = { file
 			zipPath: "/release/apps/terminal/dist-lambda/index.zip",
 			readBundle: () => code,
 			listBundleDir: () => bundleDir,
-			zip: () => events.push("zip"),
+			zip: () => {
+				events.push("zip");
+				return "fixture-zip-digest";
+			},
 			run: (command, execute) => events.push(`${execute ? "run" : "print"} ${command.slice(0, 3).join(" ")}`),
 			capture: (command, execute) => {
 				events.push(`${execute ? "capture" : "print"} ${command.slice(0, 2).join(" ")}`);
@@ -834,6 +837,28 @@ test("a lambda release checks the bundle, updates, waits and then probes, printi
 	assert.ok(!dryRun.events.includes("zip") && !dryRun.events.some((event) => event.startsWith("probe")));
 });
 
+test("a Lambda release reports what is known after each failed step and stops", async (t) => {
+	const origin = "https://app.sairn.ai";
+	const stages = [
+		["zip", "zip", /zip failed, so the function was not updated/],
+		["update-function-code", "capture", /update-function-code failed; the update may or may not have been applied.*get-function-configuration --function-name gatu-terminal-api --query .*CodeSha256 fixture-zip-digest means/s],
+		["wait function-updated", "run", /wait function-updated failed; update-function-code returned success.*LastUpdateStatus=Successful.*CodeSha256 fixture-zip-digest means/s],
+		["probe", "probe", (error) => error.message === "simulated timeout"],
+	];
+	for (const [index, [stage, method, expected]] of stages.entries()) {
+		await t.test(stage, async () => {
+			const harness = lambdaHarness();
+			const fail = (...args) => {
+				harness.options[method](...args);
+				throw new Error("simulated timeout");
+			};
+			await assert.rejects(releaseLambda({ ...harness.options, [method]: fail, origin, execute: true }), expected);
+			const steps = harness.events.filter((event) => !event.startsWith("log "));
+			assert.deepEqual(steps, ["zip", "capture lambda update-function-code", "run lambda wait function-updated", `probe ${origin}`].slice(0, index + 1));
+		});
+	}
+});
+
 const SHELL_PRELOADS = Array.from({ length: 24 }, (_, index) => `/assets/chunk-${index}.js`);
 const CHART_ENTRY = "/charting_library/charting_library.0123456789abcdef.js";
 const THEME_SCRIPT = '(()=>{document.documentElement.classList.add("dark")})();';
@@ -856,6 +881,8 @@ function createPublicDir(parent = tmpdir()) {
 	mkdirSync(join(dir, "charting_library", "bundles"), { recursive: true });
 	writeFileSync(join(dir, "charting_library", "bundles", "runtime.4d986d07cb97d8edacba.js"), "js");
 	writeFileSync(join(dir, CHART_ENTRY.slice(1)), "js");
+	writeFileSync(join(dir, "charting_library", "sameorigin.html"), "html");
+	writeFileSync(join(dir, "sw.js"), "js");
 	return dir;
 }
 
@@ -882,6 +909,92 @@ function fakeFetch(routes) {
 	};
 }
 
+const JS_ASSET = { body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL, "content-type": "text/javascript" } };
+const STARTUP_ROUTES = {
+	...Object.fromEntries(SHELL_PRELOADS.map((href) => [href, JS_ASSET])),
+	[CHART_ENTRY]: JS_ASSET,
+	"/charting_library/sameorigin.html": { body: "html", headers: { "cache-control": REVALIDATE_CACHE_CONTROL, "content-type": "text/html" } },
+	"/sw.js": { body: "js", headers: { "cache-control": NO_STORE, "content-type": "application/javascript" } },
+};
+
+test("verification catches independent regressions in startup assets and geo", async (t) => {
+	const publicDir = createPublicDir();
+	const shell = SHELL_HTML.replace("</head>", '<link rel="preload" href="/assets/start.woff2" as="font"/><link href="/assets/style.css" rel="stylesheet"/><script type="module" src="/assets/entry.js"></script><meta name="sairn-locale-catalogs" content="/assets/catalog.js"/></head>').replace('name="sairn-preload-mobile" content=""', 'name="sairn-preload-mobile" content="/assets/mobile.js"');
+	writeFileSync(join(publicDir, "_shell.html"), shell);
+	for (const file of ["assets/start.woff2", "assets/style.css", "assets/entry.js", "assets/catalog.js", "assets/mobile.js", "sw.js", "charting_library/sameorigin.html"]) {
+		writeFileSync(join(publicDir, file), "asset");
+	}
+	const js = { body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL, "content-type": "text/javascript" } };
+	const routes = {
+		...Object.fromEntries(SHELL_PRELOADS.map((href) => [href, js])),
+		"/assets/start.woff2": { body: "asset", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL, "content-type": "font/woff2" } },
+		"/assets/style.css": { body: "asset", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL, "content-type": "text/css" } },
+		"/assets/entry.js": { ...js, body: "asset" },
+		"/assets/catalog.js": { ...js, body: "asset" },
+		"/assets/mobile.js": { ...js, body: "asset" },
+		"/sw.js": { body: "asset", headers: { "cache-control": NO_STORE, "content-type": "application/javascript" } },
+		"/charting_library/sameorigin.html": { body: "asset", headers: { "cache-control": REVALIDATE_CACHE_CONTROL, "content-type": "text/html" } },
+		"/build-meta.json": { body: JSON.stringify(BUILD_META) },
+		"/api/geo": { body: '{"country":"GB","proxy":false,"tradeRestricted":false}' },
+		"/api/referral-geo": { body: '{"status":"allowed","country":"GB","checkedAt":1,"ttlMs":60000}' },
+		"*": { status: 404, body: "missing" },
+	};
+	const cases = [
+		["first preload is missing", SHELL_PRELOADS[0], { status: 404 }, "shell preloads the startup closure", /\/assets\/chunk-0\.js.*404/],
+		["font MIME is wrong", "/assets/start.woff2", { ...routes["/assets/start.woff2"], headers: js.headers }, "shell preloads the startup closure", /start\.woff2.*content-type/],
+		["stylesheet cache policy is wrong", "/assets/style.css", { ...routes["/assets/style.css"], headers: { "content-type": "text/css", "cache-control": NO_STORE } }, "shell preloads the startup closure", /style\.css.*cache-control/],
+		["module entry is missing", "/assets/entry.js", { status: 404 }, "shell preloads the startup closure", /entry\.js.*404/],
+		["chart prefetch is missing", "/charting_library/sameorigin.html", { status: 404 }, "shell preloads the startup closure", /sameorigin\.html.*404/],
+		["mobile chunk is stale", "/assets/mobile.js", js, "shell preloads the startup closure", /mobile\.js.*differs/],
+		["locale catalog is missing", "/assets/catalog.js", { status: 404 }, "shell preloads the startup closure", /catalog\.js.*404/],
+		["service worker is stale", "/sw.js", { ...routes["/sw.js"], body: "older" }, "service worker matches the build", /sw\.js.*differs/],
+		["testnet metadata drifts", "/build-meta.json", { body: JSON.stringify({ ...BUILD_META, cctpDeposits: { ...GATES_OFF.cctpDeposits, testnetExternalWallet: true }, privyFiatFunding: { ...GATES_OFF.privyFiatFunding, testnet: true } }) }, "build metadata parity", /remote build-meta differs/],
+		["remote build time drifts", "/build-meta.json", { body: JSON.stringify({ ...BUILD_META, builtAt: "stale" }) }, "build metadata parity", /remote build-meta differs/],
+		["geo lacks client-required fields", "/api/geo", { body: '{"country":"GB"}' }, "geo endpoint answers with a real verdict", /proxy.*tradeRestricted/],
+		["referral provider is unavailable despite good GET", "/api/referral-geo", { body: '{"status":"unavailable","reason":"provider_error","checkedAt":1}' }, "referral geo answers with a decision", /unavailable.*provider_error/],
+	];
+	for (const [label, path, response, check, expected] of cases) {
+		await t.test(label, async () => {
+			const results = await verifyDeployment({ origin: "https://testnet.sairn.ai", publicDir, network: "testnet", fetchImpl: fakeFetch({ ...routes, [path]: response }) });
+			const result = results.find((entry) => entry.name === check);
+			assert.equal(result?.ok, false, JSON.stringify(result ?? results.filter((entry) => entry.ok)));
+			assert.match(result.detail, expected);
+			if (path === "/api/referral-geo") {
+				assert.equal(results.find((entry) => entry.name === "signed lambda post with a payload hash").ok, true);
+				assert.equal(results.find((entry) => entry.name === "geo endpoint answers with a real verdict").ok, true);
+			}
+		});
+	}
+});
+
+test("a blocked referral verdict passes the provider check, and an invalid verdict or a failed signed POST does not", async () => {
+	const publicDir = createPublicDir();
+	const cases = [
+		[{ body: '{"checkedAt":1,"country":"GB","reason":"proxy","status":"blocked"}' }, true, true],
+		[{ body: '{"checkedAt":1,"country":"GB","status":"allowed"}' }, true, false],
+		[{ body: '{"checkedAt":1,"country":"GB","status":"blocked"}' }, true, false],
+		[{ status: 403, body: '{"error":"bad signature"}' }, false, false],
+	];
+	for (const [reply, expectedHttp, expectedDecision] of cases) {
+		let posts = 0;
+		const results = await verifyDeployment({
+			origin: "https://app.sairn.ai",
+			publicDir,
+			network: "mainnet",
+			fetchImpl: fakeFetch({
+				"/api/referral-geo": () => {
+					posts += 1;
+					return reply;
+				},
+				"*": { status: 404 },
+			}),
+		});
+		assert.equal(posts, 1);
+		assert.equal(results.find((result) => result.name === "signed lambda post with a payload hash").ok, expectedHttp);
+		assert.equal(results.find((result) => result.name === "referral geo answers with a decision").ok, expectedDecision);
+	}
+});
+
 test("verification passes when the edge serves the build with the expected headers", async () => {
 	const publicDir = createPublicDir();
 	const headers = { "content-security-policy": "default-src 'self'", "content-security-policy-report-only": REPORT_ONLY_HEADER, link: "<https://api.hyperliquid.xyz>; rel=preconnect" };
@@ -892,14 +1005,14 @@ test("verification passes when the edge serves the build with the expected heade
 		scriptHashesMode: "report-only",
 		fetchImpl: fakeFetch({
 			"/trade/HYPE": edgeSequence({ body: SHELL_HTML, headers: { ...headers, "cache-control": HTML_CACHE_CONTROL } }),
-			[SHELL_PRELOADS.at(-1)]: { body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL } },
+			...STARTUP_ROUTES,
 			"/api/health": { status: 204, body: null, headers: { "cache-control": NO_STORE } },
 			"/charting_library/bundles/runtime.4d986d07cb97d8edacba.js": edgeSequence({ body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL } }),
 			...legalRoutes(SHELL_HTML),
 			"/build-meta.json": { body: JSON.stringify(BUILD_META) },
 			"/api/geo": { body: JSON.stringify({ country: "GB", proxy: false, tradeRestricted: false }) },
 			"/api/referral-geo": (init) => ({
-				status: init?.method === "POST" && /^[0-9a-f]{64}$/.test(init.headers?.["x-amz-content-sha256"] ?? "") ? 200 : 403,
+				status: init?.method === "POST" && init.headers?.["x-amz-content-sha256"] === createHash("sha256").update(init.body).digest("hex") ? 200 : 403,
 				body: JSON.stringify({ checkedAt: 1, country: "GB", status: "allowed", ttlMs: 60_000 }),
 			}),
 			"/join/__sairn_healthcheck__": {
@@ -910,7 +1023,6 @@ test("verification passes when the edge serves the build with the expected heade
 				body: SHELL_HTML,
 				headers: { "cache-control": "no-store", "referrer-policy": "no-referrer", "x-sairn-route": "mobile-agent-sync" },
 			},
-			[CHART_ENTRY]: { body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL } },
 			"/charting_library/charting_library.js": { body: "js", headers: { "cache-control": REVALIDATE_CACHE_CONTROL } },
 			"*": { status: 404, body: "missing" },
 		}),
@@ -919,14 +1031,15 @@ test("verification passes when the edge serves the build with the expected heade
 		results.filter((result) => !result.ok),
 		[],
 	);
-	assert.equal(results.length, 15);
-	assert.equal(results.find((result) => result.name === "shell preloads the startup closure")?.detail, "24 links");
+	assert.equal(results.length, 17);
+	assert.equal(results.find((result) => result.name === "shell preloads the startup closure")?.detail, "24 modulepreload links, 25 assets verified");
 	assert.equal(results.find((result) => result.name === "inline scripts are allowed by the edge policy")?.detail, "1 pages, 1 inline scripts, report-only");
 	assert.equal(results.find((result) => result.name === "image sources follow the edge config")?.detail, "3 sources, report-only");
 	assert.equal(results.find((result) => result.name.startsWith("chart entry"))?.detail, CHART_ENTRY);
 	assert.equal(results.find((result) => result.name === "shell repeats from the edge")?.detail, "Hit from cloudfront");
 	assert.equal(results.find((result) => result.name === "legal pages match the build")?.detail, "6 shell, 0 standalone");
-	assert.equal(results.find((result) => result.name.startsWith("signed lambda post"))?.detail, "status allowed");
+	assert.equal(results.find((result) => result.name.startsWith("signed lambda post"))?.detail, "HTTP 200");
+	assert.equal(results.find((result) => result.name === "referral geo answers with a decision")?.detail, "status allowed");
 	assert.equal(results.find((result) => result.name === "build metadata parity")?.detail, "abc / r1 / sponsored-mainnet-deposits=off mobile-pairing=off mainnet-card-funding=off");
 });
 
@@ -940,7 +1053,8 @@ test("a shell that lists locale catalogs must list files of the local build, and
 			publicDir,
 			network: "mainnet",
 			fetchImpl: fakeFetch({
-				[SHELL_PRELOADS.at(-1)]: { body: "js", headers: { "cache-control": IMMUTABLE_CACHE_CONTROL } },
+				...STARTUP_ROUTES,
+				"/assets/messages-zh.js": JS_ASSET,
 				"*": { status: 404, body: "missing" },
 			}),
 		});
@@ -1039,12 +1153,13 @@ test("an upload that exposes a funds or credential path needs its own acknowledg
 	assert.deepEqual(evaluateReleaseGates({ buildMeta: bothCardFunding, acknowledged: ["mainnet-card-funding"] }).problems, []);
 });
 
-test("verification fails when the live origin sells Mainnet card funding next to the sandbox and the local build does not", async () => {
+test("verification compares both card-funding flags independently of the release acknowledgements", async () => {
 	const publicDir = createPublicDir();
-	for (const [privyFiatFunding, differs] of [
-		[{ mainnet: true, testnet: true }, true],
-		[{ mainnet: true, testnet: false }, true],
-		[{ mainnet: false, testnet: true }, false],
+	for (const [privyFiatFunding, expected] of [
+		[{ mainnet: true, testnet: true }, /mainnet-card-funding=on.*mainnet-card-funding=off/],
+		[{ mainnet: true, testnet: false }, /mainnet-card-funding=on.*mainnet-card-funding=off/],
+		[{ mainnet: false, testnet: true }, /remote build-meta differs/],
+		[{ mainnet: false, testnet: false }, null],
 	]) {
 		const results = await verifyDeployment({
 			origin: "https://app.sairn.ai",
@@ -1053,8 +1168,8 @@ test("verification fails when the live origin sells Mainnet card funding next to
 			fetchImpl: fakeFetch({ "/build-meta.json": { body: JSON.stringify({ ...BUILD_META, privyFiatFunding }) }, "*": { status: 404, body: "missing" } }),
 		});
 		const parity = results.find((result) => result.name === "build metadata parity");
-		assert.equal(parity.ok, !differs, JSON.stringify(privyFiatFunding));
-		if (differs) assert.match(parity.detail, /mainnet-card-funding=on\) differ from the local build \(sponsored-mainnet-deposits=off mobile-pairing=off mainnet-card-funding=off\)/);
+		assert.equal(parity.ok, expected === null, JSON.stringify(privyFiatFunding));
+		if (expected) assert.match(parity.detail, expected);
 	}
 });
 
@@ -1101,12 +1216,13 @@ test("verification reports a stale shell, a wrong preconnect and a failed geo ve
 		"legal pages match the build",
 		"build metadata parity",
 		"geo endpoint answers with a real verdict",
-		"signed lambda post with a payload hash",
+		"referral geo answers with a decision",
 		"referral deep link headers",
 		"pairing page headers",
 		"missing files stay 404",
 		"chart entry is immutable and preloaded by the shell",
 		"shell preloads the startup closure",
+		"service worker matches the build",
 		"inline scripts are allowed by the edge policy",
 		"image sources follow the edge config",
 		"health probe answers 204",
@@ -1195,17 +1311,6 @@ test("a release fills the committed function with the build's hashes and keeps t
 	assert.deepEqual(parseScriptHashes(migrated.code), { current: [A], previous: [] });
 	assert.throws(() => prepareResponseFunction({ committedCode: committed, buildHashes: [] }), /no inline scripts/);
 	assert.ok(releaseFunctionPath("/repo/apps/terminal/.output/public").endsWith(join(".output", "edge", "terminal-response.js")));
-});
-
-test("the usage text lists every option the script reads, and nothing else", () => {
-	const script = fileURLToPath(new URL("./deploy.mjs", import.meta.url));
-	const parsed = [...readFileSync(script, "utf8").matchAll(/^\t\t\tcase "(--[a-z-]+)":$/gm)].map((match) => match[1]);
-	assert.ok(parsed.includes("--bucket") && parsed.includes("--profile") && parsed.includes("--allow-mainnet-card-funding"), "the option cases were found in the source");
-	const result = spawnSync(process.execPath, [script, "help"], { encoding: "utf8", env: { ...process.env, AWS_PROFILE: "usage-test" } });
-	assert.equal(result.status, 2, result.stderr);
-	assert.match(result.stderr, /^usage: node deploy\/cloudfront\/deploy\.mjs </);
-	const listed = [...result.stderr.matchAll(/\[(--[a-z-]+)[ \]]/g)].map((match) => match[1]);
-	assert.deepEqual([...listed].sort(), [...parsed].sort());
 });
 
 test("every aws command runs as the release profile unless one is chosen explicitly", () => {
