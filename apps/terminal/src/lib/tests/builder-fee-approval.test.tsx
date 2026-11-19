@@ -14,6 +14,7 @@ const OWNER = "0x1111111111111111111111111111111111111111";
 const BUILDER = "0x2222222222222222222222222222222222222222";
 
 const testState = vi.hoisted(() => ({
+	clientKey: "0x1111111111111111111111111111111111111111",
 	approveBuilderFee: vi.fn(),
 	refetchBuilderFee: vi.fn(),
 }));
@@ -21,7 +22,7 @@ const testState = vi.hoisted(() => ({
 vi.mock("@sairn/hl-react/provider", () => ({
 	useHyperliquid: () => ({
 		builderConfig: { b: BUILDER, f: 10 },
-		clientKey: OWNER,
+		clientKey: testState.clientKey,
 	}),
 }));
 
@@ -69,6 +70,7 @@ describe("useBuilderFeeApproval", () => {
 			},
 		});
 		hookValue = null;
+		testState.clientKey = OWNER;
 		testState.approveBuilderFee.mockReset();
 		testState.approveBuilderFee.mockResolvedValue(undefined);
 		testState.refetchBuilderFee.mockReset();
@@ -116,6 +118,29 @@ describe("useBuilderFeeApproval", () => {
 
 		expect(testState.approveBuilderFee).not.toHaveBeenCalled();
 		expect(testState.refetchBuilderFee).toHaveBeenCalledOnce();
+	});
+
+	it("rejects a confirmation for the previous wallet when the final query settles", async () => {
+		let finish!: (value: ReturnType<typeof requirements>) => void;
+		testState.refetchBuilderFee.mockResolvedValueOnce(requirements(true)).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		const hook = renderHook();
+		let pending!: Promise<void>;
+		await act(async () => {
+			pending = hook.approve();
+			await vi.waitFor(() => expect(testState.refetchBuilderFee).toHaveBeenCalledTimes(2));
+		});
+		testState.clientKey = "0x3333333333333333333333333333333333333333";
+		renderHook();
+		await act(async () => {
+			finish(requirements(false));
+			await expect(pending).rejects.toThrow("Wallet changed during builder fee approval");
+		});
+		expect(testState.approveBuilderFee).toHaveBeenCalledOnce();
 	});
 
 	it("fails closed when the approval cannot be confirmed", async () => {

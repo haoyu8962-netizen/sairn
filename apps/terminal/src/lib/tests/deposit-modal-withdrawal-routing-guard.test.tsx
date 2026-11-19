@@ -22,6 +22,7 @@ import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import type { DepositReview } from "@/lib/hyperliquid/use-deposit";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
+import { installScheduledExchange } from "./harness/scheduled-exchange";
 import { unknownStatusToastIcon } from "./harness/status-glyph";
 
 const WITHDRAWAL_MESSAGES = {
@@ -348,7 +349,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 vi.mock("@/hooks/wallet/use-email-embedded-wallet", () => ({
 	useEmailEmbeddedWallet: () => ({
 		emailAddress: testState.emailAddress,
-		embeddedWalletAddress: testState.emailAddress ? "0x1111111111111111111111111111111111111111" : null,
+		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
 		embeddedWalletError: null,
 		ensureEmailEmbeddedWallet: vi.fn(),
 		isCreatingEmbeddedWallet: false,
@@ -364,7 +365,7 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 		walletsReady: true,
 	}),
 	useWalletSession: () => ({
-		embeddedWalletAddress: testState.emailAddress ? "0x1111111111111111111111111111111111111111" : null,
+		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
 		hasWalletAccess: true,
 		user: testState.emailAddress ? {} : null,
 		walletAddress: testState.walletAddress,
@@ -913,7 +914,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 	it.each([
 		[
 			"the email wallet itself",
-			"0x1111111111111111111111111111111111111111",
+			"0x52908400098527886E0F7030069857D2E4169EE7",
 			"Withdrawing to yourself is not allowed because it would automatically trigger a deposit. Enter a different address.",
 		],
 		[
@@ -927,6 +928,8 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			"Cannot withdraw to the USDC contract address.",
 		],
 	])("refuses an email withdrawal to %s", async (_case, destination, message) => {
+		testState.walletAddress = "0x52908400098527886e0f7030069857d2e4169ee7";
+		testState.hyperliquidClientKey = testState.walletAddress;
 		testState.modalOpen = true;
 		testState.activeTab = "withdraw";
 		testState.emailAddress = "trader@example.com";
@@ -1063,6 +1066,29 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		{ route: "cctp", method: "sendToEvmWithData" },
 		{ route: "bridge", method: "withdraw3" },
 	] as const)("$method final execution guard", ({ route, method }) => {
+		it("refuses a balance change during the real locked legal check", async () => {
+			act(() => root.render(null));
+			const exchange = await installScheduledExchange();
+			const releaseLegal = exchange.delayLegalCheck();
+			testState.modalOpen = true;
+			testState.activeTab = "withdraw";
+			testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: route };
+			testState.freshRoutingResponse = testState.routingResponse;
+			await submitWithdrawal();
+			try {
+				await vi.waitFor(() => expect(exchange.legalCheck).toHaveBeenCalledOnce());
+				expect(exchange.heldLocks.has(`hyperliquid_funds_action:Mainnet:${testState.walletAddress}`)).toBe(true);
+				expect(queryClient.getMutationCache().getAll().at(-1)?.options.mutationKey).toContain(method);
+				testState.withdrawable = "1";
+				await rerender();
+			} finally {
+				await act(async () => releaseLegal());
+			}
+			await expectWithdrawalErrorNotified("balanceChanged");
+			expect(exchange.signTypedData).not.toHaveBeenCalled();
+			expect(exchange.request).not.toHaveBeenCalled();
+		});
+
 		async function pauseAfterPreflight() {
 			testState.modalOpen = true;
 			testState.activeTab = "withdraw";

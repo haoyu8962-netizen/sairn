@@ -44,6 +44,23 @@ describe("API wallet reconciliation", () => {
 		expect(loadSnapshot).toHaveBeenCalledTimes(2);
 	});
 
+	it.each(["authorize", "remove"] as const)(
+		"does not confirm %s from cached data after a refresh error",
+		async (kind) => {
+			const approval = createApiWalletApproval("grid-bot", ADDRESS, 30, NOW_MS);
+			const agent = { name: approval.baseName, address: approval.address, validUntil: approval.validUntil };
+			const target = kind === "authorize" ? { kind, approval } : { kind, removal: createApiWalletRemoval(agent) };
+			await expect(
+				reconcileApiWalletAction({
+					target,
+					attempts: 1,
+					signal: new AbortController().signal,
+					loadSnapshot: async () => ({ data: kind === "authorize" ? [agent] : [], error: new Error("offline") }),
+				}),
+			).resolves.toEqual({ status: "unknown", reason: "unavailable" });
+		},
+	);
+
 	it("never treats a malformed snapshot as success", async () => {
 		const approval = createApiWalletApproval("grid-bot", ADDRESS, 30, NOW_MS);
 		const loadSnapshot = vi.fn().mockResolvedValue({

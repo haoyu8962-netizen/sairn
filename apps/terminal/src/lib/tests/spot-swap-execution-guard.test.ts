@@ -42,6 +42,23 @@ describe("spot swap SDK execution guard", () => {
 		expect(() => assertSpotSwapExecutionAllowed(params, state(), 1_001)).not.toThrow();
 	});
 
+	it("expires the balance independently of a just-refreshed book", () => {
+		const now = 61_001;
+		const current = state({ bookReceivedAt: now, balanceReceivedAt: now - 60_000 });
+		expect(() => assertSpotSwapExecutionAllowed(params, current, now)).not.toThrow();
+		expectExecutionReason(
+			() => assertSpotSwapExecutionAllowed(params, { ...current, balanceReceivedAt: now - 60_001 }, now),
+			"swap-data-unavailable",
+		);
+	});
+
+	it("rejects a reversal of the confirmed side with all other fields unchanged", () => {
+		expectExecutionReason(
+			() => assertSpotSwapExecutionAllowed({ ...params, orders: [{ ...order, b: !order.b }] }, state(), 1_001),
+			"quote-changed",
+		);
+	});
+
 	it("rejects an expired or reduced live balance", () => {
 		expect(() => assertSpotSwapExecutionAllowed(params, state(), 61_001)).toThrow("Live swap data");
 		expect(() => assertSpotSwapExecutionAllowed(params, state({ currentBalance: "10" }), 1_001)).toThrow(

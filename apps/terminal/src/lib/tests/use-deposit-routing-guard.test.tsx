@@ -29,6 +29,7 @@ import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-s
 import { type DepositReview, type UseDepositResult, useDeposit } from "@/lib/hyperliquid/use-deposit";
 import { addressToBytes32, CCTP_EXTENSION_ABI, CCTP_EXTENSION_V2_ABI } from "@/lib/trade/cctp-deposit";
 import {
+	getCctpSponsoredAuthorizationIntentStorageKey,
 	readCctpDepositTrackingRecords,
 	readCctpSponsoredAuthorizationIntent,
 	saveCctpDepositTrackingRecord,
@@ -86,7 +87,11 @@ function createSuccessfulCctpReceipt(): TransactionReceipt {
 	} as unknown as TransactionReceipt;
 }
 
-function stubSuccessfulCctpCapacity(balanceRaw = 5_000_000n, balanceBeforeSubmissionRaw = balanceRaw) {
+function stubSuccessfulCctpCapacity(
+	balanceRaw = 5_000_000n,
+	balanceBeforeSubmissionRaw = balanceRaw,
+	getAllowance = () => 1_000_000,
+) {
 	let balanceRequestCount = 0;
 	vi.stubGlobal(
 		"fetch",
@@ -101,7 +106,7 @@ function stubSuccessfulCctpCapacity(balanceRaw = 5_000_000n, balanceBeforeSubmis
 				return new Response(JSON.stringify({ result: null }), { status: 200 });
 			}
 			if (String(input).includes("/fastBurn/USDC/allowance")) {
-				return new Response(JSON.stringify({ allowance: 1_000_000 }), { status: 200 });
+				return new Response(JSON.stringify({ allowance: getAllowance() }), { status: 200 });
 			}
 			return new Response(
 				JSON.stringify([
@@ -1502,6 +1507,32 @@ describe("useDeposit fresh USDC route guard", () => {
 		persistSpy.mockRestore();
 	});
 
+	it.each(["wallet", "smart"] as const)(
+		"stops %s broadcast when only fresh Fast Transfer capacity falls after signing",
+		async (mode) => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			let allowance = 5;
+			const getAllowance = vi.fn(() => allowance);
+			stubSuccessfulCctpCapacity(5_000_000n, 5_000_000n, getAllowance);
+			testState.permitSign.mockImplementationOnce(async () => {
+				allowance = 4.999999;
+				return PERMIT_SIGNATURE;
+			});
+			const writes = vi.spyOn(Storage.prototype, "setItem");
+			await submit(mode, "cctp");
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(getAllowance.mock.results.map((result) => result.value)).toEqual([5, 4.999999]);
+			expect(capturedDeposit?.error?.message).toContain("Fast Transfer capacity");
+			expect(testState.walletWriteContract).not.toHaveBeenCalled();
+			expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+			expect(writes.mock.calls.map(([key]) => key)).not.toContain(
+				getCctpSponsoredAuthorizationIntentStorageKey("Mainnet", WALLET_ADDRESS),
+			);
+			writes.mockRestore();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		},
+	);
+
 	it("does not request a CCTP signature when Fast Transfer allowance is insufficient", async () => {
 		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 		vi.stubGlobal(
@@ -1673,6 +1704,37 @@ describe("useDeposit fresh USDC route guard", () => {
 		expect(testState.permitSign).not.toHaveBeenCalled();
 		expect(testState.smartSendTransaction).not.toHaveBeenCalled();
 		expect(capturedDeposit?.error?.message).toBe("Hyperliquid access could not be verified before this action");
+	});
+
+	it("rechecks the exact owner after an automatic signature before recording or broadcasting it", async () => {
+		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+		stubSuccessfulCctpCapacity();
+		let signed = false;
+		testState.verifyLegalAction.mockImplementation(async () => {
+			if (signed) throw new Error("Legal access changed");
+			return { canPerformActions: true };
+		});
+		testState.permitSign.mockImplementationOnce(async () => {
+			signed = true;
+			return PERMIT_SIGNATURE;
+		});
+		const writes = vi.spyOn(Storage.prototype, "setItem");
+		await submit("smart", "cctp", null, "automatic");
+		expect(testState.verifyLegalAction).toHaveBeenCalledTimes(2);
+		for (const [options] of testState.verifyLegalAction.mock.calls) {
+			expect(options).toMatchObject({ env: "Mainnet", forceFresh: true, owner: WALLET_ADDRESS });
+		}
+		expect(testState.verifyLegalAction.mock.invocationCallOrder[0]).toBeLessThan(
+			testState.permitSign.mock.invocationCallOrder[0],
+		);
+		expect(testState.permitSign).toHaveBeenCalledOnce();
+		expect(capturedDeposit?.error?.message).toBe("Legal access changed");
+		expect(writes.mock.calls.map(([key]) => key)).not.toContain(
+			getCctpSponsoredAuthorizationIntentStorageKey("Mainnet", WALLET_ADDRESS),
+		);
+		writes.mockRestore();
+		expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		expect(testState.smartSendTransaction).not.toHaveBeenCalled();
 	});
 
 	it("does not sign an automatic authorization when the selected owner is not the wallet that would sign", async () => {
@@ -2015,6 +2077,31 @@ describe("useDeposit fresh USDC route guard", () => {
 		expect(testState.permitSign).not.toHaveBeenCalled();
 		expect(testState.smartSendTransaction).not.toHaveBeenCalled();
 		expect(capturedDeposit?.error?.message).toContain("Smart wallet client not ready");
+	});
+
+	it("stops before recording or broadcasting if the signed client loses its paymaster", async () => {
+		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+		stubSuccessfulCctpCapacity();
+		const client = {
+			chain: { id: 42161 },
+			paymaster: {} as object | undefined,
+			sendTransaction: testState.smartSendTransaction,
+		};
+		testState.getClientForChain.mockResolvedValue(client);
+		testState.permitSign.mockImplementationOnce(async () => {
+			client.paymaster = undefined;
+			return PERMIT_SIGNATURE;
+		});
+		const writes = vi.spyOn(Storage.prototype, "setItem");
+		await submit("smart", "cctp");
+		expect(testState.permitSign).toHaveBeenCalledOnce();
+		expect(capturedDeposit?.error?.message).toBe("Smart wallet client not ready");
+		expect(writes.mock.calls.map(([key]) => key)).not.toContain(
+			getCctpSponsoredAuthorizationIntentStorageKey("Mainnet", WALLET_ADDRESS),
+		);
+		writes.mockRestore();
+		expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		expect(testState.smartSendTransaction).not.toHaveBeenCalled();
 	});
 
 	it("fails closed before signing when Smart Wallet gas sponsorship is not configured", async () => {

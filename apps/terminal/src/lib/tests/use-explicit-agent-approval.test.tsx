@@ -2,10 +2,13 @@
 
 import { createHash } from "node:crypto";
 import { i18n } from "@lingui/core";
+import { createExchangeClient } from "@sairn/hl-react/clients";
 import { ExchangeActionDeadlineError } from "@sairn/hl-react/internal/exchange/request-scheduler";
+import * as session from "@sairn/hl-react/signing/agent-registration-session";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { formatTransferError } from "@/lib/errors/format";
@@ -102,7 +105,8 @@ vi.mock("@/lib/wallet/privy-agent-signer", () => ({
 	createPrivyAgentSigner: testState.createPrivyAgentSigner,
 }));
 
-vi.mock("@/lib/wallet/external-agent-signer", () => ({
+vi.mock("@/lib/wallet/external-agent-signer", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/wallet/external-agent-signer")>()),
 	createExternalAgentSigner: testState.createExternalAgentSigner,
 }));
 
@@ -330,6 +334,57 @@ describe("useExplicitAgentApproval", () => {
 		});
 		expect(testState.createPrivyAgentSigner).not.toHaveBeenCalled();
 		expect(testState.clientApproveAgent).not.toHaveBeenCalled();
+	});
+
+	it("checks the lease after the real SDK obtains the embedded owner's signature", async () => {
+		const account = privateKeyToAccount(generatePrivateKey());
+		testState.walletAddress = testState.connectedWalletAddress = testState.embeddedWalletAddress = account.address;
+		testState.walletClient = { account: { address: account.address } };
+		const signer = await vi.importActual<typeof import("@/lib/wallet/privy-agent-signer")>(
+			"@/lib/wallet/privy-agent-signer",
+		);
+		testState.createPrivyAgentSigner.mockImplementation(signer.createPrivyAgentSigner);
+		testState.createExchangeClient.mockImplementation(createExchangeClient);
+		testState.captureRegistrationLease.mockImplementation(session.captureAgentRegistrationExecutionLease);
+		testState.startRegistrationExecution.mockImplementation(session.startAgentRegistrationExecution);
+		testState.isRegistrationLeaseCurrent.mockImplementation(session.isAgentRegistrationExecutionLeaseCurrent);
+		const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+		Object.defineProperty(navigator, "locks", {
+			configurable: true,
+			value: {
+				request: async (_name: string, _options: LockOptions, callback: () => unknown) => callback(),
+			},
+		});
+		let sessionClosedWhileSigning = false;
+		testState.signTypedData.mockImplementationOnce(async (data) => {
+			const signature = await account.signTypedData(data);
+			sessionClosedWhileSigning = await session.closeAgentRegistrationSession("Mainnet", account.address);
+			return { signature };
+		});
+		try {
+			expect(await session.activateAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			const hook = await renderApprovalHook();
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await hook
+					.mutateAsync({ agentAddress: AGENT }, { applicationReview: "confirmed" })
+					.catch((error: unknown) => error);
+			});
+			expect(sessionClosedWhileSigning).toBe(true);
+			expect(rejection).toBeInstanceOf(Error);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(testState.signTypedData).toHaveBeenCalledOnce();
+			expect(testState.signTypedData.mock.calls[0]?.[0]).toMatchObject({
+				primaryType: "HyperliquidTransaction:ApproveAgent",
+				message: { agentAddress: AGENT.toLowerCase() },
+			});
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		} finally {
+			if (previous) Object.defineProperty(navigator, "locks", previous);
+			else Reflect.deleteProperty(navigator, "locks");
+			localStorage.removeItem(`hyperliquid_exchange_nonce_Mainnet_${account.address.toLowerCase()}`);
+			localStorage.removeItem(`hyperliquid_agent_registration_session_Mainnet_${account.address.toLowerCase()}`);
+		}
 	});
 
 	it("revalidates the exact pending Agent at the signed transport submission boundary", async () => {

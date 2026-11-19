@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { i18n, type Messages } from "@lingui/core";
 import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement, Fragment, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import type { Root } from "react-dom/client";
@@ -16,6 +17,7 @@ import { clearAccountModeSetup, publishAccountModeSetup } from "@/stores/use-acc
 import { clearSendDraft } from "@/stores/use-send-draft-store";
 import { LOADING_INDICATOR_SELECTOR } from "./harness/loading-indicator";
 import { createI18nRoot } from "./harness/react";
+import { installScheduledExchange } from "./harness/scheduled-exchange";
 import { unknownStatusToastIcon } from "./harness/status-glyph";
 
 const BALANCE_UNAVAILABLE = "Balance data is unavailable. Try again after the connection recovers.";
@@ -689,6 +691,41 @@ describe("funds action balance wiring", () => {
 	function getGuardedSubmitButton(method: (typeof guardedMethods)[number]) {
 		return getButton(container, method === "usdClassTransfer" ? "Transfer" : "Send");
 	}
+
+	it.each(["spotSend", "usdClassTransfer"] as const)(
+		"runs %s balance revalidation inside the real funds lock",
+		async (method) => {
+			const exchange = await installScheduledExchange();
+			const releaseLegal = exchange.delayLegalCheck();
+			const client = new QueryClient();
+			const modalRoot = root;
+			root = {
+				render: (children) => modalRoot.render(createElement(QueryClientProvider, { client }, children)),
+				unmount: () => {
+					modalRoot.unmount();
+					client.clear();
+				},
+			};
+			const onOpenChange = vi.fn();
+			renderGuardedModal(method, onOpenChange);
+			act(() => getGuardedSubmitButton(method).click());
+			try {
+				await vi.waitFor(() => expect(exchange.legalCheck).toHaveBeenCalledOnce());
+				expect(exchange.heldLocks.has(`hyperliquid_funds_action:Mainnet:${testState.exchangeIdentity.clientKey}`)).toBe(
+					true,
+				);
+				expect(client.getMutationCache().getAll().at(-1)?.options.mutationKey).toContain(method);
+				if (method === "spotSend") testState.balances.spotBalances[0].total = "3141.333333";
+				else testState.balances.withdrawable = "0.5";
+				rerenderGuardedModal(method, onOpenChange);
+			} finally {
+				await act(async () => releaseLegal());
+			}
+			await vi.waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith(BALANCE_CHANGED));
+			expect(exchange.signTypedData).not.toHaveBeenCalled();
+			expect(exchange.request).not.toHaveBeenCalled();
+		},
+	);
 
 	it.each(guardedMethods)("blocks %s when the balance changes during the final legal check", async (method) => {
 		let releaseLegal!: () => void;
