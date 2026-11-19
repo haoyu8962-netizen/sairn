@@ -125,7 +125,9 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 			.map((value) => ({ value, label: getStatusFilterLabel(value) })),
 	];
 
-	const headerCount = isConnected ? <Plural value={filteredEntries.length} one="# order" other="# orders" /> : null;
+	const canShowResult = status === "ready" && (filteredEntries.length > 0 || !(error || isOffline || isStale));
+	const headerCount =
+		isConnected && canShowResult ? <Plural value={filteredEntries.length} one="# order" other="# orders" /> : null;
 
 	function getStatusFilterLabel(filter: Exclude<OrderHistoryStatusFilter, "all">) {
 		if (filter === "open") return t`Open`;
@@ -190,15 +192,13 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 	function renderPlaceholder() {
 		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view order history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
-		if (status !== "ready" || (entries.length === 0 && (error || isOffline || isStale)))
-			return <PassiveDataPlaceholder />;
+		if (!canShowResult) return <PassiveDataPlaceholder />;
 		if (entries.length === 0) return <Placeholder>{t`No order history found.`}</Placeholder>;
+		if (filteredEntries.length === 0) return <Placeholder>{t`No orders match these filters.`}</Placeholder>;
 		return null;
 	}
 
-	const placeholder =
-		renderPlaceholder() ??
-		(filteredEntries.length === 0 ? <Placeholder>{t`No orders match these filters.`}</Placeholder> : null);
+	const placeholder = renderPlaceholder();
 
 	return (
 		<div className={positionsPanelTabRootClass}>

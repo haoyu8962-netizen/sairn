@@ -9,6 +9,9 @@ import { createI18nRoot } from "./harness/react";
 const mocks = vi.hoisted(() => ({
 	address: "0x1111111111111111111111111111111111111111" as `0x${string}`,
 	downloadCsv: vi.fn(),
+	error: null as Error | null,
+	isOffline: false,
+	isStale: false,
 	orders: [] as Array<Record<string, unknown>>,
 }));
 
@@ -90,10 +93,10 @@ vi.mock("@/components/ui/scroll-area", () => ({
 vi.mock("@/hooks/trade/use-historical-orders", () => ({
 	useHistoricalOrders: () => ({
 		entries: getOrderHistoryEntries(),
-		error: null,
+		error: mocks.error,
 		isConnected: true,
-		isOffline: false,
-		isStale: false,
+		isOffline: mocks.isOffline,
+		isStale: mocks.isStale,
 		status: "ready",
 		orders: mocks.orders,
 	}),
@@ -141,6 +144,9 @@ describe("desktop order history direction semantics", () => {
 
 	beforeEach(() => {
 		mocks.address = "0x1111111111111111111111111111111111111111";
+		mocks.error = null;
+		mocks.isOffline = false;
+		mocks.isStale = false;
 		mocks.orders = createOrders();
 		container = document.createElement("div");
 		document.body.appendChild(container);
@@ -297,6 +303,55 @@ describe("desktop order history direction semantics", () => {
 	it("filters the currently loaded rows by order type", async () => {
 		act(() => root.render(<OrdersHistoryTab />));
 
+		await selectStopMarketFilter();
+
+		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).toBeNull();
+		expect(container.querySelector('[aria-label="Switch to ETH market, Close Long order"]')).not.toBeNull();
+		expect(container.textContent).toContain("1 order");
+
+		mocks.orders = createOrders().slice(0, 1);
+		act(() => root.render(<OrdersHistoryTab />));
+		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("Stop Market");
+		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).toBeNull();
+
+		mocks.address = "0x2222222222222222222222222222222222222222";
+		act(() => root.render(<OrdersHistoryTab />));
+		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("All types");
+		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).not.toBeNull();
+	});
+
+	it.each([
+		{ state: "errored", overrides: { error: new Error("history stream failed") } },
+		{ state: "offline", overrides: { isOffline: true } },
+		{ state: "stale", overrides: { isStale: true } },
+	])("withholds empty results from $state history while keeping matching rows", async ({ overrides }) => {
+		act(() => root.render(<OrdersHistoryTab />));
+		await selectStopMarketFilter();
+
+		Object.assign(mocks, overrides);
+		act(() => root.render(<OrdersHistoryTab />));
+		expect(container.querySelector('[aria-label="Switch to ETH market, Close Long order"]')).not.toBeNull();
+
+		mocks.orders = createOrders().slice(0, 1);
+		act(() => root.render(<OrdersHistoryTab />));
+		expect(container.textContent).not.toContain("No orders match these filters.");
+		expect(container.textContent).not.toContain("0 orders");
+		expect(container.querySelector('[data-slot="passive-data-placeholder"]')).not.toBeNull();
+		expect(container.querySelector('[role="combobox"]')?.textContent).toContain("Stop Market");
+		const exportButton = Array.from(container.querySelectorAll("button")).find(
+			(button) => button.textContent === "Export CSV",
+		);
+		expect(exportButton?.disabled).toBe(false);
+
+		mocks.error = null;
+		mocks.isOffline = false;
+		mocks.isStale = false;
+		act(() => root.render(<OrdersHistoryTab />));
+		expect(container.textContent).toContain("No orders match these filters.");
+		expect(container.textContent).toContain("0 orders");
+	});
+
+	async function selectStopMarketFilter() {
 		const typeTrigger = container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0];
 		expect(typeTrigger?.textContent).toContain("All types");
 		await act(async () => {
@@ -313,21 +368,7 @@ describe("desktop order history direction semantics", () => {
 			stopMarketOption?.click();
 			await Promise.resolve();
 		});
-
-		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).toBeNull();
-		expect(container.querySelector('[aria-label="Switch to ETH market, Close Long order"]')).not.toBeNull();
-		expect(container.textContent).toContain("1 order");
-
-		mocks.orders = createOrders().slice(0, 1);
-		act(() => root.render(<OrdersHistoryTab />));
-		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("Stop Market");
-		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).toBeNull();
-
-		mocks.address = "0x2222222222222222222222222222222222222222";
-		act(() => root.render(<OrdersHistoryTab />));
-		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("All types");
-		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).not.toBeNull();
-	});
+	}
 
 	it("filters the currently loaded rows by normalized order status", async () => {
 		act(() => root.render(<OrdersHistoryTab />));

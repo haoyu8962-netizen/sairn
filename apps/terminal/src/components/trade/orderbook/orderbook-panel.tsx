@@ -275,7 +275,7 @@ export function OrderbookPanel() {
 									/>
 								))}
 							</>
-						) : hasCurrentSnapshot ? (
+						) : currentOrderbook?.levels[1].length === 0 ? (
 							<OrderbookSideEmpty />
 						) : (
 							getOrderbookPlaceholderKeys(visibleRows).map((key) => <OrderbookPlaceholderRow key={key} />)
@@ -307,7 +307,7 @@ export function OrderbookPanel() {
 									<OrderbookPlaceholderRow key={key} />
 								))}
 							</>
-						) : hasCurrentSnapshot ? (
+						) : currentOrderbook?.levels[0].length === 0 ? (
 							<OrderbookSideEmpty />
 						) : (
 							getOrderbookPlaceholderKeys(visibleRows).map((key) => <OrderbookPlaceholderRow key={key} />)
