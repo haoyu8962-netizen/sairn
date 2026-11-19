@@ -438,7 +438,14 @@ describe("MobileTradeView order-size validation accessibility", () => {
 		expect(getValidationError(container)?.textContent).toContain(
 			"Price must be a multiple of the tick size, with at most 5 significant figures. E.g., 100.12",
 		);
+		expect(describedText(getPriceInput(container))).toBe(
+			"Price must be a multiple of the tick size, with at most 5 significant figures. E.g., 100.12",
+		);
 		await expectSubmissionBlocked(container);
+
+		testState.limitPrice = "100.12";
+		await renderView(root);
+		expect(getPriceInput(container).getAttribute("aria-describedby")).toBeNull();
 	});
 
 	it("blocks a TWAP price limit off the market tick on its own", async () => {
@@ -469,6 +476,9 @@ describe("MobileTradeView order-size validation accessibility", () => {
 		expect(getValidationError(container)?.textContent).toContain(
 			"Price must be a multiple of the tick size, with at most 5 significant figures. E.g., 100.12",
 		);
+		expect(
+			describedText(container.querySelector<HTMLInputElement>('input[aria-label="Trigger Price (USDC)"]')),
+		).toBe("Price must be a multiple of the tick size, with at most 5 significant figures. E.g., 100.12");
 		await expectSubmissionBlocked(container);
 	});
 
@@ -634,6 +644,30 @@ describe("MobileTradeView order-size validation accessibility", () => {
 			wagmiState.connectionChainId = 42161;
 			wagmiState.walletClientError = null;
 		}
+	});
+
+	it("announces a failed Enable Trading request once and keeps its reason readable", async () => {
+		activateLocale("en");
+		testState.tradingReady = false;
+		testState.signerMode = "owner";
+		testState.authorize.mockRejectedValueOnce(new Error("User rejected the request."));
+		await renderView(root);
+		expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
+
+		await act(async () => getCtaButton(container, "Enable Trading").click());
+
+		const alerts = [...container.querySelectorAll('[role="alert"]')];
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]?.textContent?.trim()).not.toBe("");
+		expect(getCtaButton(container, "Enable Trading").disabled).toBe(false);
+	});
+
+	it("names the available balance by the amount it shows and describes the Max action", async () => {
+		activateLocale("en");
+		await renderView(root);
+		const available = container.querySelector<HTMLButtonElement>('button[title="Use max available balance"]');
+		expect(available?.getAttribute("aria-label")).toBeNull();
+		expect(available?.textContent).toMatch(/^Available \S+ USDC$/);
 	});
 
 	it("lets the Privy owner enable trading without any wagmi client", async () => {
@@ -1167,7 +1201,14 @@ function getSizeControls(container: HTMLElement): HTMLInputElement[] {
 
 function expectDescriptionCleared(control: HTMLInputElement) {
 	expect(control.getAttribute("aria-invalid")).toBeNull();
-	expect(control.getAttribute("aria-describedby")).toBeNull();
+	for (const id of control.getAttribute("aria-describedby")?.split(/\s+/).filter(Boolean) ?? []) {
+		expect(document.getElementById(id)?.closest('[role="alert"]')).toBeNull();
+	}
+}
+
+function describedText(element: Element | null | undefined): string {
+	const ids = element?.getAttribute("aria-describedby")?.split(/\s+/).filter(Boolean) ?? [];
+	return ids.map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
 }
 
 function setValidPerpScenario() {

@@ -395,4 +395,29 @@ describe("desktop TradePanel order button while the wallet session resolves", ()
 		await act(async () => orderButton().click());
 		expect(testState.requestSubmit).not.toHaveBeenCalled();
 	});
+
+	it("announces a failed Enable Trading request through one alert", async () => {
+		testState.isReady = false;
+		testState.authorize.mockRejectedValueOnce(new Error("User rejected the request."));
+		try {
+			await act(async () => {
+				root.render(
+					<I18nProvider i18n={i18n}>
+						<TradePanel key="trade-panel" />
+					</I18nProvider>,
+				);
+			});
+			expect(orderButton().textContent?.trim()).toBe("Enable Trading");
+			expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
+
+			await act(async () => orderButton().click());
+
+			const alerts = [...container.querySelectorAll('[role="alert"]')];
+			expect(testState.authorize).toHaveBeenCalledOnce();
+			expect(alerts).toHaveLength(1);
+			expect(alerts[0]?.textContent?.trim()).not.toBe("");
+		} finally {
+			testState.isReady = true;
+		}
+	});
 });

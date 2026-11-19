@@ -15,13 +15,14 @@ export const sizePercent = "h-[31px] w-20 shrink-0 rounded-[8px] px-2";
 interface Props {
 	label: string;
 	unit: string | null;
+	unitId?: string;
 	disabled: boolean;
 	input?: ReactNode;
 	slider: ReactNode;
 	percent: ReactNode;
 	onUnitClick?: () => void;
 }
-export function MobileTradeSizeView({ label, unit, disabled, input, slider, percent, onUnitClick }: Props) {
+export function MobileTradeSizeView({ label, unit, unitId, disabled, input, slider, percent, onUnitClick }: Props) {
 	return (
 		<div className="space-y-2">
 			<TradeInputFrameView
@@ -37,7 +38,9 @@ export function MobileTradeSizeView({ label, unit, disabled, input, slider, perc
 				aria-label={label}
 				trailing={
 					<button type="button" onClick={onUnitClick} disabled={disabled} className={sizeUnit}>
-						<span className={cn(unit === null && "invisible")}>{unit ?? "BTC"}</span>
+						<span id={unitId} className={cn(unit === null && "invisible")}>
+							{unit ?? "BTC"}
+						</span>
 						<CaretDownIcon className="size-3 text-trading-panel-subtle" />
 					</button>
 				}

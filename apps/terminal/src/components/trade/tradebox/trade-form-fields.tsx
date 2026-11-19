@@ -22,6 +22,7 @@ import {
 	usesLimitPrice as usesLimitPriceForOrder,
 	usesTriggerPrice as usesTriggerPriceForOrder,
 } from "@/lib/trade/order-types";
+import { getOrderPriceFieldErrorMessage } from "@/lib/trade/order-validation-presentation";
 import { getTpSlCollateralSymbol } from "@/lib/trade/tpsl";
 import { tradingInputFrameErrorClass } from "@/lib/ui/trading-input";
 import { getValueColorClass } from "@/lib/ui/value-color";
@@ -101,6 +102,10 @@ export function TradeFormFields({
 	const sizeErrorId = useId();
 	const limitFieldId = useId();
 	const triggerFieldId = useId();
+	const triggerErrorId = useId();
+	const limitErrorId = useId();
+	const sizeUnitId = useId();
+	const sizeToggleHintId = useId();
 
 	const { isConnected } = useWalletSession();
 	const { data: market } = useSelectedMarketInfo();
@@ -165,6 +170,8 @@ export function TradeFormFields({
 				(error) => error.id === "enter-limit-price" || error.id === "spot-enter-limit-price",
 			)) ||
 		visibleValidationErrors.some((error) => error.id === "limit-price-tick");
+	const triggerErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "trigger");
+	const limitErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "limit");
 	const twapTriggerHasError = visibleValidationErrors.some((error) => error.id === "twap-trigger-price-tick");
 	const twapStopHasError = visibleValidationErrors.some((error) => error.id === "twap-stop-price-tick");
 
@@ -236,7 +243,6 @@ export function TradeFormFields({
 								type="button"
 								onClick={() => handleSizePercentApply(100)}
 								disabled={isFormDisabled || maxSize <= 0}
-								aria-label={maxSizeLabel}
 								title={maxSizeLabel}
 								className="min-w-0 cursor-pointer truncate border-b border-dashed border-trading-panel-stroke-control font-semibold whitespace-nowrap tabular-nums text-trading-panel-fg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus disabled:cursor-default disabled:border-transparent disabled:hover:opacity-100"
 							>
@@ -289,16 +295,24 @@ export function TradeFormFields({
 								</>
 							}
 							input={
-								<NumberInput
-									id={triggerFieldId}
-									aria-label={`${t`Trigger Price`} (${quoteToken})`}
-									aria-invalid={triggerHasError || undefined}
-									placeholder="0.00"
-									value={triggerPriceInput}
-									onChange={(e) => setTriggerPrice(e.target.value)}
-									className={TRADE_INPUT_CLASS}
-									disabled={isFormDisabled}
-								/>
+								<>
+									<NumberInput
+										id={triggerFieldId}
+										aria-label={`${t`Trigger Price`} (${quoteToken})`}
+										aria-invalid={triggerHasError || undefined}
+										aria-describedby={triggerErrorMessage ? triggerErrorId : undefined}
+										placeholder="0.00"
+										value={triggerPriceInput}
+										onChange={(e) => setTriggerPrice(e.target.value)}
+										className={TRADE_INPUT_CLASS}
+										disabled={isFormDisabled}
+									/>
+									{triggerErrorMessage ? (
+										<span id={triggerErrorId} hidden>
+											{triggerErrorMessage}
+										</span>
+									) : null}
+								</>
 							}
 						/>
 					)}
@@ -310,15 +324,23 @@ export function TradeFormFields({
 								label={t`Price`}
 								frameClassName={cn(limitHasError && tradingInputFrameErrorClass, isFormDisabled && "opacity-50")}
 								input={
-									<NumberInput
-										id={limitFieldId}
-										aria-invalid={limitHasError || undefined}
-										placeholder="0.00"
-										value={limitPriceInput}
-										onChange={(e) => setLimitPriceFromUser(limitPrefillIdentity, e.target.value)}
-										className={TRADE_INPUT_CLASS}
-										disabled={isFormDisabled}
-									/>
+									<>
+										<NumberInput
+											id={limitFieldId}
+											aria-invalid={limitHasError || undefined}
+											aria-describedby={limitErrorMessage ? limitErrorId : undefined}
+											placeholder="0.00"
+											value={limitPriceInput}
+											onChange={(e) => setLimitPriceFromUser(limitPrefillIdentity, e.target.value)}
+											className={TRADE_INPUT_CLASS}
+											disabled={isFormDisabled}
+										/>
+										{limitErrorMessage ? (
+											<span id={limitErrorId} hidden>
+												{limitErrorMessage}
+											</span>
+										) : null}
+									</>
 								}
 								trailing={
 									<>
@@ -349,7 +371,7 @@ export function TradeFormFields({
 					input={
 						<NumberInput
 							id={sizeFieldId}
-							aria-describedby={hasDisplayedSizeError ? sizeErrorId : undefined}
+							aria-describedby={hasDisplayedSizeError ? `${sizeUnitId} ${sizeErrorId}` : sizeUnitId}
 							aria-invalid={hasDisplayedSizeError || undefined}
 							placeholder="0.00"
 							value={sizeInput}
@@ -360,12 +382,18 @@ export function TradeFormFields({
 						/>
 					}
 					trailing={
-						<TradeSizeUnitView
-							unit={sizeModeLabel}
-							onClick={onSizeModeToggle}
-							aria-label={t`Toggle size mode`}
-							disabled={isFormDisabled}
-						/>
+						<>
+							<TradeSizeUnitView
+								unit={sizeModeLabel}
+								unitId={sizeUnitId}
+								onClick={onSizeModeToggle}
+								aria-describedby={sizeToggleHintId}
+								disabled={isFormDisabled}
+							/>
+							<span id={sizeToggleHintId} hidden>
+								{t`Toggle size mode`}
+							</span>
+						</>
 					}
 				/>
 			}

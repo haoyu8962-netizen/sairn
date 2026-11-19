@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { type ChangeEvent, useId } from "react";
 import { sizePercent, sizeValue } from "@/components/trade/mobile/mobile-trade-size-view";
 import { NumberInput } from "@/components/ui/number-input";
 import type { Side } from "@/lib/trade/types";
@@ -52,15 +52,17 @@ export function MobileTradeSizeControl({
 	sizeModeLabel,
 	sliderValue,
 }: Props) {
+	const unitId = useId();
 	return (
 		<MobileTradeSizeView
 			label={sizeLabel}
 			unit={sizeModeLabel}
+			unitId={unitId}
 			disabled={disabled}
 			onUnitClick={onSizeModeToggle}
 			input={
 				<NumberInput
-					aria-describedby={hasError ? errorId : undefined}
+					aria-describedby={hasError && errorId ? `${unitId} ${errorId}` : unitId}
 					aria-invalid={hasError || undefined}
 					aria-label={sizeAriaLabel}
 					inputMode="decimal"

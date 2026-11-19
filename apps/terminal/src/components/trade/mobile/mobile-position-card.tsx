@@ -355,7 +355,12 @@ export function MobilePositionCard({
 						<PositionMetric label={t`Mark Price`} value={markPriceDisplay} />
 						<PositionMetric
 							label={t`Liquidation Price`}
-							value={formatLiquidationPrice(p.liquidationPx, szDecimals, { style: "decimal" })}
+							value={
+								<>
+									{formatLiquidationPrice(p.liquidationPx, szDecimals, { style: "decimal" })}
+									{liqIsNear ? <span className="sr-only"> {t`Near liquidation`}</span> : null}
+								</>
+							}
 							valueClassName={liqIsNear ? "text-error" : undefined}
 						/>
 						<PositionMetric

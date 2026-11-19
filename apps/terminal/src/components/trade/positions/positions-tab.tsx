@@ -61,6 +61,7 @@ interface OwnedPositionPnlShare {
 export function PositionsTab({ directionFilter, marketFilter, currentMarket }: Props) {
 	const { t } = useLingui();
 	const closeAllUnavailableId = useId();
+	const pnlToggleHintId = useId();
 	const { address, isConnected } = useWalletSession();
 	const { clientKey, env } = useHyperliquid();
 	const navigateToMarket = useMarketNavigation();
@@ -195,12 +196,15 @@ export function PositionsTab({ directionFilter, marketFilter, currentMarket }: P
 											<button
 												type="button"
 												onClick={() => setPnlMode((current) => (current === "roe" ? "priceChange" : "roe"))}
-												aria-label={pnlMode === "roe" ? t`Show price change percentage` : t`Show ROE percentage`}
+												aria-describedby={pnlToggleHintId}
 												className="cursor-pointer border-0 border-b border-dotted border-market-close-stroke-control bg-transparent p-0 text-market-close-muted transition-colors duration-[120ms] hover:text-market-close-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
 											>
 												{pnlHeader} <span aria-hidden="true">▾</span>
 											</button>
 										</Tooltip>
+										<span id={pnlToggleHintId} hidden>
+											{pnlMode === "roe" ? t`Show price change percentage` : t`Show ROE percentage`}
+										</span>
 									</TableHead>
 									<TableHead scope="col" size="dense" className={positionTableHeadClass}>
 										<Tooltip

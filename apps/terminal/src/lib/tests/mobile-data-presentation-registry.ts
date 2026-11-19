@@ -264,7 +264,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		tones: { "bg-market-close-danger": 1, "text-market-close-danger": 4, "text-error": 1 },
 		why: {
 			"data-value":
-				"Short side bar and label, stop-loss price, and the liquidation price in the error colour when a live mark is within 10% of it (the official terminal does not highlight it).",
+				"Short side bar and label, stop-loss price, and the liquidation price in the error colour when a live mark is within 10% of it (the official terminal does not highlight it), with a screen-reader-only Near liquidation under the same fresh-data condition (WCAG 1.4.1, 1.3.1).",
 			"destructive-action": "Static danger colour of Market Close and Reverse.",
 		},
 	},
@@ -298,7 +298,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 	},
 	"trade/mobile/mobile-trade-view.tsx": {
-		announcers: { 'role="alert"': 1, "<output>": 1 },
+		announcers: { 'role="alert"': 2, "<output>": 1 },
 		tones: { "text-trading-panel-error": 1, "text-error": 2 },
 		rawErrors: 1,
 		copy: {
@@ -310,7 +310,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		why: {
 			"input-validation":
 				'The role="alert" summary and the one .message read show order validation errors filtered by getOrderValidationPresentation(), which drops errors whose market, account or wallet data is not ready.',
-			"action-feedback": "Failure of Enable Trading after the user pressed it.",
+			"action-feedback":
+				'Failure of Enable Trading after the user pressed it, announced once through its own role="alert" (WCAG 4.1.3).',
 			"confirmed-restriction":
 				"The disabled region button and the <output> reason under the order button (Agent-only, activate trading on desktop) for resolved states only; the order button reads Connect Wallet only once the session is definitively not connected, and keeps the order's name, disabled, while useWalletSession().isResolving holds.",
 			"data-value":

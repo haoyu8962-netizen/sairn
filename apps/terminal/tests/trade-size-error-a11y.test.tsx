@@ -443,6 +443,8 @@ function expectInvalidDescription(control: HTMLInputElement, errorId: string) {
 }
 
 function expectClearedDescription(control: HTMLInputElement) {
-	expect(control.getAttribute("aria-describedby")).toBeNull();
+	for (const id of control.getAttribute("aria-describedby")?.split(/\s+/).filter(Boolean) ?? []) {
+		expect(document.getElementById(id)?.closest('[role="alert"]')).toBeNull();
+	}
 	expect(control.getAttribute("aria-invalid")).toBeNull();
 }

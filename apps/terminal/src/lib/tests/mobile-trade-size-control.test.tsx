@@ -59,6 +59,24 @@ describe("MobileTradeSizeControl", () => {
 		});
 	}
 
+	it("describes the size field with its current unit, which the unit button is named by", () => {
+		renderControl({ sizeModeLabel: "BTC" });
+		const sizeInput = getInput(container, "Order size");
+		const describedBy = () =>
+			(sizeInput.getAttribute("aria-describedby") ?? "")
+				.split(/\s+/)
+				.map((id) => document.getElementById(id)?.textContent?.trim())
+				.join(" ");
+		const unitButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent?.trim() === "BTC",
+		);
+		expect(describedBy()).toBe("BTC");
+		expect(unitButton?.getAttribute("aria-label")).toBeNull();
+
+		renderControl({ sizeModeLabel: "USDC" });
+		expect(describedBy()).toBe("USDC");
+	});
+
 	it("preserves the financial size string and keeps the unit switch interactive", () => {
 		const values: string[] = [];
 		const onSizeModeToggle = vi.fn();

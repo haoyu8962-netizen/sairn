@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
 	connected: true,
 	status: "active",
 	isStale: false,
-	data: undefined as { user: string; clearinghouseStates: [] } | undefined,
+	data: undefined as { user: string; clearinghouseStates: unknown[] } | undefined,
 }));
 
 vi.mock("../../../../../packages/hl-react/src/provider", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/lib/hyperliquid", async () => {
 	const { useUserPositions } = await import("../../../../../packages/hl-react/src/account/use-user-positions");
 	return {
 		useHyperliquid: () => ({ clientKey: "0x1111111111111111111111111111111111111111", env: "Mainnet" }),
-		useMarkets: () => ({ getMarket: () => undefined, isLoading: false, error: null }),
+		useMarkets: () => ({ getMarket: () => undefined, getAssetId: () => undefined, isLoading: false, error: null }),
 		useMarketsInfo: () => ({ getMarketInfo: () => undefined }),
 		useUserPositions,
 		useSubscription: () => ({ data: undefined }),
@@ -93,5 +93,55 @@ describe("desktop positions snapshot presentation", () => {
 		state.isStale = false;
 		render();
 		expect(container.textContent).toContain("No active positions.");
+	});
+
+	it("names the PNL column toggle by its visible heading and describes the switch", () => {
+		state.data = {
+			user: "0x1111111111111111111111111111111111111111",
+			clearinghouseStates: [
+				[
+					"",
+					{
+						assetPositions: [
+							{
+								type: "oneWay",
+								position: {
+									coin: "BTC",
+									szi: "1",
+									entryPx: "100",
+									positionValue: "100",
+									unrealizedPnl: "0",
+									returnOnEquity: "0",
+									liquidationPx: "50",
+									marginUsed: "10",
+									maxLeverage: 10,
+									leverage: { type: "cross", value: 10 },
+									cumFunding: { allTime: "0", sinceChange: "0", sinceOpen: "0" },
+								},
+							},
+						],
+					},
+				],
+			],
+		};
+		render();
+		const toggle = [...container.querySelectorAll<HTMLButtonElement>("th button")].find((button) =>
+			button.textContent?.startsWith("PNL"),
+		);
+		if (!toggle) throw new Error("Expected the PNL column toggle");
+		const description = () =>
+			(toggle.getAttribute("aria-describedby") ?? "")
+				.split(/\s+/)
+				.map((id) => document.getElementById(id)?.textContent ?? "")
+				.join(" ");
+		expect(toggle.getAttribute("aria-label")).toBeNull();
+		expect(toggle.textContent).toContain("PNL (ROE %)");
+		expect(description()).toBe("Show price change percentage");
+		expect(toggle.closest("th")?.querySelector("[hidden]")?.textContent).toBe("Show price change percentage");
+
+		act(() => toggle.click());
+		expect(toggle.getAttribute("aria-label")).toBeNull();
+		expect(toggle.textContent).toContain("PNL (Price Change %)");
+		expect(description()).toBe("Show ROE percentage");
 	});
 });

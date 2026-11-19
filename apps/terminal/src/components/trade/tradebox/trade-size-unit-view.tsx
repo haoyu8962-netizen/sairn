@@ -4,9 +4,10 @@ import { cn } from "@/lib/cn";
 
 interface Props extends ComponentPropsWithRef<"button"> {
 	unit: string | null;
+	unitId?: string;
 }
 
-export function TradeSizeUnitView({ unit, className, ...props }: Props) {
+export function TradeSizeUnitView({ unit, unitId, className, ...props }: Props) {
 	return (
 		<button
 			type="button"
@@ -16,7 +17,9 @@ export function TradeSizeUnitView({ unit, className, ...props }: Props) {
 				className,
 			)}
 		>
-			<span className={cn(unit === null && "invisible")}>{unit ?? "BTC"}</span>
+			<span id={unitId} className={cn(unit === null && "invisible")}>
+				{unit ?? "BTC"}
+			</span>
 			<CaretDownIcon className="size-3 text-trading-panel-subtle" />
 		</button>
 	);
