@@ -167,7 +167,10 @@ const budgets = {
 		// phone history tabs' backfill hooks (+3,961) and the per-key trading-protection storage (+847).
 		// Raised 2026-11-20 by +1,697 for the second review round (see the total above): 1,671,303 minus 1,669,606.
 		// Before the raise the build exceeded the allowance by 403; pairing on it measures +1,825 and keeps 138 bytes.
-		baselineGzipBytes: 1_662_597,
+		// Raised 2026-11-20 by +336 for the third review round (deposit outcome kept until the user dismisses it):
+		// pairing on 1,672,795 minus 1,672,459 (pairing off measures +196: 1,671,517 minus 1,671,321). The pairing-on
+		// increment is used because the pairing-off one would leave pairing on 2 bytes over; pairing on keeps 138 bytes.
+		baselineGzipBytes: 1_662_933,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {

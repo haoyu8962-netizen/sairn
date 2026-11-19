@@ -433,6 +433,25 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Fix integration third review round re-baseline (2026-11-20)
+
+The third review round (deposit dialog terminal states, the tracking notifier keeping an outcome until the user
+dismisses it, storage clean-up and the `aliases` temporary file) grew static trade startup again. Measured on the
+same machine and configuration as the two sections below, each build run on its own:
+
+| Surface | Pairing off before | Pairing off after | Pairing on before | Pairing on after |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,671,321 | 1,671,517 (+196) | 1,672,459 | 1,672,795 (+336) |
+| Total client gzip | 3,399,755 | 3,400,404 (+649) | 3,403,213 | 3,403,964 (+751) |
+| `trade-terminal-page` | 128,858 | 128,841 | 128,856 | 128,844 |
+
+Only the static-startup baseline was raised, by the pairing-on increment (+336, to 1,662,933): the pairing-off
+increment (+196) would have left the pairing-on build 2 bytes over the allowance. After the raise pairing on keeps
+138 bytes and pairing off 1,416. The growth is the notifier and the tracking hook, which are page-level and load at
+startup; nothing new was pulled in by a static import. The release configuration was not built; with 138 bytes left a
+release preflight is likely to stop on this surface, which needs either a real cut of at least 162 bytes or an
+operator decision on the allowance.
+
 ## Fix integration second review round re-baseline (2026-11-20)
 
 The second review round of the same integration (uncommitted on `codex/integration` `e6790a3f`: deposit recovery
