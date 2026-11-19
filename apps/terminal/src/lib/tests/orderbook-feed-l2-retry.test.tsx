@@ -69,8 +69,8 @@ const L2_BOOK = { coin: "BTC", time: 2 };
 
 let latest: OrderbookFeedResult | undefined;
 
-function Probe({ enabled = true }: { enabled?: boolean }) {
-	latest = useOrderbookFeed({ compact: true, enabled, env: "Mainnet", params: PARAMS });
+function Probe({ enabled = true, shown = enabled }: { enabled?: boolean; shown?: boolean }) {
+	latest = useOrderbookFeed({ compact: true, enabled, shown, env: "Mainnet", params: PARAMS });
 	return null;
 }
 
@@ -283,5 +283,33 @@ describe("compact order book incremental feed retry", () => {
 		act(() => root.render(<Probe />));
 
 		expectWaitThenProbe(30_000);
+	});
+
+	it("pauses observation while the book is warm but not shown", () => {
+		failL2();
+		expectWaitThenProbe(60_000);
+		recoverL2();
+		advance(L2_RECOVERY_OBSERVATION_MS / 2);
+		act(() => root.render(<Probe shown={false} />));
+		expect(l2Subscribed()).toBe(true);
+		advance(20 * 60_000);
+		act(() => root.render(<Probe />));
+		advance(L2_RECOVERY_OBSERVATION_MS / 2 - 1);
+		failL2();
+		expectWaitThenProbe(120_000);
+	});
+
+	it("abandons a probe while the book is warm but not shown and retries immediately when shown", () => {
+		failL2();
+		expectWaitThenProbe(60_000);
+		act(() => root.render(<Probe shown={false} />));
+		expect(l2Subscribed()).toBe(false);
+		expectFallbackServing();
+		advance(10_000);
+		act(() => root.render(<Probe />));
+		expect(l2Subscribed()).toBe(true);
+		expectFallbackServing();
+		failL2();
+		expectWaitThenProbe(120_000);
 	});
 });

@@ -33,6 +33,7 @@ export type OrderbookFeedSnapshot = L2BookSnapshot | SubEvent<"l2Book">;
 interface UseOrderbookFeedParameters {
 	compact: boolean;
 	enabled: boolean;
+	shown: boolean;
 	env: string;
 	params: SubParams<"l2Book"> | null;
 }
@@ -55,7 +56,13 @@ interface L2PhaseRemaining {
 
 type L2FallbackRecords = ReadonlyMap<string, L2FallbackRecord>;
 
-export function useOrderbookFeed({ compact, enabled, env, params }: UseOrderbookFeedParameters): OrderbookFeedResult {
+export function useOrderbookFeed({
+	compact,
+	enabled,
+	shown,
+	env,
+	params,
+}: UseOrderbookFeedParameters): OrderbookFeedResult {
 	const l2Params = params ? toL2SubscriptionParameters(params) : DISABLED_L2_PARAMS;
 	const l2Identity = params ? `${env}:${params.coin}:${getPriceGroupingKey(params)}` : `${env}:disabled`;
 	const [fallbacks, setFallbacks] = useState<L2FallbackRecords>(() => new Map());
@@ -65,7 +72,8 @@ export function useOrderbookFeed({ compact, enabled, env, params }: UseOrderbook
 	const fallback = fallbacks.get(l2Identity);
 	const phase = fallback?.phase;
 	const l2Supported = compact && ORDERBOOK_L2_FEATURES.incrementalFeedEnabled && L2_DECOMPRESSION_SUPPORTED;
-	const l2Probing = phase === "probing" && pageActive;
+	const retryActive = shown && pageActive;
+	const l2Probing = phase === "probing" && retryActive;
 	const l2Candidate = l2Supported && (phase === undefined || phase === "observing" || l2Probing);
 
 	const l2Result = useL2BookSubscription(l2Params, {
@@ -78,7 +86,7 @@ export function useOrderbookFeed({ compact, enabled, env, params }: UseOrderbook
 	const publicResult = useSubscription("l2Book", params ?? DISABLED_L2_BOOK_PARAMS, {
 		enabled: enabled && usePublicFeed,
 	});
-	const timedPhase = getTimedPhase(phase, enabled && l2Supported && pageActive, l2SnapshotReady);
+	const timedPhase = getTimedPhase(phase, enabled && l2Supported && retryActive, l2SnapshotReady);
 	const failureCount = fallback?.failures;
 
 	useEffect(() => {

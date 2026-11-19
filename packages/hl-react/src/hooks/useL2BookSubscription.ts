@@ -43,7 +43,15 @@ async function subscribeL2Book({
 	if (payload.c.length === 0) throw new L2BookStreamError("invalid_frame");
 	if (!canUseL2Decompression()) throw new L2BookStreamError("unsupported_decompression");
 
+	const cancelled = failureOptions?.signal;
+	if (cancelled?.aborted) throw new L2BookStreamError("subscribe_failed", { cause: cancelled.reason });
 	const gate = await acquireL2SubscriptionGate(transport, payload);
+	// The grouping gate can hold this attempt for up to five seconds; a consumer that left meanwhile
+	// must not reach the transport.
+	if (cancelled?.aborted) {
+		await gate.release(() => Promise.resolve());
+		throw new L2BookStreamError("subscribe_failed", { cause: cancelled.reason });
+	}
 	const confirmationController = new AbortController();
 	let rawSubscription: ISubscription | undefined;
 	let detachDisconnect: (() => void) | undefined;
