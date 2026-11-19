@@ -25,6 +25,8 @@
 5. 交易所返回的 `Action already expired` 已有翻译规则（`exchange-error-text.ts`）：「The request expired before the exchange processed it. Try again.」，本次不改。
 6. 与官方相同，设置的「Trading」组有「Transaction delay protection」开关，默认开启。官方存为 `hyperliquid.disable_expires_after`（2026-10-30 前端包：设置项 `transaction.delay.protection`，签名前 `disable_expires_after ? null : expiresAfter()`）；本终端存为全局设置 `transactionDelayProtection`（`hyperliquid.global_settings`，校验后读取，读不出时按开启处理）。客户端运行时加载时用 `setTransactionDelayProtectionReader` 把读取函数交给 `hl-react`，每个 L1 动作签名前读一次：关闭时 `defaultExpiresAfter` 返回 `undefined`，SDK 不写该字段，也不请求服务器时间。
 
+   2026-11-19 补记：存储位置由 [ADR 0057](0057-trading-protection-storage.md) 改为独立键 `transaction-delay-protection-v1`（首次升级时从 `global-settings-v2` 迁移），读不出时仍按开启处理；读取函数与签名前的读取时机不变。
+
 ## 备选方案
 
 | 方案 | 取舍 |

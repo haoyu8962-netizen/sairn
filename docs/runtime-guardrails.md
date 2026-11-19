@@ -1468,6 +1468,15 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
 - `apps/terminal/src/components/dashboard/dashboard-chrome.tsx`
 - `apps/terminal/src/lib/tests/preload-trade-terminal-surface.test.ts`
 
+## 12. Trading Protection Preferences
+
+[ADR 0057](adr/0057-trading-protection-storage.md) owns this section.
+
+- Order confirmation, market-order max slippage and transaction delay protection each have their own `localStorage` key, written only by an explicit change of that protection. They are read from those keys, never from `global-settings-v2` once the one-time migration baseline exists.
+- An open window takes the stricter of its own value and the stored value on every storage event, back/forward-cache restore and ordinary settings write; only an explicit action in the window loosens a protection. A cold start uses the stored value.
+- `global-settings-v2` stays at version 4. Every write of it by this release carries, for the three fields, the stricter of the record's previous value and this release's value, so an older tab or a rolled-back release never reads a looser value than either.
+- A `global-settings-v2` record with a higher version is never migrated, cleared or overwritten.
+
 ## Required Review Checklist
 
 Before merging any change that touches the areas above:
