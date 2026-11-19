@@ -26,7 +26,8 @@ export function TwapFillHistoryTable() {
 	const { formatNumber, formatPrice, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { fills, hasMore, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } = useTwapSliceFills();
+	const { canConfirmEmpty, fills, hasMore, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } =
+		useTwapSliceFills();
 	const { address } = useWalletSession();
 	const { exportCsv, isExporting } = useTwapFillHistoryCsv();
 	const navigateToMarket = useMarketNavigation();
@@ -44,7 +45,7 @@ export function TwapFillHistoryTable() {
 		if (!isConnected)
 			return <ConnectPlaceholder>{t`Connect your wallet to view TWAP fill history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
-		if (status !== "ready" || (fills.length === 0 && isRealtimeDegraded)) return <PassiveDataPlaceholder />;
+		if (status !== "ready" || (fills.length === 0 && !canConfirmEmpty)) return <PassiveDataPlaceholder />;
 		if (fills.length === 0) return <Placeholder>{t`No TWAP fills found.`}</Placeholder>;
 		return null;
 	}

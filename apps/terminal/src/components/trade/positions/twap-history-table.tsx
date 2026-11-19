@@ -21,7 +21,8 @@ export function TwapHistoryTable() {
 	const { formatNumber, formatPrice } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { hasMore, history, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } = useTwapHistory();
+	const { canConfirmEmpty, hasMore, history, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } =
+		useTwapHistory();
 	const { getTwapHistoryStatusLabel } = useOrderDisplayLabels();
 	const navigateToMarket = useMarketNavigation();
 	const markets = useMarkets();
@@ -29,7 +30,7 @@ export function TwapHistoryTable() {
 	function renderPlaceholder() {
 		if (!isConnected) return <ConnectPlaceholder>{t`Connect your wallet to view TWAP history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
-		if (status !== "ready" || (history.length === 0 && isRealtimeDegraded)) return <PassiveDataPlaceholder />;
+		if (status !== "ready" || (history.length === 0 && !canConfirmEmpty)) return <PassiveDataPlaceholder />;
 		if (history.length === 0) return <Placeholder>{t`No TWAP history found.`}</Placeholder>;
 		return null;
 	}

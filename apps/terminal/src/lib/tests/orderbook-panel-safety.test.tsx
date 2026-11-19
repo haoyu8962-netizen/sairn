@@ -229,6 +229,17 @@ describe("OrderbookPanel safety", () => {
 		expect(bidDepth[bidDepth.length - 1]?.style.width).toBe("100%");
 	});
 
+	it.each(["bids", "asks"] as const)("does not call the %s empty when parsing skips an invalid level", (side) => {
+		const badLevel = { n: 1, px: "invalid", sz: "1" };
+		mocks.book = snapshot("HYPE", side === "bids" ? [badLevel] : [], side === "asks" ? [badLevel] : []);
+		mocks.status = "active";
+		renderPanel();
+
+		const ladder = container.querySelector(`[data-slot="orderbook-${side}"]`);
+		expect(ladder?.textContent).toBe("");
+		expect(ladder?.querySelectorAll('[data-slot="orderbook-placeholder-row"]')).toHaveLength(4);
+	});
+
 	it("hides unmeasured prices and enables every complete row after measurement", () => {
 		getOrderbookActionsStore().actions.clearSelectedPrice();
 		mocks.status = "active";
