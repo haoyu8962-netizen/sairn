@@ -32,7 +32,7 @@ export function cspHash(text) {
 	return `sha256-${createHash("sha256").update(parserScriptText(text), "utf8").digest("base64")}`;
 }
 
-function parseAttributes(source) {
+export function parseAttributes(source) {
 	const attributes = new Map();
 	for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
 		const value = match[2] === undefined ? "" : match[2].replace(/^["']|["']$/g, "");
