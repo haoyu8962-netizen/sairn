@@ -1,5 +1,8 @@
 import Big from "big.js";
+import { USDC_ATOMIC_DECIMALS } from "@/components/funds-action/funds-amount";
+import { FILLED_AMOUNT_MIN_DECIMALS } from "@/config/app";
 import type { NumberFormatters } from "@/lib/format";
+import { formatDecimalFloor, toPlainDecimal } from "@/lib/trade/numbers";
 
 export const VAULT_PERIODS = ["day", "week", "month", "allTime"] as const;
 export type VaultPeriod = (typeof VAULT_PERIODS)[number];
@@ -411,6 +414,12 @@ export function getVaultPeriodSeries(row: VaultListItem, period: VaultPeriod): r
 	return row.pnlByPeriod[period];
 }
 
+function vaultAprDecimal(apr: number): string {
+	const value = toPlainDecimal(apr);
+	if (value === null) throw new RangeError("Invalid Vault APR");
+	return value;
+}
+
 export function createVaultListItem(value: {
 	vaultAddress: `0x${string}`;
 	name: string;
@@ -427,7 +436,7 @@ export function createVaultListItem(value: {
 		name: value.name,
 		leader: value.leader,
 		tvl: value.tvl,
-		apr: Big(String(value.apr)).toString(),
+		apr: vaultAprDecimal(value.apr),
 		createdAt: value.createTimeMillis,
 		isClosed: value.isClosed,
 		relationship: value.relationship.type,
@@ -478,7 +487,7 @@ export function parseVaultDetailsSnapshot(value: unknown): VaultDetailParseResul
 			leader: value.leader,
 			description: value.description,
 			portfolio,
-			apr: Big(String(value.apr)).toString(),
+			apr: vaultAprDecimal(value.apr),
 			followerState: followerState as VaultFollowerState | null,
 			leaderFraction: Big(String(value.leaderFraction)).toString(),
 			leaderCommission: Big(String(value.leaderCommission)).toString(),
@@ -591,6 +600,16 @@ export function getLatestVaultHistoryValue(
 ): string | null {
 	const history = kind === "accountValue" ? snapshot.accountValueHistory : snapshot.pnlHistory;
 	return history.at(-1)?.value ?? null;
+}
+
+export function getVaultMaxAmount(value: string | null): string | null {
+	return isUnsignedDecimal(value) ? formatDecimalFloor(value, USDC_ATOMIC_DECIMALS, FILLED_AMOUNT_MIN_DECIMALS) : null;
+}
+
+export function formatVaultWithdrawalLimit(value: string | null, numberFormat: NumberFormatters): string {
+	const max = getVaultMaxAmount(value);
+	if (max === null) return VAULT_UNKNOWN_VALUE;
+	return `$${numberFormat.formatDecimalString(max === "0" ? "0.00" : max)}`;
 }
 
 export function formatVaultUsd(value: string | null | undefined, numberFormat: NumberFormatters, decimals = 2): string {

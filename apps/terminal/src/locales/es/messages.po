@@ -5174,7 +5174,7 @@ msgstr "Suministro máximo"
 msgid "Maximum withdrawable"
 msgstr "Máximo disponible para retirar"
 
-#. placeholder {0}: formatVaultUsd(availableAmount, numberFormat)
+#. placeholder {0}: formatVaultWithdrawalLimit(availableAmount, numberFormat)
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Maximum withdrawable: {0}"
 msgstr "Máximo disponible para retirar: {0}"

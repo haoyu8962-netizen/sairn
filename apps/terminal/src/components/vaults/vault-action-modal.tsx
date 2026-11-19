@@ -20,7 +20,7 @@ import {
 } from "@/lib/brand/brand-motion.gen";
 import { useNumberFormat } from "@/lib/format";
 import { toPlainDecimal } from "@/lib/trade/numbers";
-import { formatVaultRatio, formatVaultUsd, type VaultDetail } from "./domain/vaults";
+import { formatVaultRatio, formatVaultUsd, formatVaultWithdrawalLimit, type VaultDetail } from "./domain/vaults";
 
 export type VaultActionStage = "input" | "review" | "awaiting" | "submitted" | "reconciling" | "done";
 export type VaultActionResult = "success" | "rejected" | "apiError" | "unknown";
@@ -131,7 +131,7 @@ export function VaultActionModal({
 									? t`Available amount is not verified`
 									: action === "deposit"
 										? t`Verified wallet balance: ${formatVaultUsd(availableAmount, numberFormat)}`
-										: t`Maximum withdrawable: ${formatVaultUsd(availableAmount, numberFormat)}`
+										: t`Maximum withdrawable: ${formatVaultWithdrawalLimit(availableAmount, numberFormat)}`
 							}
 						/>
 						<p className="text-xs leading-5 text-fg-muted">

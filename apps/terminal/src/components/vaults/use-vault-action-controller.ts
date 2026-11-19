@@ -32,12 +32,12 @@ import {
 	transitionFundsAction,
 } from "@/components/funds-action/funds-action-state";
 import { compareFundsAmounts, scaleFundsAmount, USDC_ATOMIC_DECIMALS } from "@/components/funds-action/funds-amount";
-import { FILLED_AMOUNT_MIN_DECIMALS } from "@/config/app";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { type ActionFailure, classifyActionErrorOr, describeActionFailure } from "@/lib/errors/action-error";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import {
+	type ExchangeParams,
 	readPersistTradingConnection,
 	useActiveAgentOwner,
 	useAgentRegistration,
@@ -47,10 +47,10 @@ import {
 	useLegalStatus,
 	useTradingStatus,
 } from "@/lib/hyperliquid";
-import { formatDecimalFloor } from "@/lib/trade/numbers";
 import {
 	deriveVaultActionsAvailability,
 	deriveVaultOwnerView,
+	getVaultMaxAmount,
 	getVaultMinimumDeposit,
 	getVaultRequestAvailability,
 	parseVaultDetailsSnapshot,
@@ -318,38 +318,75 @@ export function useVaultActionController({
 		{ enabled: queryEnabled, requestTimeoutMs: REQUEST_TIMEOUT_MS, retry: false, staleTime: 0 },
 	);
 
+	function getCurrentExecutionLease(params: ExchangeParams<"vaultTransfer">): VaultExecutionLease {
+		const lease = executionLeaseRef.current;
+		const currentRoute = routeIdentityRef.current;
+		const currentAction = actionRef.current;
+		if (
+			!lease ||
+			lease.identityKey !== currentRoute.identityKey ||
+			lease.routeIdentityKey !== currentRoute.key ||
+			lease.env !== currentRoute.env ||
+			lease.vaultAddress !== currentRoute.vaultAddress ||
+			lease.ownerAddress.toLowerCase() !== currentRoute.ownerAddress?.toLowerCase() ||
+			currentAction?.id !== lease.actionId ||
+			currentAction.routeIdentityKey !== lease.routeIdentityKey ||
+			Date.now() >= lease.eligibilityDeadline
+		) {
+			throw new VaultLocalPreDispatchError();
+		}
+		const marker = findPendingFundsAction(lease.env, lease.ownerAddress);
+		if (!marker || !fundsActionReferencesEqual(marker, lease.reference)) {
+			throw new VaultLocalPreDispatchError();
+		}
+		if (
+			params.vaultAddress.toLowerCase() !== marker.target.toLowerCase() ||
+			params.isDeposit !== (marker.direction === "deposit") ||
+			Number(params.usd) !== lease.atomicAmount
+		) {
+			throw new VaultLocalPreDispatchError();
+		}
+		return lease;
+	}
+
+	// Runs inside the cross-tab funds lock, after the queue wait: another tab may have spent the
+	// balance or changed the account mode, Vault limits or equity since the preflight above.
+	async function verifyInsideFundsLock(params: ExchangeParams<"vaultTransfer">, signal: AbortSignal): Promise<void> {
+		const lease = getCurrentExecutionLease(params);
+		const user = lease.ownerAddress;
+		const { info } = hyperliquid;
+		const [detailSnapshot, equitiesSnapshot, clearinghouseSnapshot, accountAbstraction, spotClearinghouseSnapshot] =
+			await Promise.all([
+				info.vaultDetails({ vaultAddress: lease.vaultAddress, user }, signal),
+				params.isDeposit ? undefined : info.userVaultEquities({ user }, signal),
+				params.isDeposit ? info.clearinghouseState({ user }, signal) : undefined,
+				params.isDeposit ? info.userAbstraction({ user }, signal) : undefined,
+				params.isDeposit ? info.spotClearinghouseState({ user }, signal).catch(() => undefined) : undefined,
+			]);
+		signal.throwIfAborted();
+		if (getCurrentExecutionLease(params) !== lease) throw new VaultLocalPreDispatchError();
+		const verified = verifyVaultActionPreflight({
+			action: params.isDeposit ? "deposit" : "withdraw",
+			vaultAddress: lease.vaultAddress,
+			ownerAddress: user,
+			amountAtomic: lease.reference.atomicAmount,
+			detailSnapshot,
+			equitiesSnapshot,
+			clearinghouseSnapshot,
+			spotClearinghouseSnapshot,
+			accountAbstraction,
+			now: Date.now(),
+		});
+		if (!verified.valid) throw new VaultActionPreflightError(verified.error);
+	}
+
 	const vaultTransfer = useExchange("vaultTransfer", {
 		executionGuard: (params) => {
-			const lease = executionLeaseRef.current;
-			const currentRoute = routeIdentityRef.current;
-			const currentAction = actionRef.current;
-			if (
-				!lease ||
-				lease.identityKey !== currentRoute.identityKey ||
-				lease.routeIdentityKey !== currentRoute.key ||
-				lease.env !== currentRoute.env ||
-				lease.vaultAddress !== currentRoute.vaultAddress ||
-				lease.ownerAddress.toLowerCase() !== currentRoute.ownerAddress?.toLowerCase() ||
-				currentAction?.id !== lease.actionId ||
-				currentAction.routeIdentityKey !== lease.routeIdentityKey ||
-				Date.now() >= lease.eligibilityDeadline
-			) {
-				throw new VaultLocalPreDispatchError();
-			}
-			const marker = findPendingFundsAction(lease.env, lease.ownerAddress);
-			if (!marker || !fundsActionReferencesEqual(marker, lease.reference)) {
-				throw new VaultLocalPreDispatchError();
-			}
-			if (
-				params.vaultAddress.toLowerCase() !== marker.target.toLowerCase() ||
-				params.isDeposit !== (marker.direction === "deposit") ||
-				Number(params.usd) !== lease.atomicAmount
-			) {
-				throw new VaultLocalPreDispatchError();
-			}
+			const lease = getCurrentExecutionLease(params);
 			lease.guardCalls += 1;
 			if (lease.guardCalls >= 2) lease.guardPassed = true;
 		},
+		preExecutionGuard: verifyInsideFundsLock,
 	});
 
 	const currentDepositAvailable = getVaultDepositAvailable({
@@ -859,10 +896,7 @@ export function useVaultActionController({
 	return {
 		action: visibleAction,
 		availableAmount,
-		maxAmount:
-			availableAmount === null
-				? null
-				: formatDecimalFloor(availableAmount, USDC_ATOMIC_DECIMALS, FILLED_AMOUNT_MIN_DECIMALS),
+		maxAmount: getVaultMaxAmount(availableAmount),
 		minimumAmount,
 		belowMinimum: minimumAmount !== null && amount?.valid === true && !meetsMinimum,
 		actionAvailability,

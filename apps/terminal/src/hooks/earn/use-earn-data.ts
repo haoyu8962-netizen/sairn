@@ -52,6 +52,7 @@ export interface EarnData {
 	accountStatus: EarnDataStatus;
 	interestStatus: EarnDataStatus;
 	historyStatus: EarnDataStatus;
+	canConfirmEmptyHistory: boolean;
 	snapshot: EarnSnapshot | null;
 	snapshotInputs: EarnSnapshotInputs;
 	accountAbstraction: AccountAbstraction;
@@ -263,6 +264,7 @@ export function useEarnData(): EarnData {
 		accountStatus,
 		interestStatus,
 		historyStatus,
+		canConfirmEmptyHistory: ledger.canConfirmEmpty,
 		snapshot,
 		snapshotInputs,
 		accountAbstraction: balances.accountAbstraction,

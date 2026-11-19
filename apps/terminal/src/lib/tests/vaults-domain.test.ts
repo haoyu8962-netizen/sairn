@@ -55,6 +55,31 @@ describe("Vault list domain", () => {
 		expect(item).toMatchObject({ apr: "0.125", classification: null, relationship: "normal" });
 	});
 
+	it.each([
+		[0, "0", "0.00%"],
+		[0.0000001, "0.0000001", "+0.00%"],
+		[-0.0000001, "-0.0000001", "-0.00%"],
+	] as const)("preserves finite APR %s through list and detail formatting", (apr, decimal, expected) => {
+		const list = createVaultListItem({
+			vaultAddress: VAULT_A,
+			name: "Alpha",
+			leader: LEADER,
+			tvl: "10",
+			apr,
+			isClosed: false,
+			createTimeMillis: NOW,
+			relationship: { type: "normal" },
+			pnlHistory: BASE_ROWS[0].pnlByPeriod,
+		});
+		const parsed = parseVaultDetailsSnapshot({ ...createRawDetail(), apr });
+		if (parsed.status !== "valid") throw new Error("invalid detail");
+		for (const value of [list.apr, parsed.detail.apr]) {
+			expect.soft(value).toBe(decimal);
+			expect.soft(formatVaultRatio(value, getNumberFormatters(), 2, true)).toBe(expected);
+		}
+		expect(formatVaultRatio(null, getNumberFormatters())).toBe("--");
+	});
+
 	it("fails Official and User filters closed when any classification is unavailable", () => {
 		const rows = [{ ...BASE_ROWS[0], classification: null }, BASE_ROWS[1]];
 		expect(selectVaultRows({ rows, filter: "official", query: "", account: EMPTY_ACCOUNT })).toEqual({
