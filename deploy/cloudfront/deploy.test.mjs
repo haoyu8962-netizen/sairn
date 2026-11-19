@@ -130,6 +130,32 @@ test("reupload rewrites the metadata of the selected objects in the bucket, neve
 	assert.equal(buildReuploadCommands({ bucket: "b", files: many, prefixes: ["charting_library/"] }).length, 3);
 });
 
+test("reupload refuses a selected key with a filter wildcard, since in the bucket it would match other objects", () => {
+	for (const name of ["assets/a*.js", "assets/a?.js", "assets/[a].js"]) {
+		assert.throws(
+			() => buildReuploadCommands({ bucket: "b", files: ["_shell.html", "assets/ok.js", name], prefixes: ["assets/"] }),
+			(error) => error.message.includes(`(* ? [ ]): ${name}.`),
+			name,
+		);
+	}
+	assert.doesNotThrow(() => buildReuploadCommands({ bucket: "b", files: ["_shell.html", "assets/ok.js", "docs/a*.html"], prefixes: ["assets/"] }), "an unselected key is never filtered");
+});
+
+test("sync bounds every filtered command to the same number of keys as reupload", () => {
+	const assets = Array.from({ length: 1_201 }, (_, index) => `assets/chunk-${index}-0123456789abcdef.js`);
+	const mutable = Array.from({ length: 501 }, (_, index) => `icons/i-${index}.png`);
+	const plan = buildSyncPlan({ publicDir: "/out", bucket: "b", files: ["_shell.html", "build-meta.json", ...assets, ...mutable] });
+	const includes = (step) => step.command.filter((_, index) => step.command[index - 1] === "--include");
+	const immutable = plan.filter((step) => step.stage === "immutable");
+	assert.deepEqual(immutable.map((step) => includes(step).length), [500, 500, 201]);
+	assert.ok(immutable.every((step) => step.command[1] === "sync"));
+	assert.deepEqual(immutable.flatMap(includes), assets);
+	const mutableSteps = plan.filter((step) => step.stage === "mutable");
+	assert.ok(mutableSteps.every((step) => includes(step).length <= 500));
+	assert.deepEqual(mutableSteps.flatMap(includes).sort(), [...mutable].sort());
+	assert.deepEqual([...new Set(plan.map((step) => step.stage))], ["immutable", "mutable", "buildMeta", "retiredPages", "shell"]);
+});
+
 test("an executing sync overwrites the retired document pages with the shell unless the build still ships them", () => {
 	assert.deepEqual(RETIRED_PAGE_KEYS, [
 		"cookies/index.html",
@@ -283,7 +309,7 @@ test("the cause of a failed upload names the command and its exit code, never th
 	const assets = Array.from({ length: 1_616 }, (_, index) => `assets/chunk-${String(index).padStart(4, "0")}-0123456789abcdef0123456789abcdef.js`);
 	const plan = buildSyncPlan({ publicDir: "/out/public", bucket: "b", files: ["_shell.html", "build-meta.json", "sw.js", ...assets] });
 	const [immutable] = plan;
-	assert.ok(immutable.command.join(" ").length > 100_000, "the first sync carries one --include per content-hashed file");
+	assert.ok(immutable.command.join(" ").length > 30_000, "the first sync carries one --include for each of up to 500 content-hashed files");
 	function messageOf(run) {
 		let message;
 		assert.throws(

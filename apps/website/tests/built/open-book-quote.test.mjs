@@ -128,6 +128,30 @@ test("a one-sided bbo withdraws the quote at once, and an older frame cannot bri
 	assert.deepEqual(page.quote(), ["", "", ""]);
 });
 
+test("a book from the same block as a one-sided bbo cannot bring the quote back; a newer book can", (t) => {
+	const { page, time } = liveOnBbo(t);
+	page.bbo(time + 100, null, "105");
+	page.book(time + 100, "94", "106");
+	assert.deepEqual(page.quote(), ["", "", ""]);
+	assert.notEqual(page.root.dataset.phase, "live");
+	let at = time + 100;
+	for (let i = 0; i < 3; i++) {
+		page.advance(5_000);
+		at += 5_000;
+		page.book(at, "94", "106");
+	}
+	assert.notEqual(
+		page.root.dataset.phase,
+		"live",
+		"15 s after the same-block book, but only 10 s after the first newer one: the handoff counts from the newer book",
+	);
+	page.advance(5_000);
+	at += 5_000;
+	page.book(at, "94", "106");
+	assert.equal(page.root.dataset.phase, "live");
+	assert.deepEqual(page.quote(), ["$94", "$106", "$12"]);
+});
+
 test("a later two-sided bbo restores the live quote after the handoff", (t) => {
 	const { page, time } = liveOnBbo(t);
 	page.bbo(time + 100, null, "105");

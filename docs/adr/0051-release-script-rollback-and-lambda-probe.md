@@ -44,3 +44,12 @@
 - 代码：`deploy/cloudfront/deploy.mjs`（`buildSyncPlan`、`assertFilterSafeKeys`、`runSyncPlan`、`describeSyncFailure`、`releaseStatic`、`assertReleaseMarkersUploaded`、`buildLambdaCommands`、`summarizeLambdaUpdate`、`captureCommand`、`releaseLambda`、`probeApiAfterLambdaUpdate`、`API_REQUEST_TIMEOUT_MS`、`findRelativeImports`、`findExtraLambdaModules`、`check-lambda`）；`.github/workflows/production-build.yml`。
 - 测试：`deploy/cloudfront/deploy.test.mjs`（用内存桶模拟 `s3 sync` 的跳过规则：本地文件更旧、大小相同的回滚必须写回壳、标记与 `manifest.json`；在修复前的代码上该用例失败，报 `_shell.html kept the newer release`）；`scripts/ci-workflows.test.mjs` 钉住 Lambda 检查步骤。
 - 本次执行结果见任务记录：第一轮 `pnpm test:cloudfront` 53/53，`node --test scripts/ci-workflows.test.mjs` 20/20，14 个部署脚本变异与 4 个工作流变异全部被抓到；第二轮（Codex 审查 8.0 的四项 P2 与四个漏网变异修复后）`pnpm test:cloudfront` 60/60，`ci-workflows` 20/20，记录的变异全部被抓到；第三轮（Codex 复审 8.3 的两项 P2、两项 P3）`pnpm test:cloudfront` 64/64，8 个变异全部被抓到；`captureAws` 与 `sync` 分支的 CLI 接线仍未被测试强制。两轮都没有以 `--execute` 运行，也没有回滚演练。
+
+## 2026-11-20 补记：每条命令的文件键上限与 `reupload` 的通配符检查
+
+Gemini 终审第 1 轮 P3-10 的两项，已改（`deploy/cloudfront/deploy.mjs`）：
+
+- `buildSyncPlan` 与 `buildReuploadCommands` 一样，每条命令最多带 500 个 `--include`（`MAX_KEYS_PER_COMMAND`），文件多的阶段拆成几条命令依次运行，阶段顺序不变；`describeSyncFailure` 原本就能说明「同阶段还有几条没有运行」。此前首条 `sync` 一条命令带上全部内容哈希文件（约 1,600 个键、十余万字符），还在命令行长度上限以内，这是防御性改动。
+- `buildReuploadCommands` 在生成命令前调用 `assertFilterSafeKeys`：选中的文件键含 `*`、`?`、`[`、`]` 时拒绝，否则这个过滤器在桶里会匹配别的对象并改写它们的缓存策略。
+- `aliases --execute` 写到临时目录的分发配置改为独占新建（`wx`，`0600`），`update-distribution` 返回后在 `finally` 里删除。
+- 测试：`deploy/cloudfront/deploy.test.mjs` 两项、`deploy-cli.test.mjs` 一项（替换了 `execFileSync`，不调用 `aws`，成功与失败两条路径都检查删除）。

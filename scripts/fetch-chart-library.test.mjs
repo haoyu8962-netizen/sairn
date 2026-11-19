@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
 	copyFileSync,
@@ -14,10 +14,12 @@ import {
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
+import fsPromises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { installChartLibrary, readChartLibraryManifest, verifyChartLibrary } from "./fetch-chart-library.mjs";
+import { installChartLibrary, readChartLibraryManifest, recoverInterruptedInstall, verifyChartLibrary } from "./fetch-chart-library.mjs";
 
 const CONTENTS = { "charting_library.js": "loader", "bundles/a.js": "bundle" };
 
@@ -130,6 +132,79 @@ test("follows a source root that the operator names through a symbolic link", as
 	await verifyChartLibrary(target, files, { exact: true });
 });
 
+function deadPid() {
+	return spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" }).stdout;
+}
+
+test("replacing an installed copy never leaves the target missing when the final rename fails", async (t) => {
+	const { root, source, target, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	mkdirSync(target, { recursive: true });
+	writeFileSync(join(target, "keep.txt"), "previous install");
+	const files = await readChartLibraryManifest(manifestPath);
+	const realRename = fsPromises.rename;
+	t.mock.method(fsPromises, "rename", async (from, to) => {
+		if (String(from).includes(".incoming-") && to === target) throw Object.assign(new Error("simulated rename failure"), { code: "EIO" });
+		return realRename(from, to);
+	});
+	syncBuiltinESMExports();
+	t.after(() => {
+		t.mock.restoreAll();
+		syncBuiltinESMExports();
+	});
+	await assert.rejects(installChartLibrary({ source, target, files }), /simulated rename failure/);
+	assert.equal(readFileSync(join(target, "keep.txt"), "utf8"), "previous install");
+	assert.deepEqual(readdirSync(join(root, "public")), ["charting_library"]);
+});
+
+test("a later install replaces the copy and removes the one it moved aside", async (t) => {
+	const { root, source, target, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	mkdirSync(target, { recursive: true });
+	writeFileSync(join(target, "keep.txt"), "previous install");
+	const files = await readChartLibraryManifest(manifestPath);
+	await installChartLibrary({ source, target, files });
+	await verifyChartLibrary(target, files, { exact: true });
+	assert.deepEqual(readdirSync(join(root, "public")), ["charting_library"]);
+});
+
+test("the next run restores a copy that an interrupted install moved aside and drops its staging copy", async (t) => {
+	const { root, source, target, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const pid = deadPid();
+	mkdirSync(join(root, "public"));
+	renameSync(source, `${target}.previous-${pid}`);
+	mkdirSync(`${target}.incoming-${pid}`);
+	writeFileSync(join(`${target}.incoming-${pid}`, "partial.js"), "x");
+	assert.deepEqual(await recoverInterruptedInstall(target), { restored: true });
+	await verifyChartLibrary(target, await readChartLibraryManifest(manifestPath), { exact: false });
+	assert.deepEqual(readdirSync(join(root, "public")), ["charting_library"]);
+});
+
+test("recovery never restores a symbolic link or touches an install that is still running", async (t) => {
+	const { root, source, target } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	mkdirSync(join(root, "public"));
+	symlinkSync(source, `${target}.previous-${deadPid()}`, "dir");
+	const running = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+	t.after(() => running.kill());
+	mkdirSync(`${target}.previous-${running.pid}`);
+	assert.deepEqual(await recoverInterruptedInstall(target), { restored: false });
+	assert.equal(existsSync(target), false);
+	assert.equal(readdirSync(join(root, "public")).length, 2);
+});
+
+test("recovery leaves an installed target alone and removes a copy moved aside by an ended run", async (t) => {
+	const { root, source, target } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	mkdirSync(target, { recursive: true });
+	writeFileSync(join(target, "current.txt"), "current");
+	renameSync(source, `${target}.previous-${deadPid()}`);
+	assert.deepEqual(await recoverInterruptedInstall(target), { restored: false });
+	assert.equal(readFileSync(join(target, "current.txt"), "utf8"), "current");
+	assert.deepEqual(readdirSync(join(root, "public")), ["charting_library"]);
+});
+
 function runFailingClone(t, repository) {
 	const { root, manifestPath } = fixture();
 	t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -167,4 +242,28 @@ test("a failed clone keeps the Git diagnostics and leaves credentials in the rep
 	assert.match(stderr, /Cannot clone the private chart library from https:\/\/git\.example\.test\/owner\/library\.git/);
 	assert.equal(stderr.includes("s3cret-token"), false);
 	assert.equal(stderr.includes("reader"), false);
+});
+
+test("pnpm chart:fetch finishes an interrupted install from the copy moved aside, without cloning", (t) => {
+	const { root, source, manifestPath } = fixture();
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const script = join(root, "scripts", "fetch-chart-library.mjs");
+	mkdirSync(join(root, "scripts"));
+	mkdirSync(join(root, "deploy", "manifests"), { recursive: true });
+	mkdirSync(join(root, "apps", "terminal", "public"), { recursive: true });
+	copyFileSync(new URL("./fetch-chart-library.mjs", import.meta.url), script);
+	copyFileSync(manifestPath, join(root, "deploy", "manifests", "tradingview-charting-library.json"));
+	const target = join(root, "apps", "terminal", "public", "charting_library");
+	renameSync(source, `${target}.previous-${deadPid()}`);
+	const bin = join(root, "bin");
+	mkdirSync(bin);
+	writeFileSync(join(bin, "git"), `#!${process.execPath}\nconsole.error("git must not run");\nprocess.exit(128);\n`, { mode: 0o700 });
+	const env = { PATH: bin, TMPDIR: root, CHART_LIBRARY_REPOSITORY: "https://git.example.test/library.git" };
+	const check = spawnSync(process.execPath, [realpathSync(script), "--check"], { cwd: root, encoding: "utf8", env });
+	assert.equal(check.status, 1, "--check only reads");
+	const result = spawnSync(process.execPath, [realpathSync(script)], { cwd: root, encoding: "utf8", env });
+	assert.equal(result.status, 0, result.stderr);
+	assert.match(result.stdout, /Restored the copy of apps\/terminal\/public\/charting_library/);
+	assert.match(result.stdout, /matches the manifest \(2 files\)/);
+	assert.deepEqual(readdirSync(join(root, "apps", "terminal", "public")), ["charting_library"]);
 });

@@ -73,3 +73,11 @@
 - 生产构建（固定身份、配对关闭）退出码 0；`node deploy/verify-chart-build.mjs apps/terminal/public apps/terminal/.output/public deploy/manifests/tradingview-charting-library.json` 退出码 0。
 
 没有验证的：新仓库上的 CI（含 `actions/checkout` 检出私有仓库那一步）；全量单测与浏览器套件；发布脚本对新仓库产物的运行。
+
+## 2026-11-20 补记：替换已安装目录的顺序
+
+Gemini 终审第 1 轮 P3-10 指出：安装先删除目标目录再把暂存目录改名过去，中断时目标目录不存在。已改（`scripts/fetch-chart-library.mjs`）：
+
+- 目录不能用一次 `rename` 替换非空目录，所以先把已安装的目录改名为同级的 `charting_library.previous-<pid>`，再把核对过的暂存目录改名为目标；第二次改名失败时把旧目录改回去，成功后才删除旧目录。两次改名之间仍有极短的目标缺失窗口，这是文件系统决定的。
+- 进程在两次改名之间被中断时，下一次 `pnpm chart:fetch` 先把已结束进程留下的 `.previous-<pid>` 改回目标（只认真实目录，不认符号链接；该进程仍在运行时不动），再照常按清单做完整核对（包括「每一级都是真实目录、文件是普通文件」），不需要克隆；已结束进程留下的 `.incoming-<pid>` 与多余的 `.previous-<pid>` 一并删除，避免留在 `public/` 里被构建带走。`--check` 只读，不做这一步。
+- 测试：`scripts/fetch-chart-library.test.mjs` 新增 6 项（最终改名失败、成功替换后无残留、恢复与清理、符号链接与运行中进程不恢复、目标已在时只清理、经命令行在不克隆的情况下恢复），合成库，不连网络。

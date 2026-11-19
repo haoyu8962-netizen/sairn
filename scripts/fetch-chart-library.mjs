@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, lstat, mkdtemp, readdir, readFile, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -85,9 +85,23 @@ export async function verifyChartLibrary(root, files, { exact }) {
 	}
 }
 
+async function renameIfPresent(from, to) {
+	try {
+		await rename(from, to);
+		return true;
+	} catch (error) {
+		if (error?.code === "ENOENT") return false;
+		throw error;
+	}
+}
+
+// A directory cannot replace a non-empty one in a single rename, so the installed copy is first moved
+// aside. If the second rename fails it is moved back; if the process stops between the two renames,
+// the copy stays beside the target and the next run restores it (recoverInterruptedInstall).
 export async function installChartLibrary({ source, target, files }) {
 	await verifyChartLibrary(source, files, { exact: false });
 	const staging = `${target}.incoming-${process.pid}`;
+	const previous = `${target}.previous-${process.pid}`;
 	await rm(staging, { recursive: true, force: true });
 	try {
 		for (const relativePath of files.keys()) {
@@ -95,11 +109,57 @@ export async function installChartLibrary({ source, target, files }) {
 			await cp(join(source, ...parts), join(staging, ...parts), { recursive: false });
 		}
 		await verifyChartLibrary(staging, files, { exact: true });
-		await rm(target, { recursive: true, force: true });
-		await rename(staging, target);
+		await rm(previous, { recursive: true, force: true });
+		const movedAside = await renameIfPresent(target, previous);
+		try {
+			await rename(staging, target);
+		} catch (error) {
+			if (movedAside) await rename(previous, target);
+			throw error;
+		}
+		await rm(previous, { recursive: true, force: true });
 	} finally {
 		await rm(staging, { recursive: true, force: true });
 	}
+}
+
+function processIsRunning(pid) {
+	if (pid === process.pid) return false;
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		return error?.code === "EPERM";
+	}
+}
+
+// Leftovers of an install whose process has ended: a staging copy is removed, and when the target is
+// missing a copy moved aside is renamed back; the caller then checks it against the manifest as
+// usual. Only real directories are restored, never a symbolic link.
+export async function recoverInterruptedInstall(target) {
+	const parent = dirname(target);
+	const prefix = `${basename(target)}.`;
+	let entries;
+	try {
+		entries = await readdir(parent, { withFileTypes: true });
+	} catch {
+		return { restored: false };
+	}
+	let restored = false;
+	let targetPresent = await exists(target);
+	for (const entry of entries) {
+		const match = entry.name.startsWith(prefix) ? /^(incoming|previous)-(\d+)$/.exec(entry.name.slice(prefix.length)) : null;
+		if (!match || processIsRunning(Number(match[2])) || !entry.isDirectory()) continue;
+		const path = join(parent, entry.name);
+		if (match[1] === "previous" && !targetPresent) {
+			await rename(path, target);
+			targetPresent = true;
+			restored = true;
+		} else {
+			await rm(path, { recursive: true, force: true });
+		}
+	}
+	return { restored };
 }
 
 async function exists(path) {
@@ -154,6 +214,9 @@ async function main() {
 	const files = await readChartLibraryManifest(CHART_LIBRARY_MANIFEST);
 	const label = CHART_LIBRARY_TARGET.slice(REPOSITORY_ROOT.length + sep.length);
 
+	if (!options.check && (await recoverInterruptedInstall(CHART_LIBRARY_TARGET)).restored) {
+		console.log(`Restored the copy of ${label} that an interrupted install had moved aside.`);
+	}
 	if (await exists(CHART_LIBRARY_TARGET)) {
 		try {
 			await verifyChartLibrary(CHART_LIBRARY_TARGET, files, { exact: true });

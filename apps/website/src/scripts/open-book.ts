@@ -384,7 +384,8 @@ export function startOpenBook(root: HTMLElement): void {
 			if (columns.length === 0 || book.t > (columns.at(-1)?.t ?? 0)) columns.push({ t: book.t, levels });
 			if (firstBookT === 0) firstBookT = book.t;
 			const top = { bid: book.bids[0].px, ask: book.asks[0].px, t: book.t };
-			if (book.t >= quoteT && (!quoteFromBbo || !quote || bookContradictsQuote(top, quote))) {
+			const replacesQuote = quote ? !quoteFromBbo || bookContradictsQuote(top, quote) : !quoteFromBbo || book.t > quoteT;
+			if (book.t >= quoteT && replacesQuote) {
 				quote = top;
 				quoteT = book.t;
 				quoteFromBbo = false;

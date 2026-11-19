@@ -38,8 +38,6 @@ interface LiveInput {
 	quoteBasis: "valuation" | "per-share" | "unknown" | null;
 }
 
-const PRE_IPO_QUOTE_BASES = ["valuation", "per-share", "unknown"];
-
 interface Price {
 	markPx: string;
 	prevDayPx: string;
@@ -55,7 +53,12 @@ export const REQUEST_TIMEOUT_MS = 15_000;
 function readInputs(root: Document): LiveInput[] {
 	const raw = root.querySelector("[data-live-inputs]")?.textContent;
 	if (!raw) return [];
-	const parsed: unknown = JSON.parse(raw);
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return [];
+	}
 	if (!Array.isArray(parsed)) return [];
 	return parsed.filter(
 		(entry): entry is LiveInput =>

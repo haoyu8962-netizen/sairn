@@ -155,7 +155,8 @@ function singleFileCommand({ publicDir, bucket, key }) {
 /**
  * The ordered upload as `{ stage, command }` steps. Each `--include` is a file key, and a build
  * directory or a key that contains a filter wildcard is refused before any command is built, so
- * every filter matches exactly its own file. No command touches objects from another release and
+ * every filter matches exactly its own file. Like reupload, each command carries at most
+ * `MAX_KEYS_PER_COMMAND` keys, so a stage may span several commands. No command touches objects from another release and
  * none deletes anything: viewers holding an older shell keep working until their next navigation.
  */
 export function buildSyncPlan({ publicDir, bucket, files }) {
@@ -165,12 +166,16 @@ export function buildSyncPlan({ publicDir, bucket, files }) {
 	const steps = [];
 	for (const [cacheControl, keys] of groupByCacheControl(early)) {
 		const stage = cacheControl === IMMUTABLE_CACHE_CONTROL ? "immutable" : "mutable";
-		steps.push({ stage, command: filteredCommand(stage === "immutable" ? "sync" : "cp", { publicDir, bucket, keys, cacheControl }) });
+		for (const keyChunk of chunk(keys, MAX_KEYS_PER_COMMAND)) {
+			steps.push({ stage, command: filteredCommand(stage === "immutable" ? "sync" : "cp", { publicDir, bucket, keys: keyChunk, cacheControl }) });
+		}
 	}
 	steps.sort((left, right) => Number(left.stage === "mutable") - Number(right.stage === "mutable"));
 	const pages = late.filter((item) => item.file !== SHELL_KEY && item.file !== BUILD_META_KEY);
 	for (const [cacheControl, keys] of groupByCacheControl(pages)) {
-		steps.push({ stage: "pages", command: filteredCommand("cp", { publicDir, bucket, keys, cacheControl }) });
+		for (const keyChunk of chunk(keys, MAX_KEYS_PER_COMMAND)) {
+			steps.push({ stage: "pages", command: filteredCommand("cp", { publicDir, bucket, keys: keyChunk, cacheControl }) });
+		}
 	}
 	if (files.includes(BUILD_META_KEY)) steps.push({ stage: "buildMeta", command: singleFileCommand({ publicDir, bucket, key: BUILD_META_KEY }) });
 	for (const command of buildRetiredPageCommands({ publicDir, bucket, files })) steps.push({ stage: "retiredPages", command });
@@ -426,11 +431,13 @@ function chunk(items, size) {
  * already in the bucket. This rewrites the metadata of the selected objects with an in-bucket copy
  * (`--metadata-directive REPLACE`), grouped by cache policy and bounded per command. It never
  * uploads a local body: a shell or page must only reach the bucket through `sync`, which checks the
- * live edge policy and uploads assets first.
+ * live edge policy and uploads assets first. A selected key with a filter wildcard is refused, as in
+ * sync: in the bucket its filter could match other objects and rewrite their cache policy.
  */
 export function buildReuploadCommands({ bucket, files, prefixes }) {
 	const selected = files.filter((file) => prefixes.some((prefix) => file === prefix || file.startsWith(prefix)));
 	const { early, late } = planUpload(selected);
+	assertFilterSafeKeys([...early, ...late].map((item) => item.file));
 	const commands = [];
 	for (const phase of [early, late]) {
 		for (const [cacheControl, keys] of groupByCacheControl(phase)) {
@@ -1353,12 +1360,16 @@ export async function main(argv) {
 			const live = readAwsJson(["cloudfront", "get-distribution-config", "--id", distributionId]);
 			const updated = applyDistributionAliases(live.DistributionConfig, { aliases, certificateArn });
 			const file = join(tmpdir(), `sairn-distribution-${distributionId}-${process.pid}.json`);
-			writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`);
-			console.log(`Distribution ${distributionId}: aliases ${aliases.join(", ")} with certificate ${certificateArn} (ETag ${live.ETag}) → ${file}`);
-			runAws(
-				["cloudfront", "update-distribution", "--id", distributionId, "--if-match", live.ETag, "--distribution-config", `file://${file}`],
-				options.execute,
-			);
+			try {
+				writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+				console.log(`Distribution ${distributionId}: aliases ${aliases.join(", ")} with certificate ${certificateArn} (ETag ${live.ETag}) → ${file}`);
+				runAws(
+					["cloudfront", "update-distribution", "--id", distributionId, "--if-match", live.ETag, "--distribution-config", `file://${file}`],
+					options.execute,
+				);
+			} finally {
+				rmSync(file, { force: true });
+			}
 			runAws(["cloudfront", "wait", "distribution-deployed", "--id", distributionId], options.execute);
 			break;
 		}

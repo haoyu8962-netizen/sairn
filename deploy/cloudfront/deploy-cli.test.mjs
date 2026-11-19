@@ -321,3 +321,25 @@ test("CLI functions reports confirmed stages and distinguishes update and publis
 		});
 	}
 });
+
+test("CLI aliases removes its distribution config file after the update, also when the update fails", async (t) => {
+	const certificateArn = `arn:aws:acm:us-east-1:${"0".repeat(12)}:certificate/abcd`;
+	const args = ["aliases", "--distribution=D", "--alias", "one.example", "--certificate-arn", certificateArn, "--execute"];
+	for (const [name, fail, expectWait] of [
+		["success", undefined, true],
+		["failed update", (command) => command.operation === "update-distribution", false],
+	]) {
+		await t.test(name, async (subtest) => {
+			const harness = cliHarness(subtest, { fail });
+			if (fail) await assert.rejects(harness.invoke(...args), /simulated subprocess failure/);
+			else await harness.invoke(...args);
+			const write = harness.events.findIndex((event) => /^write .*sairn-distribution-D-\d+\.json$/.test(event));
+			assert.ok(write >= 0, harness.events.join("\n"));
+			const file = harness.events[write].slice("write ".length);
+			const update = harness.events.indexOf("aws cloudfront update-distribution");
+			const remove = harness.events.indexOf(`remove ${file}`);
+			assert.ok(write < update && update < remove, harness.events.join("\n"));
+			assert.equal(harness.events.includes("aws cloudfront wait"), expectWait);
+		});
+	}
+});
