@@ -278,3 +278,64 @@ describe("global settings order-book animations", () => {
 		expect(restoredToggle.getAttribute("aria-checked")).toBe("false");
 	});
 });
+
+describe("global settings with a damaged record on storage that refuses removal", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		window.localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		vi.resetModules();
+	});
+
+	function refuseRemoval() {
+		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+			throw new DOMException("read-only storage", "SecurityError");
+		});
+	}
+
+	function readSlippage(store: GlobalSettingsModule): number {
+		let value = Number.NaN;
+		function Reader() {
+			value = store.useMarketOrderSlippagePercent();
+			return null;
+		}
+		const container = document.createElement("div");
+		const reader = createRoot(container);
+		act(() => reader.render(createElement(Reader)));
+		act(() => reader.unmount());
+		return value;
+	}
+
+	it.each([
+		["unparseable", "{not json"],
+		["invalid", JSON.stringify({ state: { theme: 7 }, version: GLOBAL_SETTINGS_VERSION })],
+	])("still reads the protections' own keys when the %s record cannot be removed", async (_kind, record) => {
+		window.localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, record);
+		window.localStorage.setItem(STORAGE_KEYS.TRANSACTION_DELAY_PROTECTION, "false");
+		window.localStorage.setItem(STORAGE_KEYS.SKIP_ORDER_CONFIRMATION, "true");
+		refuseRemoval();
+		const store = await reopenStore();
+
+		expect(store.getTransactionDelayProtection()).toBe(false);
+		expect(store.getSkipOrderConfirmation()).toBe(true);
+		expect(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS)).toBe(record);
+	});
+
+	it("starts from the strictest protections when their keys are unreadable too", async () => {
+		window.localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, "{not json");
+		window.localStorage.setItem(STORAGE_KEYS.MARKET_ORDER_SLIPPAGE, "5");
+		refuseRemoval();
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+			if (key === STORAGE_KEYS.MARKET_ORDER_SLIPPAGE) throw new DOMException("denied", "SecurityError");
+			return getItem.call(this, key);
+		});
+		const store = await reopenStore();
+
+		expect(readSlippage(store)).toBe(0.1);
+	});
+});

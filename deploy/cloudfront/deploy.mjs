@@ -1360,8 +1360,8 @@ export async function main(argv) {
 			const live = readAwsJson(["cloudfront", "get-distribution-config", "--id", distributionId]);
 			const updated = applyDistributionAliases(live.DistributionConfig, { aliases, certificateArn });
 			const file = join(tmpdir(), `sairn-distribution-${distributionId}-${process.pid}.json`);
+			writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`, { flag: "wx", mode: 0o600 });
 			try {
-				writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`, { flag: "wx", mode: 0o600 });
 				console.log(`Distribution ${distributionId}: aliases ${aliases.join(", ")} with certificate ${certificateArn} (ETag ${live.ETag}) → ${file}`);
 				runAws(
 					["cloudfront", "update-distribution", "--id", distributionId, "--if-match", live.ETag, "--distribution-config", `file://${file}`],

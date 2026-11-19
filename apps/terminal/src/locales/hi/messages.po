@@ -1784,6 +1784,7 @@ msgstr "सबमिट करने के लिए क्लिक करे�
 #: src/components/trade/tradebox/bridge/success-screen.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
 #: src/components/trade/tradebox/leverage-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2661,6 +2662,7 @@ msgstr "डिप्लॉयर"
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/components/trade/tradebox/deposit/deposit-method-chooser.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -2691,6 +2693,7 @@ msgstr "राशि"
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 msgid "Deposit failed"
 msgstr "डिपॉज़िट विफल"
 
@@ -2699,6 +2702,7 @@ msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "अपने कनेक्ट किए गए वॉलेट से Arbitrum पर नेटिव USDC जमा करें।"
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -9086,6 +9090,7 @@ msgid "The Arbitrum transaction was submitted, but Circle status is temporarily 
 msgstr "Arbitrum ट्रांज़ैक्शन सबमिट हो गया है, लेकिन Circle की स्थिति अस्थायी रूप से उपलब्ध नहीं है। आपके लौटने पर ट्रैकिंग फिर शुरू हो जाएगी।"
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

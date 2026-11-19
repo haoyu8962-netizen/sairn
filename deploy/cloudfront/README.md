@@ -125,7 +125,7 @@
 ## 命令输入与演练
 
 - `--execute`、`--skip-probe` 和三个 `--allow-…` 只接受裸旗标。带值选项支持 `--参数 值` 与 `--参数=值`，值不能为空或是下一个旗标。只有 `reupload --only` 和 `aliases --alias` 可重复。命令拒绝不适用的选项、缺少的必需参数和重复的单值参数。`--origin` 只接受绝对 HTTP(S) origin，可带端口和末尾的 `/`。这些检查都在读取 AWS 身份（`sts get-caller-identity`）之前完成。2026-11-19 之前的脚本把 `--execute=false` 和 `--allow-…=false` 当作已给出，现在这类写法直接报错。
-- `sync`、`reupload`、`invalidate`、`aliases`、`functions`、`lambda` 不带 `--execute` 时只读本地输入并打印计划，不发 HTTP 或 AWS 请求，不生成文件。`aliases` 执行时才读分发配置和 ETag、写配置 JSON（只新建、不覆盖已有文件，权限 `0600`；`update-distribution` 返回后无论成败都删除）；此前它的演练会读取线上配置并把待提交的 JSON 留在临时目录，现在不再这样，需要预览时自己用 `aws cloudfront get-distribution-config` 读取。`functions --origin` 演练只检查本地源码和构建，执行时才采样线上页面、读取 LIVE 函数并写入生成文件。`lambda` 演练检查入口和输出目录，执行时才生成 ZIP。
+- `sync`、`reupload`、`invalidate`、`aliases`、`functions`、`lambda` 不带 `--execute` 时只读本地输入并打印计划，不发 HTTP 或 AWS 请求，不生成文件。`aliases` 执行时才读分发配置和 ETag、写配置 JSON（只新建、不覆盖已有文件，权限 `0600`；同名文件已存在时直接报错且不删除它；自己写成的文件在 `update-distribution` 返回后无论成败都删除）；此前它的演练会读取线上配置并把待提交的 JSON 留在临时目录，现在不再这样，需要预览时自己用 `aws cloudfront get-distribution-config` 读取。`functions --origin` 演练只检查本地源码和构建，执行时才采样线上页面、读取 LIVE 函数并写入生成文件。`lambda` 演练检查入口和输出目录，执行时才生成 ZIP。
 - `check-lambda` 只查本地文件。`verify` 是联网验收命令，直接请求 `--origin`，不接受 `--execute`。按本地壳检查所有列出的同源启动资源，包括脚本、样式、字体、桌面和移动的专属清单、图表预取和存在时的语言目录清单。验收要求至少 20 个不同的 `modulepreload`，核对这些资源及 `sw.js` 的 HTTP 状态、MIME（`.js` 接受 `text/javascript`、`application/javascript`，`.css` 为 `text/css`，`.woff2` 为 `font/woff2`，`.html` 为 `text/html`；2026-11-12 线上实测即为这些值）、与 `objectCacheControl` 相同的缓存头和 SHA-256。`build-meta.json` 按完整 JSON 对象比较，包括测试网开关。地区验收单列签名 POST 的 HTTP 200 和是否取得结构有效的决定，`allowed` 与 `blocked` 都是有效决定，`unavailable` 令整体验收失败。
 
 ## 日常发布

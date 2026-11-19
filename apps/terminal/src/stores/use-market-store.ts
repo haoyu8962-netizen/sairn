@@ -76,6 +76,16 @@ function marketStorage(): Storage | null {
 	}
 }
 
+// Clearing is best effort: storage that refuses removal keeps the damaged record, and every read
+// still treats it as missing.
+function discardStoredRecord(storage: Storage, reason: string, detail: unknown): StoredMarketRecord {
+	console.warn(`[market store] persisted state ${reason}, clearing`, detail);
+	try {
+		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
+	} catch {}
+	return { kind: "missing" };
+}
+
 // One read decides the version and the content, so a record a newer release writes is never
 // validated against this release's schema, cleared or overwritten.
 function readStoredRecord(storage: Storage | null = marketStorage()): StoredMarketRecord {
@@ -91,20 +101,14 @@ function readStoredRecord(storage: Storage | null = marketStorage()): StoredMark
 	try {
 		record = JSON.parse(raw);
 	} catch (error) {
-		console.warn("[market store] persisted state could not be parsed, clearing", error);
-		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
-		return { kind: "missing" };
+		return discardStoredRecord(storage, "could not be parsed", error);
 	}
 	const version = (record as { version?: unknown } | null)?.version;
 	const parsed = marketStoreSchema.safeParse(record);
 	if (typeof version === "number" && version > MARKET_STORE_VERSION) {
 		return { kind: "future", state: parsed.success ? parsed.data.state : null };
 	}
-	if (!parsed.success) {
-		console.warn("[market store] persisted state failed schema validation, clearing", parsed.error.issues);
-		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
-		return { kind: "missing" };
-	}
+	if (!parsed.success) return discardStoredRecord(storage, "failed schema validation", parsed.error.issues);
 	return { kind: "supported", raw, record: record as { state: unknown; version?: unknown } };
 }
 

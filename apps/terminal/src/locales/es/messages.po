@@ -1784,6 +1784,7 @@ msgstr "Haz clic para enviar · Las operaciones ejecutadas no se pueden revertir
 #: src/components/trade/tradebox/bridge/success-screen.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
 #: src/components/trade/tradebox/leverage-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2661,6 +2662,7 @@ msgstr "Desplegador"
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/components/trade/tradebox/deposit/deposit-method-chooser.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -2691,6 +2693,7 @@ msgstr "Importe"
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 msgid "Deposit failed"
 msgstr "Depósito fallido"
 
@@ -2699,6 +2702,7 @@ msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "Deposita USDC nativo en Arbitrum desde tu billetera conectada."
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -9086,6 +9090,7 @@ msgid "The Arbitrum transaction was submitted, but Circle status is temporarily 
 msgstr "La transacción de Arbitrum se ha enviado, pero el estado de Circle no está disponible temporalmente. El seguimiento se reanudará cuando vuelvas."
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

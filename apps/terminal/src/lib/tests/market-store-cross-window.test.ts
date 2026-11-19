@@ -381,3 +381,34 @@ describe("market preferences stored by a newer release", () => {
 		expect(window.localStorage.getItem(KEY)).toBe(future);
 	});
 });
+
+describe("market preferences with a damaged record on storage that refuses removal", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+			throw new DOMException("read-only storage", "SecurityError");
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.resetModules();
+	});
+
+	it.each([
+		["unparseable", "{not json"],
+		["invalid", JSON.stringify({ state: { favoriteMarkets: "BTC" }, version: 3 })],
+	])("starts and stores an edit over the %s record", async (_kind, record) => {
+		window.localStorage.setItem(KEY, record);
+		const tab = await openWindow();
+
+		expect(() => readHook(tab.useMarketActions).toggleFavoriteMarket("DOGE")).not.toThrow();
+		expect(readHook(tab.useFavoriteMarkets)).toContain("DOGE");
+		expect(JSON.parse(window.localStorage.getItem(KEY) ?? "{}").state.favoriteMarkets).toContain("DOGE");
+		expect(() => deliverStorageEvent(0, null)).not.toThrow();
+	});
+});

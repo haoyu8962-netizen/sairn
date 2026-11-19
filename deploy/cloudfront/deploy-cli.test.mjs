@@ -45,7 +45,7 @@ function fenceRealAws(t, directory) {
 	});
 }
 
-function cliHarness(t, { responseFunction = true, activeGates = false, fail } = {}) {
+function cliHarness(t, { responseFunction = true, activeGates = false, fail, refuseWrite } = {}) {
 	const directory = fs.mkdtempSync(join(tmpdir(), "sairn-deploy-cli-"));
 	fenceRealAws(t, directory);
 	const publicDir = join(directory, "public");
@@ -72,7 +72,10 @@ function cliHarness(t, { responseFunction = true, activeGates = false, fail } = 
 	const output = [];
 	const realWrite = fs.writeFileSync;
 	const generated = [];
-	t.mock.method(fs, "writeFileSync", (file) => events.push(`write ${file}`));
+	t.mock.method(fs, "writeFileSync", (file) => {
+		events.push(`write ${file}`);
+		if (refuseWrite?.(file)) throw Object.assign(new Error(`EEXIST: file already exists, open '${file}'`), { code: "EEXIST" });
+	});
 	t.mock.method(fs, "mkdirSync", (file) => events.push(`mkdir ${file}`));
 	t.mock.method(fs, "rmSync", (file) => events.push(`remove ${file}`));
 	t.mock.method(childProcess, "execFileSync", (file, args) => {
@@ -342,4 +345,13 @@ test("CLI aliases removes its distribution config file after the update, also wh
 			assert.equal(harness.events.includes("aws cloudfront wait"), expectWait);
 		});
 	}
+	await t.test("leaves a file it did not create in place", async (subtest) => {
+		const harness = cliHarness(subtest, { refuseWrite: (file) => /sairn-distribution-D-\d+\.json$/.test(file) });
+		await assert.rejects(harness.invoke(...args), { code: "EEXIST" });
+		const write = harness.events.find((event) => /^write .*sairn-distribution-D-\d+\.json$/.test(event));
+		assert.ok(write, harness.events.join("\n"));
+		const file = write.slice("write ".length);
+		assert.ok(!harness.events.includes(`remove ${file}`), harness.events.join("\n"));
+		assert.ok(!harness.events.includes("aws cloudfront update-distribution"), harness.events.join("\n"));
+	});
 });

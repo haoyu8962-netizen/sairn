@@ -1784,6 +1784,7 @@ msgstr "انقر للإرسال · لا يمكن التراجع عن الصفق�
 #: src/components/trade/tradebox/bridge/success-screen.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
 #: src/components/trade/tradebox/leverage-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2661,6 +2662,7 @@ msgstr "جهة النشر"
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/components/trade/tradebox/deposit/deposit-method-chooser.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -2691,6 +2693,7 @@ msgstr "المبلغ"
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 msgid "Deposit failed"
 msgstr "فشل الإيداع"
 
@@ -2699,6 +2702,7 @@ msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "أودِع USDC الأصلية على Arbitrum من محفظتك المتصلة."
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -9086,6 +9090,7 @@ msgid "The Arbitrum transaction was submitted, but Circle status is temporarily 
 msgstr "أُرسلت معاملة Arbitrum، لكن حالة Circle غير متاحة مؤقتًا. سيُستأنف التتبع عند عودتك."
 
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

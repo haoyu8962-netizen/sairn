@@ -170,6 +170,16 @@ function browserStorage(): Storage | null {
 	}
 }
 
+// Clearing is best effort: storage that refuses removal keeps the damaged record, and every read
+// still treats it as missing, so the protections resolve from their own keys (ADR 0057).
+function discardStoredSettings(storage: Storage, reason: string, detail: unknown): StoredSettings {
+	console.warn(`[global settings] persisted state ${reason}, clearing`, detail);
+	try {
+		storage.removeItem(STORAGE_KEYS.GLOBAL_SETTINGS);
+	} catch {}
+	return { kind: "missing" };
+}
+
 // One read decides the version and the content, so a record a newer release writes in between is
 // never validated against this release's schema, cleared or overwritten.
 function readStoredSettings(storage: Storage | null = browserStorage()): StoredSettings {
@@ -185,9 +195,7 @@ function readStoredSettings(storage: Storage | null = browserStorage()): StoredS
 	try {
 		record = JSON.parse(raw);
 	} catch (error) {
-		console.warn("[global settings] persisted state could not be parsed, clearing", error);
-		storage.removeItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-		return { kind: "missing" };
+		return discardStoredSettings(storage, "could not be parsed", error);
 	}
 	const version = (record as { version?: unknown } | null)?.version;
 	const parsed = globalSettingsSchema.safeParse(record);
@@ -195,9 +203,7 @@ function readStoredSettings(storage: Storage | null = browserStorage()): StoredS
 		return { kind: "future", state: parsed.success ? parsed.data.state : null };
 	}
 	if (parsed.success) return { kind: "supported", state: parsed.data.state, version };
-	console.warn("[global settings] persisted state failed schema validation, clearing", parsed.error.issues);
-	storage.removeItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-	return { kind: "missing" };
+	return discardStoredSettings(storage, "failed schema validation", parsed.error.issues);
 }
 
 // The three protections an older release reads from the record: never looser than what that
