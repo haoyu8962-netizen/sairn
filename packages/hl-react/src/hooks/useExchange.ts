@@ -241,7 +241,7 @@ export function useExchange<M extends ExchangeMethod>(
 				if (config.client === "user") {
 					fundsPreExecutionGuard = async (guardSignal) => {
 						await defaultPreExecutionGuard?.(guardSignal);
-						await verifyLegalAccess(true, signal);
+						await verifyLegalAccess(true, guardSignal);
 					};
 				} else {
 					await verifyLegalAccess(true, signal);

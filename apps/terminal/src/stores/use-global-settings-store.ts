@@ -14,8 +14,8 @@ import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import {
 	clampMarketOrderSlippage,
 	DEFAULT_TRADING_PROTECTIONS,
-	ensureTradingProtectionBaseline,
 	legacyTradingProtections,
+	readStartupTradingProtections,
 	readTradingProtections,
 	stricterTradingProtections,
 	TRADING_PROTECTION_STORAGE_KEYS,
@@ -216,28 +216,26 @@ function writeSettingsRecord(storage: Storage, state: object, previous: StoredSe
 	);
 }
 
+// Best effort: a refused write leaves the record as it is and never changes what this window read.
+function tightenRollbackRecord(storage: Storage, state: StoredSettingsState) {
+	const previous = legacyTradingProtections(state);
+	if (tradingProtectionsEqual(stricterTradingProtections(previous, startupProtections), previous)) return;
+	try {
+		writeSettingsRecord(storage, state, state);
+	} catch {
+		// The next write that storage accepts carries the stricter values.
+	}
+}
+
 function hydrateStoredSettings(): string | null {
 	const storage = browserStorage();
 	const stored = readStoredSettings(storage);
 	startupProtections = DEFAULT_TRADING_PROTECTIONS;
 	if (storage) {
-		try {
-			if (stored.kind !== "future") {
-				ensureTradingProtectionBaseline(
-					storage,
-					legacyTradingProtections(stored.kind === "supported" ? stored.state : {}),
-				);
-			}
-			startupProtections = readTradingProtections(storage);
-			if (stored.kind === "supported") {
-				const previous = legacyTradingProtections(stored.state);
-				if (!tradingProtectionsEqual(rollbackProtections(storage, stored.state), previous)) {
-					writeSettingsRecord(storage, stored.state, stored.state);
-				}
-			}
-		} catch {
-			startupProtections = DEFAULT_TRADING_PROTECTIONS;
-		}
+		const legacy =
+			stored.kind === "future" ? null : legacyTradingProtections(stored.kind === "supported" ? stored.state : {});
+		startupProtections = readStartupTradingProtections(storage, legacy);
+		if (stored.kind === "supported") tightenRollbackRecord(storage, stored.state);
 	}
 	if (stored.kind === "missing" || stored.state === null) return null;
 	const version = stored.kind === "supported" ? stored.version : GLOBAL_SETTINGS_VERSION;
@@ -290,23 +288,31 @@ function combineWithStoredSettings(
 	return mergeGlobalSettings(combined, current, current);
 }
 
+function writeOutgoingSettings(value: string) {
+	const storage = browserStorage();
+	const stored = readStoredSettings(storage);
+	if (!storage || stored.kind === "future") return;
+	const outgoing = JSON.parse(value) as { state: PersistedGlobalSettings };
+	const previous = stored.kind === "supported" ? stored.state : undefined;
+	const combined = previous ? combineWithStoredSettings(outgoing.state, previous) : null;
+	if (!combined) {
+		writeSettingsRecord(storage, outgoing.state, previous);
+		lastSyncedSettings = outgoing.state;
+		return;
+	}
+	writeSettingsRecord(storage, partializeGlobalSettings(combined), previous);
+	applySharedSettings(withStricterStoredProtections(combined));
+}
+
 const crossWindowSettingsStorage: StateStorage = {
 	getItem: hydrateStoredSettings,
 	setItem: (_name, value) => {
 		if (applyingStoredSettings) return;
-		const storage = browserStorage();
-		const stored = readStoredSettings(storage);
-		if (!storage || stored.kind === "future") return;
-		const outgoing = JSON.parse(value) as { state: PersistedGlobalSettings };
-		const previous = stored.kind === "supported" ? stored.state : undefined;
-		const combined = previous ? combineWithStoredSettings(outgoing.state, previous) : null;
-		if (!combined) {
-			writeSettingsRecord(storage, outgoing.state, previous);
-			lastSyncedSettings = outgoing.state;
-			return;
+		try {
+			writeOutgoingSettings(value);
+		} catch {
+			// A refused write keeps this window's settings in memory only (ADR 0057).
 		}
-		writeSettingsRecord(storage, partializeGlobalSettings(combined), previous);
-		applySharedSettings(withStricterStoredProtections(combined));
 	},
 	removeItem: (name) => {
 		const storage = browserStorage();
@@ -384,10 +390,16 @@ const useGlobalSettingsStore = create<GlobalSettingsStore>()(
 );
 
 if (typeof window !== "undefined") {
+	// A removal or clear() counts too: open windows take whichever value is stricter, so what storage
+	// answers after another window deleted keys can only tighten them.
 	window.addEventListener("storage", (event) => {
-		if (event.key === null || event.newValue === null) return;
-		if (event.key !== STORAGE_KEYS.GLOBAL_SETTINGS && !TRADING_PROTECTION_STORAGE_KEYS.has(event.key)) return;
 		if (event.storageArea && event.storageArea !== window.localStorage) return;
+		if (
+			event.key !== null &&
+			event.key !== STORAGE_KEYS.GLOBAL_SETTINGS &&
+			!TRADING_PROTECTION_STORAGE_KEYS.has(event.key)
+		)
+			return;
 		syncStoredSettings();
 	});
 	// A page restored from the back/forward cache missed every storage event while it was frozen.

@@ -106,9 +106,13 @@ export function hasTradingProtectionBaseline(storage: Storage): boolean {
 }
 
 // Each protection: its own key when present (the strictest value when that key is unreadable),
-// otherwise the migration baseline, otherwise the default.
-export function readTradingProtections(storage: Storage): TradingProtections {
-	const baseline = readBaseline(storage) ?? DEFAULT_TRADING_PROTECTIONS;
+// otherwise the migration baseline (or the fallback a refused baseline write leaves in memory),
+// otherwise the default.
+export function readTradingProtections(
+	storage: Storage,
+	fallbackBaseline: TradingProtections | null = null,
+): TradingProtections {
+	const baseline = readBaseline(storage) ?? fallbackBaseline ?? DEFAULT_TRADING_PROTECTIONS;
 	const read = <K extends keyof TradingProtections>(field: K): TradingProtections[K] => {
 		const raw = storage.getItem(PROTECTION_KEYS[field]);
 		if (raw === null) return baseline[field];
@@ -127,6 +131,25 @@ export function readTradingProtections(storage: Storage): TradingProtections {
 export function ensureTradingProtectionBaseline(storage: Storage, legacy: TradingProtections) {
 	if (hasTradingProtectionBaseline(storage)) return;
 	storage.setItem(STORAGE_KEYS.TRADING_PROTECTION_BASELINE, JSON.stringify(legacy));
+}
+
+// Cold start. Writing is best effort and never decides what is read: a refused baseline write
+// answers from the legacy values it would have stored, and a storage that throws on reading yields
+// the strictest values, never the defaults.
+export function readStartupTradingProtections(storage: Storage, legacy: TradingProtections | null): TradingProtections {
+	let fallbackBaseline: TradingProtections | null = null;
+	if (legacy) {
+		try {
+			ensureTradingProtectionBaseline(storage, legacy);
+		} catch {
+			fallbackBaseline = legacy;
+		}
+	}
+	try {
+		return readTradingProtections(storage, fallbackBaseline);
+	} catch {
+		return STRICTEST_TRADING_PROTECTIONS;
+	}
 }
 
 export function writeTradingProtection<K extends keyof TradingProtections>(

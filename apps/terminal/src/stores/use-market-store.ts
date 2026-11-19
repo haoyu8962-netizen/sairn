@@ -4,7 +4,6 @@ import { DEFAULT_FAVORITE_MARKETS, DEFAULT_MARKET_NAME, STORAGE_KEYS } from "@/c
 import { DEFAULT_SELECTED_MARKETS } from "@/config/markets";
 import type { ExchangeScope } from "@/domain/market";
 import { isSafeTradeRouteMarketName } from "@/lib/hyperliquid/market-route";
-import { createValidatedStorage } from "@/lib/storage/validated-storage";
 import { z } from "@/lib/zod";
 import { useExchangeScope } from "@/providers/exchange-scope";
 
@@ -16,8 +15,6 @@ const marketStoreSchema = z.object({
 		favoriteMarkets: z.array(safeMarketNameSchema).optional(),
 	}),
 });
-
-const validatedStorage = createValidatedStorage(marketStoreSchema, "market store");
 
 const MARKET_STORE_VERSION = 3;
 
@@ -65,12 +62,57 @@ const MARKET_PREFS_LOCK_NAME = `${STORAGE_KEYS.MARKET_PREFS}:lock`;
 // which reads, applies one edit and writes under one cross-window lock where Web Locks exist.
 const pendingEdits = new Set<MarketEdit>();
 
-function readStoredPrefs(): MarketPrefs | null {
-	const raw = validatedStorage.getItem(STORAGE_KEYS.MARKET_PREFS);
-	if (typeof raw !== "string") return null;
-	const stored = JSON.parse(raw) as { state: unknown; version?: unknown };
-	if (typeof stored.version === "number" && stored.version !== MARKET_STORE_VERSION) return null;
-	return normalizeMarketPrefs(stored.state, DEFAULT_FAVORITE_MARKETS);
+type StoredMarketRecord =
+	| { kind: "missing" }
+	| { kind: "supported"; raw: string; record: { state: unknown; version?: unknown } }
+	| { kind: "future"; state: z.infer<typeof marketStoreSchema>["state"] | null };
+
+function marketStorage(): Storage | null {
+	if (typeof window === "undefined") return null;
+	try {
+		return window.localStorage;
+	} catch {
+		return null;
+	}
+}
+
+// One read decides the version and the content, so a record a newer release writes is never
+// validated against this release's schema, cleared or overwritten.
+function readStoredRecord(storage: Storage | null = marketStorage()): StoredMarketRecord {
+	if (!storage) return { kind: "missing" };
+	let raw: string | null;
+	try {
+		raw = storage.getItem(STORAGE_KEYS.MARKET_PREFS);
+	} catch {
+		return { kind: "missing" };
+	}
+	if (!raw) return { kind: "missing" };
+	let record: unknown;
+	try {
+		record = JSON.parse(raw);
+	} catch (error) {
+		console.warn("[market store] persisted state could not be parsed, clearing", error);
+		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
+		return { kind: "missing" };
+	}
+	const version = (record as { version?: unknown } | null)?.version;
+	const parsed = marketStoreSchema.safeParse(record);
+	if (typeof version === "number" && version > MARKET_STORE_VERSION) {
+		return { kind: "future", state: parsed.success ? parsed.data.state : null };
+	}
+	if (!parsed.success) {
+		console.warn("[market store] persisted state failed schema validation, clearing", parsed.error.issues);
+		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
+		return { kind: "missing" };
+	}
+	return { kind: "supported", raw, record: record as { state: unknown; version?: unknown } };
+}
+
+function readStoredPrefs(stored: StoredMarketRecord = readStoredRecord()): MarketPrefs | null {
+	if (stored.kind !== "supported") return null;
+	const { state, version } = stored.record;
+	if (typeof version === "number" && version !== MARKET_STORE_VERSION) return null;
+	return normalizeMarketPrefs(state, DEFAULT_FAVORITE_MARKETS);
 }
 
 function sameMarkets(a: readonly string[], b: readonly string[]): boolean {
@@ -98,11 +140,15 @@ function showStoredFavorites(stored: MarketPrefs) {
 	}
 }
 
+// While a newer release owns the record, this window's edits stay in its memory only.
 function writeMarketEdit(edit: MarketEdit, fallback: MarketPrefs) {
 	let next: MarketPrefs;
 	try {
-		next = applyMarketEdit(readStoredPrefs() ?? fallback, edit);
-		validatedStorage.setItem(STORAGE_KEYS.MARKET_PREFS, JSON.stringify({ state: next, version: MARKET_STORE_VERSION }));
+		const storage = marketStorage();
+		const stored = readStoredRecord(storage);
+		if (!storage || stored.kind === "future") return;
+		next = applyMarketEdit(readStoredPrefs(stored) ?? fallback, edit);
+		storage.setItem(STORAGE_KEYS.MARKET_PREFS, JSON.stringify({ state: next, version: MARKET_STORE_VERSION }));
 	} finally {
 		pendingEdits.delete(edit);
 	}
@@ -135,9 +181,19 @@ function syncStoredPrefs() {
 }
 
 const hydrateOnlyStorage: StateStorage = {
-	getItem: (name) => validatedStorage.getItem(name),
+	getItem: () => {
+		const stored = readStoredRecord();
+		if (stored.kind === "supported") return stored.raw;
+		if (stored.kind === "future" && stored.state) {
+			return JSON.stringify({ state: stored.state, version: MARKET_STORE_VERSION });
+		}
+		return null;
+	},
 	setItem: () => {},
-	removeItem: (name) => validatedStorage.removeItem(name),
+	removeItem: (name) => {
+		const storage = marketStorage();
+		if (storage && readStoredRecord(storage).kind !== "future") storage.removeItem(name);
+	},
 };
 
 const useMarketStore = create<MarketStore>()(

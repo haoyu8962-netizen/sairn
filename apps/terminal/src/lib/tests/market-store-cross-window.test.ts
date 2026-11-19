@@ -273,7 +273,6 @@ describe("market preferences across windows", () => {
 	it.each([
 		["unparseable text", "{not json"],
 		["a schema violation", JSON.stringify({ state: { favoriteMarkets: ["../evil"] }, version: 3 })],
-		["a newer version", JSON.stringify({ state: { favoriteMarkets: ["DOGE"] }, version: 99 })],
 	])("ignores %s written by another window", (_label, value) => {
 		const before = window.localStorage.getItem(KEY);
 		window.localStorage.setItem(KEY, value);
@@ -319,5 +318,66 @@ describe("market preferences across windows", () => {
 
 		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "ETH", "SOL"]);
 		expect(setItem).not.toHaveBeenCalled();
+	});
+
+	it("leaves a newer release's record intact when this window edits markets afterwards", () => {
+		const future = JSON.stringify({
+			state: { selectedMarkets: { all: "ETH" }, favoriteMarkets: ["HYPE"], pinnedMarkets: ["SOL"] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		deliverStorageEvent(0, null);
+		tabAActions.toggleFavoriteMarket("SOL");
+		tabAActions.setSelectedMarket("perp", "SOL");
+
+		expect(readHook(tabA.useFavoriteMarkets)).toEqual(["BTC", "ETH", "SOL"]);
+		expect(readHook(tabA.useSelectedMarkets).perp).toBe("SOL");
+		expect(window.localStorage.getItem(KEY)).toBe(future);
+	});
+});
+
+describe("market preferences stored by a newer release", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		window.localStorage.clear();
+		windowListeners.length = 0;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.resetModules();
+	});
+
+	it("starts from a newer record's readable preferences without migrating, clearing or overwriting it", async () => {
+		const future = JSON.stringify({
+			state: { selectedMarkets: { all: "ETH", perp: "ETH" }, favoriteMarkets: ["HYPE"], pinnedMarkets: ["SOL"] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		const tab = await openWindow();
+		const actions = readHook(tab.useMarketActions);
+
+		expect(readHook(tab.useFavoriteMarkets)).toEqual(["HYPE"]);
+		expect(tab.getTradeHomeMarketName()).toBe("ETH");
+		actions.toggleFavoriteMarket("BTC");
+
+		expect(readHook(tab.useFavoriteMarkets)).toEqual(["HYPE", "BTC"]);
+		expect(window.localStorage.getItem(KEY)).toBe(future);
+	});
+
+	it("keeps a newer record this release cannot validate", async () => {
+		const future = JSON.stringify({
+			state: { favoriteMarkets: [{ name: "BTC", pinned: true }] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		const tab = await openWindow();
+		readHook(tab.useMarketActions).toggleFavoriteMarket("SOL");
+
+		expect(readHook(tab.useFavoriteMarkets)).toContain("SOL");
+		expect(window.localStorage.getItem(KEY)).toBe(future);
 	});
 });

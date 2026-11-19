@@ -1518,6 +1518,8 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
 - An open window takes the stricter of its own value and the stored value on every storage event, back/forward-cache restore and ordinary settings write; only an explicit action in the window loosens a protection. A cold start uses the stored value.
 - `global-settings-v2` stays at version 4. Every write of it by this release carries, for the three fields, the stricter of the record's previous value and this release's value, so an older tab or a rolled-back release never reads a looser value than either.
 - A `global-settings-v2` record with a higher version is never migrated, cleared or overwritten.
+- A refused storage write never changes what a cold start reads: a refused baseline write falls back to the record's values in memory, a refused projection write is skipped, and storage that throws on reading yields the strictest protections, never the defaults. A refused write of any setting keeps it in this window's memory without throwing to the caller.
+- Removals count as storage events: another window's `removeItem` or `clear()` on `localStorage` makes an open window take the stricter of its value and what storage now answers, so a deletion can only tighten it.
 
 ## Required Review Checklist
 

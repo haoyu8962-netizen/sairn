@@ -4,6 +4,7 @@ import type { ExchangeParams } from "@sairn/hl-react";
 import { useExchange } from "@sairn/hl-react/hooks/useExchange";
 import { ExchangeResponseUnverifiedError } from "@sairn/hl-react/internal/exchange/action-acknowledgement";
 import { FundsActionLockTimeoutError } from "@sairn/hl-react/internal/exchange/funds-action-lock";
+import { AgentRegistrationPreExecutionGuardTimeoutError } from "@sairn/hl-react/signing/agent-registration-session";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, useLayoutEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -47,6 +48,20 @@ const providerState = vi.hoisted(() => ({
 	preExecutionGuard: vi.fn(),
 	executionGuard: vi.fn(),
 }));
+
+const legalWaitSignals = vi.hoisted(() => [] as AbortSignal[]);
+
+vi.mock("../../../../../packages/hl-react/src/internal/exchange/legal-execution", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../../../packages/hl-react/src/internal/exchange/legal-execution")>();
+	return {
+		...actual,
+		verifyLegalActionAllowed: (options: Parameters<typeof actual.verifyLegalActionAllowed>[0]) => {
+			if (options.signal) legalWaitSignals.push(options.signal);
+			return actual.verifyLegalActionAllowed(options);
+		},
+	};
+});
 
 vi.mock("@sairn/hl-react/hooks/useClients", () => ({
 	useHyperliquidClients: () => {
@@ -456,6 +471,33 @@ describe("useExchange funds action lock integration", () => {
 		});
 		expect(observed).toEqual([true]);
 		expect(clients.vaultTransfer).not.toHaveBeenCalled();
+	});
+
+	it("ends a user-signed funds action's legal wait the moment its pre-execution guard times out", async () => {
+		vi.useFakeTimers();
+		installExclusiveLockManager();
+		providerState.enforceLegalActions = true;
+		providerState.preExecutionGuard.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 9_000)));
+		providerState.legalCheck.mockImplementation(() => new Promise(() => {}));
+		legalWaitSignals.length = 0;
+		const mutations = renderProbe();
+		const rejection = mutations.first({ destination: OWNER, amount: "10" }).catch((error: unknown) => error);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(9_500);
+		});
+		expect(providerState.legalCheck).toHaveBeenCalledTimes(1);
+		const legalWait = legalWaitSignals.at(-1);
+		expect(legalWait?.aborted).toBe(false);
+
+		vi.advanceTimersByTime(500);
+		expect(legalWait?.aborted).toBe(true);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1);
+			await expect(rejection).resolves.toBeInstanceOf(AgentRegistrationPreExecutionGuardTimeoutError);
+		});
+		expect(clients.firstWithdraw).not.toHaveBeenCalled();
 	});
 
 	it("rechecks the mounted attempt at the SDK boundary after deferred legal verification", async () => {

@@ -409,4 +409,136 @@ describe("global settings across windows", () => {
 		expect(tabB.getSkipOrderConfirmation()).toBe(false);
 		expect(setItem).not.toHaveBeenCalled();
 	});
+
+	function deliverRemoval(target: number, key: string | null, storageArea: Storage = window.localStorage) {
+		const event = new StorageEvent("storage", { key, oldValue: null, newValue: null, storageArea });
+		for (const listener of windowListeners[target] ?? []) listener(event);
+	}
+
+	it("tightens an open window to what storage holds after another window clears it", async () => {
+		window.sessionStorage.clear();
+		deliverRemoval(1, null, window.sessionStorage);
+		expect(tabB.getSkipOrderConfirmation()).toBe(true);
+
+		window.localStorage.clear();
+		deliverRemoval(1, null);
+
+		expect.soft(tabB.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(tabB.getTransactionDelayProtection()).toBe(true);
+		expect.soft(readHook(tabB.useMarketOrderSlippagePercent)).toBe(2.5);
+		expect.soft(readHook(tabB.useTheme)).toBe("dark");
+		const reopened = await openWindow();
+		expect.soft(reopened.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(readHook(reopened.useMarketOrderSlippagePercent)).toBe(2.5);
+	});
+
+	it("tightens an open window when another window removes the baseline its protections came from", () => {
+		window.localStorage.removeItem(STORAGE_KEYS.TRADING_PROTECTION_BASELINE);
+		deliverRemoval(1, STORAGE_KEYS.TRADING_PROTECTION_BASELINE);
+
+		expect.soft(tabB.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(tabB.getTransactionDelayProtection()).toBe(true);
+		expect.soft(readHook(tabB.useMarketOrderSlippagePercent)).toBe(2.5);
+	});
+
+	it("never loosens an open window when another window removes its own stricter choice", () => {
+		tightenInTabA();
+		deliverStorageEvent(1, null, window.localStorage, STORAGE_KEYS.MARKET_ORDER_SLIPPAGE);
+		window.localStorage.removeItem(STORAGE_KEYS.MARKET_ORDER_SLIPPAGE);
+		deliverRemoval(1, STORAGE_KEYS.MARKET_ORDER_SLIPPAGE);
+
+		expectTightened(tabB);
+	});
+});
+
+describe("global settings when storage refuses writes", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		window.localStorage.clear();
+		windowListeners.length = 0;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		for (const listener of windowListeners.flat()) window.removeEventListener("storage", listener);
+		for (const listener of pageShowListeners.flat()) window.removeEventListener("pageshow", listener);
+		windowListeners.length = 0;
+		pageShowListeners.length = 0;
+		vi.resetModules();
+	});
+
+	function refuseWrites() {
+		vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+			throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+		});
+	}
+
+	function storeRecord(state: Record<string, unknown>) {
+		window.localStorage.setItem(KEY, JSON.stringify({ state, version: 4 }));
+	}
+
+	it("starts from the settings record when the first baseline write is refused", async () => {
+		storeRecord({ skipOrderConfirmation: false, transactionDelayProtection: true, marketOrderSlippagePercent: 0.5 });
+		refuseWrites();
+		const reopened = await openWindow();
+
+		expect.soft(reopened.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(reopened.getTransactionDelayProtection()).toBe(true);
+		expect.soft(readHook(reopened.useMarketOrderSlippagePercent)).toBe(0.5);
+		expect(window.localStorage.getItem(STORAGE_KEYS.TRADING_PROTECTION_BASELINE)).toBeNull();
+	});
+
+	it("keeps a stricter protection key when the record for older releases cannot be rewritten", async () => {
+		storeRecord({ skipOrderConfirmation: true, transactionDelayProtection: false, marketOrderSlippagePercent: 2.5 });
+		window.localStorage.setItem(
+			STORAGE_KEYS.TRADING_PROTECTION_BASELINE,
+			JSON.stringify({
+				skipOrderConfirmation: true,
+				transactionDelayProtection: false,
+				marketOrderSlippagePercent: 2.5,
+			}),
+		);
+		window.localStorage.setItem(STORAGE_KEYS.MARKET_ORDER_SLIPPAGE, "0.5");
+		window.localStorage.setItem(STORAGE_KEYS.TRANSACTION_DELAY_PROTECTION, "true");
+		refuseWrites();
+		const reopened = await openWindow();
+
+		expect.soft(reopened.getSkipOrderConfirmation()).toBe(true);
+		expect.soft(reopened.getTransactionDelayProtection()).toBe(true);
+		expect.soft(readHook(reopened.useMarketOrderSlippagePercent)).toBe(0.5);
+	});
+
+	it("reads an unreadable protection key as the strictest value when writes are refused", async () => {
+		storeRecord({ skipOrderConfirmation: true, transactionDelayProtection: false, marketOrderSlippagePercent: 5 });
+		window.localStorage.setItem(STORAGE_KEYS.SKIP_ORDER_CONFIRMATION, "yes");
+		window.localStorage.setItem(STORAGE_KEYS.MARKET_ORDER_SLIPPAGE, '"5"');
+		refuseWrites();
+		const reopened = await openWindow();
+
+		expect.soft(reopened.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(readHook(reopened.useMarketOrderSlippagePercent)).toBe(0.1);
+	});
+
+	it("starts from the strictest protections when storage cannot be read", async () => {
+		storeRecord({ skipOrderConfirmation: true, transactionDelayProtection: false, marketOrderSlippagePercent: 5 });
+		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+			throw new DOMException("The operation is insecure.", "SecurityError");
+		});
+		const reopened = await openWindow();
+
+		expect.soft(reopened.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(reopened.getTransactionDelayProtection()).toBe(true);
+		expect.soft(readHook(reopened.useMarketOrderSlippagePercent)).toBe(0.1);
+	});
+
+	it("keeps an explicit change in this window when its write is refused", async () => {
+		storeRecord({ marketOrderSlippagePercent: 0.5 });
+		const tab = await openWindow();
+		refuseWrites();
+		const actions = readHook(tab.useGlobalSettingsActions);
+
+		expect(actions.setMarketOrderSlippagePercent(3)).toBe(3);
+		expect(readHook(tab.useMarketOrderSlippagePercent)).toBe(3);
+	});
 });
