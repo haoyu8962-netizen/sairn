@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { type ExchangeSigningIdentity, isSameExchangeSigningIdentity } from "@sairn/hl-react/hooks/useExchange";
 import {
 	EXCHANGE_ACTION_START_DEADLINE_MS,
 	ExchangeActionDeadlineError,
@@ -54,6 +55,7 @@ interface TwapCancelExecutionContext {
 	owner: string;
 	params: ExchangeParams<"twapCancel">;
 	lockWait: AbortController;
+	signingIdentity: ExchangeSigningIdentity;
 }
 
 type QueuedTwapCancellations = Set<TwapCancelExecutionContext>;
@@ -63,9 +65,7 @@ const TWAP_CANCEL_LOCK_WAIT_MS = EXCHANGE_ACTION_START_DEADLINE_MS;
 export function useTwapCancel() {
 	const { t } = useLingui();
 	const markets = useMarkets();
-	const { clientKey, env } = useHyperliquid();
-	const liveIdentityRef = useRef({ clientKey, env });
-	liveIdentityRef.current = { clientKey, env };
+	const { clientKey, env, exchangeSession } = useHyperliquid();
 	const executionsRef = useRef(new Map<ExchangeParams<"twapCancel">["t"], TwapCancelExecutionContext>());
 	const queuedRef = useRef<QueuedTwapCancellations>(new Set());
 
@@ -79,9 +79,8 @@ export function useTwapCancel() {
 			!execution ||
 			params.a !== execution.params.a ||
 			params.t !== execution.params.t ||
-			liveIdentity.clientKey === "disconnected" ||
-			liveIdentity.clientKey.toLowerCase() !== execution.owner ||
-			liveIdentity.env !== execution.env ||
+			!isTwapExecutionIdentityCurrent(execution, liveIdentity) ||
+			!isSameExchangeSigningIdentity(execution.signingIdentity, liveIdentity.captureSigningIdentity()) ||
 			pending?.phase !== "submitting" ||
 			pending.env !== execution.env ||
 			pending.owner !== execution.owner ||
@@ -96,9 +95,15 @@ export function useTwapCancel() {
 		}
 	}
 
-	const { mutateAsync: cancel, reset } = useExchange("twapCancel", {
+	const {
+		mutateAsync: cancel,
+		reset,
+		captureSigningIdentity,
+	} = useExchange("twapCancel", {
 		executionGuard: assertTwapCancelExecution,
 	});
+	const liveIdentityRef = useRef({ clientKey, env, captureSigningIdentity });
+	liveIdentityRef.current = { clientKey, env, captureSigningIdentity };
 	const cancellations = usePendingTwapCancellations();
 	const mountedRef = useRef(false);
 	const [storedFeedback, setFeedback] = useState<StoredTwapCancelFeedback | null>(null);
@@ -132,29 +137,42 @@ export function useTwapCancel() {
 	useEffect(() => {
 		const queued = queuedRef.current;
 		for (const execution of queued) {
-			if (!isTwapExecutionIdentityCurrent(execution, { clientKey, env })) {
+			if (
+				!exchangeSession.active ||
+				!isTwapExecutionIdentityCurrent(execution, { clientKey, env }) ||
+				!isSameExchangeSigningIdentity(execution.signingIdentity, liveIdentityRef.current.captureSigningIdentity())
+			) {
 				voidQueuedTwapCancellation(queued, execution, orderSubmissionFeedback("twap-cancel-identity-changed"));
 			}
 		}
-	}, [clientKey, env]);
+	}, [clientKey, env, exchangeSession]);
 
 	async function cancelTwap(coin: string, twapId: number): Promise<void> {
 		if (activeCancellations.some((action) => action.twapId === twapId)) return;
 
-		const assetId = markets.getAssetId(coin);
-		if (typeof assetId !== "number") {
-			const value = orderSubmissionFeedback("twap-cancel-market-unavailable");
+		function reportBeforeQueue(value: OrderSubmissionFeedback) {
 			const message = formatStoredTwapCancelFeedback(value, (descriptor) => t(descriptor));
 			setFeedback({ tone: "error", value, env, owner: normalizedOwner });
 			toast.error(message);
+		}
+
+		if (typeof navigator !== "undefined" && navigator.onLine === false) {
+			reportBeforeQueue(orderSubmissionFeedback("twap-cancel-not-sent"));
+			return;
+		}
+		const assetId = markets.getAssetId(coin);
+		if (typeof assetId !== "number") {
+			reportBeforeQueue(orderSubmissionFeedback("twap-cancel-market-unavailable"));
 			return;
 		}
 
 		if (clientKey === "disconnected") {
-			const value = orderSubmissionFeedback("coordination-unavailable");
-			const message = formatStoredTwapCancelFeedback(value, (descriptor) => t(descriptor));
-			setFeedback({ tone: "error", value, env, owner: null });
-			toast.error(message);
+			reportBeforeQueue(orderSubmissionFeedback("coordination-unavailable"));
+			return;
+		}
+		const signingIdentity = captureSigningIdentity();
+		if (!signingIdentity) {
+			reportBeforeQueue(orderSubmissionFeedback("twap-cancel-not-sent"));
 			return;
 		}
 
@@ -173,6 +191,7 @@ export function useTwapCancel() {
 			owner: action.owner,
 			params: { a: assetId, t: twapId },
 			lockWait: new AbortController(),
+			signingIdentity,
 		};
 		const executions = executionsRef.current;
 		executions.set(twapId, execution);
