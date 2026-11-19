@@ -135,6 +135,23 @@ describe("scale order planning", () => {
 		).toEqual({ levels: [], issues: ["invalid-precision"] });
 	});
 
+	it("accepts up to 100 levels, the official terminal's limit", () => {
+		const plan = (scaleLevelsNum: number) =>
+			createScaleOrderLevelPlan({
+				assetId: 0,
+				sizeValue: 1000,
+				szDecimals: 0,
+				scaleStartPriceInput: "100",
+				scaleEndPriceInput: "200",
+				scaleLevelsNum,
+				scaleSkew: 1,
+			});
+
+		expect(plan(100).issues).toEqual([]);
+		expect(plan(100).levels).toHaveLength(100);
+		expect(plan(101).issues).toEqual(["invalid-levels"]);
+	});
+
 	it("distributes size units without dropping the remainder", () => {
 		const plan = createScaleOrderLevelPlan({
 			assetId: 0,
@@ -202,7 +219,7 @@ describe("scale order planning", () => {
 			szDecimals: 0,
 			scaleStartPriceInput: "10",
 			scaleEndPriceInput: "30",
-			scaleLevelsNum: 21,
+			scaleLevelsNum: 101,
 			scaleSkew: 1,
 		});
 

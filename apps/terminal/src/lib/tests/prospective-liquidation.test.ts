@@ -1,3 +1,4 @@
+import Big from "big.js";
 import { describe, expect, it } from "vitest";
 import {
 	areProspectiveAccountSnapshotsFresh,
@@ -299,6 +300,84 @@ describe("estimateProspectiveLiquidation", () => {
 
 		expect(result.status).toBe("available");
 		expect(result.liqPrice).toBeCloseTo(101.0126582278481, 12);
+	});
+
+	describe("reducing and reversing orders, as the official UI's new position = position + signed order size", () => {
+		const crossLong = (signedSize: string) =>
+			isolatedInput({
+				marginMode: "cross",
+				side: "sell",
+				crossMarginAccount: {
+					accountValue: "10",
+					maintenanceMarginUsed: Big(signedSize).abs().times(100).div(80).toString(),
+				},
+				existingPosition: {
+					signedSize,
+					positionValue: Big(signedSize).abs().times(100).toString(),
+					marginUsed: "2.5",
+					marginMode: "cross",
+					leverage: 40,
+				},
+			});
+
+		it("estimates the remaining cross position after a partial reduce", () => {
+			// Official q6: 2 long, sell 1, live value 10 → 100 - (10 - 100 / 80) / 1 / (1 - 1 / 80).
+			const result = estimateProspectiveLiquidation({ ...crossLong("2"), orderSize: 1 });
+
+			expect(result.status).toBe("available");
+			expect(result.liqPrice).toBeCloseTo(91.13924050632912, 12);
+		});
+
+		it("estimates the opposite cross position after a reversal", () => {
+			// 1 long, sell 3 → 2 short: 100 + (10 - 200 / 80) / 2 / (1 + 1 / 80).
+			const result = estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 3 });
+
+			expect(result.status).toBe("available");
+			expect(result.liqPrice).toBeCloseTo(103.7037037037037, 12);
+		});
+
+		it("caps a reduce-only order at the position, as the official nse does", () => {
+			const partial = estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 0.5, reduceOnly: true });
+			const oversized = estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 5, reduceOnly: true });
+			const sameSide = estimateProspectiveLiquidation({
+				...crossLong("1"),
+				side: "buy",
+				orderSize: 5,
+				reduceOnly: true,
+			});
+			const current = estimateProspectiveLiquidation({ ...crossLong("1"), side: "buy", orderSize: "1e-30" });
+
+			expect(partial.liqPrice).toBeCloseTo(81.0126582278481, 12);
+			expect(oversized).toMatchObject({ status: "unavailable", liqPrice: null });
+			expect(sameSide.status).toBe("available");
+			expect(sameSide.liqPrice).toBeCloseTo(current.liqPrice ?? Number.NaN, 12);
+		});
+
+		it("shows N/A when the order closes the position exactly", () => {
+			expect(estimateProspectiveLiquidation({ ...crossLong("1"), orderSize: 1 })).toMatchObject({
+				status: "unavailable",
+				liqPrice: null,
+			});
+		});
+
+		it("releases isolated margin in proportion to the closed size and funds a reversal at the selected leverage", () => {
+			const existingPosition = {
+				signedSize: "2",
+				positionValue: "200",
+				marginUsed: "10",
+				marginMode: "isolated" as const,
+				leverage: 20,
+			};
+			const reduce = estimateProspectiveLiquidation(
+				isolatedInput({ side: "sell", leverage: 20, orderSize: 1, existingPosition }),
+			);
+			const reverse = estimateProspectiveLiquidation(
+				isolatedInput({ side: "sell", leverage: 20, orderSize: 4, existingPosition }),
+			);
+
+			expect(reduce.liqPrice).toBeCloseTo(100 - (5 - 1.25) / (1 - 1 / 80), 12);
+			expect(reverse.liqPrice).toBeCloseTo(103.7037037037037, 12);
+		});
 	});
 
 	it("matches the official isolated snapshot without double-counting unrealized PnL", () => {

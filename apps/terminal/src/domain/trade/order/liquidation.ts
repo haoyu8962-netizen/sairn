@@ -326,6 +326,18 @@ function getTierForNotional(tiers: readonly NormalizedMarginTier[], notional: Bi
 	);
 }
 
+function minBig(a: Big, b: Big): Big {
+	return a.lt(b) ? a : b;
+}
+
+/**
+ * The position after a full fill, as the official UI projects it: the existing
+ * signed size plus the signed order size, with a reduce-only order capped at
+ * the position it closes (and zero when it would not close it). Isolated margin
+ * is released in proportion to the closed size, and the opened remainder adds
+ * its initial margin. A projection that closes the position exactly has no
+ * liquidation price.
+ */
 function getProjectedPosition(input: {
 	price: Big;
 	orderSize: Big;
@@ -336,83 +348,55 @@ function getProjectedPosition(input: {
 	existingPosition: ExistingPositionInput | null | undefined;
 	crossMarginAccount: CrossMarginAccountInput | null | undefined;
 	executionFee: Big;
+	reduceOnly: boolean | undefined;
 }): { equity: Big; otherMaintenance: Big; positionSize: Big; positionSide: 1 | -1 } | null {
-	const orderSide = input.side === "buy" ? 1 : -1;
+	const cross = input.marginMode === "cross";
 	const existing = input.existingPosition;
-	if (input.marginMode === "cross") {
+	let equity = Big(0);
+	let otherMaintenance = Big(0);
+	let signedSize = Big(0);
+	if (cross) {
 		const accountValue = toBig(input.crossMarginAccount?.accountValue)?.minus(input.executionFee);
 		const maintenanceMarginUsed = toBig(input.crossMarginAccount?.maintenanceMarginUsed);
 		if (!accountValue || !maintenanceMarginUsed || maintenanceMarginUsed.lt(0)) return null;
-		if (!existing) {
-			return {
-				equity: accountValue,
-				otherMaintenance: maintenanceMarginUsed,
-				positionSize: input.orderSize,
-				positionSide: orderSide,
-			};
-		}
-		if (existing.marginMode !== "cross") return null;
-		const signedSize = toBig(existing.signedSize);
+		equity = accountValue;
+		otherMaintenance = maintenanceMarginUsed;
+	}
+	if (existing) {
+		const size = toBig(existing.signedSize);
 		const positionValue = toBig(existing.positionValue)?.abs();
-		if (!signedSize || !positionValue || signedSize.eq(0) || positionValue.lte(0)) return null;
-		const positionSide = signedSize.gt(0) ? 1 : -1;
-		if (positionSide !== orderSide) return null;
-
-		const currentTier = getTierForNotional(input.tiers, positionValue);
-		if (!currentTier) return null;
-		const currentTargetMaintenance = positionValue
-			.times(currentTier.maintenanceRate)
-			.minus(currentTier.maintenanceDeduction);
-		const otherMaintenance = maintenanceMarginUsed.minus(currentTargetMaintenance);
-		if (otherMaintenance.lt(0)) return null;
-
-		const existingSize = signedSize.abs();
-		const snapshotMark = positionValue.div(existingSize);
-		const equityAtExecution = accountValue.plus(signedSize.times(input.price.minus(snapshotMark)));
-		return {
-			equity: equityAtExecution,
-			otherMaintenance,
-			positionSize: existingSize.plus(input.orderSize),
-			positionSide,
-		};
+		const marginUsed = toBig(existing.marginUsed);
+		if (existing.marginMode !== input.marginMode || !size || !positionValue || size.eq(0) || positionValue.lte(0)) {
+			return null;
+		}
+		const unrealizedToExecution = size.times(input.price.minus(positionValue.div(size.abs())));
+		if (cross) {
+			const currentTier = getTierForNotional(input.tiers, positionValue);
+			if (!currentTier) return null;
+			otherMaintenance = otherMaintenance.minus(
+				positionValue.times(currentTier.maintenanceRate).minus(currentTier.maintenanceDeduction),
+			);
+			if (otherMaintenance.lt(0)) return null;
+			equity = equity.plus(unrealizedToExecution);
+		} else {
+			if (!marginUsed?.gt(0) || !toBig(existing.leverage)?.eq(input.leverage)) return null;
+			equity = marginUsed.plus(unrealizedToExecution);
+		}
+		signedSize = size;
 	}
 
-	const orderMargin = input.orderSize.times(input.price).div(input.leverage);
-	if (!existing) {
-		return { equity: orderMargin, otherMaintenance: Big(0), positionSize: input.orderSize, positionSide: orderSide };
+	const orderSide = input.side === "buy" ? 1 : -1;
+	const positionSize = signedSize.abs();
+	const closedSize = signedSize.times(orderSide).lt(0) ? minBig(positionSize, input.orderSize) : Big(0);
+	const orderSize = input.reduceOnly ? closedSize : input.orderSize;
+	const projectedSize = signedSize.plus(orderSize.times(orderSide));
+	if (projectedSize.eq(0)) return null;
+	if (!cross) {
+		if (closedSize.gt(0)) equity = equity.times(positionSize.minus(closedSize)).div(positionSize);
+		equity = equity.plus(orderSize.minus(closedSize).times(input.price).div(input.leverage));
+		if (equity.lte(0)) return null;
 	}
-	if (existing.marginMode !== "isolated") return null;
-	const signedSize = toBig(existing.signedSize);
-	const positionValue = toBig(existing.positionValue)?.abs();
-	const marginUsed = toBig(existing.marginUsed);
-	const positionLeverage = toBig(existing.leverage);
-	if (
-		!signedSize ||
-		!positionValue ||
-		!marginUsed ||
-		!positionLeverage ||
-		signedSize.eq(0) ||
-		positionValue.lte(0) ||
-		marginUsed.lte(0) ||
-		!positionLeverage.eq(input.leverage)
-	) {
-		return null;
-	}
-
-	const positionSide = signedSize.gt(0) ? 1 : -1;
-	if (positionSide !== orderSide) return null;
-	const existingSize = signedSize.abs();
-	const snapshotMark = positionValue.div(existingSize);
-	const existingEquityAtExecution = marginUsed.plus(signedSize.times(input.price.minus(snapshotMark)));
-	const equity = existingEquityAtExecution.plus(orderMargin);
-	if (equity.lte(0)) return null;
-
-	return {
-		equity,
-		otherMaintenance: Big(0),
-		positionSize: existingSize.plus(input.orderSize),
-		positionSide,
-	};
+	return { equity, otherMaintenance, positionSize: projectedSize.abs(), positionSide: projectedSize.gt(0) ? 1 : -1 };
 }
 
 /**
@@ -430,13 +414,12 @@ function withInitialMarginTopUp(projection: { equity: Big; otherMaintenance: Big
 
 /**
  * Estimates the liquidation price after a full fill for isolated or cross new
- * positions and same-direction adds. Portfolio/reducing/reversing paths fail
- * closed because their liquidation sequence cannot be represented by one price.
+ * positions, adds, partial reduces and reversals (`getProjectedPosition`).
+ * Portfolio margin and a fill that leaves no position fail closed.
  */
 export function estimateProspectiveLiquidation(input: ProspectiveLiquidationInput): ProspectiveLiquidationResult {
 	if (!input.dataReady) return unavailable("data-unavailable");
 	if (!SUPPORTED_ACCOUNT_MODES.has(input.accountMode ?? "")) return unavailable("unsupported-account-mode");
-	if (input.reduceOnly) return unavailable("unsupported-position-change");
 
 	const price = toBig(input.price);
 	const orderSize = toBig(input.orderSize);
@@ -460,6 +443,7 @@ export function estimateProspectiveLiquidation(input: ProspectiveLiquidationInpu
 		existingPosition: input.existingPosition,
 		crossMarginAccount: input.crossMarginAccount,
 		executionFee,
+		reduceOnly: input.reduceOnly,
 	});
 	if (!projection) return unavailable("unsupported-position-change");
 
