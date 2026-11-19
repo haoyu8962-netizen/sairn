@@ -7,6 +7,7 @@ import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking"
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatTransferError } from "@/lib/errors/format";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
+import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { useDepositModalOpen } from "@/stores/use-global-modal-store";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { DepositExplorerLink } from "./deposit-explorer-link";
@@ -14,7 +15,7 @@ import { DepositExplorerLink } from "./deposit-explorer-link";
 interface DepositNotification {
 	presentationId: string;
 	sourceHash: string;
-	phase: "forwarding" | "success" | "failed";
+	phase: "forwarding" | "success" | "failed" | "unknown";
 	error: Error | null;
 	statusUnavailable: boolean;
 	locale: string;
@@ -43,7 +44,8 @@ export function CctpDepositTrackingNotifier() {
 	const notificationKey = sourceHash && owner ? `cctp-deposit:${identity}:${sourceHash.toLowerCase()}` : null;
 	const forwardSubmitted = tracking.data?.status === "forward-submitted";
 	const definitiveFailure = isDefinitiveDepositSourceFailure(tracking.error) ? tracking.error : null;
-	const statusUnavailable = tracking.isError && !definitiveFailure;
+	const outcomeUnknown = tracking.error instanceof CctpDepositOutcomeUnknownError;
+	const statusUnavailable = tracking.isError && !definitiveFailure && !outcomeUnknown;
 	const txChain = isTestnet ? arbitrumSepolia : arbitrum;
 
 	useLayoutEffect(() => {
@@ -71,6 +73,8 @@ export function CctpDepositTrackingNotifier() {
 			let phase: DepositNotification["phase"] = "forwarding";
 			if (definitiveFailure) {
 				phase = "failed";
+			} else if (outcomeUnknown) {
+				phase = "unknown";
 			} else if (forwardSubmitted) {
 				phase = "success";
 			}
@@ -117,6 +121,20 @@ export function CctpDepositTrackingNotifier() {
 					duration: Number.POSITIVE_INFINITY,
 					closeButton: true,
 				});
+			} else if (notification.phase === "unknown") {
+				toast.warning(t`Deposit status unknown`, {
+					...lifecycle,
+					description: (
+						<span className="flex flex-col gap-1">
+							<span>
+								{t`The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.`}
+							</span>
+							{explorerLink}
+						</span>
+					),
+					duration: Number.POSITIVE_INFINITY,
+					closeButton: true,
+				});
 			} else if (notification.phase === "success") {
 				toast.success(t`Deposit submitted to Hyperliquid`, {
 					...lifecycle,
@@ -150,6 +168,7 @@ export function CctpDepositTrackingNotifier() {
 		depositModalOpen,
 		forwardSubmitted,
 		i18n.locale,
+		outcomeUnknown,
 		sourceHash,
 		statusUnavailable,
 		t,

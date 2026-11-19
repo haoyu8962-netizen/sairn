@@ -334,7 +334,13 @@ failed without a hash on the current page: until 2026-11-19 only an attempt that
 found an earlier authorization scheduled the check, and a page whose own attempt
 had failed stayed latched after expiry. When the check runs, the intent is read
 again; one that is still unresolved (another tab signed a newer one) keeps the
-attempt latched and moves the check to its expiry. An attempt that is still waiting for the browser
+attempt latched and moves the check to its expiry. The check belongs to the
+network and account that scheduled it: since 2026-11-20 (Gemini final review,
+P2-3) a change of either, or a successful deposit, cancels it, and a check that
+fires for another network or account changes nothing. Before, a check left from
+the previous account or network could clear the current one's latch and restart
+its automatic deposit, a second signature whenever the current one's own
+authorization record was missing. An attempt that is still waiting for the browser
 lock or the balance refresh is dropped if the legal status stops allowing actions
 before it submits.
 
@@ -574,13 +580,103 @@ latest block and USDC `authorizationState(owner, authNonce)` at that block:
 - unused at a block whose timestamp is at or after `validBefore`: the deposit can
   never execute (a cancelled or dropped transaction), so the record is settled as
   a definitive source failure with the existing `source-receipt-mismatch` text;
-- used: `eth_getLogs` for that `AuthorizationUsed` event from `sourceBlock` to
-  the same block names the transaction that consumed it. That transaction must
+- used: `eth_getLogs` for that `AuthorizationUsed` event, starting at
+  `sourceBlock`, names the transaction that consumed it. That transaction must
   pass the same receipt and calldata checks as the tracked one (owner as sender,
   official extension, amount, forwarder hook, and now the tracked authorization
   nonce); Circle status is then queried with its hash. Another sender or calldata
   is a definitive mismatch; a used authorization whose log is not visible yet is
   a retryable RPC error and keeps the record.
+
+Since 2026-11-20 (Gemini final review, P2-1 and P3-1) the search is bounded and
+done once:
+
+- When the recovery RPC's latest block is still below `sourceBlock` (it lags the
+  wallet's RPC, which read `sourceBlock`), recovery keeps waiting and queries
+  nothing else; until then a lag of one block made `eth_getLogs` fail on every
+  poll.
+- `eth_getLogs` runs in steps of `CCTP_AUTHORIZATION_LOG_SCAN_BLOCKS` (2,000)
+  blocks, each with the timestamp of its last block, and stops at the first step
+  that ends at or after `validBefore`: USDC rejects the authorization in any
+  later block and Arbitrum block timestamps never decrease. Before, one request
+  spanned every block from `sourceBlock` to the latest one, which grows by about
+  345,600 blocks a day on Arbitrum One. Arbitrum's
+  [node-provider page](https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers)
+  gives the public RPC no range or rate guarantees and no `eth_getLogs` limit;
+  commercial providers document caps from 100 to 10,000 blocks. 2,000 stays
+  under the common 10,000 cap, and the one-hour window (at most 14,400 blocks at
+  Arbitrum One's 250 ms block time) needs at most eight steps within the
+  ten-second receipt timeout. No limit of the public endpoint was measured.
+- The verified consuming hash is stored beside the record, under
+  `sairn:cctp-deposit-authorization-consumer:v1:<env>:<owner>:<sourceHash>`
+  with the record's authorization nonce. The record itself is unchanged, because
+  a tab still running the previous release deletes a record with an unknown
+  field, which would lift the pending-deposit block everywhere. Later polls and
+  reloads check that transaction's receipt and calldata again and skip the log
+  search; a stored hash whose receipt has disappeared falls back to the search.
+  The entry is removed with its record and when its record is gone.
+- When the chain shows the authorization expired unused, the unresolved intent
+  of that authorization nonce is removed together with the record, so a device
+  whose clock is behind Arbitrum does not keep blocking the next deposit until
+  its own clock passes `validBefore`. A revert or a mismatched receipt still keeps
+  the intent until it expires, as above.
+
+A used authorization whose log no step finds (an RPC that drops logs) is no
+longer kept for up to 30 days. `authorizationState` being true already proves
+what the pending-deposit block protects against: the authorization cannot
+execute again, so a new deposit signs a different nonce and cannot double-spend
+it. Only which transaction used it, and how far Circle got, stay unknown. So:
+
+- A search counts as empty only when every `eth_getLogs` and block request of it
+  succeeded, it reached a block whose timestamp is at or after `validBefore`, and
+  the latest block is at least `CCTP_AUTHORIZATION_CONSUMER_SEARCH_MARGIN_SECONDS`
+  (600 seconds of chain time) past `validBefore`, so the consumer's block is at
+  least ten minutes old and indexing lag is ruled out
+  (`CctpAuthorizationConsumerNotFoundError`). A failed, malformed or timed-out
+  request, or an empty search inside the margin, stays the ordinary retryable
+  error and counts for nothing.
+- An empty search is not retried by the query; the next one comes with the next
+  poll, five seconds later. After `CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN`
+  (3) empty searches, which a found consumer, a receipt or a pending answer
+  resets and a failed request leaves unchanged, the tracker settles the deposit
+  as status unknown (`CctpDepositOutcomeUnknownError`): it removes the record
+  and that nonce's unresolved intent and stops polling. The count is kept per
+  query client in memory, so a reload starts it again.
+- The page-level notifier then shows the existing persistent `Deposit status
+  unknown` warning ("The Arbitrum transaction was submitted, but its final
+  status could not be verified. Check the transaction before retrying.") with
+  the explorer link of the original hash, never a failure. Circle forwarding of
+  a burn that did happen continues without the tracker.
+
+Since 2026-11-20 (Gemini final review, P2-1 follow-up) the longest a recovery
+record of an external-wallet deposit with an authorization nonce blocks a new
+deposit of that account and network, counted while a page of the application is
+open (tracking pauses in a hidden tab; nothing runs with no page open):
+
+| Situation | Longest block | Released by |
+| --- | --- | --- |
+| Tracked or replacement transaction confirmed, Circle forwarding | until Circle returns `forwardTxHash` | removal at forward-submitted |
+| Transaction reverted or calldata does not match | one poll | definitive failure removes the record (the intent stays until `validBefore`, at most one hour) |
+| Recovery RPC behind `sourceBlock` | until the RPC reaches it | the next answer from a current RPC |
+| Authorization unused, chain before `validBefore` | until `validBefore` (at most one hour after signing) | expiry on chain settles the record and lifts the intent |
+| Authorization used, log not yet visible | until 600 s of chain time past `validBefore` plus three polls (about 70 minutes after signing) | consumer found, or settled as status unknown |
+| Authorization used, log never returned (RPC drops logs) | same, about 70 minutes after signing | settled as status unknown |
+| Arbitrum RPC failing or timing out on every request | until it answers, at most 30 days | the 30-day age limit (`CCTP_DEPOSIT_TRACKING_MAX_AGE_MS`) prunes the record |
+| Circle never returns a forward hash | at most 30 days | the 30-day age limit |
+
+The last two rows were not changed by this work: without an answer from
+Arbitrum the tracker cannot tell whether the authorization was used, and a
+Circle message that never forwards is outside this flow. Records written
+before 2026-11-19 without an authorization nonce keep the receipt-only
+behaviour.
+
+Mid-search timeouts restart the search at `sourceBlock` on the next poll; the
+position reached is not stored. The window is at most eight steps (sixteen
+requests in eight round trips) inside the ten-second receipt timeout, so a
+restart costs at most one more search, and a search that cannot finish in ten
+seconds means an RPC that is failing every other request too (the table's RPC
+row). Storing progress would need a second stored shape and rules for when it is
+invalid (another RPC, a reorganisation), for a case that only shortens a retry.
 
 The record keeps its original key and hash, so the explorer link still names the
 original transaction (Arbiscan shows it as replaced). The dialog's own wait still

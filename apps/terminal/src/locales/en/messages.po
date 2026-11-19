@@ -2480,7 +2480,6 @@ msgid "Creating your wallet. Please wait..."
 msgstr "Creating your wallet. Please wait..."
 
 #: src/components/trade/mobile/mobile-position-card.tsx
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2699,6 +2698,7 @@ msgstr "Deposit failed"
 msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "Deposit native USDC on Arbitrum from your connected wallet."
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -4362,7 +4362,6 @@ msgstr "Invite traders, review fee benefits, and claim rewards reported by Hyper
 msgid "IOC (Immediate Or Cancel)"
 msgstr "IOC (Immediate Or Cancel)"
 
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
@@ -9086,6 +9085,7 @@ msgstr "The Arbitrum transaction did not match the reviewed deposit. Check your 
 msgid "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 msgstr "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

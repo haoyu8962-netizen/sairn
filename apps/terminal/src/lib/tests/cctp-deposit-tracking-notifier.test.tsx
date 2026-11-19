@@ -6,6 +6,7 @@ import { act, createElement } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
+import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { createI18nRoot } from "./harness/react";
 
 const SOURCE_HASH = `0x${"a".repeat(64)}`;
@@ -29,7 +30,13 @@ const testState = vi.hoisted(() => ({
 		walletIntent: "external" as "external" | "embedded",
 	},
 }));
-const toastMocks = vi.hoisted(() => ({ dismiss: vi.fn(), error: vi.fn(), loading: vi.fn(), success: vi.fn() }));
+const toastMocks = vi.hoisted(() => ({
+	dismiss: vi.fn(),
+	error: vi.fn(),
+	loading: vi.fn(),
+	success: vi.fn(),
+	warning: vi.fn(),
+}));
 
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
@@ -147,6 +154,34 @@ describe("CctpDepositTrackingNotifier", () => {
 				),
 			}),
 		);
+	});
+
+	it("keeps a deposit whose outcome could not be determined on screen as status unknown, not as a failure", () => {
+		trackWaitingDeposit();
+		render();
+		testState.tracking.error = new CctpDepositOutcomeUnknownError();
+		testState.tracking.isError = true;
+		render();
+		testState.tracking = { ...testState.tracking, data: undefined, recoveryRecord: null };
+		render();
+
+		expect(toastMocks.error).not.toHaveBeenCalled();
+		expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(
+			"Deposit status unknown",
+			expect.objectContaining({
+				closeButton: true,
+				duration: Number.POSITIVE_INFINITY,
+				id: toastMocks.loading.mock.calls[0]?.[1]?.id,
+			}),
+		);
+		const description = toastMocks.warning.mock.calls[0]?.[1]?.description;
+		const descriptionContainer = document.createElement("div");
+		const descriptionRoot = createI18nRoot(descriptionContainer);
+		act(() => descriptionRoot.render(description));
+		expect(descriptionContainer.textContent).toContain(
+			"The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.",
+		);
+		act(() => descriptionRoot.unmount());
 	});
 
 	it("leaves the status to the deposit dialog while it is open and resumes after it closes", () => {

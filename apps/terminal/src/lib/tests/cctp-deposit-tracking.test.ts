@@ -20,16 +20,19 @@ import {
 	CctpDepositTrackingPersistenceError,
 	fetchArbitrumCctpSourceReceiptStatus,
 	fetchCircleCctpDepositStatus,
+	getCctpDepositAuthorizationConsumerStorageKey,
 	getCctpDepositTrackingRecordStorageKey,
 	getCctpDepositTrackingStorageKey,
 	getCctpSponsoredAuthorizationIntentStorageKey,
 	parseArbitrumCctpSourceReceiptResponse,
 	parseArbitrumCctpSourceTransactionResponse,
 	parseCircleCctpMessagesResponse,
+	readCctpDepositAuthorizationConsumer,
 	readCctpDepositTrackingRecords,
 	readCctpSponsoredAuthorizationIntent,
 	removeCctpDepositTrackingRecord,
 	removeCctpSponsoredAuthorizationIntent,
+	saveCctpDepositAuthorizationConsumer,
 	saveCctpDepositTrackingRecord,
 	saveCctpSponsoredAuthorizationIntent,
 	subscribeCctpDepositTrackingRecords,
@@ -519,6 +522,81 @@ describe("CCTP deposit tracking persistence", () => {
 		expect(() => readCctpDepositTrackingRecords("Mainnet", OWNER, { storage, nowMs: NOW_MS })).toThrow(
 			"cannot be trusted",
 		);
+	});
+
+	it("keeps a verified replacement next to the record without changing what an older tab reads", () => {
+		const storage = new MemoryStorage();
+		const replacementHash = `0x${"c".repeat(64)}` as const;
+		const record = saveCctpDepositTrackingRecord(
+			{
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: 400_000_000,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: 1_800_000_000,
+			},
+			{ storage, nowMs: NOW_MS },
+		);
+		const recordKey = getCctpDepositTrackingRecordStorageKey("Mainnet", OWNER, SOURCE_HASH);
+		const storedRecord = storage.getItem(recordKey);
+
+		saveCctpDepositAuthorizationConsumer(
+			{ env: "Mainnet", owner: OWNER, sourceHash: SOURCE_HASH, consumingHash: `0x${"C".repeat(64)}` },
+			{ storage, nowMs: NOW_MS },
+		);
+
+		expect(storage.getItem(recordKey)).toBe(storedRecord);
+		expect(readCctpDepositTrackingRecords("Mainnet", OWNER, { storage, nowMs: NOW_MS })).toEqual([record]);
+		expect(readCctpDepositAuthorizationConsumer(record, { storage })).toBe(replacementHash);
+		expect(
+			readCctpDepositAuthorizationConsumer({ ...record, authNonce: FORWARD_HASH } as typeof record, { storage }),
+		).toBeNull();
+
+		const consumerKey = getCctpDepositAuthorizationConsumerStorageKey("Mainnet", OWNER, SOURCE_HASH);
+		expect(consumerKey.startsWith(getCctpDepositTrackingStorageKey("Mainnet", OWNER))).toBe(false);
+		removeCctpDepositTrackingRecord("Mainnet", OWNER, SOURCE_HASH, { storage });
+		expect(storage.getItem(consumerKey)).toBeNull();
+	});
+
+	it("refuses a replacement without a tracked external-wallet authorization and drops invalid or orphaned ones", () => {
+		const storage = new MemoryStorage();
+		const replacementHash = `0x${"c".repeat(64)}` as const;
+		saveCctpDepositTrackingRecord(TRACKING_RECORD, { storage, nowMs: NOW_MS });
+		expect(() =>
+			saveCctpDepositAuthorizationConsumer(
+				{ env: "Mainnet", owner: OWNER, sourceHash: SOURCE_HASH, consumingHash: replacementHash },
+				{ storage, nowMs: NOW_MS },
+			),
+		).toThrow(CctpDepositTrackingPersistenceError);
+
+		const record = saveCctpDepositTrackingRecord(
+			{
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: 400_000_000,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: 1_800_000_000,
+			},
+			{ storage, nowMs: NOW_MS },
+		);
+		const consumerKey = getCctpDepositAuthorizationConsumerStorageKey("Mainnet", OWNER, SOURCE_HASH);
+		storage.setItem(consumerKey, JSON.stringify({ consumingHash: replacementHash }));
+		expect(readCctpDepositAuthorizationConsumer(record, { storage })).toBeNull();
+		expect(storage.getItem(consumerKey)).toBeNull();
+
+		saveCctpDepositAuthorizationConsumer(
+			{ env: "Mainnet", owner: OWNER, sourceHash: SOURCE_HASH, consumingHash: replacementHash },
+			{ storage, nowMs: NOW_MS },
+		);
+		storage.removeItem(getCctpDepositTrackingRecordStorageKey("Mainnet", OWNER, SOURCE_HASH));
+		expect(readCctpDepositTrackingRecords("Mainnet", OWNER, { storage, nowMs: NOW_MS })).toEqual([]);
+		expect(storage.getItem(consumerKey)).toBeNull();
 	});
 
 	it("persists a minimal unresolved sponsored authorization before submission", () => {

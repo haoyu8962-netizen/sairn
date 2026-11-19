@@ -26,7 +26,12 @@ import {
 } from "@/lib/trade/cctp-deposit";
 import {
 	ArbitrumCctpSourceReceiptError,
+	CctpAuthorizationConsumerNotFoundError,
+	CctpDepositOutcomeUnknownError,
+	fetchArbitrumCctpSourceReceiptStatus,
 	getCctpDepositTrackingRecordStorageKey,
+	readCctpDepositAuthorizationConsumer,
+	readCctpDepositTrackingRecords,
 	readCctpSponsoredAuthorizationIntent,
 	saveCctpDepositTrackingRecord,
 	saveCctpSponsoredAuthorizationIntent,
@@ -437,6 +442,280 @@ describe("useCctpDepositTracking cross-tab reactivity", () => {
 			expect(trackingError).toMatchObject({ code: "source-receipt-mismatch" });
 			expect(recoveryHash).toBeNull();
 		});
+
+		it("keeps waiting without a log query while the recovery RPC is behind the block the deposit was sent at", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({
+				authorizationUsed: true,
+				consumer: REPLACEMENT_HASH,
+				latestBlock: SOURCE_BLOCK - 3,
+			});
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingData).toEqual({ status: "waiting" }));
+			});
+
+			expect(trackingError).toBeNull();
+			expect(chain.methods).not.toContain("eth_getLogs");
+			expect(chain.methods).not.toContain("eth_call");
+			expect(recoveryHash).toBe(SOURCE_HASH);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).not.toBeNull();
+		});
+
+		it("finds the replacement days later by scanning bounded chunks from the source block", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({
+				authorizationUsed: true,
+				blockTimestampAt: (blockNumber) => VALID_BEFORE - 3_600 + Math.floor((blockNumber - SOURCE_BLOCK) / 4),
+				consumer: REPLACEMENT_HASH,
+				consumerBlock: SOURCE_BLOCK + 5_000,
+				latestBlock: SOURCE_BLOCK + 2_000_000,
+			});
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() =>
+					expect(trackingData).toEqual({ status: "forward-submitted", forwardTxHash: FORWARD_HASH }),
+				);
+			});
+
+			expect(chain.circleHashes).toEqual([REPLACEMENT_HASH]);
+			const ranges = chain.logFilters.map((filter) => [
+				Number(BigInt(filter.fromBlock as Hex)),
+				Number(BigInt(filter.toBlock as Hex)),
+			]);
+			expect(ranges[0]?.[0]).toBe(SOURCE_BLOCK);
+			for (const [index, [fromBlock = 0, toBlock = 0]] of ranges.entries()) {
+				expect(toBlock - fromBlock + 1).toBeLessThanOrEqual(2_000);
+				if (index > 0) expect(fromBlock).toBe((ranges[index - 1]?.[1] ?? 0) + 1);
+			}
+			expect(ranges.at(-1)?.[1]).toBeGreaterThanOrEqual(SOURCE_BLOCK + 5_000);
+			expect(ranges.length).toBeLessThanOrEqual(3);
+		});
+
+		it("stops scanning at the first block whose timestamp reaches validBefore", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({
+				authorizationUsed: true,
+				blockTimestampAt: (blockNumber) => VALID_BEFORE - 3_600 + Math.floor((blockNumber - SOURCE_BLOCK) / 4),
+				latestBlock: SOURCE_BLOCK + 2_000_000,
+			});
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(ArbitrumCctpSourceReceiptError));
+			});
+
+			const attempts = chain.logFilters.filter((filter) => filter.fromBlock === numberToHex(SOURCE_BLOCK)).length;
+			expect(attempts).toBeGreaterThan(0);
+			expect(chain.logFilters).toHaveLength(attempts * 8);
+			const lastToBlock = Number(BigInt(chain.logFilters.at(-1)?.toBlock as Hex));
+			expect(lastToBlock).toBeGreaterThanOrEqual(SOURCE_BLOCK + 14_400);
+			expect(lastToBlock).toBeLessThan(SOURCE_BLOCK + 14_400 + 2_000);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+		});
+
+		it("remembers the replacement it verified and checks only that transaction afterwards", async () => {
+			saveAuthorizedRecord();
+			const recordKey = getCctpDepositTrackingRecordStorageKey("Mainnet", OWNER, SOURCE_HASH);
+			const storedRecord = window.localStorage.getItem(recordKey);
+			const first = createAuthorizationChainFetch({ authorizationUsed: true, consumer: REPLACEMENT_HASH });
+			vi.mocked(fetch).mockImplementation(first.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() =>
+					expect(trackingData).toEqual({ status: "forward-submitted", forwardTxHash: FORWARD_HASH }),
+				);
+			});
+			expect(first.methods).toContain("eth_getLogs");
+			expect(window.localStorage.getItem(recordKey)).toBe(storedRecord);
+			const [record] = readCctpDepositTrackingRecords("Mainnet", OWNER);
+			expect(record && readCctpDepositAuthorizationConsumer(record)).toBe(REPLACEMENT_HASH);
+
+			act(() => root.unmount());
+			queryClient.clear();
+			trackingData = undefined;
+			root = createRoot(container);
+			const second = createAuthorizationChainFetch({ authorizationUsed: true, consumer: REPLACEMENT_HASH });
+			vi.mocked(fetch).mockImplementation(second.fetch);
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() =>
+					expect(trackingData).toEqual({ status: "forward-submitted", forwardTxHash: FORWARD_HASH }),
+				);
+			});
+
+			expect(second.methods).toEqual(["eth_getTransactionReceipt", "eth_getTransactionByHash"]);
+			expect(second.circleHashes).toEqual([REPLACEMENT_HASH]);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+		});
+
+		it("lifts the local authorization placeholder when Arbitrum shows it expired before this device's clock does", async () => {
+			saveAuthorizedRecord();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).not.toBeNull();
+			vi.mocked(fetch).mockImplementation(
+				createAuthorizationChainFetch({ authorizationUsed: false, blockTimestamp: VALID_BEFORE }).fetch,
+			);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(recoveryHash).toBeNull();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).toBeNull();
+		});
+
+		async function pollAgain() {
+			await act(async () => {
+				await queryClient.refetchQueries({ type: "active" });
+			});
+		}
+
+		it("settles a used authorization as status unknown after three complete searches past its expiry find no transaction", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({ authorizationUsed: true, blockTimestamp: VALID_BEFORE + 600 });
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(CctpAuthorizationConsumerNotFoundError));
+			});
+			expect(chain.logFilters).toHaveLength(1);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+			await pollAgain();
+			expect(chain.logFilters).toHaveLength(2);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+			await pollAgain();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(CctpDepositOutcomeUnknownError));
+			});
+
+			expect(chain.logFilters).toHaveLength(3);
+			expect(trackingError).not.toBeInstanceOf(DefinitiveDepositSourceFailureError);
+			expect(recoveryHash).toBeNull();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)).toBeNull();
+			await pollAgain();
+			expect(chain.logFilters).toHaveLength(3);
+		});
+
+		it("keeps the record while an empty search is less than ten minutes of chain time past the expiry", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({ authorizationUsed: true, blockTimestamp: VALID_BEFORE + 599 });
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(ArbitrumCctpSourceReceiptError));
+			});
+			for (let poll = 0; poll < 4; poll += 1) await pollAgain();
+
+			expect(trackingError).not.toBeInstanceOf(CctpAuthorizationConsumerNotFoundError);
+			expect(trackingError).not.toBeInstanceOf(CctpDepositOutcomeUnknownError);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+		});
+
+		it("never counts a failed log request as an empty search", async () => {
+			saveAuthorizedRecord();
+			const chain = createAuthorizationChainFetch({
+				authorizationUsed: true,
+				blockTimestamp: VALID_BEFORE + 600,
+				maxLogRange: 1,
+			});
+			vi.mocked(fetch).mockImplementation(chain.fetch);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(ArbitrumCctpSourceReceiptError));
+			});
+			for (let poll = 0; poll < 4; poll += 1) await pollAgain();
+
+			expect(chain.logFilters.length).toBeGreaterThanOrEqual(5);
+			expect(trackingError).not.toBeInstanceOf(CctpAuthorizationConsumerNotFoundError);
+			expect(trackingError).not.toBeInstanceOf(CctpDepositOutcomeUnknownError);
+			expect(recoveryHash).toBe(SOURCE_HASH);
+		});
+
+		it("reports a search that timed out as a retryable failure, not as an empty search", async () => {
+			const chain = createAuthorizationChainFetch({ authorizationUsed: true, blockTimestamp: VALID_BEFORE + 600 });
+			const input = {
+				amount: "5",
+				authNonce: AUTH_NONCE,
+				env: "Mainnet" as const,
+				mode: "direct" as const,
+				owner: OWNER,
+				sourceBlock: SOURCE_BLOCK,
+				sourceHash: SOURCE_HASH,
+				validBefore: VALID_BEFORE,
+			};
+			await expect(fetchArbitrumCctpSourceReceiptStatus({ ...input, fetchImpl: chain.fetch })).rejects.toBeInstanceOf(
+				CctpAuthorizationConsumerNotFoundError,
+			);
+
+			const hangingLogs = (request: RequestInfo | URL, init?: RequestInit) => {
+				if (JSON.parse(String(init?.body)).method !== "eth_getLogs") return chain.fetch(request, init);
+				return new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+				});
+			};
+			const timedOut = await fetchArbitrumCctpSourceReceiptStatus({
+				...input,
+				fetchImpl: hangingLogs,
+				timeoutMs: 20,
+			}).catch((error: unknown) => error);
+			expect(timedOut).toBeInstanceOf(ArbitrumCctpSourceReceiptError);
+			expect(timedOut).not.toBeInstanceOf(CctpAuthorizationConsumerNotFoundError);
+		});
+
+		it("keeps the authorization placeholder after a reverted transaction, which leaves the authorization usable", async () => {
+			saveAuthorizedRecord();
+			vi.mocked(fetch).mockResolvedValue(createSourceReceiptResponse("0x0"));
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(trackingError).toMatchObject({ code: "source-transaction-reverted" });
+			expect(recoveryHash).toBeNull();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)?.authNonce).toBe(AUTH_NONCE);
+		});
+
+		it("keeps another authorization's placeholder when the tracked one expired on Arbitrum", async () => {
+			saveCctpSponsoredAuthorizationIntent({
+				authNonce: `0x${"3".repeat(64)}`,
+				env: "Mainnet",
+				owner: OWNER,
+				amount: "5",
+				validBefore: Math.floor(Date.now() / 1000) + 3_600,
+			});
+			saveCctpDepositTrackingRecord({
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: SOURCE_BLOCK,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: VALID_BEFORE,
+			});
+			vi.mocked(fetch).mockImplementation(
+				createAuthorizationChainFetch({ authorizationUsed: false, blockTimestamp: VALID_BEFORE }).fetch,
+			);
+
+			renderProbe();
+			await act(async () => {
+				await vi.waitFor(() => expect(trackingError).toBeInstanceOf(DefinitiveDepositSourceFailureError));
+			});
+
+			expect(recoveryHash).toBeNull();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", OWNER)?.authNonce).toBe(`0x${"3".repeat(64)}`);
+		});
 	});
 });
 
@@ -629,17 +908,27 @@ function createCircleCctpMessage({
 function createAuthorizationChainFetch({
 	authorizationUsed,
 	blockTimestamp = VALID_BEFORE - 600,
+	blockTimestampAt,
 	consumer,
+	consumerBlock = SOURCE_BLOCK + 10,
 	consumerFrom = OWNER,
+	latestBlock = SOURCE_BLOCK + 50,
+	maxLogRange = 10_000,
 }: {
 	authorizationUsed: boolean;
 	blockTimestamp?: number;
+	blockTimestampAt?: (blockNumber: number) => number;
 	consumer?: Hash;
+	consumerBlock?: number;
 	consumerFrom?: Address;
+	latestBlock?: number;
+	maxLogRange?: number;
 }) {
 	const circleHashes: string[] = [];
 	const logFilters: Record<string, unknown>[] = [];
+	const methods: string[] = [];
 	const config = CCTP_DEPOSIT_NETWORKS.mainnet;
+	const timestampAt = blockTimestampAt ?? (() => blockTimestamp);
 	async function handle(input: RequestInfo | URL, init?: RequestInit) {
 		const url = String(input);
 		if (!url.includes("arb1.arbitrum.io")) {
@@ -654,7 +943,10 @@ function createAuthorizationChainFetch({
 			);
 		}
 		const request = JSON.parse(String(init?.body)) as { id: number; method: string; params: unknown[] };
+		methods.push(request.method);
 		const reply = (result: unknown) => new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+		const replyError = (code: number, message: string) =>
+			new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, error: { code, message } }));
 		const [first] = request.params;
 		switch (request.method) {
 			case "eth_getTransactionReceipt":
@@ -665,14 +957,17 @@ function createAuthorizationChainFetch({
 				const transaction = createSourceTransactionPayload();
 				return reply({ ...transaction.result, hash: first, from: consumerFrom });
 			}
-			case "eth_getBlockByNumber":
-				return reply({ number: numberToHex(SOURCE_BLOCK + 50), timestamp: numberToHex(blockTimestamp) });
+			case "eth_getBlockByNumber": {
+				const blockNumber = first === "latest" ? latestBlock : Number(BigInt(first as string));
+				if (blockNumber > latestBlock) return reply(null);
+				return reply({ number: numberToHex(blockNumber), timestamp: numberToHex(timestampAt(blockNumber)) });
+			}
 			case "eth_call": {
 				const call = first as { to: string; data: Hex };
 				const decoded = decodeFunctionData({ abi: USDC_EIP3009_AUTHORIZATION_ABI, data: call.data });
 				expect(call.to).toBe(config.usdc);
 				expect(decoded.args).toEqual([OWNER, AUTH_NONCE]);
-				expect(request.params[1]).toBe(numberToHex(SOURCE_BLOCK + 50));
+				expect(request.params[1]).toBe(numberToHex(latestBlock));
 				return reply(
 					encodeFunctionResult({
 						abi: USDC_EIP3009_AUTHORIZATION_ABI,
@@ -681,10 +976,16 @@ function createAuthorizationChainFetch({
 					}),
 				);
 			}
-			case "eth_getLogs":
+			case "eth_getLogs": {
+				const filter = first as { fromBlock: Hex; toBlock: Hex };
 				logFilters.push(first as Record<string, unknown>);
+				const fromBlock = Number(BigInt(filter.fromBlock));
+				const toBlock = Number(BigInt(filter.toBlock));
+				if (fromBlock > toBlock) return replyError(-32602, "invalid block range params");
+				if (toBlock > latestBlock) return replyError(-32000, "block range extends beyond current head block");
+				if (toBlock - fromBlock + 1 > maxLogRange) return replyError(-32005, "query exceeds max block range");
 				return reply(
-					consumer
+					consumer && consumerBlock >= fromBlock && consumerBlock <= toBlock
 						? [
 								{
 									address: config.usdc,
@@ -694,15 +995,17 @@ function createAuthorizationChainFetch({
 										args: { authorizer: OWNER, nonce: AUTH_NONCE },
 									}),
 									data: "0x",
+									blockNumber: numberToHex(consumerBlock),
 									transactionHash: consumer,
 									removed: false,
 								},
 							]
 						: [],
 				);
+			}
 			default:
 				throw new Error(`Unexpected Arbitrum method ${request.method}`);
 		}
 	}
-	return { circleHashes, fetch: handle, logFilters };
+	return { circleHashes, fetch: handle, logFilters, methods };
 }

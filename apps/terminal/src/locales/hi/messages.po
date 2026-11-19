@@ -2480,7 +2480,6 @@ msgid "Creating your wallet. Please wait..."
 msgstr "आपका वॉलेट बनाया जा रहा है। कृपया प्रतीक्षा करें..."
 
 #: src/components/trade/mobile/mobile-position-card.tsx
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2699,6 +2698,7 @@ msgstr "डिपॉज़िट विफल"
 msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "अपने कनेक्ट किए गए वॉलेट से Arbitrum पर नेटिव USDC जमा करें।"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -4362,7 +4362,6 @@ msgstr "ट्रेडरों को आमंत्रित करें, �
 msgid "IOC (Immediate Or Cancel)"
 msgstr "IOC (Immediate Or Cancel)"
 
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
@@ -9086,6 +9085,7 @@ msgstr "Arbitrum लेन-देन समीक्षा किए गए ज�
 msgid "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 msgstr "Arbitrum ट्रांज़ैक्शन सबमिट हो गया है, लेकिन Circle की स्थिति अस्थायी रूप से उपलब्ध नहीं है। आपके लौटने पर ट्रैकिंग फिर शुरू हो जाएगी।"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

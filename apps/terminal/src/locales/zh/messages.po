@@ -2480,7 +2480,6 @@ msgid "Creating your wallet. Please wait..."
 msgstr "正在创建你的钱包，请稍候..."
 
 #: src/components/trade/mobile/mobile-position-card.tsx
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2699,6 +2698,7 @@ msgstr "存款失败"
 msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "从已连接的钱包存入 Arbitrum 上的原生 USDC。"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -4362,7 +4362,6 @@ msgstr "邀请交易者、查看手续费优惠，并领取 Hyperliquid 返回�
 msgid "IOC (Immediate Or Cancel)"
 msgstr "IOC（立即成交或取消）"
 
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
@@ -9086,6 +9085,7 @@ msgstr "Arbitrum 交易与已确认的存款信息不一致。重试前请检查
 msgid "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 msgstr "Arbitrum 交易已提交，但暂时无法获取 Circle 状态。返回时将继续跟踪。"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."

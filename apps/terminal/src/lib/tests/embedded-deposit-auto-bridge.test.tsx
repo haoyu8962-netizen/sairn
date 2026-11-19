@@ -56,6 +56,7 @@ const testState = vi.hoisted(() => ({
 		| { userAllowed: boolean; canPerformActions: boolean; acceptedTerms: boolean }
 		| undefined,
 	authorizationIntent: null as null | { authNonce: string; validBefore: number },
+	authorizationIntentsByScope: {} as Record<string, null | { authNonce: string; validBefore: number }>,
 	authorizationIntentError: null as Error | null,
 	submissionOutcomeUnknown: false,
 	useDepositOptions: null as null | Record<string, unknown>,
@@ -186,9 +187,10 @@ vi.mock("@sairn/hl-react", () => ({
 	useLegalStatus: () => ({ data: testState.legalStatus }),
 }));
 vi.mock("@/lib/trade/cctp-deposit-tracking", () => ({
-	readCctpSponsoredAuthorizationIntent: () => {
+	readCctpSponsoredAuthorizationIntent: (env: string, owner: string) => {
 		if (testState.authorizationIntentError) throw testState.authorizationIntentError;
-		return testState.authorizationIntent;
+		const scoped = testState.authorizationIntentsByScope[`${env}:${owner.toLowerCase()}`];
+		return scoped === undefined ? testState.authorizationIntent : scoped;
 	},
 }));
 vi.mock("@/lib/hyperliquid/use-deposit", () => ({
@@ -203,7 +205,7 @@ vi.mock("@/lib/hyperliquid/use-deposit", () => ({
 			deposit: testState.deposit,
 			refreshBalance: testState.refreshBalance,
 			reset: testState.resetDeposit,
-			networkName: "Arbitrum",
+			networkName: testState.isTestnet ? "Arbitrum Sepolia" : "Arbitrum",
 			sponsoredCctpEnabled: testState.sponsoredEnabled && options.depositRoute === "cctp",
 		};
 	},
@@ -240,6 +242,7 @@ describe.each([
 		testState.toastWarning.mockReset();
 		testState.legalStatus = { userAllowed: true, canPerformActions: true, acceptedTerms: true };
 		testState.authorizationIntent = null;
+		testState.authorizationIntentsByScope = {};
 		testState.authorizationIntentError = null;
 		testState.submissionOutcomeUnknown = false;
 		testState.depositError = null;
@@ -434,6 +437,79 @@ describe.each([
 
 		testState.authorizationIntent = { authNonce: "0x01", validBefore: Math.floor(Date.now() / 1000) + 1_200 };
 		await act(() => vi.advanceTimersByTimeAsync(601_000));
+		expect(testState.resetDeposit).not.toHaveBeenCalled();
+		expect(testState.deposit).toHaveBeenCalledTimes(1);
+	});
+
+	it.each(["account", "network"] as const)(
+		"leaves the current attempt latched when the previous %s's authorization recheck comes due",
+		async (change) => {
+			const otherOwner = "0x2222222222222222222222222222222222222222";
+			const previousScope = `${env}:${USER_ADDRESS}`;
+			await act(async () => {
+				root.render(createElement(EmbeddedDepositAutoBridge));
+			});
+			expect(testState.deposit).toHaveBeenCalledTimes(1);
+
+			testState.authorizationIntentsByScope[previousScope] = {
+				authNonce: "0x01",
+				validBefore: Math.floor(Date.now() / 1000) + 600,
+			};
+			testState.depositStatus = "error";
+			testState.depositError = new Error("provider unavailable");
+			testState.submissionOutcomeUnknown = true;
+			await act(async () => {
+				root.render(createElement(EmbeddedDepositAutoBridge));
+			});
+
+			if (change === "account") testState.owner = otherOwner;
+			else testState.isTestnet = !isTestnet;
+			testState.depositStatus = "idle";
+			testState.depositError = null;
+			testState.submissionOutcomeUnknown = false;
+			await act(async () => {
+				root.render(createElement(EmbeddedDepositAutoBridge));
+			});
+			expect(testState.deposit).toHaveBeenCalledTimes(2);
+
+			testState.depositStatus = "error";
+			testState.depositError = new Error("confirmation failed");
+			testState.depositHash = HASH;
+			await act(async () => {
+				root.render(createElement(EmbeddedDepositAutoBridge));
+			});
+			expect(testState.resetDeposit).not.toHaveBeenCalled();
+
+			testState.authorizationIntentsByScope[previousScope] = null;
+			await act(() => vi.advanceTimersByTimeAsync(11 * 60_000));
+
+			expect(testState.resetDeposit).not.toHaveBeenCalled();
+			expect(testState.deposit).toHaveBeenCalledTimes(2);
+		},
+	);
+
+	it("drops a pending authorization recheck once the deposit has succeeded", async () => {
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		testState.authorizationIntent = { authNonce: "0x01", validBefore: Math.floor(Date.now() / 1000) + 600 };
+		testState.depositStatus = "error";
+		testState.depositError = new Error("provider unavailable");
+		testState.submissionOutcomeUnknown = true;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+
+		testState.authorizationIntent = null;
+		testState.depositStatus = "success";
+		testState.depositError = null;
+		testState.submissionOutcomeUnknown = false;
+		testState.depositHash = HASH;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		await act(() => vi.advanceTimersByTimeAsync(11 * 60_000));
+
 		expect(testState.resetDeposit).not.toHaveBeenCalled();
 		expect(testState.deposit).toHaveBeenCalledTimes(1);
 	});
