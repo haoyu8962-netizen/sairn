@@ -5,7 +5,7 @@ import { useState } from "react";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
 import { DataPendingState } from "@/components/ui/data-pending-state";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
-import { getToolbarAbsoluteSize, getToolbarFundingTotal } from "@/domain/trade/trading-toolbar-metrics";
+import { getToolbarAbsoluteSize } from "@/domain/trade/trading-toolbar-metrics";
 import { useFundingHistoryCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useUserFunding } from "@/hooks/trade/use-user-funding";
@@ -14,10 +14,13 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
-import { getFundingCollateralSymbol } from "@/lib/trade/collateral-amount";
+import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
 import {
 	type FundingHistorySideFilter,
+	filterFundingHistory,
+	formatFundingTotal,
 	getFundingHistorySide,
+	getFundingTotals,
 	isFundingHistorySideFilter,
 } from "@/lib/trade/funding-history";
 import { getFundingSideLabel } from "@/lib/trade/funding-position";
@@ -79,19 +82,17 @@ function MobileFundingTabContent({
 	const markets = useMarkets();
 	const [directionFilter, setDirectionFilter] = useState<FundingHistorySideFilter>("all");
 
-	const filteredUpdates = updates.filter(
-		(update) => directionFilter === "all" || getFundingHistorySide(update.szi) === directionFilter,
-	);
+	const filteredUpdates = filterFundingHistory(updates, null, directionFilter);
 	const filteredUpdateKeys = filteredUpdates.map(getUserFundingKey);
 	const disclosure = useMobileDisclosureSet(disclosureIdentity, filteredUpdateKeys, disclosureState);
 	const { expandedKeys, setExpanded } = disclosure;
-	const totalFunding = getToolbarFundingTotal(filteredUpdates);
 	const isSnapshotCurrent = status === "ready" && !error && !isOffline && !isStale;
 	const headerTotal =
 		isConnected && isSnapshotCurrent
-			? formatUSD(totalFunding, { signDisplay: "exceptZero" })
+			? getFundingTotals(filteredUpdates, markets.getMarket)
+					.map((total) => formatFundingTotal(total, { formatToken, formatUSD }))
+					.join(" · ")
 			: FALLBACK_VALUE_PLACEHOLDER;
-	const headerClass = getMarketCloseValueColorClass(totalFunding);
 	const isPageScroll = scrollMode === "page";
 
 	function handleSelectMarket(name: string) {
@@ -102,7 +103,7 @@ function MobileFundingTabContent({
 	const { exportCsv, isExporting } = useFundingHistoryCsvExport({
 		filename: "funding_history.csv",
 		buildRows: (fundings) =>
-			buildCsvRows(fundings, [
+			buildCsvRows(filterFundingHistory(fundings, null, directionFilter), [
 				{
 					header: t`Time`,
 					getValue: (update) =>
@@ -114,13 +115,13 @@ function MobileFundingTabContent({
 					getValue: (update) =>
 						getFundingSideLabel(update.szi, (descriptor) => t(descriptor)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
-				{ header: t`Size`, getValue: (update) => getToolbarAbsoluteSize(update.szi) ?? update.szi },
+				{ header: t`Size`, getValue: (update) => update.szi.replace(/^-/, "") },
 				{ header: t`Rate`, getValue: (update) => update.fundingRate },
 				{ header: t`Payment`, getValue: (update) => update.usdc },
 				{
 					header: t`Payment Token`,
 					getValue: (update) =>
-						getFundingCollateralSymbol(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
+						getFundingCollateralToken(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
 			]),
 	});
@@ -162,7 +163,7 @@ function MobileFundingTabContent({
 					/>
 				</div>
 				<span className="sr-only" aria-live="polite">
-					{t`Funding shown`} <span className={cn("font-semibold tabular-nums", headerClass)}>{headerTotal}</span>
+					{t`Funding shown`} <span className="font-semibold tabular-nums">{headerTotal}</span>
 				</span>
 				<MobileBulkDisclosureActions
 					keys={disabled ? [] : filteredUpdateKeys}

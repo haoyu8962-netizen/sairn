@@ -9,7 +9,6 @@ import { AssetBadge } from "@/components/trade/components/asset-badge";
 import { HistoryPageUnavailable } from "@/components/ui/history-page-unavailable";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
-import { getToolbarAbsoluteSize } from "@/domain/trade/trading-toolbar-metrics";
 import { useFundingHistory } from "@/hooks/trade/use-funding-history";
 import { useFundingHistoryCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
@@ -18,7 +17,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, shortenAddress, useNumberFormat } from "@/lib/format";
 import { useMarkets } from "@/lib/hyperliquid";
-import { getFundingCollateralSymbol } from "@/lib/trade/collateral-amount";
+import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
 import {
 	DEFAULT_FUNDING_HISTORY_PAGE_SIZE,
 	FUNDING_HISTORY_PAGE_SIZES,
@@ -76,7 +75,7 @@ export function FundingHistoryPage({ address }: Props) {
 		address: exportAddress,
 		filename: "funding_history.csv",
 		buildRows: (fundings) =>
-			buildCsvRows(fundings, [
+			buildCsvRows(filterFundingHistory(fundings, selectedMarket, selectedSide), [
 				{
 					header: t`Time`,
 					getValue: (funding) =>
@@ -88,13 +87,13 @@ export function FundingHistoryPage({ address }: Props) {
 					getValue: (funding) =>
 						getFundingSideLabel(funding.szi, (descriptor) => t(descriptor)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
-				{ header: t`Size`, getValue: (funding) => getToolbarAbsoluteSize(funding.szi) ?? funding.szi },
+				{ header: t`Size`, getValue: (funding) => funding.szi.replace(/^-/, "") },
 				{ header: t`Rate`, getValue: (funding) => funding.fundingRate },
 				{ header: t`Payment`, getValue: (funding) => funding.usdc },
 				{
 					header: t`Payment Token`,
 					getValue: (funding) =>
-						getFundingCollateralSymbol(funding.coin, markets.getMarket(funding.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
+						getFundingCollateralToken(funding.coin, markets.getMarket(funding.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
 			]),
 	});

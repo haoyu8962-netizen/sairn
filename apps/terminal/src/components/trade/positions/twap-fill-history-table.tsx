@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useMarkets } from "@/lib/hyperliquid";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
-import { getUserFillNotional } from "@/lib/trade/user-fills";
+import { getUserFillNotional, getUserFillQuoteToken } from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
 import { ConnectPlaceholder, Placeholder } from "./placeholder";
@@ -26,7 +26,8 @@ export function TwapFillHistoryTable() {
 	const { formatNumber, formatPrice, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { fills, hasMore, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } = useTwapSliceFills();
+	const { canConfirmEmpty, fills, hasMore, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } =
+		useTwapSliceFills();
 	const { address } = useWalletSession();
 	const { exportCsv, isExporting } = useTwapFillHistoryCsv();
 	const navigateToMarket = useMarketNavigation();
@@ -44,7 +45,7 @@ export function TwapFillHistoryTable() {
 		if (!isConnected)
 			return <ConnectPlaceholder>{t`Connect your wallet to view TWAP fill history.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
-		if (status !== "ready" || (fills.length === 0 && isRealtimeDegraded)) return <PassiveDataPlaceholder />;
+		if (status !== "ready" || (fills.length === 0 && !canConfirmEmpty)) return <PassiveDataPlaceholder />;
 		if (fills.length === 0) return <Placeholder>{t`No TWAP fills found.`}</Placeholder>;
 		return null;
 	}
@@ -84,6 +85,7 @@ export function TwapFillHistoryTable() {
 									const notional = getUserFillNotional(fill);
 									const quoteToken = getMarketQuoteToken(market);
 									const feeToken = markets.getTokenDisplayName(fill.feeToken);
+									const pnlQuote = getUserFillQuoteToken(fill, market);
 
 									return (
 										<tr
@@ -136,7 +138,7 @@ export function TwapFillHistoryTable() {
 													compact: false,
 													decimals: 2,
 													signDisplay: "exceptZero",
-													symbol: feeToken,
+													symbol: pnlQuote === null ? undefined : markets.getTokenDisplayName(pnlQuote),
 												})}
 											</td>
 										</tr>

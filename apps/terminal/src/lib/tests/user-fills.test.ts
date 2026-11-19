@@ -241,6 +241,20 @@ describe("fetchUserTwapSliceFillHistory", () => {
 		).rejects.toBeInstanceOf(MalformedHistoryPageError);
 	});
 
+	it.each([9_999, 10_000, 10_001])(
+		"P3-1 reports only actual TWAP retention losses for a complete %i-fill history",
+		async (count) => {
+			const entries = Array.from({ length: count }, (_, index) => createSliceFill(index + 1, index + 1));
+			const result = await fetchUserTwapSliceFillHistory(serveAscendingPages(entries, 2_000), {
+				endTime,
+				pacer: createTwapSliceFillsExportPacer(createPacingClock()),
+				signal: new AbortController().signal,
+			});
+			expect(result.items).toHaveLength(Math.min(count, TWAP_SLICE_FILLS_EXPORT_LIMIT));
+			expect(result.truncated).toBe(count > TWAP_SLICE_FILLS_EXPORT_LIMIT);
+		},
+	);
+
 	it("keeps only the latest fills in ascending order and reports the retention limit", async () => {
 		const entries = Array.from({ length: 12_001 }, (_, index) => createSliceFill(index + 1, index + 1));
 		const fetchPage = serveAscendingPages(entries, 2_000);

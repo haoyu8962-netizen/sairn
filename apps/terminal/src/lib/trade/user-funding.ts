@@ -3,6 +3,12 @@ import { MalformedHistoryPageError } from "@/lib/trade/history-pagination";
 
 export type UserFunding = UserFundingsWsEvent["fundings"][number];
 
+const SIGNED_DECIMAL_PATTERN = /^-?\d+(?:\.\d+)?$/;
+
+function isFundingDecimal(value: unknown): value is string {
+	return typeof value === "string" && SIGNED_DECIMAL_PATTERN.test(value);
+}
+
 export function normalizeUserFunding(item: unknown): UserFunding | null {
 	if (!isRecord(item)) return null;
 	const candidate = item.nSamples === undefined ? { ...item, nSamples: null } : item;
@@ -17,10 +23,10 @@ export function isValidUserFunding(item: unknown): item is UserFunding {
 		item.time >= 0 &&
 		typeof item.coin === "string" &&
 		item.coin.length > 0 &&
-		typeof item.fundingRate === "string" &&
+		isFundingDecimal(item.fundingRate) &&
 		(item.nSamples === null || (typeof item.nSamples === "number" && Number.isFinite(item.nSamples))) &&
-		typeof item.szi === "string" &&
-		typeof item.usdc === "string"
+		isFundingDecimal(item.szi) &&
+		isFundingDecimal(item.usdc)
 	);
 }
 

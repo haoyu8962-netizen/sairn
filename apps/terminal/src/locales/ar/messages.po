@@ -2517,7 +2517,6 @@ msgstr "العملات المشفرة"
 #: src/hooks/trade/use-account-ledger-csv.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
-#: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "CSV export reached the history limit. Some records were not included."
 msgstr "بلغ تصدير CSV حد السجل. لم يتم تضمين بعض السجلات."
@@ -10857,6 +10856,7 @@ msgid "Up to {cctpFee} USDC in fees will be deducted from your deposit."
 msgstr "سيُخصم ما يصل إلى {cctpFee} USDC كرسوم من إيداعك."
 
 #: src/components/historical-orders/historical-orders-page.tsx
+#: src/hooks/trade/use-history-csv-export.ts
 msgid "Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders"
 msgstr "ما يصل إلى أحدث {ORDER_HISTORY_API_LIMIT} من الأوامر العادية"
 

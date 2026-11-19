@@ -15,7 +15,13 @@ import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl, useMarkets } from "@/lib/hyperliquid";
 import { getFillDirectionPresentation } from "@/lib/trade/fill-direction";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
-import { getUserFillKey, getUserFillNetClosedPnl, hasUserFillExplorerTransaction } from "@/lib/trade/user-fills";
+import {
+	formatUserFillNetPnl,
+	getUserFillKey,
+	getUserFillNetClosedPnl,
+	getUserFillQuoteToken,
+	hasUserFillExplorerTransaction,
+} from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { AssetBadge } from "../components/asset-badge";
@@ -40,7 +46,7 @@ const historyFooterButtonClass =
 export function HistoryTab() {
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
-	const { formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
+	const { formatDecimalString, formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
 	const { error, fills, isConnected, isOffline, isStale, status } = useUserFills();
 	const { address } = useWalletSession();
 	const navigateToMarket = useMarketNavigation();
@@ -136,7 +142,9 @@ export function HistoryTab() {
 							</TableHeader>
 							<TableBody className={cn(positionsPanelTableBodyClass, "[&_tr]:border-market-close-stroke-card/60")}>
 								{visibleFills.map((fill) => {
-									const closedPnl = getUserFillNetClosedPnl(fill, markets.getMarket(fill.coin));
+									const market = markets.getMarket(fill.coin);
+									const closedPnl = getUserFillNetClosedPnl(fill, market);
+									const pnlQuote = getUserFillQuoteToken(fill, market);
 									const direction = getDirection(fill);
 									const hasExplorerTransaction = hasUserFillExplorerTransaction(fill);
 
@@ -194,7 +202,7 @@ export function HistoryTab() {
 													"text-right text-market-close-fg",
 												)}
 											>
-												{formatNumber(fill.sz, markets.getSzDecimals(fill.coin))}
+												{market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz)}
 											</TableCell>
 											<TableCell
 												size="dense"
@@ -212,9 +220,12 @@ export function HistoryTab() {
 											>
 												{closedPnl ? (
 													<span className={getMarketCloseValueColorClass(closedPnl)}>
-														{formatUSD(closedPnl, {
-															signDisplay: "exceptZero",
-														})}
+														{formatUserFillNetPnl(
+															closedPnl,
+															pnlQuote,
+															{ formatToken, formatUSD },
+															markets.getTokenDisplayName,
+														)}
 													</span>
 												) : (
 													<span className="text-market-close-subtle">{FALLBACK_VALUE_PLACEHOLDER}</span>

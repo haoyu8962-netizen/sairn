@@ -12,6 +12,7 @@ import {
 	MalformedHistoryPageError,
 } from "@/lib/trade/history-pagination";
 import { buildHistoricalOrderEntries, type OrdinaryOrderHistoryEntry } from "@/lib/trade/order-history";
+import { ORDER_HISTORY_API_LIMIT } from "@/lib/trade/order-history-page";
 import { getUserFillKey, isValidUserFillHistoryItem } from "@/lib/trade/user-fills";
 import {
 	getUserFundingKey,
@@ -24,7 +25,6 @@ import { useIsTestnet } from "@/stores/use-global-settings-store";
 const USER_FILLS_API_PAGE_LIMIT = 2_000;
 const USER_FILLS_EXPORT_LIMIT = 10_000;
 const USER_FUNDING_API_PAGE_LIMIT = 500;
-const HISTORICAL_ORDERS_API_LIMIT = 2_000;
 
 interface CsvExportOptions<T> {
 	buildRows: (items: T[]) => readonly (readonly string[])[];
@@ -212,31 +212,33 @@ export function useHistoricalOrdersCsvExport(
 	async function exportCsv() {
 		const toastId = toast.loading(t`Exporting order history...`);
 		try {
-			const result = await run<HistoryLoadResult<OrdinaryOrderHistoryEntry>>(async (address, signal) => {
-				const client = getInfoClient();
-				const orders = await fetchHistoryPageWithRetry(
-					(requestSignal) => client.historicalOrders({ user: address }, requestSignal),
-					{ signal },
-				);
-				if (
-					!Array.isArray(orders) ||
-					orders.length > HISTORICAL_ORDERS_API_LIMIT ||
-					orders.some((entry) => !isValidHistoricalOrderHistoryItem(entry))
-				) {
-					throw new MalformedHistoryPageError();
-				}
-				return {
-					items: buildHistoricalOrderEntries(orders as HistoricalOrdersResponse),
-					truncated: orders.length >= HISTORICAL_ORDERS_API_LIMIT,
-				};
-			});
+			const result = await run<{ items: OrdinaryOrderHistoryEntry[]; reachedLimit: boolean }>(
+				async (address, signal) => {
+					const client = getInfoClient();
+					const orders = await fetchHistoryPageWithRetry(
+						(requestSignal) => client.historicalOrders({ user: address }, requestSignal),
+						{ signal },
+					);
+					if (
+						!Array.isArray(orders) ||
+						orders.length > ORDER_HISTORY_API_LIMIT ||
+						orders.some((entry) => !isValidHistoricalOrderHistoryItem(entry))
+					) {
+						throw new MalformedHistoryPageError();
+					}
+					return {
+						items: buildHistoricalOrderEntries(orders as HistoricalOrdersResponse),
+						reachedLimit: orders.length === ORDER_HISTORY_API_LIMIT,
+					};
+				},
+			);
 			if (!result) {
 				toast.dismiss(toastId);
 				return;
 			}
 			downloadCsv(options.filename, options.buildRows(result.items));
-			if (result.truncated) {
-				toast.warning(t`CSV export reached the history limit. Some records were not included.`, {
+			if (result.reachedLimit) {
+				toast.warning(t`Up to ${ORDER_HISTORY_API_LIMIT} most recent ordinary orders`, {
 					id: toastId,
 				});
 			} else {

@@ -144,6 +144,8 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
+import { serializeCsv } from "@/lib/csv";
+
 const ZH_PAGINATION_MESSAGES = Object.fromEntries(
 	[
 		["Previous", "上一页"],
@@ -260,6 +262,32 @@ describe("FundingHistoryPage", () => {
 		expect(container.querySelectorAll("tbody tr")).toHaveLength(4);
 		expect(container.textContent).toContain("1–4 / 4");
 		expect(mocks.history.refresh).not.toHaveBeenCalled();
+	});
+
+	it("P2-5 applies market and direction to all downloaded funding pages", () => {
+		renderPage();
+		selectFilter("Filter funding payments by market", "ETH");
+		selectFilter("Filter funding payments by side", "short");
+		const older = { ...createFunding(27), time: 100 };
+		const rows = mocks.buildRows?.([createFunding(0), { ...older, szi: "1" }, older]);
+		expect(rows?.slice(1)).toHaveLength(1);
+		expect(rows?.[1]?.slice(1, 3)).toEqual(["ETH", "Short"]);
+	});
+
+	it("P2-7 preserves funding size digits, the payment and the protocol collateral in CSV", () => {
+		mocks.markets = {
+			"xyz:TSLA": {
+				kind: "builderPerp",
+				quoteToken: { name: "USDT0", displayName: "USDT" },
+				shortName: "TSLA",
+				szDecimals: 3,
+			},
+		};
+		renderPage();
+		const rows = mocks.buildRows?.([
+			{ ...createFunding(0), coin: "xyz:TSLA", szi: "-1.2300", usdc: "-0.5000", fundingRate: "-0.0010" },
+		]);
+		expect(serializeCsv(rows ?? [])).toContain("xyz:TSLA,Short,1.2300,-0.0010,-0.5000,USDT0");
 	});
 
 	it("keeps a selected market visible after refreshed data no longer contains it", () => {

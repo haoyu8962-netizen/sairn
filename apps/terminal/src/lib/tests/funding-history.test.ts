@@ -101,3 +101,23 @@ describe("funding history", () => {
 		).rejects.toMatchObject({ name: "MalformedHistoryPageError" });
 	});
 });
+
+it("P2-9 fails the whole REST page when a funding amount is malformed", async () => {
+	const info = {
+		userFunding: vi.fn(async () => [
+			{
+				time: START_TIME,
+				hash: "0x0",
+				delta: { type: "funding", coin: "BTC", fundingRate: "-0.0000", szi: "0", usdc: "-1.2300" },
+			},
+			{
+				time: START_TIME + 1,
+				hash: "0x0",
+				delta: { type: "funding", coin: "BTC", fundingRate: "?", szi: "?", usdc: "not-a-number" },
+			},
+		]),
+	} as unknown as InfoClient;
+	await expect(
+		fetchFundingHistoryWindow(info, ADDRESS, START_TIME, END_TIME, new AbortController().signal),
+	).rejects.toThrow();
+});

@@ -7,6 +7,7 @@ import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FundingTab } from "@/components/trade/positions/funding-tab";
 import { HistoryTab } from "@/components/trade/positions/history-tab";
+import { serializeCsv } from "@/lib/csv";
 import { formatDateTime } from "@/lib/format";
 import { createI18nRoot } from "./harness/react";
 
@@ -152,7 +153,12 @@ vi.mock("@/lib/csv", async (importOriginal) => ({
 vi.mock("@/lib/hyperliquid", () => ({
 	getExplorerTxUrl: (hash: string) => `https://explorer.test/${hash}`,
 	useMarkets: () => ({
-		getMarket: (coin: string) => ({ kind: "perp", shortName: coin, szDecimals: 4 }),
+		getMarket: (coin: string) =>
+			coin === "xyz:TSLA"
+				? { kind: "builderPerp", shortName: "TSLA", szDecimals: 4, quoteToken: { name: "USDT0", displayName: "USDT" } }
+				: coin.includes(":")
+					? undefined
+					: { kind: "perp", shortName: coin, szDecimals: 4 },
 		getSzDecimals: () => 4,
 		getTokenDisplayName: (name: string) => (name === "UBTC" ? "BTC" : name),
 	}),
@@ -300,7 +306,8 @@ describe("desktop history exports", () => {
 		expect(cells[headers.indexOf("Fee")]).toBe("0.00001 BTC");
 		const rows = mocks.fillsBuildRows?.([mocks.fills[0]]) ?? [];
 		expect(rows[1]?.[(rows[0] ?? []).indexOf("Fee Token")]).toBe("UBTC");
-		expect(rows[1]?.[(rows[0] ?? []).indexOf("Asset")]).toBe("@142");
+		const assetCell = rows[1]?.[(rows[0] ?? []).indexOf("Asset")] ?? "";
+		expect(serializeCsv([[assetCell]])).toBe("@142");
 	});
 
 	it("exports fill numbers as the exchange sent them, never compacted, rounded or localized", () => {
@@ -387,6 +394,20 @@ describe("desktop history exports", () => {
 		expect(button?.disabled).toBe(false);
 		act(() => button?.click());
 		expect(mocks.downloadCsv).toHaveBeenCalledOnce();
+	});
+
+	it("P1-2 keeps funding totals separate by protocol collateral and leaves unknown payments unlabelled", () => {
+		mocks.fundings = [
+			{ ...mocks.fundings[0], coin: "BTC", usdc: "1" },
+			{ ...mocks.fundings[0], coin: "ETH", usdc: "1" },
+			{ ...mocks.fundings[0], coin: "xyz:TSLA", usdc: "-2" },
+			{ ...mocks.fundings[0], coin: "xyz:GONE", usdc: "0.25" },
+		];
+		act(() => root.render(<FundingTab />));
+		const summary = container.querySelector('[data-testid="funding-history-toolbar"]')?.textContent;
+		expect(summary).toContain("+$2.00");
+		expect(summary).toContain("-2.00 USDT");
+		expect(summary).not.toContain("$0.25");
 	});
 
 	it("labels the visible funding range and exports the complete requested history", () => {

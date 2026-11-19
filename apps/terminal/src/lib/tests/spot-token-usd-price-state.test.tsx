@@ -7,6 +7,8 @@ import { useSpotTokenUsdPriceState } from "@/hooks/trade/use-spot-token-usd-pric
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
+let spotMeta: unknown;
+
 const mocks = vi.hoisted(() => ({
 	markets: { spot: [] as unknown[], isLoading: false, error: null as Error | null },
 	subscription: {
@@ -17,7 +19,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hyperliquid", () => ({
-	useMarkets: () => mocks.markets,
+	useMarkets: () => ({ ...mocks.markets, catalogQueries: { spotMeta: { data: spotMeta } } }),
 	useSubscription: () => mocks.subscription,
 }));
 
@@ -33,6 +35,7 @@ describe("spot token USD price state", () => {
 	let root: Root;
 
 	beforeEach(() => {
+		spotMeta = { tokens: [], universe: [] };
 		mocks.markets = { spot: [], isLoading: false, error: null };
 		mocks.subscription = { data: { mids: { "@107": "30" } }, status: "active", isStale: false };
 		container = document.createElement("div");
@@ -56,6 +59,12 @@ describe("spot token USD price state", () => {
 		mocks.markets = { spot: [], isLoading: false, error: null };
 		act(() => root.render(<Probe />));
 		expect(state?.status).toBe("success");
+	});
+
+	it("P1-1 rejects malformed successful spot metadata", () => {
+		spotMeta = { tokens: [], universe: [{ name: "@107", tokens: [1, 0] }] };
+		act(() => root.render(<Probe />));
+		expect(state?.status).toBe("error");
 	});
 
 	it("keeps the price stream's own state while the stream is not current", () => {

@@ -54,8 +54,21 @@ export function getPortfolioSnapshot(
 	return portfolio?.find(([key]) => key === periodKey)?.[1] ?? null;
 }
 
+export function getPortfolioHistoryPoints(history: PortfolioSnapshot["accountValueHistory"] | undefined) {
+	return (history ?? [])
+		.flatMap(([timestamp, rawValue], sourceIndex) => {
+			if (!Number.isSafeInteger(timestamp) || timestamp < 0) return [];
+			const decimal = toBig(rawValue);
+			if (!decimal) return [];
+			const value = decimal.toNumber();
+			if (!Number.isFinite(value)) return [];
+			return [{ timestamp, value, rawValue, sourceIndex }];
+		})
+		.sort((first, second) => first.timestamp - second.timestamp || first.sourceIndex - second.sourceIndex);
+}
+
 export function getLatestHistoryValue(history: PortfolioSnapshot["accountValueHistory"] | undefined): string | null {
-	return toBig(history?.at(-1)?.[1])?.toString() ?? null;
+	return toBig(getPortfolioHistoryPoints(history).at(-1)?.rawValue)?.toString() ?? null;
 }
 
 /**

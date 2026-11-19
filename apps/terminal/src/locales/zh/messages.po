@@ -2517,7 +2517,6 @@ msgstr "加密货币"
 #: src/hooks/trade/use-account-ledger-csv.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
-#: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "CSV export reached the history limit. Some records were not included."
 msgstr "CSV 导出已达历史记录上限，部分记录未包含。"
@@ -10857,6 +10856,7 @@ msgid "Up to {cctpFee} USDC in fees will be deducted from your deposit."
 msgstr "存款金额中最多将扣除 {cctpFee} USDC 手续费。"
 
 #: src/components/historical-orders/historical-orders-page.tsx
+#: src/hooks/trade/use-history-csv-export.ts
 msgid "Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders"
 msgstr "最多显示最近 {ORDER_HISTORY_API_LIMIT} 笔普通委托"
 

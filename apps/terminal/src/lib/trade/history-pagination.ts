@@ -50,6 +50,8 @@ interface FetchTimeRangeHistoryOptions<T> {
 	 * `maxItems`, this does not stop pagination or mark the result truncated.
 	 */
 	retainLatestItems?: number;
+	/** Count records dropped by the retention limit as incomplete for full-history exports. */
+	reportRetentionLoss?: boolean;
 	/**
 	 * Selects which validated items are eligible for result retention. Excluded
 	 * items still participate in cursor advancement and page-completion checks.
@@ -144,6 +146,7 @@ export async function fetchTimeRangeHistory<T>(
 		maxItems = Number.POSITIVE_INFINITY,
 		maxPages = DEFAULT_MAX_PAGES,
 		retainLatestItems = Number.POSITIVE_INFINITY,
+		reportRetentionLoss = false,
 		retainItemsMatching,
 		retainItemsWhere,
 		signal,
@@ -152,6 +155,7 @@ export async function fetchTimeRangeHistory<T>(
 	const itemsByKey = new Map<string, T>();
 	let startTime = initialStartTime;
 	let previousCursor = initialStartTime - 1;
+	let retentionLoss = false;
 
 	for (let pageNumber = 0; pageNumber < maxPages; pageNumber++) {
 		throwIfAborted(signal);
@@ -159,7 +163,7 @@ export async function fetchTimeRangeHistory<T>(
 		if (!Array.isArray(page)) throw new MalformedHistoryPageError();
 		if (pageLimit !== undefined && page.length > pageLimit) throw new MalformedHistoryPageError();
 		if (page.length === 0) {
-			return { items: sortHistory(itemsByKey.values(), getTime), truncated: false };
+			return { items: sortHistory(itemsByKey.values(), getTime), truncated: retentionLoss };
 		}
 
 		let maxPageTime = previousCursor;
@@ -189,7 +193,15 @@ export async function fetchTimeRangeHistory<T>(
 			};
 		}
 
-		retainLatestHistoryItems(itemsByKey, retainLatestItems, getKey, getTime, retainItemsMatching, retainItemsWhere);
+		const dropped = retainLatestHistoryItems(
+			itemsByKey,
+			retainLatestItems,
+			getKey,
+			getTime,
+			retainItemsMatching,
+			retainItemsWhere,
+		);
+		retentionLoss ||= reportRetentionLoss && dropped;
 		const nextCursor = requireAscending ? (previousItemTime ?? previousCursor) : maxPageTime;
 
 		// A repeated inclusive page with no new identities cannot advance. If it is a
@@ -197,11 +209,11 @@ export async function fetchTimeRangeHistory<T>(
 		if (newItems === 0 || nextCursor <= previousCursor) {
 			return {
 				items: sortHistory(itemsByKey.values(), getTime),
-				truncated: page.length >= (pageLimit ?? 500),
+				truncated: retentionLoss || page.length >= (pageLimit ?? 500),
 			};
 		}
 		if (pageLimit !== undefined && page.length < pageLimit) {
-			return { items: sortHistory(itemsByKey.values(), getTime), truncated: false };
+			return { items: sortHistory(itemsByKey.values(), getTime), truncated: retentionLoss };
 		}
 
 		previousCursor = nextCursor;
@@ -218,10 +230,10 @@ function retainLatestHistoryItems<T>(
 	getTime: (item: T) => number,
 	retainItemsMatching?: (item: T) => boolean,
 	retainItemsWhere?: (item: T) => boolean,
-): void {
+): boolean {
+	if (!retainItemsWhere && itemsByKey.size <= retainLatestItems) return false;
 	const sortedItems = sortHistory(itemsByKey.values(), getTime);
 	const eligibleItems = retainItemsWhere ? sortedItems.filter(retainItemsWhere) : sortedItems;
-	if (!retainItemsWhere && (!Number.isFinite(retainLatestItems) || eligibleItems.length <= retainLatestItems)) return;
 
 	let retainedItems = eligibleItems;
 	if (Number.isFinite(retainLatestItems) && eligibleItems.length > retainLatestItems) {
@@ -234,6 +246,7 @@ function retainLatestHistoryItems<T>(
 	}
 	itemsByKey.clear();
 	for (const item of retainedItems) itemsByKey.set(getKey(item), item);
+	return itemsByKey.size < eligibleItems.length;
 }
 
 function sortHistory<T>(items: Iterable<T>, getTime: (item: T) => number): T[] {

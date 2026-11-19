@@ -71,7 +71,6 @@ export function getSpotBalance(balances: SpotBalance[] | null | undefined, coin:
 export type TokenUsdPrices = Record<string, string> | null | undefined;
 
 /** An outcome's balance is the token `+N`; its price is the mid of the outcome market `#N`, as the official terminal reads it. */
-const OUTCOME_MARKET_PREFIX = "#";
 const OUTCOME_TOKEN_PREFIX = "+";
 
 export function addSpotMarketPriceAliases(
@@ -80,23 +79,13 @@ export function addSpotMarketPriceAliases(
 ): TokenUsdPrices {
 	if (!tokenUsdPrices) return tokenUsdPrices;
 
-	const result = { ...tokenUsdPrices };
+	const result: Record<string, string> = Object.create(null);
 	const resolvedTokenPrices = new Map<string, { price: Big; hops: number }>([
 		[DEFAULT_QUOTE_TOKEN, { price: Big(1), hops: 0 }],
 	]);
 	const pairs: Array<{ base: string; quote: string; mid: Big }> = [];
 
-	// `allMids` shares one object namespace between perp coin names and spot
-	// market identifiers such as `@107`. A raw coin-name entry can therefore be
-	// the mid of a same-named perp, not a USD price for the spot token. Remove
-	// every spot-token alias first and only add it back after resolving a spot
-	// route to USDC.
-	for (const market of spotMarkets) {
-		for (const token of market.tokensInfo) {
-			if (token.name !== DEFAULT_QUOTE_TOKEN) delete result[token.name];
-		}
-	}
-
+	// Only the spot catalog can identify which allMids entries price spot balances.
 	for (const market of spotMarkets) {
 		const baseToken = market.tokensInfo[0];
 		const quoteToken = market.tokensInfo[1];
@@ -124,8 +113,8 @@ export function addSpotMarketPriceAliases(
 	}
 
 	for (const [coin, mid] of Object.entries(tokenUsdPrices)) {
-		if (!coin.startsWith(OUTCOME_MARKET_PREFIX)) continue;
-		const outcomeToken = `${OUTCOME_TOKEN_PREFIX}${coin.slice(OUTCOME_MARKET_PREFIX.length)}`;
+		if (!/^#\d+$/.test(coin)) continue;
+		const outcomeToken = `${OUTCOME_TOKEN_PREFIX}${coin.slice(1)}`;
 		if (!(outcomeToken in result)) result[outcomeToken] = mid;
 	}
 

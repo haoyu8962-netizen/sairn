@@ -248,7 +248,10 @@ vi.mock("@/lib/hyperliquid", () => ({
 	getExplorerTxUrl: (hash: string) => `https://explorer.test/${hash}`,
 	useHyperliquid: () => ({ env: "Mainnet", info: { userFills: mocks.snapshotFills } }),
 	useMarkets: () => ({
-		getMarket: (coin: string) => ({ kind: "perp", shortName: coin, szDecimals: coin === "BTC" ? 4 : 3 }),
+		getMarket: (coin: string) =>
+			coin === "xyz:TSLA"
+				? { kind: "builderPerp", shortName: "TSLA", szDecimals: 3, quoteToken: { name: "USDT0", displayName: "USDT" } }
+				: { kind: "perp", shortName: coin, szDecimals: coin === "BTC" ? 4 : 3 },
 		getSzDecimals: (coin: string) => (coin === "BTC" ? 4 : 3),
 		getTokenDisplayName: (name: string) => (name === "UBTC" ? "BTC" : name),
 	}),
@@ -975,6 +978,29 @@ describe("mobile history disclosure cards", () => {
 		expect(getDisclosureButtons().map((button) => button.getAttribute("aria-expanded"))).toEqual(["false", "false"]);
 	});
 
+	it("P1-2 and P2-5 summarize and export the selected funding direction", async () => {
+		mocks.fundings = [
+			{ ...mocks.fundings[0], coin: "BTC", usdc: "2", szi: "1" },
+			{ ...mocks.fundings[0], coin: "xyz:TSLA", usdc: "-2", szi: "-1" },
+		];
+		render(<MobileFundingTab scrollMode="page" />);
+		expect(getLiveAnnouncement()).toContain("+$2.00");
+		expect(getLiveAnnouncement()).toContain("-2.00 USDT");
+		await selectOption("Direction", "Short");
+		expect(getLiveAnnouncement()).toBe("Funding shown -2.00 USDT");
+		clickButton("Export CSV");
+		const rows = mocks.downloadCsv.mock.calls.at(-1)?.[1] as string[][] | undefined;
+		expect(rows?.slice(1).map((row) => row[1])).toEqual(["xyz:TSLA"]);
+	});
+
+	it("P2-5 filters the mobile export even when its downloaded pages contain other directions", async () => {
+		render(<MobileFundingTab scrollMode="page" />);
+		await selectOption("Direction", "Short");
+		clickButton("Export CSV");
+		const rows = mocks.downloadCsv.mock.calls.at(-1)?.[1] as string[][] | undefined;
+		expect(rows?.slice(1).map((row) => row[1])).toEqual(["ETH"]);
+	});
+
 	it("filters funding by the Big.js sign of szi without carrying state to another owner", async () => {
 		render(<MobileFundingTab scrollMode="page" />);
 		act(() => getDisclosureButtons()[1]?.click());
@@ -989,9 +1015,9 @@ describe("mobile history disclosure cards", () => {
 		expect(container.querySelector('[aria-label="Switch to ETH market"]')).not.toBeNull();
 		clickButton("Export CSV");
 		const exportRows = mocks.downloadCsv.mock.calls.at(-1)?.[1] as string[][] | undefined;
-		expect(exportRows).toHaveLength(3);
+		expect(exportRows).toHaveLength(2);
 		expect(exportRows?.flat()).toContain("ETH");
-		expect(exportRows?.flat()).toContain("BTC");
+		expect(exportRows?.flat()).not.toContain("BTC");
 
 		clickButton("Collapse all");
 		await selectOption("Direction", "Direction");
