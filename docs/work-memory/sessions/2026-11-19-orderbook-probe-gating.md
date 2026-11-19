@@ -10,7 +10,7 @@
   "summary": "审查第 5 项两种情形均在基线上用假时钟复现：手机订单簿切走后的十秒保温期仍推进回切计时并发起主源尝试；排在分组门闩后的尝试在离线或隐藏后仍调用 transport。修法：显示状态单独传入回切 hook；store 只为 l2 键在最后一个消费者离开时中止信号，门闩后检查。Codex 草稿未写完，门闩可中止等待与确认中止两部分未采用。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["7909ee3a"],
   "sources": [
     { "path": "docs/adr/0003-orderbook-transport-isolation.md" },
     { "path": "apps/terminal/src/hooks/trade/use-orderbook-feed.ts" },

@@ -10,7 +10,7 @@
   "summary": "Codex 测试审计（r6-test-strength）列出 14 条删去守卫后相关测试仍全绿的规则，以及 10 处替身接管生产行为的测试。Codex 写到一半因额度中断；Claude 逐条在 79b268ea 上用临时变异核对：14 条说法全部成立（原测试副本在变异下全绿），新增测试在同一变异下失败。过度模拟取前 5 处，用新增的 scheduled-exchange 测试夹具让市价平仓、提现、Send/Transfer 经过真实 useExchange、真实资金锁和真实 SDK 到本地 transport，Agent 授权经过真实 privy signer、真实租约模块和真实 SDK。只改测试，实现文件没有改动；没有发现实现违反规则。浏览器多标签页的 nonce 时序、真实钱包与真机没有验证。",
   "thread": null,
   "baseCommit": "79b268ea",
-  "commits": [],
+  "commits": ["a91dbfbc"],
   "sources": [
     { "path": "AGENTS.md" },
     { "path": "docs/hyperliquid-signing.md" },

@@ -1151,6 +1151,17 @@ have an install capability.
   cacheable-shell checks. A font or asset response is cloned before it is
   handed to the page, never afterwards. Cache names, limits, the shell-scanner
   limits and the release-switch probe live in the ADR.
+- A market route of one or two path segments under `/trade` (`/trade/<symbol>`
+  or `/trade/<base>/<quote>`, a trailing slash ignored) is a navigation even
+  when its last segment ends in a dot and a short alphanumeric run, such as
+  `/trade/xyz:BRK.B` or `/trade/BTC/USD.C`. The CloudFront viewer-request
+  function, the local static-page classifier and the service worker check that
+  shape before the file-extension rule, which is unchanged for every other
+  path; they match path segments, not a market character set, because
+  Hyperliquid does not document the characters a coin or spot token name may
+  use. Changing the rule needs no service-worker cache-version bump: the
+  byte-different `sw.js` installs on the next navigation (2026-11-19,
+  `3d326e55`; `docs/work-memory/sessions/2026-11-19-dotted-market-route.md`).
 
 ### Important Files
 

@@ -265,6 +265,7 @@
 - 动效：从 `brand/loader/sairn-motion.tokens.json` 读令牌并加等值测试；优先用 CSS，只动 transform 与 opacity；元素的默认样式就是终态（修掉 `.reveal` 默认 opacity 0）；减少动态时停下全部动效；不做滚动劫持和视差；实时数字更新时不做滚动动画（不引入 NumberFlow）；不在页面加载时播放 `brand-intro`。
 - Open Book：推迟到阶段 4，用构建开关控制，默认关闭。开启之前要完成 24 h 浸泡测试（V2）、真机 Safari/iOS 与中端 Android 检查，并且只放在 02 以下作为附加视图。止损线不变：开关一关，就退回静态站。
   - 2026-10-26 实施修订：Open Book 已作为首屏预览的非默认页签 'Live market' 上线到本次改版（不是 02 以下，也没有构建开关）：只有页签打开、画布在屏幕上且页面可见时才连接公共 WebSocket `wss://api.hyperliquid.xyz/ws`（一个币种的 `l2Book`、`bbo` 与 `trades`），减少动态或省流量模式下先显示海报、由访客点开始；以后上 meta CSP 时 `connect-src` 要同时放行这个 `wss://` 地址（第 8 节）。画布带价格轴与时间轴、当前价格线和图例（挂单亮度、买入/卖出成交、中间价），并写明档数与限制。上面列的 24 h 浸泡测试与真机检查，本文没有核实是否已完成，发布前须在任务记录中补齐或说明。
+  - 2026-11-19 实施修订（`6bd20046`）：报价规则。收到 `bbo` 后报价取 `bbo` 的精确买一卖一，此前用 `l2Book` 聚合后的最优价；按交易所时间比当前报价来源更旧的帧（两个频道都算）一律忽略。`bbo` 只在最优买卖价变化时推送，所以 `bbo` 安静不算过期，报价保持；更新的 `l2Book` 最优价与 `bbo` 相差至少一个五位有效数字的档位（聚合误差小于一档，这样的差只能来自行情变化）时，说明 `bbo` 已经变了，改显示订单簿最优价，直到下一帧 `bbo`。单边 `bbo`（一侧为空）立即撤回数字并回到海报，重新进入实时视图仍要 15 s 有效数据。jsdom 测试覆盖这些序列（`apps/website/tests/open-book-frames.test.mjs`、`tests/built/open-book-quote.test.mjs`），没有真实浏览器检查。
 
 ## 7 实时数据
 
@@ -288,6 +289,7 @@
 - Pre-IPO：`src/config/deployers.ts` 按 coin 写单位、预定结算日、结算规则、来源 URL 与读取日期；条目超过 90 天没有复核时快照脚本失败。EntropyIO（均 2026-10-25 读取）：每 1 美元价格对应公司 10 亿美元隐含估值（https://docs.entropy.io/market-types/pre-ipo-perpetuals ）；io:ANTH 的 No-IPO 结算日 2028-08-18、io:OAI 为 2028-09-02（2026-10-26 实施时按原页更正）（https://docs.entropy.io/asset-directory/pre-ipo-assets ）；运营方可以在预定日期前发出提前结算通知（https://docs.entropy.io/pre-ipo-perp-mechanics/no-ipo-resolution ）。没有配置单位的 `preipo` 市场（2026-10-25 的 xyz:JIO、xyz:OURA）不显示价格与结算日。
 - 2026-11-04 实施修订（快照刷新，`fetchedAt` 2026-11-04T15:02:32Z）：xyz:JIO 在 2026-10-28 上市后被交易所改为 `stocks`（XYZ 的 Pre-IPO 规格页标为 Converted，普通规格页按 NSE: JPL 的股票永续列出），已从 `PRE_IPO_DOCS` 删去。para:ANTH（2026-10-25 的调研时已下架）现在是未下架的 `preipo` 市场：Paragon 的合约规格页（https://docs.paragon.trade/resources/specifications ）写它在 Pre-Listing 状态下跟踪 Anthropic, PBC 一股的预期价值，所以按每股报价写进 `PRE_IPO_DOCS`，FAQ 随之多一句 Paragon 按每股报价。xyz:ANT 改为全仓，行内不再写 'Isolated margin only'。mkts 的 US500、SMALL2000、USTECH 与 USBOND 不再上架，只剩没有分类的 mkts:BVIV：Indices 只剩 XYZ 的 5 个市场，实时请求计划变为主 dex、io、xyz、para 共 4 个，每个 dex 的刷新周期为 160 s（上面 2026-10-26 的修订写的是 5 个、200 s）。
 - 2026-11-13 实施修订（快照刷新，`fetchedAt` 2026-11-13T07:25:16.480Z）：上一条的改动此前只在原仓库一个未合并的分支上，本次移植进来并重新抓取快照。相对 2026-10-27 的快照，上市市场数为 main 179、xyz 122、para 33、mkts 1、io 15；mkts 下架了 US500、USBOND、SMALL2000、USTECH；NEAR 不再出现在页面渲染的市场里，它的图标随之移除，需要底板的深色图标剩 ETH 与 io:ANTH。新增图标没有做人工看图复核。
+- 2026-11-19 实施修订（`6bd20046`）：统计带 Live activity 合计的场所，等于页面渲染的全部市场（02 的行情卡、03 的市场表及只有链接没有价格位的市场）所在的 dex，表头逐一列出（2026-11-13 快照为 core perps、EntropyIO、XYZ 与 Paragon），此前只算主 dex 与行情卡涉及的 dex；只有链接的 dex 也加进同一个请求计划，仍在 60 权重/分钟之内。02 的行情条只在有行情卡显示当前价格且没有暂停时滚动，没有当前价格时是静止的滚动吸附行。
 - 降级：没有 JS、请求被拒或网络错误时，显示构建时生成的名称、部署方与链接，不显示数字；错误时按全抖动指数退避重试，每次访问最多 5 次。
 - 未核实：停牌状态从哪个接口读取（阶段 2 要么找到信号，要么文案只写 'not delisted'，不写 'trading'）；XYZ 的 Pre-IPO 规格（https://docs.trade.xyz/perpetuals/specifications-and-schedules/pre-ipo-specification-index ，旧地址 `/perpetuals/markets/pre-ipo` 2026-10-25 返回 404）；`perpConciseAnnotations` 的请求权重（只在构建时调用）。
 

@@ -10,7 +10,7 @@
   "summary": "运营方 2026-11-19 决定需要决定的事项照官方终端做。审查项 P2-6（手机委托与资金费筛选只查最近 30 条，委托的类型与状态选项也只取这 30 条）按官方做法修：筛选开启时委托补拉 historicalOrders 快照（最多 2,000 条），资金费补拉资金费历史页的 30 天 userFunding 窗口，与订阅持有的全部记录合并；桌面委托历史页签同样处理。无匹配判定与手机成交页签共用 getFilteredHistoryEmptyPresentation()，加载时安静、失败只给中性 Retry、衔接不上不下结论、达到 2,000 条时附上既有的上限说明，没有新增可翻译文案。成交导出遇到不带 Retry-After 的 429 改为等 60 秒（原 10 秒），页数上限 200 与重试 3 次本就与官方一致。导出跟随筛选、写协议名两点按既有决定不改，差异列在正文。9 个新用例与 1 个导出用例在修复前失败，三处变异与一处常量变异都让测试变红。没有做浏览器或真机验收。",
   "thread": null,
   "baseCommit": "f13de42f",
-  "commits": [],
+  "commits": ["f3326295"],
   "sources": [
     { "path": "docs/trading-toolbar-redesign.md" },
     { "path": "docs/mobile-data-presentation.md" },

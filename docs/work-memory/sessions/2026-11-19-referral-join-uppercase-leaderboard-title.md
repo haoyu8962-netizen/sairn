@@ -10,7 +10,7 @@
   "summary": "运营方 2026-11-19 决定需要决定的事项照官方终端做。两处按官方改：/join/:code 解析出的码统一转大写，与提交前的 normalizeReferralCode 一致，路由用新函数 resolveReferralJoinRouteCode 比较两侧都转大写后的码，小写链接仍能打开邀请；排行榜显示名为空时，交易者链接加回 title（完整地址），不加 aria-label，可访问名称仍是可见的缩短地址。4 个邀请链接用例与 4 个排行榜用例在修复前失败，三处变异都让测试变红。没有做浏览器或真机验收。",
   "thread": null,
   "baseCommit": "ba6dca8e",
-  "commits": [],
+  "commits": ["6936980b"],
   "sources": [
     { "path": "apps/terminal/src/lib/trade/referral-join.ts" },
     { "path": "apps/terminal/src/routes/join.$code.tsx" },

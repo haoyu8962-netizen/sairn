@@ -10,7 +10,7 @@
   "summary": "Codex 只读审查（Earn、Staking、Vaults）提出的五项在 79b268ea 上逐项复现后修复：Vault 在跨标签页资金锁内重读来源余额、账户模式、Vault 详情与权益后才签名（vaultTransfer 加入 TRADING_PRE_EXECUTION_GUARD_METHODS）；Earn 取出的全额意图改用未取整的存款与流动性、抵押额度比较；Earn 操作历史的空结论改用共享账本的 canConfirmEmpty；Vault 的最大可取额标签与 Max 同源（六位向下取整）；极小 APR 不再变成科学计数法而显示为未知。墙钟偏差一项只做评估，建议不套用 ADR 0022。Codex 的修复草稿因额度中断未完成，由 Claude 核对、改写并补测试。每项测试在修复前失败、修复后通过，六个变异都被测试拦下。没有真实钱包、真实下单或浏览器验收。",
   "thread": null,
   "baseCommit": "79b268ea",
-  "commits": [],
+  "commits": ["3877b286"],
   "sources": [
     { "path": "apps/terminal/src/components/vaults/use-vault-action-controller.ts" },
     { "path": "packages/hl-react/src/hooks/useExchange.ts" },

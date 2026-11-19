@@ -10,7 +10,7 @@
   "summary": "Codex 安全审查的 CI 图表库、安装脚本与 DeepSec 三项由 Claude 核对。CI 按 GitHub 文档做威胁分析后不改工作流，理由记入 ADR 0054；安装脚本补目录软链检查、clone 选项边界与错误信息去凭据；DeepSec 导出目录加忽略规则。移动配对改为手机本地生成密钥只出设计，未改实现。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["6fd5169c"],
   "sources": [
     { "path": "scripts/fetch-chart-library.mjs" },
     { "path": "scripts/fetch-chart-library.test.mjs" },

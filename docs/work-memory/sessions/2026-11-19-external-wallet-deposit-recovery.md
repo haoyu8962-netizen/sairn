@@ -10,7 +10,7 @@
   "summary": "资金弹层审查第 1 项（外部钱包没拿到哈希时下一次可重新签名广播）与第 6 项（加速或取消后仍只跟踪旧哈希，最长阻塞 30 天）。Codex 提出并留下未完成草稿（无哈希记录永不过期、靠账户 nonce 二分查找替换交易），Claude 复现两项后弃用草稿，改为外部钱包在广播前写入与赞助路径相同的 EIP-3009 未决授权记录，按钱包广播前明确拒绝、成功回执中的 AuthorizationUsed 事件或 validBefore 到期解除；有哈希记录另存授权 nonce、validBefore 与广播前区块号，旧哈希无回执时按 USDC authorizationState 与 AuthorizationUsed 日志找出真正消耗授权的交易，授权过期未用则按源交易失败结清。钱包错误有数字代码时只按代码判定。本地 Vitest、类型检查与变异已运行；真实钱包、真实 Arbitrum RPC 与真实资金未验证。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["dc9f01fc"],
   "sources": [
     { "path": "docs/cctp-deposits.md" },
     { "path": "docs/funds-dialog-outcome-plan.md" },

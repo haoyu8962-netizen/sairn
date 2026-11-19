@@ -10,7 +10,7 @@
   "summary": "normalTpsl 父项报错且附属项有等待标记时，受理解析器不再算成部分受理，交给既有 cloid 对账。官方文档没有说明这种回包；交易所是否返回它仍待真实回包证实。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["d8fe5a67"],
   "sources": [
     { "path": "docs/work-memory/sessions/2026-11-12-global-defect-review.md" },
     { "path": "docs/trading-notifications.md" },

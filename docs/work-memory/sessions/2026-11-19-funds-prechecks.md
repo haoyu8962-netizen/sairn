@@ -10,7 +10,7 @@
   "summary": "资金弹层审查（h1）第 2、3、4、5、7、8 项全部成立并已修：Send 在资金锁内签名前重问 preTransferCheck，制裁、激活费变化或用户未见过的损失警告都不发送，缺 userExists 的回答视为不可用；Send 与邮箱提款拒绝零地址；sendAsset、spotSend、usdSend、usdClassTransfer、withdraw3、sendToEvmWithData 只有文档规定的 status ok / type default 回执算成功，其余回答按结果不明处理；存款在锁内的地区查询加 15 秒期限，离线暂停不再占锁；自动存款自己的无哈希失败在授权过期后一秒复查；提款最低额向上取到两位小数，Max 标签与 Send/划转成功通知显示精确十进制。没有 Codex 草稿，Claude 独立实现。本地 Vitest（新测试在旧代码上失败、修复后通过，九处变异均被抓到）、两个包的类型检查与 Biome 已运行；真实钱包、真实交易所回执、真实离线场景未验证。",
   "thread": null,
   "baseCommit": "dc9f01fc7cdb9581d05441b2508c7d03b79d4217",
-  "commits": [],
+  "commits": ["96e709b8"],
   "sources": [
     { "path": "docs/runtime-guardrails.md" },
     { "path": "docs/withdrawals.md" },

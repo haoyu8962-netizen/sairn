@@ -10,7 +10,7 @@
   "summary": "下单确认、市价单最大滑点、延迟保护原与普通设置同存在 global-settings-v2，旧标签页整条写回、两个当前标签页读写交错、更高版本记录冷启动迁移写回都会静默放宽它们。三项改为各自只由显式操作写入的键，迁移基线只写一次；已打开的窗口只跟随更严格的值；global-settings-v2 保持版本 4，并给旧版本写旧值与新值中更严格者；更高版本记录不迁移、不清理、不覆盖。决策见 ADR 0057。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["81b5f285"],
   "sources": [
     { "path": "docs/adr/0057-trading-protection-storage.md" },
     { "path": "docs/runtime-guardrails.md" },

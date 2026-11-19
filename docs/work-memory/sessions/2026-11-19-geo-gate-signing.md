@@ -10,7 +10,7 @@
   "summary": "Codex 第二轮签名审查 P1-2 经 Claude 复现成立：地区受限或无法核实时，API 钱包与 Mobile QR 的命名 Agent 授权、非只减仓的改单仍会签名。改为在授权钩子和两端改单执行守卫上按共享地区查询拒绝；撤权、无名交易连接 Agent、只减仓改单与撤单保持可用。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["bb6f46bd"],
   "sources": [
     { "path": "docs/adr/0042-japan-allowed-trading-region.md" },
     { "path": "docs/runtime-guardrails.md" },

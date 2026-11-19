@@ -10,7 +10,7 @@
   "summary": "有可靠交易所估时时，nonce 以估时为基准分配；Codex 提出与候选补丁，Claude 对照官方 nonce 规则核对、复现并裁定。同日按运营方「照官方终端做法」的决定复核：保留交易所估时基准（以官方文档的区块时间窗口为准），没有样本时不为 nonce 专门取样（与官方一致），`nonce too low` 不自动重发（与官方不同，写明理由）；只加了钉住决定的测试与文档。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["92371ee3", "2a8a53cc"],
   "sources": [
     { "url": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets" },
     { "url": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint" },

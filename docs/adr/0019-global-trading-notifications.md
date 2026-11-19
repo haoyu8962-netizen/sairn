@@ -54,6 +54,10 @@
 
 实现与测试见 `docs/trading-notifications.md` 对应段落；本补记只是代码与单元测试层面的结论，没有在真实浏览器的多个标签页或真实撤单中验证。
 
+## 2026-11-19 补记：被拒父单的 TP/SL 等待标记
+
+2026-11-12 全局审查第 2 项：带 TP/SL（`normalTpsl`）的下单，父项回包为 `error`、两个附属项为 `waitingForFill` 或 `waitingForTrigger` 时，原实现按回包计为「部分受理 2/3」，与决策 2「结果语义」不符（等待标记不是受理证据）。现在 `resolveOrderBatchResponse` 收到原请求的分组，这种组合不给计数，正常返回与 SDK 抛出的 `ApiRequestError.response` 两条路径都转入既有确认中、按 `cloid` 对账、两分钟后转结果待确认；对账查到附属项挂单时按查询证据显示部分受理。`na`、`positionTpsl` 与父项已挂单或成交的计数不变。代价：若交易所对每次父单被拒都返回等待标记且附属 `cloid` 查不到，这类常见拒单会变成两分钟确认中，期间同资产非减仓下单被挡住；需要测试网真实回包确认（`d8fe5a67`，[任务记录](../work-memory/sessions/2026-11-19-normal-tpsl-parent-rejection.md)，规则表见 `docs/trading-notifications.md`「结果语义与批次明细」）。只有单元测试证据。
+
 ## 验证与交付边界
 
 2026-09-22 生命周期补充：保留一个 Sonner 容器及展示 ID 与任务 ID 分离，发布改为可取消 microtask；每个展示实例独立失效，内容订阅当前任务与展示有效性，并在失效后补发本实例关闭，覆盖 Sonner 异步插入晚于首次关闭的竞态。获准关闭先同步结束展示，再修改 queue，避免同批结果沿用正在退出的 ID。代价是增加一个仅管理展示存活的外部订阅对象；它不存交易事实、不计时、不重发交易。仅延后发布无法覆盖真实卸载，仅隐藏内容留下空白容器；不采用关闭 StrictMode、永久复用 ID 或无证据升级依赖。回归与实际结果见[生命周期修复任务](../work-memory/sessions/2026-09-22-notification-lifecycle-fix.md)。

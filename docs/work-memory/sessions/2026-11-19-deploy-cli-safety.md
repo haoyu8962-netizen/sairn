@@ -10,7 +10,7 @@
   "summary": "Codex 审查 h6 的 P1-1、P1-3、P2-2、P2-4 经 Claude 用假 aws 与离线夹具复现成立；保留严格旗标解析、只读本地的演练和扩展后的 verify，撤回对 ADR 0051 探活指引与 describe-function 调用方式的改动。并行发布锁（P1-2）只有 Codex 的设计。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["de1e78be"],
   "sources": [
     { "path": "deploy/cloudfront/deploy.mjs" },
     { "path": "deploy/cloudfront/deploy-cli.test.mjs" },

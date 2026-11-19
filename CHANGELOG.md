@@ -6,97 +6,16 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ## Unreleased
 
-### Fixed
-
-- An external-wallet deposit whose wallet returned no transaction hash (for example after a
-  disconnect) now blocks another deposit signature for the same account and network, across
-  reloads and tabs, until the wallet's earlier authorization is shown to be used or has expired (at
-  most one hour). A rejection in the wallet still allows an immediate retry.
-- A deposit that the wallet sped up is now followed through the transaction that actually used the
-  authorization, and one that was cancelled or dropped is settled once its authorization expires,
-  instead of waiting on the original hash for up to 30 days.
-- Send asks Hyperliquid about the destination again right before signing and sends nothing when the
-  destination became sanctioned, the activation fee changed, or a loss warning the user did not see
-  now applies; a destination check answer without the full documented shape sends nothing.
-- Send and email-wallet withdrawals refuse the zero address as a destination.
-- A send, transfer or withdrawal that the exchange answers without its documented acknowledgement
-  is reported as status unknown instead of as a success.
-- A deposit no longer holds the funds lock indefinitely while its regional check waits for the
-  network: it stops after 15 seconds and signs nothing.
-- An automatic email-wallet deposit whose own submission ended without a hash now starts again once
-  its authorization has expired, instead of waiting for a balance change or a reload.
-- The withdrawal minimum is rounded up to an amount the two-decimal field accepts, Max shows the
-  exact amount it fills, and the Send and Transfer notifications show the exact amount sent.
-
-### Changed
-
-- Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
-  official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
-  rest of the position.
-- A cross order whose leverage is above its margin tier's maximum shows an estimated liquidation price,
-  computed at the tier's maximum leverage as on the official terminal, instead of N/A.
-- The order form now estimates a liquidation price for orders that partly reduce or reverse a position,
-  and for reduce-only orders, as on the official terminal: the order is added to the position (a
-  reduce-only order counts only up to the position), isolated margin is released in proportion to the
-  closed size, and an order that closes the position exactly shows no liquidation price.
-- Scale orders can have up to 100 orders instead of 20, the official terminal's limit.
-- A `/join/<code>` invitation link shows and applies its code in upper case, as the official terminal
-  does; a lower-case link still opens the invitation.
-- A leaderboard trader without a display name shows the full address when the pointer rests on the
-  shortened one.
-- Order history filters (phone and desktop) and the phone funding Direction filter now search past the
-  latest 30 rows, as the official terminal does: while a filter is on they load the order history
-  snapshot (up to 2,000 orders) or the 30-day funding window and merge it with the live rows. The list
-  stays quiet while that loads, offers Retry if it fails, and says no rows match only once it can tell;
-  order types and statuses that only older orders have can now be chosen.
-- A trade history CSV export that is rate-limited without a `Retry-After` waits a full minute before
-  retrying, as the official export does, instead of 10 seconds.
-- While a signed-in wallet session is only reconnecting or still starting up, the order button on
-  desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
-  no longer say the wallet is disconnected or that trading data changed: they stay as they were with
-  their actions disabled and keep what was typed, for at most 10 seconds. A wallet that is really
-  disconnected, a changed account and a visitor who never signed in are shown as before. On the phone
-  Account view the Deposit, Withdraw, transfer and Bridge buttons stay in place, disabled, while the
-  region check is unresolved.
-- The compact order book returns to twenty levels on its own after it fell back to five.
-  While the book is hidden, including the ten seconds it stays subscribed after you leave it, the
-  retry waits instead of starting.
-- Terminating a TWAP while another action on the same market is in progress now waits up to 15
-  seconds instead of failing at once. A waiting termination is dropped without signing when the
-  trading session or its signing key changes, even for the same account, and a termination clicked
-  while offline is not sent. Once it has its turn, a termination that still cannot be signed within
-  15 seconds is reported as not sent instead of staying in progress, so it can be clicked again.
-- Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
-  its own selected market.
-- Trading links with dots in market names open correctly when visited directly or refreshed.
-- Once the terminal has read the exchange's clock, the counter that numbers each signed action follows
-  that clock instead of the device's, so a device whose clock is wrong by more than a day can still
-  trade instead of having every action refused.
-- CI runs every terminal unit test on each pull request. The daily website market check is removed: no
-  workflow runs on a schedule or calls a third-party API (ADR 0056).
-
-- The repository moved to `haoyu8962-netizen/sairn` and is public. The licensed chart library is
-  no longer tracked: `pnpm chart:fetch` installs it from a private repository and verifies it against
-  its manifest (ADR 0054). Commit hashes from before 2026-11-13 refer to the previous repository.
-- `pnpm chart:fetch` rejects a manifest path that passes through a symbolic link, passes the
-  repository to `git clone` after `--`, and leaves credentials in `CHART_LIBRARY_REPOSITORY` out of
-  its clone error.
-- The repository keeps one long-lived branch, `main`. Pull requests go straight into it, the `dev`
-  branch and the promotion pull request are gone, and a release is marked by its `cloudfront-*` tag
-  (ADR 0055). Every production build run now builds both states of the mobile pairing switch.
-
 ### Added
 
 - Settings → About → Diagnostics copies a local record of the last ten startups (timings and counts)
   and connection recoveries, to help explain a blank screen or a long wait for data. Nothing is sent
   anywhere and it contains no addresses or account data.
-
 - Japanese interface language (日本語) in the language menu, including the TradingView chart and
   Japanese dates; numbers keep following the separate number-format setting.
 - A link can open the terminal in a language: `?lang=ja` (or any other interface language) shows the
   first screen, including the HIP-3 deployer disclaimer, in that language and keeps it as the chosen
   language; the parameter is removed from the address bar and the other link parameters are kept.
-
 - Card funding, off by default: when a network's flag is on, the Deposit dialog opens on two
   separate choices, as on the official terminal: transfer USDC on Arbitrum, or buy USDC by card or
   bank transfer through Privy's payment providers (the amount is prefilled with 100 US dollars and
@@ -144,6 +63,141 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - The leverage dialog on desktop and mobile shows the maximum position size allowed at the
   selected leverage for markets with more than one margin tier (for example BTC above 20x:
   $150,000,000). See [leverage position limit](docs/leverage-position-limit.md).
+
+### Changed
+
+- Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
+  official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
+  rest of the position.
+- A cross order whose leverage is above its margin tier's maximum shows an estimated liquidation price,
+  computed at the tier's maximum leverage as on the official terminal, instead of N/A.
+- The order form now estimates a liquidation price for orders that partly reduce or reverse a position,
+  and for reduce-only orders, as on the official terminal: the order is added to the position (a
+  reduce-only order counts only up to the position), isolated margin is released in proportion to the
+  closed size, and an order that closes the position exactly shows no liquidation price.
+- Scale orders can have up to 100 orders instead of 20, the official terminal's limit.
+- A `/join/<code>` invitation link shows and applies its code in upper case, as the official terminal
+  does; a lower-case link still opens the invitation.
+- A leaderboard trader without a display name shows the full address when the pointer rests on the
+  shortened one.
+- Order history filters (phone and desktop) and the phone funding Direction filter now search past the
+  latest 30 rows, as the official terminal does: while a filter is on they load the order history
+  snapshot (up to 2,000 orders) or the 30-day funding window and merge it with the live rows. The list
+  stays quiet while that loads, offers Retry if it fails, and says no rows match only once it can tell;
+  order types and statuses that only older orders have can now be chosen.
+- A trade history CSV export that is rate-limited without a `Retry-After` waits a full minute before
+  retrying, as the official export does, instead of 10 seconds.
+- While a signed-in wallet session is only reconnecting or still starting up, the order button on
+  desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
+  no longer say the wallet is disconnected or that trading data changed: they stay as they were with
+  their actions disabled and keep what was typed, for at most 10 seconds. A wallet that is really
+  disconnected, a changed account and a visitor who never signed in are shown as before. On the phone
+  Account view the Deposit, Withdraw, transfer and Bridge buttons stay in place, disabled, while the
+  region check is unresolved.
+- The compact order book returns to twenty levels on its own after it fell back to five.
+  While the book is hidden, including the ten seconds it stays subscribed after you leave it, the
+  retry waits instead of starting.
+- Terminating a TWAP while another action on the same market is in progress now waits up to 15
+  seconds instead of failing at once. A waiting termination is dropped without signing when the
+  trading session or its signing key changes, even for the same account, and a termination clicked
+  while offline is not sent. Once it has its turn, a termination that still cannot be signed within
+  15 seconds is reported as not sent instead of staying in progress, so it can be clicked again.
+- Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
+  its own selected market.
+- CI runs every terminal unit test on each pull request. The daily website market check is removed: no
+  workflow runs on a schedule or calls a third-party API (ADR 0056).
+- The repository moved to `haoyu8962-netizen/sairn` and is public. The licensed chart library is
+  no longer tracked: `pnpm chart:fetch` installs it from a private repository and verifies it against
+  its manifest (ADR 0054). Commit hashes from before 2026-11-13 refer to the previous repository.
+- `pnpm chart:fetch` rejects a manifest path that passes through a symbolic link, passes the
+  repository to `git clone` after `--`, and leaves credentials in `CHART_LIBRARY_REPOSITORY` out of
+  its clone error.
+- `deploy.mjs` rejects ambiguous options (`--execute=false` used to count as given), its dry runs no
+  longer contact AWS or the site, and `verify` checks the status, type, caching and content of `sw.js`
+  and of every startup file the shell lists against the local build (`deploy/cloudfront/README.md`).
+- The repository keeps one long-lived branch, `main`. Pull requests go straight into it, the `dev`
+  branch and the promotion pull request are gone, and a release is marked by its `cloudfront-*` tag
+  (ADR 0055). Every production build run now builds both states of the mobile pairing switch.
+
+### Fixed
+
+- An external-wallet deposit whose wallet returned no transaction hash (for example after a
+  disconnect) now blocks another deposit signature for the same account and network, across
+  reloads and tabs, until the wallet's earlier authorization is shown to be used or has expired (at
+  most one hour). A rejection in the wallet still allows an immediate retry.
+- A deposit that the wallet sped up is now followed through the transaction that actually used the
+  authorization, and one that was cancelled or dropped is settled once its authorization expires,
+  instead of waiting on the original hash for up to 30 days.
+- Send asks Hyperliquid about the destination again right before signing and sends nothing when the
+  destination became sanctioned, the activation fee changed, or a loss warning the user did not see
+  now applies; a destination check answer without the full documented shape sends nothing.
+- Send and email-wallet withdrawals refuse the zero address as a destination.
+- A send, transfer or withdrawal that the exchange answers without its documented acknowledgement
+  is reported as status unknown instead of as a success.
+- A deposit no longer holds the funds lock indefinitely while its regional check waits for the
+  network: it stops after 15 seconds and signs nothing.
+- An automatic email-wallet deposit whose own submission ended without a hash now starts again once
+  its authorization has expired, instead of waiting for a balance change or a reload.
+- The withdrawal minimum is rounded up to an amount the two-decimal field accepts, Max shows the
+  exact amount it fills, and the Send and Transfer notifications show the exact amount sent.
+- While this terminal cannot verify your region, or your region is restricted, creating an API wallet,
+  linking a mobile device and editing an open order that is not reduce-only are refused before anything
+  is signed, as placing a new order already was. Removing an API wallet, cancelling orders and editing
+  reduce-only orders stay available.
+- Order confirmation, market-order max slippage and transaction delay protection are now stored on their own, so a
+  tab running an older version, an unrelated settings change in another tab or a settings record from a newer
+  version can no longer turn them back off or widen them. Other open tabs follow a stricter choice at once; a looser
+  choice applies to the tab where you made it and to tabs opened afterwards (ADR 0057).
+- Trading links with dots in market names open correctly when visited directly or refreshed.
+- Once the terminal has read the exchange's clock, the counter that numbers each signed action follows
+  that clock instead of the device's, so a device whose clock is wrong by more than a day can still
+  trade instead of having every action refused.
+- An order with TP/SL whose main order the exchange rejected, while it marked the TP/SL orders as
+  waiting, is no longer reported as partially accepted: the notice stays at confirming while the
+  terminal looks the three orders up, then shows what the lookup found, or that the result is
+  unconfirmed after two minutes.
+- Screen readers now hear the size unit with the order size, the available balance as the name of the
+  Max button (its `Use max …` text is now a description), the TP/SL prices and the margin of each
+  position, the visible PNL column name instead of the toggle hint, "Near liquidation" next to a
+  liquidation price close to the mark price, the reason a trigger or limit price or a Send or Transfer
+  amount is invalid, and a failed Enable Trading as an alert. In Arabic, the arrow in the reverse
+  confirmation points towards the new direction.
+- Funding totals on the desktop and phone Funding tabs are shown per collateral instead of adding USDC
+  and other collaterals together.
+- Closed PNL of a fill in a market not quoted in USDC is shown in the market's quote token instead of as
+  dollars, and the TWAP fill tables label their PNL with that quote token instead of the fee token.
+- History CSV exports: the funding Size keeps every decimal the exchange sent, Payment Token is the
+  token's protocol name (for example `USDT0`), the funding history page and the phone Funding tab export
+  the rows their filters select, and a text cell that a spreadsheet would read as a formula gets a
+  leading quote, while protocol numbers and spot market names such as `@107` are written as sent. The
+  TWAP fill export warns about its 10,000-fill limit only when fills were actually left out.
+- The portfolio chart's one-day view shows the time with the date of the point under the pointer, and
+  its latest value ignores malformed history points.
+- "No recent reward claims." and Earn's "No earn actions yet" appear only while the device is online,
+  the ledger stream is live and current and no refresh is running; after a failed refresh Earn no longer
+  says it has no actions.
+- On desktop, "No TWAP history found.", "No TWAP fills found.", the order history's "No orders match
+  these filters." with its order count, and "No orders" on an order book side appear only from current
+  data; otherwise the area stays blank.
+- A Vault deposit or withdrawal checks the Vault, your balances and account mode again once it holds the
+  funds lock, so a change made in another tab just before is caught before anything is signed.
+- Earn withdraws everything including interest only when the reserve's liquidity and, for a collateral,
+  your borrowing capacity cover the whole supply, compared exactly instead of after rounding; otherwise
+  it sends the exact amount.
+- The Vault withdrawal limit shows the amount Max fills, rounded down (for example $9.999999 instead of
+  $10.00), and a Vault with a very small APR shows it instead of `--`.
+- Staking: a verification that finishes after you switched account no longer reports to the new account,
+  an open staking dialog closes when the account or network changes, and a very small HYPE balance is
+  read correctly.
+- A referral request whose outcome has to be checked is checked for the account that made it, also after
+  you switched account, and is reported on that account's task. A `/join` link whose code the referral
+  form could not apply (spaces, symbols, letters outside A–Z) is refused. A leaderboard trader with a
+  blank display name shows the address. The API wallet page rechecks a request with an unknown result
+  also while its actions are unavailable, and stops once you leave the page.
+- Website: the Live market view clears its numbers at once when the book loses a side, and follows the
+  order book when the best bid or offer has moved without a new `bbo` frame; Live activity sums every
+  venue whose markets the page shows; the 404 page's terminal link carries the campaign parameters and
+  the risk sentence.
 
 ### Changed
 
@@ -741,11 +795,6 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
-- While this terminal cannot verify your region, or your region is restricted, creating an API wallet,
-  linking a mobile device and editing an open order that is not reduce-only are refused before anything
-  is signed, as placing a new order already was. Removing an API wallet, cancelling orders and editing
-  reduce-only orders stay available.
-
 - Filter results and empty lists no longer draw a conclusion from data that is not current. On the phone,
   "No orders match these filters." and "No funding payments match this direction." appear only while the
   history is current; during a reconnect, offline or after a failed update the list area stays blank and
@@ -764,10 +813,6 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Settings no longer overwrite each other across tabs: a tab that still held older settings used to write all of
   them back when you changed anything in it. Each tab now writes only what it changed and follows the others; the
   visible table tab stays per window.
-- Order confirmation, market-order max slippage and transaction delay protection are now stored on their own, so a
-  tab running an older version, an unrelated settings change in another tab or a settings record from a newer
-  version can no longer turn them back off or widen them. Other open tabs follow a stricter choice at once; a looser
-  choice applies to the tab where you made it and to tabs opened afterwards (ADR 0057).
 - After your wallet signs a withdrawal, transfer, approval or the terms, the terminal checks that the signature was
   made by the selected account before sending it. A signature from another account of the same wallet, or one that
   cannot be checked (for example from a contract wallet), is not sent and is reported as a wallet mismatch.

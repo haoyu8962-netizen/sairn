@@ -238,6 +238,9 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/use-agent-wallet.test.tsx \
   src/lib/tests/establish-connection-modal.test.tsx \
   src/lib/tests/use-explicit-agent-approval.test.tsx \
+  src/lib/tests/hl-active-owner-lease.test.ts \
+  src/lib/tests/hl-agent-signer-eviction.test.ts \
+  src/lib/tests/hl-exchange-lifecycle.test.ts \
   src/lib/tests/external-agent-signer.test.ts \
   src/lib/tests/use-connection-wallet-client.test.tsx \
   src/lib/tests/privy-agent-signer.test.ts \
@@ -313,6 +316,8 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/fill-filter-presentation.test.ts \
   src/lib/tests/mobile-history-cards.test.tsx \
   src/lib/tests/mobile-twap-history-empty.test.tsx \
+  src/lib/tests/desktop-twap-history-empty.test.tsx \
+  src/lib/tests/position-accessible-values.test.tsx \
   src/lib/tests/twap-activity-hooks.test.tsx \
   src/lib/tests/historical-orders-page.test.tsx
 
@@ -352,7 +357,8 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/orderbook-price-selection.test.tsx \
   src/lib/tests/mobile-orderbook-mode.test.tsx \
   src/lib/tests/mobile-book-header-contract.test.ts \
-  src/lib/tests/orderbook-feed-l2-retry.test.tsx
+  src/lib/tests/orderbook-feed-l2-retry.test.tsx \
+  src/lib/tests/orderbook-feed-probe-cancellation.test.tsx
 
 # WebSocket recovery (page or network returns, half-open sockets; see ADR 0050)
 pnpm --dir apps/terminal exec vitest run \
@@ -365,6 +371,12 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/l2-book-transport-pool.test.ts \
   src/lib/tests/l2-book-transport-pool-resume.test.ts \
   src/lib/tests/websocket-half-open-reconnect.test.ts \
+  src/lib/tests/hl-batched-updater.test.ts \
+  src/lib/tests/hl-frame-receipt.test.ts \
+  src/lib/tests/hl-historical-order-freshness.test.ts \
+  src/lib/tests/hl-receipt-age.test.ts \
+  src/lib/tests/hl-reconnect-backoff.test.ts \
+  src/lib/tests/hl-subscription-identity.test.ts \
   src/lib/tests/compact-asset-ctxs.test.ts \
   src/lib/tests/use-markets-info-subscriptions.test.tsx \
   src/lib/tests/fast-asset-ctxs-decode-failures.test.ts \
@@ -480,6 +492,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/order-reconciliation.test.tsx \
   src/lib/tests/twap-reconciliation.test.tsx \
   src/lib/tests/twap-cancel-hook.test.tsx \
+  src/lib/tests/twap-cancel-queue.test.tsx \
   src/lib/tests/pending-submission-tab-ownership.test.ts \
   src/lib/tests/open-order-cancel.test.ts \
   src/lib/tests/pending-trading-action-store.test.ts \
@@ -487,6 +500,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/account-mode-modal.test.tsx \
   src/lib/tests/use-asset-leverage.test.tsx \
   src/lib/tests/funds-action-balances.test.tsx \
+  src/lib/tests/exchange-action-acknowledgement.test.ts \
   src/lib/tests/funds-destination-rules.test.ts \
   src/lib/tests/deposit-modal-withdrawal-routing-guard.test.tsx \
   src/lib/tests/use-deposit-routing-guard.test.tsx \
@@ -494,6 +508,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/referral-action-modal.test.tsx \
   src/lib/tests/use-referral-actions.test.tsx \
   src/lib/tests/api-wallet-action-modal.test.tsx \
+  src/lib/tests/use-api-wallet-controller-query.test.tsx \
   src/lib/tests/vault-action-modal.test.tsx \
   src/lib/tests/vault-action-domain.test.ts \
   src/lib/tests/vault-detail-page-outcomes.test.tsx \
@@ -577,6 +592,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/orderbook-boot.test.ts \
   src/lib/tests/trade-terminal-page-boot.test.tsx \
   src/lib/tests/asset-display-token-name.test.tsx \
+  src/components/leaderboard/__tests__/leaderboard-trader-link.test.tsx \
   src/lib/tests/mobile-twap-card.test.tsx \
   src/lib/tests/account-ledger-export-availability.test.tsx \
   src/lib/tests/rtl-financial-ui-contract.test.ts

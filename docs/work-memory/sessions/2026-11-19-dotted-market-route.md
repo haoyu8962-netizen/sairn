@@ -10,7 +10,7 @@
   "summary": "CloudFront viewer-request、本地静态页分类器和 Service Worker 先认一段或两段的 /trade 路径，再套用文件后缀规则；Service Worker 保持 v11。Codex 提出并出补丁，Claude 对照官方文档核对、复现与变异后原样保留。CloudFront 71 项、相关 Vitest 248 项、终端类型检查通过。",
   "thread": null,
   "baseCommit": "79b268eaf0d7ac8f364a3f744c01383bb195bf8a",
-  "commits": [],
+  "commits": ["3d326e55"],
   "sources": [
     { "path": "deploy/cloudfront/functions/terminal-request.js" },
     { "path": "apps/terminal/src/lib/static-pages/static-pages.ts" },

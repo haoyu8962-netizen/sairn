@@ -10,7 +10,7 @@
   "summary": "Codex 死代码取证（基线 79b268ea）建议的低风险一组，由 Claude 逐项复核后裁定：删除 config/ui-text.ts 的废弃 UI_TEXT 对象（保留 SideLabels 与 getSizeModeLabel）、重新提取七个语言目录、删去 action-progress-label-contract 的过期登记；删除无消费者的 lib/errors/index.ts 桶文件；给 docs/redesign.md、docs/error-handling-architecture.md 与三份 features 早期计划追加历史状态并在 features/README.md 登记。lib/chart/index.ts 保留：任务记录 2026-10-02-remove-dead-chart-format-module 把它列为来源，删除会让 memory:check 失败，而记录不能为通过校验改写。FavoritesStrip、boneyard-js、依赖收敛与共享包导出不在本次范围。类型检查、全部契约测试与受影响测试、scripts 测试与 memory:check 通过。",
   "thread": null,
   "baseCommit": "79b268ea",
-  "commits": [],
+  "commits": ["f7813076"],
   "sources": [
     { "path": "apps/terminal/src/config/ui-text.ts" },
     { "path": "apps/terminal/src/lib/tests/action-progress-label-contract.test.ts" },

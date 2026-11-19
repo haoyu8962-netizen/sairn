@@ -10,7 +10,7 @@
   "summary": "Codex 审计 r10 列出下单摘要、费用、清算价、最低名义、滑点、最大数量与 TP/SL 的差异；Claude 逐条对照官方文档与官方前端包核对。修了两项：只减仓与附带 TP/SL 互斥、全仓跨档清算价按 min(杠杆, 档位最高杠杆) 补足。Codex 未写完的草稿（Scale Max、TWAP 子单、滑点截断）全部撤回。",
   "thread": null,
   "baseCommit": "79b268eaf0d7",
-  "commits": [],
+  "commits": ["06a29016", "046cef11"],
   "sources": [
     { "path": "docs/order-entry-surface-parity.md" },
     { "path": "docs/fee-display.md" },

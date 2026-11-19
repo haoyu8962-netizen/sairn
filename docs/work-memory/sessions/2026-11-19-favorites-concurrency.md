@@ -10,7 +10,7 @@
   "summary": "审查第 3 项成立并修复：收藏与选择按操作在 Web Lock 内读取、应用、写入，界面立即更新，没有 Web Locks 时同步写入。第 7 项只在应用自己写不出的数字上复现，判为不修并记下边界。",
   "thread": null,
   "baseCommit": "79b268ea",
-  "commits": [],
+  "commits": ["0945c1c0"],
   "sources": [
     { "path": "apps/terminal/src/stores/use-market-store.ts" },
     { "path": "apps/terminal/src/lib/tests/market-store-cross-window.test.ts" },

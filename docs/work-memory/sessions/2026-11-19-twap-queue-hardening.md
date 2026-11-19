@@ -10,7 +10,7 @@
   "summary": "在 79b268ea 复现 TWAP 终止排队时同 owner 换会话或换 epoch 后旧点击由新身份签名、离线点击联网后发出、两个标签页各发一次。点击时记下签名身份并在执行守卫里比较，离线点击立即结束；跨标签页重复交给交易所的幂等拒绝，不加本地共享记录。资产锁授予后签名前等待（第 6 项）当时只评估规则；同日按运营方「照官方终端做法」的决定，`twapCancel` 不再豁免 ADR 0053 的 15 秒入队上限，超时报未发送。Codex 起草、Claude 核对与裁定；实盘、真实钱包与原生 Web Locks 未验证。",
   "thread": null,
   "baseCommit": "79b268ea",
-  "commits": [],
+  "commits": ["bb3744a4", "2895af38"],
   "sources": [
     { "path": "apps/terminal/src/hooks/trade/use-twap-cancel.ts" },
     { "path": "packages/hl-react/src/hooks/useExchange.ts" },
