@@ -1,5 +1,7 @@
 # Feature: SDK API Directory
 
+**Status: Historical plan.** The `Planned` field below records the original proposal. Use the current [Hyperliquid SDK directory](../docs/hyperliquid-sdk-directory.md) for the available reference.
+
 ## Meta
 
 | Field | Value |

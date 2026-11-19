@@ -103,10 +103,6 @@ const REVIEWED_PROGRESS_LABELS: Record<string, { labels: string[]; reason: strin
 	},
 	"components/ui/lazy-dialog-boundary.tsx": { labels: ["Loading...", "Loading..."], reason: "lazy chunk fallback" },
 	"config/orderbook-labels.ts": { labels: ["Waiting for order book..."], reason: "passive order book placeholder" },
-	"config/ui-text.ts": {
-		labels: ["Loading...", "Signing...", "Waiting for order book..."],
-		reason: "deprecated module-level labels; the button getters have no reader (2026-11-13)",
-	},
 	"hooks/trade/use-account-ledger-csv.ts": {
 		labels: ["Exporting deposits and withdrawals..."],
 		reason: "CSV export notice, not a trading or funds action",

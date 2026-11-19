@@ -1,5 +1,7 @@
 # Sairn Design System Redesign
 
+**Status: Historical design proposal.** The Zinc, Blue and shadcn defaults below are not the current terminal design contract. Use [brand assets](brand-assets.md), [design tokens](../.claude/rules/design-tokens.md) and [UI style guide](../.claude/rules/style-ui-guide.md) for current colors and component rules. The original proposal remains below as historical context; its "single source of truth" statement described the proposal at the time.
+
 ## Strategy
 
 **Phase 1: Reset to native Tailwind Zinc + shadcn defaults** — replace all custom OKLCH colors with Tailwind's native Zinc palette and one accent color. Use shadcn's default component styles as-is.

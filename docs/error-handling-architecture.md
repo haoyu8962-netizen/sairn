@@ -1,5 +1,7 @@
 # Error Handling Architecture
 
+**Status: Historical research and design.** The examples below that import from `@/lib/errors` describe the earlier proposed validation API; that path currently resolves to `apps/terminal/src/lib/errors.ts`, not the removed `apps/terminal/src/lib/errors/index.ts` barrel. For current behavior, follow the direct imports in `apps/terminal/src/lib/errors/` and the [order entry contract](order-entry-surface-parity.md). This text is retained as historical material.
+
 ## Overview
 
 This document tracks our research and design for a more robust, configurable error management system.
