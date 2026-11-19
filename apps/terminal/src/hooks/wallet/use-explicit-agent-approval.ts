@@ -9,10 +9,16 @@ import {
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
-import { isAddress, type WalletClient } from "viem";
+import { isAddress, type WalletClient, zeroAddress } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
+import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { createActionError } from "@/lib/errors/action-error";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import {
+	assertTradingRegionAllowed,
+	findTradingRegionBlockedError,
+	readTradingRegionVerdict,
+} from "@/lib/geo/trading-region";
 import type { AgentApprovalOptions, ExchangeParams, ExchangeResponse } from "@/lib/hyperliquid";
 import {
 	captureAgentRegistrationExecutionLease,
@@ -44,9 +50,15 @@ export type ExplicitAgentApprovalOptions = AgentApprovalOptions;
  * Agent approval must always be initiated by an explicit master-wallet action.
  * The dedicated Privy signer may hide its second confirmation only after the
  * caller confirms that the user reviewed the permission in the application.
+ *
+ * A named Agent (an API wallet or the linked phone's `Mobile QR`) is a new grant that can open
+ * trades, so it needs an allowed region verdict from this terminal, checked before signing, after
+ * the signature and before the request is sent. The unnamed trading-connection Agent and removals
+ * (zero address) keep the exit rule of `docs/runtime-guardrails.md` §2.
  */
 export function useExplicitAgentApproval(): ExplicitAgentApproval {
 	const queryClient = useQueryClient();
+	useGeoRestriction();
 	const { signTypedData } = useSignTypedData();
 	const walletClient = useConnectionWalletClient().data as WalletClient | undefined;
 	const { enforceLegalActions, env, exchangeLifecycle, info } = useHyperliquid();
@@ -100,6 +112,19 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 			throw createActionError("request-invalid");
 		}
 		if (!hasWalletAccess || !walletAddress) throw createActionError("wallet-unavailable");
+		const requiresTradingRegion = isNamedAgentGrant(params);
+		const assertGrantRegionAllowed = () => {
+			if (requiresTradingRegion) assertTradingRegionAllowed(readTradingRegionVerdict(queryClient));
+		};
+		const isGrantRegionAllowed = () => {
+			try {
+				assertGrantRegionAllowed();
+				return true;
+			} catch {
+				return false;
+			}
+		};
+		assertGrantRegionAllowed();
 		if (inFlightRef.current) {
 			throw new LocalizedActionError(msg`Another wallet approval is already in progress. Try again after it finishes.`);
 		}
@@ -179,6 +204,7 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 			};
 			const guarded = await startAgentRegistrationExecution(registrationLease, canSubmit, () => {
 				if (options.deadline) assertExchangeSigningDeadline(options.deadline);
+				assertGrantRegionAllowed();
 				const beforeSubmit = async () => {
 					assertApprovalSessionCurrent();
 					if (enforceLegalActions) {
@@ -195,6 +221,7 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 						throw createActionError("identity-changed");
 					}
 					assertApprovalSessionCurrent();
+					assertGrantRegionAllowed();
 				};
 				let signer: AbstractWallet;
 				if (approvalWalletIntent === "embedded") {
@@ -226,10 +253,12 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 					async request<T>(endpoint: "info" | "exchange", payload: unknown, signal?: AbortSignal): Promise<T> {
 						const execute = () =>
 							baseTransport.request<T>(endpoint, payload, registrationPublicKey ? undefined : signal);
+						const canSend = () => isGrantRegionAllowed() && canSubmit();
 						const submission = registrationPublicKey
-							? await startAgentRegistrationSubmission(registrationLease, canSubmit, execute)
-							: await startAgentRegistrationExecution(registrationLease, canSubmit, execute);
+							? await startAgentRegistrationSubmission(registrationLease, canSend, execute)
+							: await startAgentRegistrationExecution(registrationLease, canSend, execute);
 						if (submission.status === "invalidated") {
+							assertGrantRegionAllowed();
 							throw createActionError("identity-changed");
 						}
 						return await submission.execution;
@@ -238,7 +267,11 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 				const client = createExchangeClient(signer, env === "Testnet", undefined, transport, options.deadline);
 				return client
 					.approveAgent(params, options.signal ? { signal: options.signal } : undefined)
-					.catch(unwrapExchangeSigningDeadline);
+					.catch((error: unknown) => {
+						const regionError = findTradingRegionBlockedError(error);
+						if (regionError) throw regionError;
+						return unwrapExchangeSigningDeadline(error);
+					});
 			});
 			if (guarded.status === "invalidated") {
 				throw createActionError("identity-changed");
@@ -254,6 +287,10 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 		mutateAsync,
 		isPending: isExplicitApprovalPending,
 	};
+}
+
+function isNamedAgentGrant(params: ExchangeParams<"approveAgent">): boolean {
+	return Boolean(params.agentName) && params.agentAddress.toLowerCase() !== zeroAddress;
 }
 
 function throwIfApprovalAborted(signal: AbortSignal | undefined): void {

@@ -551,3 +551,12 @@ export function openOrderModifyParamsEqual(
 		exchangeOrdersEqual(leftModify.order, rightModify.order)
 	);
 }
+
+/**
+ * A modify is classified by the order it places (Hyperliquid order-book docs). Every replacement
+ * being reduce-only is an exit, which stays open under the terminal's own region check; any other
+ * replacement can open exposure and follows the opening-trade region gate.
+ */
+export function isReduceOnlyBatchModify(params: ExchangeParams<"batchModify">): boolean {
+	return params.modifies.length > 0 && params.modifies.every((modify) => modify.order.r === true);
+}

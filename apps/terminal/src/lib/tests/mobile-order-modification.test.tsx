@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { i18n, type Messages } from "@lingui/core";
 import { HttpRequestError } from "@nktkas/hyperliquid";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,11 +22,39 @@ import {
 } from "@/stores/use-pending-trading-action-store";
 import { createI18nRoot } from "./harness/react";
 
+const GEO_QUERY_KEY = ["geo", null];
+const REGION_RESTRICTED = "Trading is not available in your region";
+const REGION_UNVERIFIED = "Unable to verify regional availability. Trading is temporarily unavailable.";
+const queryClient = new QueryClient();
+
+function setRegion(region: "allowed" | "restricted" | "unavailable") {
+	if (region === "unavailable") {
+		queryClient
+			.getQueryCache()
+			.find({ queryKey: GEO_QUERY_KEY })
+			?.setState({ status: "error", error: new Error("Geo restriction check unavailable") });
+		return;
+	}
+	queryClient.setQueryData(GEO_QUERY_KEY, {
+		country: region === "allowed" ? "GB" : "US",
+		proxy: false,
+		tradeRestricted: region === "restricted",
+	});
+}
+
 let queueItems: OrderQueueItem[] = [];
 function ReviewedOrders() {
 	queueItems = useOrderQueue();
-	return <MobileOrdersTab scrollMode="page" />;
+	return (
+		<QueryClientProvider client={queryClient}>
+			<MobileOrdersTab scrollMode="page" />
+		</QueryClientProvider>
+	);
 }
+
+vi.mock("@/lib/geo/get-geo", () => ({
+	getGeo: vi.fn().mockRejectedValue(new Error("Geo restriction check unavailable")),
+}));
 
 const mocks = vi.hoisted(() => ({
 	markPriceLive: false,
@@ -208,6 +237,8 @@ describe("mobile order modification", () => {
 	});
 
 	beforeEach(() => {
+		queryClient.clear();
+		setRegion("allowed");
 		i18n.loadAndActivate({ locale: "en", messages: {} });
 		getPendingTradingActionActions().reset();
 		container = document.createElement("div");
@@ -261,6 +292,77 @@ describe("mobile order modification", () => {
 			price: document.body.querySelector<HTMLInputElement>('input[aria-label="Price"]'),
 		};
 	}
+
+	describe("trading region", () => {
+		const openingOrder = { ...triggerOrder, reduceOnly: false } as OpenOrder;
+
+		async function submitSize(value: string) {
+			const { size } = openEditor();
+			if (!size) throw new Error("Order size editor did not open");
+			await act(async () => {
+				changeInput(size, value);
+				pressKey(size, "Enter");
+				await Promise.resolve();
+			});
+		}
+
+		function trackSdkCall(changeRegionBetweenGuards?: "restricted" | "unavailable") {
+			const sdkModify = vi.fn();
+			mocks.modifyOrders.mockImplementationOnce(async (params: unknown) => {
+				mocks.batchModifyGuard?.(params);
+				if (changeRegionBetweenGuards) setRegion(changeRegionBetweenGuards);
+				mocks.batchModifyGuard?.(params);
+				sdkModify(params);
+				return { response: { data: { statuses: [{ resting: { oid: 42 } }] } } };
+			});
+			return sdkModify;
+		}
+
+		it.each([
+			["restricted", REGION_RESTRICTED],
+			["unavailable", REGION_UNVERIFIED],
+		] as const)("refuses to replace an order that can open exposure when the region is %s", async (region, message) => {
+			mocks.orders = [openingOrder];
+			setRegion(region);
+			const sdkModify = trackSdkCall();
+
+			await submitSize("1.000");
+
+			expect(mocks.modifyOrders).toHaveBeenCalledOnce();
+			expect(sdkModify).not.toHaveBeenCalled();
+			expect(getPendingTradingActionSnapshot().modifications).toHaveLength(0);
+			expect(document.body.textContent).toContain(message);
+		});
+
+		it.each([
+			["restricted", REGION_RESTRICTED],
+			["unavailable", REGION_UNVERIFIED],
+		] as const)(
+			"stops at the SDK boundary when the region becomes %s after the request was queued",
+			async (region, message) => {
+				mocks.orders = [openingOrder];
+				const sdkModify = trackSdkCall(region);
+
+				await submitSize("1.000");
+
+				expect(sdkModify).not.toHaveBeenCalled();
+				expect(getPendingTradingActionSnapshot().modifications).toHaveLength(0);
+				expect(document.body.textContent).toContain(message);
+			},
+		);
+
+		it.each(["restricted", "unavailable"] as const)(
+			"keeps modifying a reduce-only order available when the region is %s",
+			async (region) => {
+				setRegion(region);
+				const sdkModify = trackSdkCall();
+
+				await submitSize("1.000");
+
+				expect(sdkModify).toHaveBeenCalledOnce();
+			},
+		);
+	});
 
 	it("opens a touch-sized drawer and keeps the raw values until confirmation", () => {
 		const { size, trigger } = openEditor();

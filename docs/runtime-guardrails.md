@@ -392,6 +392,24 @@ implementation.
   failed lookup of the terminal's own check would then leave positions that
   cannot be closed, and exchanges that withdraw from a region usually keep a
   close-only mode.
+- Agent grants and open-order edits follow the same split (2026-11-19). A
+  named Agent (an API wallet, or the linked phone's `Mobile QR`) can trade from
+  elsewhere, so `useExplicitAgentApproval` refuses it while this terminal's
+  region verdict is restricted or unverified: before the legal check, again
+  before the wallet prompt, after the signature and while the send waits for
+  its lock. It reads the shared geo query, so a refresh that failed counts as
+  unverified. Removing a named Agent (zero address) and the unnamed
+  trading-connection Agent keep the exit rule above; the order panel already
+  refuses to start the latter while trading is blocked. An order edit is
+  classified by the order it places, as the exchange classifies a `modify`
+  ([Hyperliquid order book](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/order-book)):
+  a reduce-only replacement is an exit and stays available, any other
+  replacement (spot orders included) is an opening trade, and both order
+  editors refuse it in their `batchModify` execution guard, before queueing and
+  at the SDK boundary. Hyperliquid's own reduce-only mode for HIP-3 venues draws
+  the same line (`setReduceOnly`: reduce-only orders, modifying orders into
+  reduce-only orders, and cancels;
+  [HIP-3 deployer actions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/hip-3-deployer-actions)).
 - Privy embedded EOA can sign, but it still needs gas for EVM transactions.
 - Smart Wallet sponsorship is a Privy/paymaster concern and must be configured
   per chain. UI must not claim sponsorship is available unless the chain is

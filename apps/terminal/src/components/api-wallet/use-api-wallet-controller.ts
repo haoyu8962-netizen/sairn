@@ -14,6 +14,7 @@ import {
 	isWalletRejectionError,
 } from "@/lib/errors/action-error";
 import { formatDateTime } from "@/lib/format";
+import { TradingRegionBlockedError } from "@/lib/geo/trading-region";
 import { type InfoResponse, useHyperliquid, useInfo } from "@/lib/hyperliquid";
 import type { Translate } from "@/lib/translate";
 import {
@@ -331,6 +332,11 @@ export function useApiWalletController({
 			if (!executionIsCurrent(lease) || lease.abortController.signal.aborted) return;
 			const latest = activeActionRef.current;
 			if (!latest) return;
+			if (error instanceof TradingRegionBlockedError) {
+				updateAction({ ...latest, state: current.state, failure: error.descriptor, isPreflighting: false });
+				finishExecution(lease);
+				return;
+			}
 			if (!isDeterministicApprovalError(error) && isWalletRejectionError(error)) {
 				updateAction({
 					...latest,

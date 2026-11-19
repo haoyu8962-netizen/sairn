@@ -10297,6 +10297,7 @@ msgstr "لم يُفعَّل التداول على هذا الحساب بعد. أ
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "التداول غير متاح في منطقتك"
@@ -10672,6 +10673,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "تعذّر التحقق من التوفر الإقليمي. لم يُرسَل طلب الإحالة هذا."
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "تعذر التحقق من التوفر الإقليمي. التداول غير متاح مؤقتًا."

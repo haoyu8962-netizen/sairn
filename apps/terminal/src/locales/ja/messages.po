@@ -9164,6 +9164,7 @@ msgstr "このアカウントでは取引がまだ有効化されていません
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "お住まいの地域では取引を利用できません"
@@ -9502,6 +9503,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "地域別の利用可否を確認できません。この紹介リクエストは送信されていません。"
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "地域別の利用可否を確認できません。取引は一時的に利用できません。"

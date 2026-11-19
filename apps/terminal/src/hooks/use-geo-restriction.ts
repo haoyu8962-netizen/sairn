@@ -1,26 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { getGeo } from "@/lib/geo/get-geo";
-
-function getDevOverride(): string | null {
-	if (!import.meta.env.DEV || typeof window === "undefined") return null;
-	return new URLSearchParams(window.location.search).get("geo");
-}
+import { deriveTradingRegionVerdict, getGeoDevOverride, getGeoQueryKey } from "@/lib/geo/trading-region";
 
 export function useGeoRestriction() {
-	const override = getDevOverride();
+	const override = getGeoDevOverride();
 	const { data, isError, isFetching, refetch } = useQuery({
-		queryKey: ["geo", override],
+		queryKey: getGeoQueryKey(override),
 		queryFn: () => getGeo({ data: { override } }),
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,
 		retry: 1,
 	});
-	const hasResolvedCountry = typeof data?.country === "string" && data.country.trim().length > 0;
-	const isResolved = hasResolvedCountry && !isError;
-	const tradeRestricted = hasResolvedCountry && (data?.tradeRestricted === true || data?.proxy === true);
+	const { actionsBlocked, tradeRestricted, isResolved } = deriveTradingRegionVerdict(data, isError);
 
 	return {
-		actionsBlocked: !isResolved || tradeRestricted,
+		actionsBlocked,
 		tradeRestricted,
 		country: data?.country ?? null,
 		proxy: data?.proxy ?? false,

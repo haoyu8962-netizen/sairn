@@ -10297,6 +10297,7 @@ msgstr "El trading aún no está activado en esta cuenta. Deposita y coloca una 
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "El trading no está disponible en tu región"
@@ -10672,6 +10673,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "No se pudo verificar la disponibilidad regional. Esta solicitud de referido no se envió."
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "No se pudo verificar la disponibilidad regional. El trading no está disponible temporalmente."

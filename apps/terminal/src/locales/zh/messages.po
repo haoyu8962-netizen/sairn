@@ -10297,6 +10297,7 @@ msgstr "此账户尚未激活交易。请先在这台电脑上存款并下第一
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "您所在的地区暂不支持交易"
@@ -10672,6 +10673,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "无法验证地区可用性。本次推荐请求未提交。"
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "无法验证地区可用性，交易暂时不可用。"
