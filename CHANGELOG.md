@@ -21,6 +21,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Favorites follow other tabs, and two tabs no longer overwrite each other's favorites; each tab keeps
   its own selected market.
 - Trading links with dots in market names open correctly when visited directly or refreshed.
+- Once the terminal has read the exchange's clock, the counter that numbers each signed action follows
+  that clock instead of the device's, so a device whose clock is wrong by more than a day can still
+  trade instead of having every action refused.
 - CI runs every terminal unit test on each pull request. The daily website market check is removed: no
   workflow runs on a schedule or calls a third-party API (ADR 0056).
 
