@@ -109,6 +109,21 @@ describe("staking domain", () => {
 		expect(parseSpotHypeAvailable({ balances: [{ coin: "HYPE", total: "1", hold: "2" }] })).toBeNull();
 	});
 
+	it.each([
+		["1.00000001", "0.00000001", { valid: true, amount: "0.00000001", wei: 1 }],
+		["1.0000001", "0.0000001", { valid: true, amount: "0.0000001", wei: 10 }],
+		["1", "0", { valid: false, reason: "positive" }],
+	] as const)("keeps the fallback Spot HYPE balance for %s usable as a Max input", (total, expected, result) => {
+		const available = parseSpotHypeAvailable({
+			balances: [{ coin: "HYPE", token: 150, total, hold: "1" }],
+			tokenToAvailableAfterMaintenance: [[1, "8.5"]],
+		});
+		const maxInput = formatHypeMaxInput(available ?? "");
+		expect(maxInput).toBe(expected);
+		expect(validateHypeActionAmount(maxInput, available ?? "")).toEqual(result);
+		expect(available).toBe(expected);
+	});
+
 	it("accepts only documented reward sources and maps action history without merging undelegate into withdrawal", () => {
 		expect(parseStakingRewards([{ time: 1_700_000_000_000, source: "delegation", totalAmount: "0.25" }])).toEqual([
 			{ time: 1_700_000_000_000, source: "delegation", totalAmount: "0.25" },

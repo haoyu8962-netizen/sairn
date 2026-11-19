@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { i18n } from "@lingui/core";
+import { I18nProvider } from "@lingui/react";
 import { ApiRequestError } from "@nktkas/hyperliquid";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -17,6 +18,7 @@ import {
 } from "../../funds-action/funds-action-marker";
 import type { StakingActionSubmission } from "../domain/staking";
 import { getStakingActionFailureNotice } from "../domain/staking-action-feedback";
+import { StakingView } from "../staking-view";
 import {
 	buildStakingRecoverySubmission,
 	type StakingActionsController,
@@ -57,6 +59,7 @@ const mocks = vi.hoisted(() => ({
 		validators: [] as unknown[],
 	},
 	sdkBoundaryEvents: [] as string[],
+	successToast: vi.fn(),
 	sessionMode: "wallet" as "wallet" | "agent-only" | "disconnected",
 	spotReads: 0,
 	hasWalletAccess: true,
@@ -83,8 +86,11 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 }));
 
 vi.mock("@/lib/geo/get-referral-action-geo", () => ({ getReferralActionGeo: mocks.geo }));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+vi.mock("sonner", () => ({ toast: { success: mocks.successToast } }));
 
 vi.mock("@/lib/hyperliquid", () => ({
+	getExplorerTxUrl: (hash: string) => `/explorer/${hash}`,
 	useExchange: (
 		method: keyof typeof mocks.methods,
 		options: {
@@ -133,9 +139,35 @@ vi.mock("@/lib/hyperliquid", () => ({
 
 let controller: StakingActionsController | null = null;
 
-function Probe() {
+function Probe({ showRecovery = false }: { showRecovery?: boolean }) {
 	controller = useStakingActions(mocks.owner);
-	return null;
+	if (!showRecovery) return null;
+	return (
+		<I18nProvider i18n={i18n}>
+			<StakingView
+				env={mocks.env}
+				pageState="loading"
+				publicState="loading"
+				accountState="loading"
+				ownerAddress={mocks.owner}
+				hasExactMasterSigner
+				agentOnlySession={false}
+				validators={[]}
+				validatorViews={[]}
+				period="week"
+				setPeriod={vi.fn()}
+				networkStakeApproximate={null}
+				weightedApr={null}
+				account={null}
+				isReconnecting={false}
+				retryPublic={vi.fn()}
+				retryAccount={vi.fn()}
+				connectMasterWallet={vi.fn()}
+				actionSession={controller.active}
+				actionLocked={controller.isLocked}
+			/>
+		</I18nProvider>
+	);
 }
 
 function current(): StakingActionsController {
@@ -169,6 +201,14 @@ function validator() {
 
 function history(amount = "2") {
 	return [{ time: Date.now() + 1_000, hash: HASH, delta: { cDeposit: { amount } } }];
+}
+
+function defer() {
+	let release!: () => void;
+	const promise = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	return { promise, release };
 }
 
 function stakingReference(overrides: Partial<CreateFundsActionReferenceInput> = {}): FundsActionReference {
@@ -326,6 +366,7 @@ describe("useStakingActions orchestration", () => {
 		act(() => root.unmount());
 		clearFundsActionMarkersForTests();
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 		container.remove();
 	});
 
@@ -787,6 +828,124 @@ describe("useStakingActions orchestration", () => {
 		await act(async () => submission);
 		expect(current().active).toBeNull();
 		expect(findPendingFundsAction("Mainnet", OWNER)).not.toBeNull();
+	});
+
+	it("does not publish the old owner's match after the marker removal lock releases", async () => {
+		vi.stubGlobal(
+			"matchMedia",
+			vi.fn().mockReturnValue({ addEventListener: vi.fn(), matches: false, removeEventListener: vi.fn() }),
+		);
+		const reference = stakingReference();
+		const otherReference = stakingReference({ owner: OTHER, displayAmount: "3", atomicAmount: "300000000" });
+		act(() => {
+			expect(persistFundsActionMarker(reference)).toBe(true);
+			expect(persistFundsActionMarker(otherReference)).toBe(true);
+			root.render(<Probe showRecovery />);
+		});
+		expect(current().active?.reference).toEqual(reference);
+
+		const { promise: removalMayRun, release: releaseRemoval } = defer();
+		vi.mocked(navigator.locks.request).mockImplementationOnce(async (_name, _options, callback) => {
+			await removalMayRun;
+			return callback({ name: "test", mode: "exclusive" });
+		});
+		mocks.history = history();
+		mocks.preflight.spot = { balances: [{ coin: "HYPE", token: 150, total: "8", hold: "0" }] };
+		mocks.preflight.summary = {
+			delegated: "5",
+			undelegated: "12",
+			totalPendingWithdrawal: "0",
+			nPendingWithdrawals: 0,
+		};
+		let verification!: Promise<void>;
+		await act(async () => {
+			verification = current().verify();
+		});
+		expect(navigator.locks.request).toHaveBeenCalledTimes(1);
+		expect(current().active?.state.stage).toBe("reconciling");
+		expect(findPendingFundsAction("Mainnet", OWNER)).toEqual(reference);
+
+		mocks.owner = OTHER;
+		mocks.clientKey = OTHER;
+		mocks.walletAddress = OTHER;
+		act(() => root.render(<Probe showRecovery />));
+		expect(current().active?.reference).toEqual(otherReference);
+		const otherHash = `0x${"cd".repeat(32)}`;
+		mocks.history = [{ time: Date.now() + 1_000, hash: otherHash, delta: { cDeposit: { amount: "3" } } }];
+		mocks.preflight.spot = { balances: [{ coin: "HYPE", token: 150, total: "7", hold: "0" }] };
+		mocks.preflight.summary = {
+			delegated: "5",
+			undelegated: "13",
+			totalPendingWithdrawal: "0",
+			nPendingWithdrawals: 0,
+		};
+		const { promise: otherSnapshotMayReturn, release: releaseOtherSnapshot } = defer();
+		mocks.afterPreflight.mockReturnValueOnce(otherSnapshotMayReturn);
+		let otherVerification!: Promise<void>;
+		await act(async () => {
+			otherVerification = current().verify();
+		});
+		const otherSession = current().active;
+		expect(otherSession?.state.stage).toBe("reconciling");
+		await act(async () => {
+			releaseRemoval();
+			await verification;
+		});
+		expect(findPendingFundsAction("Mainnet", OWNER)).toBeNull();
+		expect(findPendingFundsAction("Mainnet", OTHER)).toEqual(otherReference);
+		expect(current().active).toBe(otherSession);
+		expect(current().active).toMatchObject({ state: { stage: "reconciling" }, match: null });
+		expect(mocks.successToast).not.toHaveBeenCalled();
+
+		await act(async () => {
+			releaseOtherSnapshot();
+			await otherVerification;
+		});
+		expect(current().active).toMatchObject({ state: { stage: "done", result: "success" }, match: { hash: otherHash } });
+		expect(findPendingFundsAction("Mainnet", OTHER)).toBeNull();
+		expect(mocks.successToast).toHaveBeenCalledTimes(1);
+		for (const method of Object.values(mocks.methods)) expect(method).not.toHaveBeenCalled();
+	}, 20_000);
+
+	it.each([
+		["cDeposit", "cDeposit"],
+		["cWithdraw", "cWithdraw"],
+		["delegate", "tokenDelegate"],
+		["undelegate", "tokenDelegate"],
+	] as const)("persists a plain-decimal Spot HYPE baseline before dispatching %s", async (kind, method) => {
+		vi.useFakeTimers();
+		mocks.preflight.spot = { balances: [{ coin: "HYPE", token: 150, total: "1.00000001", hold: "1" }] };
+		mocks.preflight.delegations = [{ validator: VALIDATOR, amount: "5", lockedUntilTimestamp: 0 }];
+		const isValidatorAction = kind === "delegate" || kind === "undelegate";
+		const amount = kind === "cDeposit" ? "0.00000001" : "2";
+		const submission: StakingActionSubmission = {
+			request: { kind, maxAmount: amount, validator: isValidatorAction ? VALIDATOR : undefined },
+			amount,
+			wei: kind === "cDeposit" ? 1 : 200_000_000,
+		};
+		const readMarkerAtDispatch = vi.fn(() => findPendingFundsAction("Mainnet", OWNER));
+		mocks.methods[method].mockImplementationOnce(async () => {
+			readMarkerAtDispatch();
+			return { status: "ok" };
+		});
+		act(() => current().review(submission));
+		let confirmation!: Promise<void>;
+		act(() => {
+			confirmation = current().submit();
+		});
+		await act(async () => {
+			await vi.runAllTimersAsync();
+			await confirmation;
+		});
+		expect(mocks.methods[method]).toHaveBeenCalledExactlyOnceWith(
+			isValidatorAction
+				? { validator: VALIDATOR, wei: submission.wei, isUndelegate: kind === "undelegate" }
+				: { wei: submission.wei },
+		);
+		expect(readMarkerAtDispatch).toHaveReturnedWith(
+			expect.objectContaining({ stateBaseline: expect.objectContaining({ spotAvailable: "0.00000001" }) }),
+		);
+		expect(current().active?.state).toEqual({ stage: "done", result: "unknown" });
 	});
 
 	describe("when the checks before the request finish long after the confirmation", () => {

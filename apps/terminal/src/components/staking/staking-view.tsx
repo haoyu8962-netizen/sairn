@@ -68,7 +68,10 @@ export function StakingView(props: StakingViewProps) {
 	const actionReasonId = props.agentOnlySession ? masterWalletReasonId : undefined;
 	const [activeTab, setActiveTab] = useState<StakingTab>("validators");
 	const [validatorFilter, setValidatorFilter] = useState<ValidatorFilter>("all");
-	const [activeAction, setActiveAction] = useState<StakingActionRequest | null>(null);
+	const draftOwner = props.ownerAddress ? `${props.env}:${props.ownerAddress.toLowerCase()}` : null;
+	const [actionDraft, setActionDraft] = useState<{ owner: string; action: StakingActionRequest } | null>(null);
+	if (actionDraft && actionDraft.owner !== draftOwner) setActionDraft(null);
+	const activeAction = actionDraft?.owner === draftOwner ? actionDraft.action : null;
 	const reportedOutcomeRef = useRef<string | null>(null);
 	useEffect(() => {
 		const session = props.actionSession;
@@ -142,8 +145,8 @@ export function StakingView(props: StakingViewProps) {
 	const hasRetainedData = props.accountState === "retained" || props.publicState === "retained";
 
 	function openAction(action: StakingActionRequest) {
-		if (!canOpenActions) return;
-		setActiveAction(action);
+		if (!canOpenActions || !draftOwner) return;
+		setActionDraft({ owner: draftOwner, action });
 	}
 
 	function retryRetainedData() {
@@ -382,7 +385,7 @@ export function StakingView(props: StakingViewProps) {
 					isMobile={isMobile}
 					isTestnet={props.env === "Testnet"}
 					onOpenChange={(open) => {
-						if (!open) setActiveAction(null);
+						if (!open) setActionDraft(null);
 					}}
 					onSubmit={props.onActionSubmit}
 				/>
