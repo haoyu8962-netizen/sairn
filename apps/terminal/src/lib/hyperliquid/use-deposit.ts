@@ -62,7 +62,10 @@ import {
 	DefinitiveDepositSourceFailureError,
 	isDefinitiveDepositSourceFailure,
 } from "@/lib/hyperliquid/deposit-source-error";
-import { isDepositSubmissionOutcomeUnknown } from "@/lib/hyperliquid/deposit-submission-outcome";
+import {
+	isDefinitiveWalletSubmissionFailure,
+	isDepositSubmissionOutcomeUnknown,
+} from "@/lib/hyperliquid/deposit-submission-outcome";
 import {
 	assertCctpDepositReceipt,
 	assertCctpSponsoredDepositReceipt,
@@ -77,6 +80,7 @@ import {
 	fetchCctpDepositFees,
 	fetchCctpFastAllowance,
 	getHyperCoreRecipientState,
+	hasCctpAuthorizationUsedLog,
 } from "@/lib/trade/cctp-deposit";
 import {
 	assertCctpDepositTrackingStorageWritable,
@@ -1174,6 +1178,7 @@ export function useDeposit({
 			let cctpTrackingRecord: { env: "Mainnet" | "Testnet"; owner: `0x${string}`; sourceHash: Hash } | undefined;
 			let cctpAuthorizationNonce: Hex | undefined;
 			let sponsoredAuthorizationValidBefore: bigint | undefined;
+			let directAuthorization: { authNonce: Hex; validBefore: bigint; sourceBlock: bigint } | undefined;
 			let cctpRecoveryUnavailable = false;
 			let sponsoredSubmissionStarted = false;
 			let directSubmissionStarted = false;
@@ -1267,7 +1272,7 @@ export function useDeposit({
 							msg`Another Circle CCTP deposit is still pending for this account. Wait for it to finish before submitting another deposit.`,
 						);
 					}
-					if (mode === "smart" && readCctpSponsoredAuthorizationIntent(cctpTrackingEnv, ready.address)) {
+					if (readCctpSponsoredAuthorizationIntent(cctpTrackingEnv, ready.address)) {
 						throw new LocalizedActionError(
 							msg`A previous deposit authorization is still active, but its submission could not be confirmed. Another deposit is blocked until that authorization is resolved or expires.`,
 						);
@@ -1417,10 +1422,16 @@ export function useDeposit({
 							functionName: "batchDepositForBurnWithAuth",
 							args: contractArgs,
 						});
-						const [gasPrice, gasBalance] = await Promise.all([
+						const [gasPrice, gasBalance, sourceBlock] = await Promise.all([
 							ready.publicClient.getGasPrice(),
 							ready.publicClient.getBalance({ address: ready.address }),
+							ready.publicClient.getBlockNumber(),
 						]);
+						directAuthorization = {
+							authNonce: directParameters.authorization.authNonce,
+							validBefore: directParameters.authorization.authValidBefore,
+							sourceBlock,
+						};
 						const bufferedGas = (gas * GAS_BUFFER_NUMERATOR + GAS_BUFFER_DENOMINATOR - 1n) / GAS_BUFFER_DENOMINATOR;
 						if (gasBalance < bufferedGas * gasPrice) {
 							throw new LocalizedActionError(
@@ -1431,19 +1442,37 @@ export function useDeposit({
 						await verifyFreshLegalAction({ env: cctpTrackingEnv, owner: ready.address });
 						await assertProviderAccountStillActive(ready.provider, ready.address);
 						await assertDepositChainStillActive(ready.provider, cctpDepositConfig);
+						saveCctpSponsoredAuthorizationIntent({
+							env: cctpTrackingEnv,
+							owner: ready.address,
+							authNonce: directAuthorization.authNonce,
+							amount: formatUnits(amountRaw, USDC_DECIMALS),
+							validBefore: directAuthorization.validBefore,
+						});
 						directSubmissionStarted = true;
-						sourceHash = await waitForWalletTransactionHash(
-							ready.walletClient.writeContract({
-								account: ready.address,
-								chain: depositChain,
-								address: cctpDepositConfig.cctpExtension,
-								abi: CCTP_EXTENSION_ABI,
-								functionName: "batchDepositForBurnWithAuth",
-								args: contractArgs,
-							}),
-							DEPOSIT_WALLET_RESPONSE_TIMEOUT_MS,
-							markWalletResponseDelayed,
-						);
+						try {
+							sourceHash = await waitForWalletTransactionHash(
+								ready.walletClient.writeContract({
+									account: ready.address,
+									chain: depositChain,
+									address: cctpDepositConfig.cctpExtension,
+									abi: CCTP_EXTENSION_ABI,
+									functionName: "batchDepositForBurnWithAuth",
+									args: contractArgs,
+								}),
+								DEPOSIT_WALLET_RESPONSE_TIMEOUT_MS,
+								markWalletResponseDelayed,
+							);
+						} catch (error) {
+							if (isDefinitiveWalletSubmissionFailure(error, isUserRejectedRequest(error))) {
+								try {
+									removeCctpSponsoredAuthorizationIntent(cctpTrackingEnv, ready.address, directAuthorization.authNonce);
+								} catch {
+									// The authorization then stays blocked until it expires.
+								}
+							}
+							throw error;
+						}
 					}
 					cctpTrackingRecord = { env: cctpTrackingEnv, owner: ready.address, sourceHash };
 					try {
@@ -1459,10 +1488,12 @@ export function useDeposit({
 								authNonce: cctpAuthorizationNonce,
 							});
 						} else {
+							if (!directAuthorization) throw new LocalizedActionError(msg`Unable to verify the CCTP authorization.`);
 							saveCctpDepositTrackingRecord({
 								...cctpTrackingRecord,
 								amount: trackingAmount,
 								mode: "direct",
+								...directAuthorization,
 							});
 						}
 					} catch {
@@ -1520,6 +1551,21 @@ export function useDeposit({
 						});
 					} catch (cause) {
 						throw new DefinitiveDepositSourceFailureError("source-receipt-mismatch", toError(cause).message, { cause });
+					}
+					if (
+						directAuthorization &&
+						hasCctpAuthorizationUsedLog({
+							authNonce: directAuthorization.authNonce,
+							config: cctpDepositConfig,
+							receipt,
+							user: cctpDepositUser,
+						})
+					) {
+						try {
+							removeCctpSponsoredAuthorizationIntent(cctpTrackingEnv, cctpDepositUser, directAuthorization.authNonce);
+						} catch {
+							// The authorization is already consumed. Leave an expiring tombstone if local storage cannot be updated.
+						}
 					}
 				}
 

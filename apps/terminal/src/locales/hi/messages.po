@@ -10682,6 +10682,7 @@ msgstr "क्षेत्रीय उपलब्धता सत्याप�
 
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
 msgstr "CCTP अधिकरण सत्यापित नहीं किया जा सका।"
 

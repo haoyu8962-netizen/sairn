@@ -10682,6 +10682,7 @@ msgstr "Unable to verify regional availability. Trading is temporarily unavailab
 
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
 msgstr "Unable to verify the CCTP authorization."
 

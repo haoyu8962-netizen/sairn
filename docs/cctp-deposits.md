@@ -448,9 +448,11 @@ records additionally store the non-secret authorization nonce and mode, but
 never the EIP-3009 signature. Legacy version-one records are read as direct
 deposits.
 
-Immediately before a sponsored Smart Wallet submission, the application also
-persists a minimal unresolved intent containing the environment, exact owner,
-amount, authorization nonce, and expiry. If the Bundler or Paymaster call ends
+Immediately before a sponsored Smart Wallet submission, and since 2026-11-19
+before an external wallet is asked to broadcast
+([details](#external-wallet-authorization-intent-and-replaced-transactions)), the
+application also persists a minimal unresolved intent containing the environment,
+exact owner, amount, authorization nonce, and expiry. If the Bundler or Paymaster call ends
 without returning a source hash, reloads remain fail-closed and cannot sign a
 second authorization until that intent expires. The intent is removed only
 after the exact source-chain success described below; no authorization
@@ -522,6 +524,66 @@ Fast Transfer allowance quotes, and the balance re-read of the locked amount) ca
 deadline (`DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS`), so a hanging provider releases the lock as a
 failure before anything is signed.
 
+### External-wallet authorization intent and replaced transactions
+
+Implemented locally on 2026-11-19, not released. Until then an external wallet
+recorded nothing before it was asked to broadcast: when `writeContract` ended
+without a hash (a `4900` disconnect, say), closing the dialog, reloading or a
+second tab could sign a new EIP-3009 authorization and broadcast a second
+deposit while the first could still execute.
+
+The external-wallet path now writes the same unresolved authorization intent as
+the sponsored one (environment, exact owner, amount, authorization nonce and
+`validBefore`; never the signature or calldata), under the funds-action lock,
+after every pre-broadcast check and immediately before `writeContract`. The
+storage key keeps its historical `sponsored-authorization-intent` name; it
+covers both modes, and any intent of the owner blocks a new deposit of either
+mode with the existing "previous deposit authorization is still active" message.
+If the intent cannot be written, nothing is broadcast. The intent is removed only
+on these facts:
+
+- the wallet refused before broadcasting (the definitive provider codes listed
+  below). A provider code decides on its own: a rejection-like message no longer
+  overrides `4900`, `-32603` or another code outside that list, and the message
+  counts only for an error without any code;
+- a successful receipt that carries USDC's `AuthorizationUsed(owner, authNonce)`
+  event, in the dialog or in recovery;
+- the authorization's `validBefore` has passed, after which USDC rejects it
+  ("authorization is expired"), so it can no longer execute.
+
+A revert or a mismatched receipt keeps the intent until it expires, as for the
+sponsored path: the authorization is public in the reverted calldata and stays
+valid until then. The longest block is therefore the one-hour authorization
+window (`CCTP_AUTHORIZATION_WINDOW_SECONDS`), never a permanent one, and the
+persistent `Deposit status unknown` warning of the original page still tells the
+user to check wallet activity.
+
+A direct tracking record written since this change also stores the authorization
+nonce, `validBefore` and `sourceBlock`, the Arbitrum block number read just
+before the broadcast. When the tracked hash has no receipt, recovery reads the
+latest block and USDC `authorizationState(owner, authNonce)` at that block:
+
+- unused and the block's timestamp is still before `validBefore`: keep waiting;
+- unused at a block whose timestamp is at or after `validBefore`: the deposit can
+  never execute (a cancelled or dropped transaction), so the record is settled as
+  a definitive source failure with the existing `source-receipt-mismatch` text;
+- used: `eth_getLogs` for that `AuthorizationUsed` event from `sourceBlock` to
+  the same block names the transaction that consumed it. That transaction must
+  pass the same receipt and calldata checks as the tracked one (owner as sender,
+  official extension, amount, forwarder hook, and now the tracked authorization
+  nonce); Circle status is then queried with its hash. Another sender or calldata
+  is a definitive mismatch; a used authorization whose log is not visible yet is
+  a retryable RPC error and keeps the record.
+
+The record keeps its original key and hash, so the explorer link still names the
+original transaction (Arbiscan shows it as replaced). The dialog's own wait still
+follows the original hash and ends in the unknown state after its ten-minute
+confirmation limit; the page-level tracker then resolves the replacement.
+Records written before this change, without these fields, keep the earlier
+behaviour. Detecting a replacement does not depend on the original transaction's
+account nonce, which viem's `onReplaced` needs and which a node may already have
+dropped.
+
 A completed CCTP deposit reaches HyperCore as a `send` from the network's
 CoreDepositWallet, which Deposits and Withdrawals lists as Deposit from HyperEVM
 ([History values](trading-toolbar-redesign.md#history-values)).
@@ -542,6 +604,10 @@ reports `bridge`, deposits pause rather than reverting to the retired path.
 - [Circle: Transfer with CctpExtensionV2](https://developers.circle.com/cctp/howtos/transfer-usdc-from-arbitrum-to-hypercore-with-cctp-extension-v2)
 - [Circle: CctpExtensionV2 interface](https://developers.circle.com/cctp/references/cctp-extension-v2-contract-interface)
 - [Circle: Get messages and attestations](https://developers.circle.com/api-reference/cctp/all/get-messages-v2)
+- [EIP-3009: Transfer With Authorization](https://eips.ethereum.org/EIPS/eip-3009)
+- [Circle stablecoin-evm `EIP3009.sol`](https://github.com/circlefin/stablecoin-evm/blob/master/contracts/v2/EIP3009.sol)
+- [EIP-1193: Provider errors](https://eips.ethereum.org/EIPS/eip-1193#provider-errors)
+- [viem: `waitForTransactionReceipt` (`onReplaced`)](https://viem.sh/docs/actions/public/waitForTransactionReceipt)
 - [ZeroDev: Gas policies](https://docs.zerodev.app/api-and-toolings/infrastructure/gas-policies)
 - [ZeroDev: Sponsoring gas](https://docs.zerodev.app/smart-accounts/sponsor-gas/evm)
 - [Hyperliquid: Nonces and API wallets](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)

@@ -10682,6 +10682,7 @@ msgstr "تعذر التحقق من التوفر الإقليمي. التداول
 
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
 msgstr "تعذّر التحقق من تفويض CCTP."
 

@@ -32,6 +32,12 @@ describe("deposit submission outcome", () => {
 		expect(isDefinitiveWalletSubmissionFailure(new Error("Request timed out"), false)).toBe(false);
 	});
 
+	it("lets a provider code decide over a rejection-like message", () => {
+		expect(isDefinitiveWalletSubmissionFailure(nested(4900, 1), true)).toBe(false);
+		expect(isDefinitiveWalletSubmissionFailure(nested(-32603, 2), true)).toBe(false);
+		expect(isDefinitiveWalletSubmissionFailure(nested(4001, 1), true)).toBe(true);
+	});
+
 	it("reports an external-wallet broadcast without a hash as unknown unless the wallet refused", () => {
 		const base = { sponsoredSubmissionStarted: false, hash: undefined, userRejected: false };
 

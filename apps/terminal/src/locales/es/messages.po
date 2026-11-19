@@ -10682,6 +10682,7 @@ msgstr "No se pudo verificar la disponibilidad regional. El trading no está dis
 
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
 msgstr "No se pudo verificar la autorización CCTP."
 

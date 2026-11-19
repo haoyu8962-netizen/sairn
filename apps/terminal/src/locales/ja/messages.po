@@ -9512,6 +9512,7 @@ msgstr "地域別の利用可否を確認できません。取引は一時的に
 
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
 msgstr "CCTP の承認を確認できません。"
 

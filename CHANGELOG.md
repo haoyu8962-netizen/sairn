@@ -6,6 +6,16 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ## Unreleased
 
+### Fixed
+
+- An external-wallet deposit whose wallet returned no transaction hash (for example after a
+  disconnect) now blocks another deposit signature for the same account and network, across
+  reloads and tabs, until the wallet's earlier authorization is shown to be used or has expired (at
+  most one hour). A rejection in the wallet still allows an immediate retry.
+- A deposit that the wallet sped up is now followed through the transaction that actually used the
+  authorization, and one that was cancelled or dropped is settled once its authorization expires,
+  instead of waiting on the original hash for up to 30 days.
+
 ### Changed
 
 - While a signed-in wallet session is only reconnecting or still starting up, the order button on
