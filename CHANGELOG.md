@@ -8,6 +8,16 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
+  official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
+  rest of the position.
+- A cross order whose leverage is above its margin tier's maximum shows an estimated liquidation price,
+  computed at the tier's maximum leverage as on the official terminal, instead of N/A.
+- The order form now estimates a liquidation price for orders that partly reduce or reverse a position,
+  and for reduce-only orders, as on the official terminal: the order is added to the position (a
+  reduce-only order counts only up to the position), isolated margin is released in proportion to the
+  closed size, and an order that closes the position exactly shows no liquidation price.
+- Scale orders can have up to 100 orders instead of 20, the official terminal's limit.
 - While a signed-in wallet session is only reconnecting or still starting up, the order button on
   desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
   no longer say the wallet is disconnected or that trading data changed: they stay as they were with
