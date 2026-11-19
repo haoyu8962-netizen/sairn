@@ -7,8 +7,7 @@ export interface ReferralJoinIntent {
 }
 
 export function isSafeReferralJoinCode(code: string): boolean {
-	const normalized = normalizeReferralCode(code);
-	return normalized !== null && isValidReferralCode(normalized);
+	return normalizeReferralJoinCode(code) !== null;
 }
 
 export function parseReferralJoinPath(pathname: string): string | null {
@@ -23,7 +22,13 @@ export function parseReferralJoinPath(pathname: string): string | null {
 	} catch {
 		return null;
 	}
-	return isSafeReferralJoinCode(code) ? code : null;
+	return normalizeReferralJoinCode(code);
+}
+
+/** The code a join link carries, upper-cased as the official terminal and `setReferrer` submission use it. */
+function normalizeReferralJoinCode(code: string): string | null {
+	const normalized = normalizeReferralCode(code);
+	return normalized !== null && isValidReferralCode(normalized) ? normalized : null;
 }
 
 export function resolveReferralJoinIntent(
@@ -50,4 +55,19 @@ export function resolveReferralJoinIntent(
 		(developmentOrigin.protocol === "http:" || developmentOrigin.protocol === "https:") &&
 		["localhost", "127.0.0.1", "[::1]"].includes(developmentOrigin.hostname);
 	return isDevelopmentHost ? { code, env: developmentEnv } : null;
+}
+
+/**
+ * The invitation code for the `/join/$code` route: the router's decoded parameter and the browser path,
+ * decoded once by `parseReferralJoinPath`, must name the same code once both are upper-cased.
+ */
+export function resolveReferralJoinRouteCode(
+	paramCode: string,
+	pathname: string,
+	origin: string,
+	developmentEnv?: "Mainnet" | "Testnet",
+): string | null {
+	const intent = resolveReferralJoinIntent(pathname, origin, developmentEnv);
+	if (!intent || intent.code !== normalizeReferralJoinCode(paramCode)) return null;
+	return intent.code;
 }

@@ -1413,6 +1413,12 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
   The header lives in the same module so the dynamically imported chrome chunk shares the pages'
   header closure; without it Rollup regroups the shared header chunks and the trade desktop
   runtime startup exceeded its bundle budget.
+- The `/join/$code` invitation accepts only the codes the referral submit path can apply (1 to 20
+  ASCII letters and digits) and upper-cases the code it reads from the link, as the official terminal
+  does (`toUpperCase()` on the route parameter, production bundle of 2026-11-19) and as
+  `normalizeReferralCode` does before `setReferrer`. The route compares the router's decoded parameter
+  with the browser path decoded once, both upper-cased (`resolveReferralJoinRouteCode`), so a
+  lower-case link opens the invitation and shows the upper-case code.
 - Evidence for the narrow width (2026-09-17, local production build, disconnected, 1001px viewport,
   gap between the navigation and the wallet controls after removing Earn): en 78px, zh 189px,
   hi 185px, es 53px, fr 2px, ar 109px. French leaves no margin, so every state collapses at

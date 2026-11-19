@@ -5,7 +5,7 @@ import { BRAND_NAME } from "@/config/brand";
 import { bootDashboardRoute } from "@/lib/navigation/boot-dashboard-route";
 import { getNetwork } from "@/lib/network";
 import { buildPageHead } from "@/lib/seo";
-import { isSafeReferralJoinCode, resolveReferralJoinIntent } from "@/lib/trade/referral-join";
+import { isSafeReferralJoinCode, resolveReferralJoinRouteCode } from "@/lib/trade/referral-join";
 
 export const Route = createFileRoute("/join/$code")({
 	ssr: false,
@@ -31,11 +31,12 @@ export const Route = createFileRoute("/join/$code")({
 
 function ReferralJoinRoute() {
 	const { code } = Route.useParams();
-	const result = resolveReferralJoinIntent(
+	const referralCode = resolveReferralJoinRouteCode(
+		code,
 		window.location.pathname,
 		window.location.origin,
 		getNetwork() === "testnet" ? "Testnet" : "Mainnet",
 	);
-	if (!result || result.code !== code) return <NotFoundPage />;
-	return <ReferralsPage initialReferralCode={result.code} />;
+	if (!referralCode) return <NotFoundPage />;
+	return <ReferralsPage initialReferralCode={referralCode} />;
 }

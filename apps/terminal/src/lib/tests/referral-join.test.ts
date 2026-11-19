@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { isSafeReferralJoinCode, parseReferralJoinPath, resolveReferralJoinIntent } from "@/lib/trade/referral-join";
+import {
+	isSafeReferralJoinCode,
+	parseReferralJoinPath,
+	resolveReferralJoinIntent,
+	resolveReferralJoinRouteCode,
+} from "@/lib/trade/referral-join";
 
 describe("referral join links", () => {
 	it("resolves canonical hosts to immutable Hyperliquid environments", () => {
 		expect(resolveReferralJoinIntent("/join/sairnappweb3", "https://app.sairn.ai")).toEqual({
-			code: "sairnappweb3",
+			code: "SAIRNAPPWEB3",
 			env: "Mainnet",
 		});
 		expect(resolveReferralJoinIntent("/join/sairnappweb3", "https://testnet.sairn.ai")).toEqual({
-			code: "sairnappweb3",
+			code: "SAIRNAPPWEB3",
 			env: "Testnet",
 		});
 	});
@@ -30,8 +35,29 @@ describe("referral join links", () => {
 		expect(parseReferralJoinPath(`/join/${encodeURIComponent("邀请")}`)).toBeNull();
 	});
 
-	it("accepts equivalent percent-encoding without changing the decoded code", () => {
-		expect(parseReferralJoinPath("/join/%73airnappweb3")).toBe("sairnappweb3");
+	it("upper-cases the code from the link, as the official terminal and the submit path do", () => {
+		expect(parseReferralJoinPath("/join/sairnappweb3")).toBe("SAIRNAPPWEB3");
+		expect(parseReferralJoinPath("/join/SairnApp7")).toBe("SAIRNAPP7");
+		expect(parseReferralJoinPath("/join/PROBE")).toBe("PROBE");
+	});
+
+	it("opens the invitation for a lower-case link and keeps the upper-cased code", () => {
+		expect(resolveReferralJoinRouteCode("sairnappweb3", "/join/sairnappweb3", "https://app.sairn.ai", "Mainnet")).toBe(
+			"SAIRNAPPWEB3",
+		);
+		expect(resolveReferralJoinRouteCode("other", "/join/sairnappweb3", "https://app.sairn.ai", "Mainnet")).toBeNull();
+		expect(
+			resolveReferralJoinRouteCode(
+				"sairnappweb3",
+				"/join/sairnappweb3",
+				"https://app.sairn.ai.evil.example",
+				"Mainnet",
+			),
+		).toBeNull();
+	});
+
+	it("accepts equivalent percent-encoding and upper-cases the decoded code once", () => {
+		expect(parseReferralJoinPath("/join/%73airnappweb3")).toBe("SAIRNAPPWEB3");
 		expect(parseReferralJoinPath("/join/%e9%82%80%e8%af%b7")).toBeNull();
 	});
 

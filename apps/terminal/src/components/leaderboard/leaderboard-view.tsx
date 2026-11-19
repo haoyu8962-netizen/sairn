@@ -411,6 +411,7 @@ function TraderLink({ href, address, displayName }: TraderLinkProps) {
 			href={href}
 			target="_blank"
 			rel="noopener"
+			title={visibleName ? undefined : address}
 			className="inline-flex min-w-0 items-center gap-2 rounded-8 font-semibold text-fg hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
 		>
 			<span className="grid size-6 shrink-0 place-items-center rounded-full bg-fill-weak text-icon">

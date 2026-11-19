@@ -91,7 +91,7 @@ describe("bootDashboardRoute", () => {
 		expect(source).toContain(
 			"if (!isSafeReferralJoinCode(params.code)) throw notFound();\n\t\treturn bootDashboardRoute();",
 		);
-		expect(source).toContain("<ReferralsPage initialReferralCode={result.code} />");
+		expect(source).toContain("<ReferralsPage initialReferralCode={referralCode} />");
 	});
 
 	it.each(DASHBOARD_ROUTES)("is awaited from the beforeLoad of %s", (file) => {
