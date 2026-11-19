@@ -225,7 +225,7 @@ pnpm --dir apps/terminal exec playwright test \
 - 全仓清算价（`c6`）先把账户的实时价值（权益减其他仓位的维持保证金）与新仓位的初始保证金 `名义价值 / min(杠杆, 档位最大杠杆)` 取大，再按档位求解。因此超过可下最大数量的草稿，甚至空账户，都有清算价。
 
 **本终端的做法：**
-- **全仓清算价。** 估算采用同一补足规则（`withInitialMarginTopUp`），去掉「超过最大数量就不估算」的限制，桌面与手机共用。补足适用于新仓位和同向加仓，扣除手续费后权益为负时也一样补足。空账户按 0 处理后再补足：标准账户价值为 0，或统一账户没有该结算币余额。数据就绪、快照新鲜、杠杆不超过档位等其余守卫不变；只减仓与反向订单仍不估算。手续费仍从权益中扣除，补足后它不再影响结果。
+- **全仓清算价。** 估算采用同一补足规则（`withInitialMarginTopUp`），去掉「超过最大数量就不估算」的限制，桌面与手机共用。补足适用于新仓位和同向加仓，扣除手续费后权益为负时也一样补足。空账户按 0 处理后再补足：标准账户价值为 0，或统一账户没有该结算币余额。数据就绪、快照新鲜等其余守卫不变；只减仓与反向订单仍不估算。所选杠杆高于新仓位名义价值所在档位的最高杠杆时（2026-11-19 起），全仓按官方 `q6` 的 `名义价值 / min(杠杆, 该档最高杠杆)` 补足后照常估算，不再显示 `N/A`；逐仓仍不估算。手续费仍从权益中扣除，补足后它不再影响结果。
 - **手机普通订单的摘要**（市价、限价与条件单）：
   - 空值统一显示 `N/A`，颜色与数值相同；
   - Order Value 与 Margin Req. 写成两位小数加该市场的报价币（如 `84.20 USDC`），与可用余额行一致，HIP-3 市场显示其结算币；
@@ -249,3 +249,12 @@ pnpm --dir apps/terminal exec playwright test \
 - 标志的定义、10 秒上限与「从未登录的浏览器不等待」见 [运行时约束](runtime-guardrails.md) §1；确认未连接时仍是可点击的「Connect Wallet」。
 - 两端在同一个函数里取阶段，不各自判断。`deposit-order-cta.test.tsx` 用同一组输入比对两端的结果；`tests/trade-panel-session-resolving.test.tsx` 与 `tests/mobile-trade-session-resolving.test.tsx` 用真实的面板与真实的 `useWalletSession` 逐个会话阶段验证。
 - 没有验证真实钱包与真机上的表现。
+
+## 只减仓与附带 TP/SL 互斥、全仓跨档清算价（2026-11-19）
+
+依据 [r10 下单计算审计的核对记录](work-memory/sessions/2026-11-19-order-math-audit-fixes.md)，两处按官方终端的做法改：
+
+- **只减仓与附带 TP/SL 互斥。** 官方前端包（2026-09-21 本地取证 `official-config.js`）里，勾选 Reduce Only 会先把 `hyperliquid.tpsl_checked` 置为假，勾选 Take Profit / Stop Loss 会先把 `hyperliquid.reduce_only_checked` 置为假。此前本终端两项可以同时勾选：多仓 +2 时只减仓卖 1 并附带 TP，构建器发出买入方向的只减仓子单，父单成交后剩下的多仓无法被它减掉。现在共享草稿的 `setReduceOnly(true)` 关闭 TP/SL（并清掉 TP/SL 金额错误标记），`setTpSlEnabled(true)` 关闭只减仓，桌面与手机共用。剩余仓位的保护用持仓 TP/SL。不新增文案，表单、构建器与执行守卫没有另加拒绝路径：草稿里两者不会同时为真。回归：`order-entry-store.test.tsx`。
+- **全仓跨档清算价。** 见上节「全仓清算价」的 2026-11-19 补充。回归：`prospective-liquidation.test.ts`（10 @ 100、20 倍、权益 70、档位 0→20x 与 800→10x，得 92.6316；名义在档内时仍按所选杠杆；逐仓仍为 `entry-leverage-exceeds-tier`）。
+
+未做：浏览器与真机核对，真实下单。

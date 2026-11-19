@@ -8,6 +8,11 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
+  official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
+  rest of the position.
+- A cross order whose leverage is above its margin tier's maximum shows an estimated liquidation price,
+  computed at the tier's maximum leverage as on the official terminal, instead of N/A.
 - While a signed-in wallet session is only reconnecting or still starting up, the order button on
   desktop and phone, the Send, Transfer, isolated margin and TP/SL dialogs and the desktop account tabs
   no longer say the wallet is disconnected or that trading data changed: they stay as they were with

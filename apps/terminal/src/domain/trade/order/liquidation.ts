@@ -418,9 +418,10 @@ function getProjectedPosition(input: {
 /**
  * Like the official UI, a cross estimate never assumes less than the position's
  * initial margin: when the account's live value (equity less the other
- * positions' maintenance) is below notional / leverage, the account is taken as
- * topped up to exactly that amount, so a draft above the executable maximum
- * still has a liquidation price.
+ * positions' maintenance) is below notional / min(leverage, entry tier's maximum
+ * leverage), the account is taken as topped up to exactly that amount, so a
+ * draft above the executable maximum, or above its tier's leverage, still has a
+ * liquidation price.
  */
 function withInitialMarginTopUp(projection: { equity: Big; otherMaintenance: Big }, initialMargin: Big): Big {
 	const liveValue = projection.equity.minus(projection.otherMaintenance);
@@ -465,9 +466,12 @@ export function estimateProspectiveLiquidation(input: ProspectiveLiquidationInpu
 	const entryNotional = projection.positionSize.times(price);
 	const entryTier = getTierForNotional(tiers, entryNotional);
 	if (!entryTier) return unavailable("invalid-margin-tiers");
-	if (leverage.gt(entryTier.maxLeverage)) return unavailable("entry-leverage-exceeds-tier");
+	const exceedsEntryTier = leverage.gt(entryTier.maxLeverage);
+	if (exceedsEntryTier && input.marginMode !== "cross") return unavailable("entry-leverage-exceeds-tier");
 	const equity =
-		input.marginMode === "cross" ? withInitialMarginTopUp(projection, entryNotional.div(leverage)) : projection.equity;
+		input.marginMode === "cross"
+			? withInitialMarginTopUp(projection, entryNotional.div(exceedsEntryTier ? entryTier.maxLeverage : leverage))
+			: projection.equity;
 	const entryMaintenance = entryNotional.times(entryTier.maintenanceRate).minus(entryTier.maintenanceDeduction);
 	if (equity.lte(projection.otherMaintenance.plus(entryMaintenance))) {
 		return unavailable("position-not-maintained");

@@ -226,6 +226,61 @@ describe("estimateProspectiveLiquidation", () => {
 		expect(result.liqPrice).toBe(100);
 	});
 
+	it("tops a cross draft whose leverage exceeds its entry tier up to the tier's initial margin, as the official UI does", () => {
+		// Official q6: c = max(70, 1000 / min(20, 10)) = 100, solved in the 800→10x tier
+		// (rate 5%, deduction 800 × (5% − 2.5%) = 20): (1000 − 100 − 20) / (10 × 0.95).
+		const result = estimateProspectiveLiquidation(
+			isolatedInput({
+				marginMode: "cross",
+				orderSize: 10,
+				leverage: 20,
+				marginTiers: [
+					{ lowerBound: "0", maxLeverage: 20 },
+					{ lowerBound: "800", maxLeverage: 10 },
+				],
+				crossMarginAccount: { accountValue: "70", maintenanceMarginUsed: "0" },
+			}),
+		);
+
+		expect(result.status).toBe("available");
+		if (result.status !== "available") throw new Error("Expected an available estimate");
+		expect(result.tierIndex).toBe(1);
+		expect(result.liqPrice).toBeCloseTo(92.63157894736842, 12);
+	});
+
+	it("keeps the selected leverage for a cross draft that stays inside its entry tier", () => {
+		const result = estimateProspectiveLiquidation(
+			isolatedInput({
+				marginMode: "cross",
+				orderSize: 7,
+				leverage: 20,
+				marginTiers: [
+					{ lowerBound: "0", maxLeverage: 20 },
+					{ lowerBound: "800", maxLeverage: 10 },
+				],
+				crossMarginAccount: { accountValue: "20", maintenanceMarginUsed: "0" },
+			}),
+		);
+
+		expect(result.status).toBe("available");
+		expect(result.liqPrice).toBeCloseTo((700 - 35) / (7 * 0.975), 12);
+	});
+
+	it("keeps an isolated draft whose leverage exceeds its entry tier unestimated", () => {
+		const result = estimateProspectiveLiquidation(
+			isolatedInput({
+				orderSize: 10,
+				leverage: 20,
+				marginTiers: [
+					{ lowerBound: "0", maxLeverage: 20 },
+					{ lowerBound: "800", maxLeverage: 10 },
+				],
+			}),
+		);
+
+		expect(result).toMatchObject({ status: "unavailable", reason: "entry-leverage-exceeds-tier" });
+	});
+
 	it("projects an existing same-direction isolated position from its live snapshot", () => {
 		const result = estimateProspectiveLiquidation(
 			isolatedInput({
