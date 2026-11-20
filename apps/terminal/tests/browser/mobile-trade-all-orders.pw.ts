@@ -364,9 +364,9 @@ for (const viewport of [
 		await page.getByRole("textbox", { name: "End Price", exact: true }).fill("105");
 		const levels = page.getByRole("textbox", { name: "Number of Orders", exact: true });
 		const skew = page.getByRole("textbox", { name: "Size Skew", exact: true });
-		await levels.fill("20");
+		await levels.fill("100");
 		await levels.press("ArrowUp");
-		await expect(levels).toHaveValue("20");
+		await expect(levels).toHaveValue("100");
 		await skew.fill("0.01");
 		await skew.press("ArrowDown");
 		await expect(skew).toHaveValue("0.01");

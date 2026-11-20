@@ -202,15 +202,15 @@ for (const viewport of [
 			await page.getByRole("textbox", { name: label.start, exact: true }).fill("95");
 			await page.getByRole("textbox", { name: label.end, exact: true }).fill("105");
 			const fields = page.locator('[data-slot="trade-panel-fields"]');
-			await expect(fields.getByText("2–20", { exact: true })).toBeVisible();
+			await expect(fields.getByText("2–100", { exact: true })).toBeVisible();
 			await expect(fields.getByText("0.01–100", { exact: true })).toBeVisible();
 			const levels = page.getByRole("textbox", { name: label.levels, exact: true });
 			await levels.fill("2");
 			await levels.press("ArrowDown");
 			await expect(levels).toHaveValue("2");
-			await levels.fill("20");
+			await levels.fill("100");
 			await levels.press("ArrowUp");
-			await expect(levels).toHaveValue("20");
+			await expect(levels).toHaveValue("100");
 			const skew = page.getByRole("textbox", { name: label.skew, exact: true });
 			await skew.fill("100");
 			await skew.press("ArrowUp");
@@ -223,7 +223,7 @@ for (const viewport of [
 			await selectOrder(page, "scale", locale);
 			await expect(page.getByRole("textbox", { name: label.start, exact: true })).toHaveValue("95");
 			await expect(page.getByRole("textbox", { name: label.end, exact: true })).toHaveValue("105");
-			await expect(levels).toHaveValue("20");
+			await expect(levels).toHaveValue("100");
 			await expect(skew).toHaveValue("0.01");
 			await expect(page.getByRole("textbox", { name: label.size, exact: true })).toHaveValue("0.25");
 			await page.getByRole("button", { name: "Toggle position", exact: true }).click();
