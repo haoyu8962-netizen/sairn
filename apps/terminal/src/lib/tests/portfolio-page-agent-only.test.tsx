@@ -160,5 +160,7 @@ describe("PortfolioPage in an Agent-only session", () => {
 		}
 		expect(container.textContent).not.toContain("Unavailable actions");
 		expect(container.textContent).not.toContain("Deposit unavailable");
+		expect(new Set(actions.map((action) => action.getAttribute("aria-describedby"))).size).toBe(1);
+		expect([...container.querySelectorAll(".sr-only")].filter((node) => node.textContent === checking)).toHaveLength(1);
 	});
 });

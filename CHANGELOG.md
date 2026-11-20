@@ -133,7 +133,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
   disabled meanwhile. Deposit buttons on the account toolbar, Balances tab, top bar and Portfolio
   keep the name Deposit while data or the region is still being resolved; only a confirmed
   restriction shows "Deposit unavailable" and its reason. The positions toolbar's Withdraw is
-  disabled from its availability, not from whether an explanation exists.
+  disabled from its availability, not from whether an explanation exists. While the account mode is
+  still loading, disabled funds buttons tell screen readers that it is loading instead of asking for
+  a mode to be selected.
 - Phone trade history cards on the Trade History page show the fill's type, fee and explorer link,
   and history, Vault, API wallet and leaderboard cards wrap long values instead of cutting them off.
 - Corners that were silently square (footer links and shortcut key, Settings copy control, markdown

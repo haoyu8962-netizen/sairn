@@ -81,6 +81,12 @@
   - P3 两处措辞：`order-draft-lifecycle.md` 写成桌面专属的数量单位偏好实为双端共享；本记录把描边替换写成等效，已改为按语义令牌统一。
   - 另按它的变异表补了现货校验的语言切换用例。
   - 第一轮修复后本机全量终端 Vitest：766 个文件、11,286 个用例通过，1 个文件跳过（`websocket-soak`）。
+- 第二轮（审 `484ae325..2f563262`，约 14.5 万 token）：8.3 分，一项 P2、三项 P3，逐条核对后全部成立并修复：
+  - P2 成交面板在渲染期间改写 ref，一次被放弃的并发渲染（例如切到 B 的过渡挂起）会清空已提交的 A 的基线，A 的下一笔实时成交会被收进基线而不闪烁：基线改为 state，用 React 文档的「渲染期间按条件调整 state」写法，被放弃的渲染里的 state 更新随之丢弃；计算抽成 `lib/trade/trades.ts` 的 `getInitialTrades` 并单测。去掉渲染期 ref 后 React Compiler 开始编译这个组件，一个原地改写快照数组的旧用例随之失效，已按真实订阅返回新数组的方式改写。尝试在 jsdom 里用挂起的过渡复现放弃的渲染：挂起的过渡会把后续的根部更新与订阅更新一起拖住、迟迟不提交，复现不了，这个场景没有集成测试。
+  - P3 打开的桌面弹窗里，上一钱包未完成的更新会让 Connect 不可点：新增 `sessionOpen` 属性，只有关闭中才挡 Connect，`isUpdating` 继续只挡 Confirm；新用例在 `2f563262` 上失败。
+  - P3 账户模式尚未解析时，读屏说明是「Select a supported account mode before moving funds.」，属于提前断言：`account-mode-unresolved` 改为中性的「Loading account mode. Funds actions are temporarily unavailable.」（六种语言已翻译），规范补了一条；Portfolio 里文字相同的读屏说明合并为一个节点。
+  - P3 契约的等价写法：`grid-cols-[none]` / `grid-cols-[subgrid]` 不再算显式轨道，`grid-cols-1!` 与 `!grid-cols-2` 算；提示条背景识别带 `!` 与 `/(--var)` 的写法。
+  - 第二轮修复后本机全量终端 Vitest：766 个文件、11,290 个用例通过，1 个文件跳过。
 
 ## 后续与替代关系
 

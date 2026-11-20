@@ -9,8 +9,10 @@ import { OrderbookPanel } from "@/components/trade/orderbook/orderbook-panel";
 import { TradesPanel } from "@/components/trade/orderbook/trades-panel";
 import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 
+type TestMarket = { kind: string; markPx: string; name: string; pairName: string; szDecimals: number };
+
 const mocks = vi.hoisted(() => ({
-	market: { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 },
+	market: { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 } as TestMarket,
 	subscriptionMethods: [] as string[],
 	result: {
 		data: undefined as
@@ -256,7 +258,7 @@ describe("TradesPanel", () => {
 		expect(container.querySelector('[data-slot="trades-pending"]')).not.toBeNull();
 		mocks.result.status = "active";
 		mocks.result.isStale = false;
-		mocks.result.data[0].coin = "HYPE";
+		mocks.result.data = [{ ...mocks.result.data[0], coin: "HYPE" }];
 		renderPanel();
 		expect(container.querySelector("a.recent-trade-row")).not.toBeNull();
 	});

@@ -493,6 +493,19 @@ describe("desktop account panel", () => {
 		expect(modalActions.openTransfer).not.toHaveBeenCalled();
 	});
 
+	it("describes an account mode that is still loading neutrally, without asking for a selection", () => {
+		testState.accountAbstraction = "unknown";
+		renderPanel();
+
+		const withdraw = findButton(container, "Withdraw");
+		expectActionDisabled(withdraw);
+		expect(getDescriptionText(withdraw)).toContain("Loading account mode. Funds actions are temporarily unavailable.");
+		expect(getDescriptionText(withdraw)).not.toContain("Select a supported account mode");
+		for (const id of (withdraw.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean)) {
+			expect(document.getElementById(id)?.className).toContain("sr-only");
+		}
+	});
+
 	it.each(["unifiedAccount", "portfolioMargin"])(
 		"hides internal transfer in %s and restores its route in separate mode",
 		(accountAbstraction) => {

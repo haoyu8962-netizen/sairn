@@ -273,6 +273,7 @@ function MarginModeModalComponent({
 											key={`${open}:${accountModeForm.currentMode ?? "unavailable"}`}
 											{...accountModeForm}
 											isUpdating={actionPending || !open}
+											sessionOpen={open}
 											onClose={() => onOpenChange(false)}
 											mobileLayout
 										/>

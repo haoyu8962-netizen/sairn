@@ -1,9 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import { getBaseQuoteFromPairName } from "@/domain/market";
 import { cn } from "@/lib/cn";
 import { useSelectedMarketInfo, useSubscription } from "@/lib/hyperliquid";
-import { getTradePriceDecimals, processTrades } from "@/lib/trade/trades";
+import { getInitialTrades, getTradePriceDecimals, type InitialTrades, processTrades } from "@/lib/trade/trades";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { TradeRow } from "./trade-row";
 
@@ -43,13 +43,9 @@ export function TradesPanel({ compact = false }: Props) {
 		() => processTrades(hasCurrentSnapshot ? trades : [], i18n.locale),
 		[hasCurrentSnapshot, i18n.locale, trades],
 	);
-	const initialTrades = useRef<{ coin: string; ids: Set<string> | null }>({ coin: subscriptionCoin, ids: null });
-	if (initialTrades.current.coin !== subscriptionCoin) {
-		initialTrades.current = { coin: subscriptionCoin, ids: null };
-	}
-	if (initialTrades.current.ids === null && processed.length > 0) {
-		initialTrades.current = { coin: subscriptionCoin, ids: new Set(processed.map((trade) => trade.id)) };
-	}
+	const [storedInitialTrades, setInitialTrades] = useState<InitialTrades>({ coin: subscriptionCoin, ids: null });
+	const initialTrades = getInitialTrades(storedInitialTrades, subscriptionCoin, processed);
+	if (initialTrades !== storedInitialTrades) setInitialTrades(initialTrades);
 	const showRows = hasCurrentSnapshot && processed.length > 0;
 	const showEmpty = hasCurrentSnapshot && processed.length === 0;
 
@@ -82,7 +78,7 @@ export function TradesPanel({ compact = false }: Props) {
 								szDecimals={szDecimals}
 								isTestnet={isTestnet}
 								compact={compact}
-								initial={initialTrades.current.ids?.has(trade.id)}
+								initial={initialTrades.ids?.has(trade.id)}
 							/>
 						))}
 					</div>

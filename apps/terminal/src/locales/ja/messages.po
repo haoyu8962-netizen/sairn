@@ -4194,6 +4194,10 @@ msgstr "さらに読み込む"
 msgid "Loading"
 msgstr "読み込み中"
 
+#: src/hooks/trade/use-funds-action-availability.ts
+msgid "Loading account mode. Funds actions are temporarily unavailable."
+msgstr "アカウントモードを読み込み中です。資金操作は一時的に利用できません。"
+
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Loading asset information..."
 msgstr "資産情報を読み込み中..."

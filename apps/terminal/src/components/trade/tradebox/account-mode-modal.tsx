@@ -24,6 +24,7 @@ export interface AccountModeFormProps {
 	canChange?: boolean;
 	portfolioMarginActivationEnabled?: boolean;
 	mobileLayout?: boolean;
+	sessionOpen?: boolean;
 	onConnect?: () => void;
 	onClose: () => void;
 	onApply: (mode: SelectableAccountAbstraction) => Promise<void>;
@@ -56,6 +57,7 @@ export function AccountModeModal({ open, onOpenChange, ...formProps }: Props) {
 					key={`${open}:${formProps.currentMode ?? "unavailable"}`}
 					{...formProps}
 					isUpdating={!!formProps.isUpdating || !open}
+					sessionOpen={open}
 					onClose={() => onOpenChange(false)}
 				/>
 			</ModalPopup>
@@ -70,6 +72,7 @@ export function AccountModeForm({
 	canChange,
 	portfolioMarginActivationEnabled = false,
 	mobileLayout = false,
+	sessionOpen = true,
 	onConnect,
 	onClose,
 	onApply,
@@ -112,7 +115,7 @@ export function AccountModeForm({
 	const confirmDescriptionId =
 		(agentOnlySession && agentOnlyReasonId) || (automaticSetup && automaticSetupNoteId) || undefined;
 	async function handleApply() {
-		if (applyInFlightRef.current || agentOnlySession || isUpdating) return;
+		if (applyInFlightRef.current || agentOnlySession || !sessionOpen) return;
 		if (!canChange) {
 			onClose();
 			onConnect?.();
@@ -227,7 +230,7 @@ export function AccountModeForm({
 					onClick={handleApply}
 					disabled={
 						agentOnlySession ||
-						!!isUpdating ||
+						!sessionOpen ||
 						(canChange ? isBusy || isModeUnavailable || !isDirty || automaticSetup : false)
 					}
 					focusableWhenDisabled={agentOnlySession}

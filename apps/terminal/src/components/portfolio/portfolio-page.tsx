@@ -105,10 +105,14 @@ export function PortfolioPage() {
 				: null,
 		deposit: depositDisabled && !depositDisabledReason ? depositAvailability.unavailableReason : null,
 	};
+	const passiveReasonTexts = [
+		...new Set(Object.values(passiveUnavailableReasons).filter((reason): reason is string => !!reason)),
+	];
 	const getUnavailableReasonId = (reason: string | null, passiveKey: PassiveReasonKey) => {
 		const index = reason ? unavailableActionGroups.findIndex((group) => group.reason === reason) : -1;
 		if (index >= 0) return `${unavailableActionsId}-${index}`;
-		return passiveUnavailableReasons[passiveKey] ? `${unavailableActionsId}-passive-${passiveKey}` : undefined;
+		const passiveReason = passiveUnavailableReasons[passiveKey];
+		return passiveReason ? `${unavailableActionsId}-passive-${passiveReasonTexts.indexOf(passiveReason)}` : undefined;
 	};
 	const handleAccountModeChange = useCallback(
 		async (nextMode: SelectableAccountAbstraction) => {
@@ -220,13 +224,11 @@ export function PortfolioPage() {
 										</span>
 									</Tooltip>
 								</div>
-								{Object.entries(passiveUnavailableReasons).map(([key, reason]) =>
-									reason ? (
-										<span key={key} id={`${unavailableActionsId}-passive-${key}`} className="sr-only">
-											{reason}
-										</span>
-									) : null,
-								)}
+								{passiveReasonTexts.map((reason, index) => (
+									<span key={reason} id={`${unavailableActionsId}-passive-${index}`} className="sr-only">
+										{reason}
+									</span>
+								))}
 								{unavailableActionGroups.length ? (
 									<div
 										aria-live="polite"
