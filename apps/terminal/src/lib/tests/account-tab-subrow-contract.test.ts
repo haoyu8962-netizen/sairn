@@ -40,6 +40,9 @@ describe("account tab second row", () => {
 
 		const desktopHeader = source("positions/account-table-header-view.tsx");
 		expect(desktopHeader).toMatch(/border-b border-market-close-stroke-card px-5"/);
+		const desktopTab = /ACCOUNT_TAB_TRIGGER_CLASS =\s*"([^"]*)"/.exec(desktopHeader)?.[1].split(" ") ?? [];
+		expect(desktopTab).toContain("px-3");
+		expect(desktopTab).toContain("font-medium");
 	});
 
 	it("names an unfiltered Order History filter the same way on both layouts", () => {

@@ -41,4 +41,5 @@
 ## 后续与替代关系
 
 - 待运营方决定：手机 Balances 没有第二行（官方在该位置放 Hide Small Balances），是否补一行；仪表盘的历史页面（`/historicalOrders`、`/tradeHistory`）筛选器仍用 `All types` / `All statuses`，是否也改。
+- Codex 只读对抗审查（2026-11-20，提交 `56894ebb`）两条 P3：契约没有钉住桌面主标签的内边距与字重（已补断言）；右到左语言下手机主标签条用物理方向的 `pr-7` 留渐隐区，首个标签比第二行多缩进 14px，这是改动前就有的，本次没有修，规范里已注明，留作后续。
 - 规则写在 `.claude/rules/style-ui-guide.md`（Account tab second row）。
