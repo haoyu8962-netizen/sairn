@@ -17,6 +17,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl, useMarkets } from "@/lib/hyperliquid";
+import { getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { getFillDirectionPresentation, getFillDirectionTone } from "@/lib/trade/fill-direction";
 import { fillSnapshotReachesLiveFills, getFilteredFillsEmptyPresentation } from "@/lib/trade/fill-filter-presentation";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
@@ -343,11 +344,11 @@ function MobileHistoryTabContent({
 					<MobileProgressiveList key={`${typeFilter}:${directionFilter}:${roleFilter}`} items={filteredFills}>
 						{(visibleFills) =>
 							visibleFills.map((fill) => {
-								const marketName = fill.coin;
 								const cardKey = getUserFillKey(fill);
 								const detailsId = `mobile-trade-history-${fill.hash}-${fill.tid}`;
 								const isExpanded = expandedKeys.has(cardKey);
 								const market = markets.getMarket(fill.coin);
+								const marketName = getMarketListLabel(market, fill.coin);
 								const closedPnl = getUserFillNetClosedPnl(fill, market);
 								const pnlQuote = getUserFillQuoteToken(fill, market);
 								const showPnl = closedPnl !== null;
@@ -379,7 +380,7 @@ function MobileHistoryTabContent({
 										>
 											<button
 												type="button"
-												onClick={() => handleSelectMarket(marketName)}
+												onClick={() => handleSelectMarket(fill.coin)}
 												aria-label={t`Switch to ${marketName} market`}
 												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-left focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
 											>
@@ -397,7 +398,7 @@ function MobileHistoryTabContent({
 											<div className="min-w-0">
 												<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Size`}</div>
 												<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-													{sizeDisplay} {marketName}
+													{sizeDisplay} {market?.shortName ?? fill.coin}
 												</div>
 											</div>
 										</MobileDisclosureHeader>

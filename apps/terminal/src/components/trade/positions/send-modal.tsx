@@ -396,6 +396,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 	const isValidAmount = isAmountWithinBalance(amount, availableBalanceExact);
 	const amountExceedsBalance = accountDataReady && exceedsBalance(amount, availableBalanceExact);
 	const canSend =
+		open &&
 		sendAvailability.available &&
 		accountModeReady &&
 		accountDataReady &&
@@ -502,7 +503,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 	}
 
 	async function handleReviewConfirm() {
-		if (!reviewIsCurrent || !reviewAcknowledged || review?.identity !== submissionIdentityRef.current) return;
+		if (!open || !reviewIsCurrent || !reviewAcknowledged || review?.identity !== submissionIdentityRef.current) return;
 		await submitSend({ fee: review.fee, destinationHasSentTx: review.destinationHasSentTx });
 	}
 

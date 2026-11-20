@@ -15,7 +15,7 @@ export function BridgeErrorScreen({ error, onBack, onRetry, retryMode = "retry" 
 	return (
 		<div className="flex flex-1 flex-col items-center">
 			<div className="flex flex-1 flex-col items-center justify-center gap-4">
-				<div className="flex size-12 items-center justify-center rounded-full bg-error-soft border border-stroke-error-strong/30">
+				<div className="flex size-12 items-center justify-center rounded-full bg-error-soft border border-stroke-error-weak">
 					<WarningCircleIcon className="size-6 text-error" />
 				</div>
 				<div className="text-center space-y-1">

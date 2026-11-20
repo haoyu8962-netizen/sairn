@@ -545,7 +545,6 @@ describe("desktop account panel", () => {
 		for (const state of [
 			{ wallet: false, geo: "allowed" as const },
 			{ wallet: true, geo: "restricted" as const },
-			{ wallet: true, geo: "unresolved" as const },
 		]) {
 			testState.hasWalletAccess = state.wallet;
 			testState.geoStatus = state.geo;
@@ -554,6 +553,12 @@ describe("desktop account panel", () => {
 				false,
 			);
 		}
+		testState.hasWalletAccess = true;
+		testState.geoStatus = "unresolved";
+		renderPanel();
+		const unresolvedBridge = findButton(container, "Bridge");
+		expectActionDisabled(unresolvedBridge);
+		act(() => unresolvedBridge.click());
 		expect(modalActions.openDeposit).toHaveBeenCalledTimes(1);
 	});
 
@@ -674,21 +679,32 @@ describe("desktop account panel", () => {
 		}
 	});
 
-	it.each(["restricted", "unresolved"] as const)(
-		"removes account action entries without a duplicate Spot notice when geo is %s",
-		(geoStatus) => {
-			testState.geoStatus = geoStatus;
-			renderPanel();
+	it("removes account action entries without a duplicate Spot notice when geo is restricted", () => {
+		testState.geoStatus = "restricted";
+		renderPanel();
 
-			const labels = Array.from(
-				container.querySelectorAll<HTMLButtonElement>("button"),
-				(button) => button.textContent,
-			);
-			expect(labels.filter((label) => label === "Perps / Spot")).toHaveLength(0);
-			expect(labels).not.toContain("Withdraw");
-			expect(container.textContent).toContain("Funds actions are unavailable in this region.");
-			expect(modalActions.openTransfer).not.toHaveBeenCalled();
-			expect(modalActions.openDeposit).not.toHaveBeenCalledWith("withdraw");
-		},
-	);
+		const labels = Array.from(container.querySelectorAll<HTMLButtonElement>("button"), (button) => button.textContent);
+		expect(labels.filter((label) => label === "Perps / Spot")).toHaveLength(0);
+		expect(labels).not.toContain("Withdraw");
+		expect(container.textContent).toContain("Funds actions are unavailable in this region.");
+		expect(modalActions.openTransfer).not.toHaveBeenCalled();
+		expect(modalActions.openDeposit).not.toHaveBeenCalledWith("withdraw");
+	});
+
+	it("keeps the funds entries in place and disabled, without a regional sentence, while geo is unresolved", () => {
+		testState.geoStatus = "unresolved";
+		renderPanel();
+
+		for (const label of ["Deposit", "Withdraw", "Perps / Spot"]) {
+			const button = findButton(container, label);
+			expect(button.closest('[data-slot="account-panel-actions"]')).not.toBeNull();
+			expectActionDisabled(button);
+			act(() => button.click());
+		}
+		expect(container.textContent).not.toContain("Funds actions are unavailable in this region.");
+		expect(container.querySelector('[data-slot="account-panel-actions"] output')).toBeNull();
+		expect(findButton(container, "Deposit").getAttribute("title")).toBeNull();
+		expect(modalActions.openDeposit).not.toHaveBeenCalled();
+		expect(modalActions.openTransfer).not.toHaveBeenCalled();
+	});
 });

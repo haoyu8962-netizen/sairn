@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { BUILDER_DEX_SEPARATOR, getIconUrlFromMarketName } from "@/domain/market";
 import { cn } from "@/lib/cn";
 import type { SpotToken, UnifiedMarket } from "@/lib/hyperliquid/markets";
+import { getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { useMarkets } from "@/lib/hyperliquid/markets/use-markets";
 
 interface Props {
@@ -28,7 +29,7 @@ function resolveName(
 	if (market) {
 		if (variant === "full") return market.pairName;
 		if (variant === "short") return market.shortName;
-		return market.kind === "spot" ? market.pairName : market.shortName;
+		return getMarketListLabel(market, coin);
 	}
 	if (token) return token.displayName;
 	return coin;

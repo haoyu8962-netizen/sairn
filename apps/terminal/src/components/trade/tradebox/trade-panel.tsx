@@ -603,8 +603,12 @@ export function TradePanel() {
 		}
 
 		authorize().catch((error: unknown) => {
-			setApprovalError({ cause: error });
-			setTimeout(() => setApprovalError(null), APPROVAL_ERROR_DISMISS_MS);
+			const failure = { cause: error };
+			setApprovalError(failure);
+			setTimeout(
+				() => setApprovalError((current) => (current === failure ? null : current)),
+				APPROVAL_ERROR_DISMISS_MS,
+			);
 		});
 	}
 

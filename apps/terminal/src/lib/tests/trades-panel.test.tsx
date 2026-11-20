@@ -10,6 +10,7 @@ import { TradesPanel } from "@/components/trade/orderbook/trades-panel";
 import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 
 const mocks = vi.hoisted(() => ({
+	market: { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 },
 	subscriptionMethods: [] as string[],
 	result: {
 		data: undefined as
@@ -33,9 +34,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/hyperliquid", () => ({
 	getExplorerTxUrl: (hash: string) => `https://example.test/tx/${hash}`,
 	useHyperliquid: () => ({ env: "Mainnet" }),
-	useSelectedMarketInfo: () => ({
-		data: { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 },
-	}),
+	useSelectedMarketInfo: () => ({ data: mocks.market }),
 	useSubscription: (method: string) => {
 		useEffect(() => {
 			mocks.subscriptionMethods.push(method);
@@ -66,6 +65,7 @@ describe("TradesPanel", () => {
 
 	beforeEach(() => {
 		mocks.subscriptionMethods.length = 0;
+		mocks.market = { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
 		mocks.result.data = undefined;
 		mocks.result.error = null;
 		mocks.result.isStale = false;
@@ -259,6 +259,54 @@ describe("TradesPanel", () => {
 		mocks.result.data[0].coin = "HYPE";
 		renderPanel();
 		expect(container.querySelector("a.recent-trade-row")).not.toBeNull();
+	});
+
+	it("treats the first snapshot of every market as history, so a market switch does not flash its rows", () => {
+		const trade = (coin: string, tid: number) => ({
+			coin,
+			hash: `0x${tid}`,
+			px: "64.5",
+			side: "B" as const,
+			sz: "1",
+			tid,
+			time: 1_700_000_000_000 + tid,
+			users: ["0x1", "0x2"] as [string, string],
+		});
+		const flagged = () =>
+			Array.from(container.querySelectorAll<HTMLElement>("[data-initial]"), (row) => row.dataset.initial ?? "");
+		mocks.result.status = "active";
+		mocks.result.data = [trade("HYPE", 1), trade("HYPE", 2)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(2);
+
+		mocks.market = { kind: "perp", markPx: "60000", name: "BTC", pairName: "BTC-USDC", szDecimals: 5 };
+		mocks.result.data = [trade("BTC", 3), trade("BTC", 4), trade("BTC", 5)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(3);
+
+		mocks.result.data = [trade("BTC", 6), trade("BTC", 3), trade("BTC", 4), trade("BTC", 5)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(3);
+		expect(container.querySelectorAll(".recent-trade-row")).toHaveLength(4);
+		expect(container.querySelector('.recent-trade-row[href$="/0x6"]')?.hasAttribute("data-initial")).toBe(false);
 	});
 
 	it("does not call a stale empty snapshot an empty market", () => {

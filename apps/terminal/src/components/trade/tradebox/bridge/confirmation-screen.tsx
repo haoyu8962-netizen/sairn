@@ -232,7 +232,7 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 			) : null}
 
 			{noticeContent ? (
-				<div className="flex items-center gap-2 rounded-8 border border-stroke-error-strong/30 bg-error-soft p-2.5">
+				<div className="flex items-center gap-2 rounded-16 border border-stroke-error-weak bg-error-soft p-2.5">
 					<WarningCircleIcon className="size-4 text-error shrink-0" />
 					<span className="text-xs text-error">{noticeContent}</span>
 				</div>

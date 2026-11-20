@@ -220,7 +220,7 @@ export function StakingView(props: StakingViewProps) {
 				</div>
 			</section>
 
-			<div className="grid gap-3 min-[1001px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+			<div className="grid grid-cols-1 gap-3 min-[1001px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
 				<section className="rounded-24 bg-surface p-4 shadow-raised" aria-label={t`Staking overview`}>
 					<div className="grid grid-cols-2 gap-2">
 						<MetricCard

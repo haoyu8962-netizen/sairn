@@ -1,4 +1,5 @@
 import type { MarkPriceStatus } from "@/domain/trade/market-price";
+import type { Translate } from "@/lib/translate";
 import { noBalanceValidator } from "../definitions/balance";
 import {
 	signerNotReadyValidator,
@@ -154,12 +155,12 @@ const perpOrderValidators: Validator<PerpOrderContext>[] = [
 	twapStopBeyondTriggerValidator,
 ];
 
-export function validatePerpOrder(context: PerpOrderContext): PerpOrderValidationResult {
+export function validatePerpOrder(context: PerpOrderContext, translate: Translate): PerpOrderValidationResult {
 	if (context.needsAgentApproval) {
 		return { valid: false, errors: [], canSubmit: false, needsApproval: true };
 	}
 
-	const errors = runValidators(perpOrderValidators, context);
+	const errors = runValidators(perpOrderValidators, context, translate);
 
 	return {
 		valid: errors.length === 0,

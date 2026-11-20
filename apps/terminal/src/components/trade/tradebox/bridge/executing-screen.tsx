@@ -38,7 +38,7 @@ export function ExecutingScreen({ address, statusText, txHash, onDone, recoveryW
 		return (
 			<div className="flex flex-1 flex-col">
 				<div className="flex flex-1 flex-col items-center justify-center gap-4">
-					<div className="flex size-12 items-center justify-center rounded-full bg-warning-soft border border-stroke-warning-strong/30">
+					<div className="flex size-12 items-center justify-center rounded-full bg-warning-soft border border-stroke-warning-weak">
 						<ClockIcon className="size-6 text-warning" />
 					</div>
 					<div className="text-center space-y-1">

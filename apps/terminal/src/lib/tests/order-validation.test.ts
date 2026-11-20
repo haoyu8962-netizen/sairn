@@ -1,3 +1,4 @@
+import { i18n } from "@lingui/core";
 import { describe, expect, it, vi } from "vitest";
 import { ORDER_TYPES, type OrderType } from "@/config/trade";
 import { getTpSlPriceErrors } from "@/domain/trade/tpsl-price-validation";
@@ -38,10 +39,15 @@ import {
 	twapStopDirectionValidator,
 	twapTriggerDiffersFromMarkValidator,
 } from "@/lib/errors/definitions/twap";
-import { type PerpOrderContext, validatePerpOrder } from "@/lib/errors/stacks/perp-order";
-import { type SpotOrderContext, validateSpotOrder } from "@/lib/errors/stacks/spot-order";
+import { type PerpOrderContext, validatePerpOrder as validatePerpOrderWith } from "@/lib/errors/stacks/perp-order";
+import { type SpotOrderContext, validateSpotOrder as validateSpotOrderWith } from "@/lib/errors/stacks/spot-order";
 import { usesLimitPrice } from "@/lib/trade/order-types";
 import { getOrderValidationPresentation, isInlineTpSlValidationError } from "@/lib/trade/order-validation-presentation";
+import type { Translate } from "@/lib/translate";
+
+const translate: Translate = (descriptor) => i18n._(descriptor);
+const validatePerpOrder = (context: PerpOrderContext) => validatePerpOrderWith(context, translate);
+const validateSpotOrder = (context: SpotOrderContext) => validateSpotOrderWith(context, translate);
 
 vi.mock("@lingui/core/macro", () => ({
 	t: (strings: TemplateStringsArray | string, ...values: unknown[]) => {

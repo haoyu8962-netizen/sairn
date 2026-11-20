@@ -7,6 +7,7 @@ import { InfoRow, InfoRowGroup } from "@/components/ui/info-row";
 import { Skeleton, SkeletonValue } from "@/components/ui/skeleton";
 import { ACCOUNT_LABELS } from "@/config/account-labels";
 import { LIFI_BRIDGE_FEATURES, shouldShowLiFiBridgeTab } from "@/config/lifi-bridge";
+import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
 import { useAccountOverview } from "@/hooks/trade/use-account-overview";
 import { useAccountOverviewLabels } from "@/hooks/trade/use-account-overview-labels";
 import { useDepositAvailability } from "@/hooks/trade/use-deposit-availability";
@@ -77,8 +78,11 @@ export function AccountPanel() {
 	const transferDescriptionIds = internalTransferDisabledReason
 		? `${transferDescriptionId} ${transferUnavailableId}`
 		: transferDescriptionId;
-	const depositGeoBlocked =
-		depositAvailability.reason === "geo-restricted" || depositAvailability.reason === "geo-unresolved";
+	const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+	const withdrawNotice = getFundsAvailabilityNotice(fundsActionAvailability.withdrawal);
+	const internalTransferNotice = getFundsAvailabilityNotice(fundsActionAvailability.internalTransfer);
+	const depositGeoBlocked = depositAvailability.reason === "geo-restricted";
+	const geoUnresolved = depositAvailability.reason === "geo-unresolved";
 	const showsFundsActions = hasWalletAccess || sessionMode === "agent-only" || depositAvailability.path === "sponsored";
 	const showsSecondaryFundsActions = !depositGeoBlocked && showsFundsActions;
 
@@ -181,25 +185,23 @@ export function AccountPanel() {
 			{!isConnected ? (
 				<DisconnectedAccountOverview
 					depositEnabled={showsEmailDeposit && depositAvailability.available}
-					depositDisabledReason={showsEmailDeposit ? depositAvailability.unavailableReason : undefined}
+					depositDisabledReason={showsEmailDeposit ? depositNotice : undefined}
 					onDeposit={showsEmailDeposit && depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 				/>
 			) : (
 				<div className="flex flex-1 flex-col">
 					<div data-grid-content-part className="shrink-0 px-2 pt-3 pb-3">
 						{depositGeoBlocked ? (
-							<p className="text-center text-xs text-fg-muted">{depositAvailability.unavailableReason}</p>
+							<p className="text-center text-xs text-fg-muted">{depositNotice}</p>
 						) : !showsFundsActions ? (
 							<p className="text-center text-xs text-fg-muted">{t`Deposits and withdrawals are not allowed.`}</p>
 						) : (
 							<div data-slot="account-panel-actions" className="space-y-2">
-								{depositAvailability.unavailableReason ? (
-									<output className="block text-center text-xs text-fg-muted">
-										{depositAvailability.unavailableReason}
-									</output>
+								{depositNotice ? (
+									<output className="block text-center text-xs text-fg-muted">{depositNotice}</output>
 								) : null}
 								<div className="grid grid-cols-2 gap-2">
-									<Tooltip content={depositAvailability.unavailableReason} side="top">
+									<Tooltip content={depositNotice} side="top">
 										<span className="inline-flex min-w-0 w-full">
 											<Button
 												variant="filled"
@@ -208,14 +210,14 @@ export function AccountPanel() {
 												onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 												{...(depositAvailability.available ? depositModalIntentProps : undefined)}
 												aria-label={t`Deposit`}
-												title={depositAvailability.unavailableReason ?? undefined}
+												title={depositNotice ?? undefined}
 												className="min-h-8 w-full min-w-0 rounded-8 bg-trading-panel-control font-bold text-trading-panel-on-control shadow-none hover:bg-trading-panel-control/90"
 											>
 												{t`Deposit`}
 											</Button>
 										</span>
 									</Tooltip>
-									<Tooltip content={withdrawDisabledReason} side="top">
+									<Tooltip content={withdrawNotice} side="top">
 										<span className="inline-flex min-w-0 w-full">
 											<Button
 												variant="outline"
@@ -236,7 +238,7 @@ export function AccountPanel() {
 									</Tooltip>
 								</div>
 								{!usesSharedQuoteBalance ? (
-									<Tooltip content={internalTransferDisabledReason} side="top">
+									<Tooltip content={internalTransferNotice} side="top">
 										<span className="inline-flex min-w-0 w-full">
 											<Button
 												variant="outline"
@@ -261,8 +263,9 @@ export function AccountPanel() {
 									<Button
 										variant="outline"
 										intent="neutral"
-										onClick={() => openDepositModal("bridge")}
-										{...depositModalIntentProps}
+										disabled={geoUnresolved}
+										onClick={geoUnresolved ? undefined : () => openDepositModal("bridge")}
+										{...(geoUnresolved ? undefined : depositModalIntentProps)}
 										aria-label={t`Bridge`}
 										iconLeft={<ArrowsLeftRightIcon className="size-4" />}
 										className="min-h-8 w-full min-w-0 rounded-8 border-trading-panel-stroke-input font-semibold text-trading-panel-fg shadow-none hover:border-trading-panel-stroke-control"

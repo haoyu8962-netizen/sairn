@@ -1,3 +1,4 @@
+import type { Translate } from "@/lib/translate";
 import { walletLoadingValidator, walletNotConnectedValidator } from "../definitions/connection";
 import {
 	type WithdrawContext,
@@ -23,12 +24,12 @@ const withdrawValidators: Validator<WithdrawValidationContext>[] = [
 	withdrawInsufficientBalanceValidator,
 ];
 
-export function validateWithdraw(context: WithdrawValidationContext): WithdrawValidationResult {
+export function validateWithdraw(context: WithdrawValidationContext, translate: Translate): WithdrawValidationResult {
 	if (context.amount === 0) {
 		return { valid: false, error: null };
 	}
 
-	const errors = runValidators(withdrawValidators, context);
+	const errors = runValidators(withdrawValidators, context, translate);
 	const firstError = errors[0]?.message ?? null;
 
 	return {

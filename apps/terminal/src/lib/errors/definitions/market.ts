@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import type { MarkPriceStatus } from "@/domain/trade/market-price";
 import { createValidator, type Validator } from "../types";
 
@@ -27,7 +27,7 @@ export const noMarketValidator: Validator<HasMarket> = createValidator({
 	code: "MKT_001",
 	category: "market",
 	priority: 40,
-	getMessage: () => t`No market`,
+	getMessage: (_ctx, translate) => translate(msg`No market`),
 	validate: (ctx) => ctx.hasMarket,
 });
 
@@ -36,7 +36,7 @@ export const marketNotReadyValidator: Validator<HasAssetIndex> = createValidator
 	code: "MKT_002",
 	category: "market",
 	priority: 41,
-	getMessage: () => t`Market not ready`,
+	getMessage: (_ctx, translate) => translate(msg`Market not ready`),
 	validate: (ctx) => ctx.hasAssetIndex,
 });
 
@@ -45,7 +45,7 @@ export const noMarkPriceValidator: Validator<HasMarkPrice> = createValidator({
 	code: "MKT_003",
 	category: "market",
 	priority: 65,
-	getMessage: () => t`No mark price`,
+	getMessage: (_ctx, translate) => translate(msg`No mark price`),
 	validate: (ctx) => ctx.orderType !== "market" || ctx.markPx > 0,
 });
 
@@ -54,7 +54,7 @@ export const liveMarkPriceValidator: Validator<HasLiveMarkPrice> = createValidat
 	code: "MKT_004",
 	category: "market",
 	priority: 42,
-	getMessage: () => t`Mark price is unavailable. Wait for market data and try again.`,
+	getMessage: (_ctx, translate) => translate(msg`Mark price is unavailable. Wait for market data and try again.`),
 	validate: (ctx) => !ctx.requiresLiveMarkPrice || ctx.markPriceStatus === "success",
 });
 

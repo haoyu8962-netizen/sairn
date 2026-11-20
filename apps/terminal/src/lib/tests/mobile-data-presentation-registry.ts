@@ -420,10 +420,10 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		icons: { WarningIcon: 1 },
 		tones: {
 			"text-error": 4,
-			"border-stroke-warning-strong/20": 1,
+			"border-stroke-warning-weak": 1,
 			"bg-warning-soft/10": 1,
 			"text-warning": 2,
-			"border-stroke-error-strong/20": 1,
+			"border-stroke-error-weak": 1,
 			"bg-error-soft": 1,
 		},
 		copy: {
@@ -524,13 +524,10 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 	"trade/components/spot-swap-modal.tsx": {
 		icons: { WarningIcon: 6 },
 		tones: {
-			"border-stroke-warning-weak": 1,
-			"bg-warning-soft": 6,
+			"border-stroke-warning-weak": 8,
+			"bg-warning-soft": 7,
 			"text-icon-warning": 1,
 			"text-warning": 12,
-			"border-stroke-warning-strong/20": 5,
-			"border-stroke-warning-strong/40": 2,
-			"bg-warning-soft/50": 1,
 			"border-stroke-warning-strong": 1,
 		},
 		copy: {

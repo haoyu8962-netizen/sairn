@@ -39,3 +39,15 @@ export function getBuilderPerpShortName(name: string): string {
 export function getBuilderPerpDisplayName(name: string, quoteTokenName?: string): string {
 	return `${getBuilderPerpShortName(name)}-${quoteTokenName ?? DEFAULT_QUOTE_TOKEN}`;
 }
+
+interface MarketLabelSource {
+	kind: MarketKind;
+	pairName: string;
+	shortName: string;
+}
+
+/** The market name the official terminal shows in a list row: the pair for spot, the base for perps. */
+export function getMarketListLabel(market: MarketLabelSource | undefined, coin: string): string {
+	if (!market) return coin;
+	return market.kind === "spot" ? market.pairName : market.shortName;
+}

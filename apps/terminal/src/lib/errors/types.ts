@@ -1,3 +1,5 @@
+import type { Translate } from "@/lib/translate";
+
 export type ErrorSeverity = "error" | "warning" | "info";
 
 export type ErrorCategory =
@@ -30,7 +32,7 @@ export interface ValidationError extends ErrorDefinition {
 export interface Validator<TContext> {
 	id: string;
 	error: ErrorDefinition;
-	getMessage: (ctx: TContext) => string;
+	getMessage: (ctx: TContext, translate: Translate) => string;
 	validate: (ctx: TContext) => boolean;
 }
 
@@ -47,7 +49,7 @@ export function createValidator<TContext>(config: {
 	severity?: ErrorSeverity;
 	category: ErrorCategory;
 	priority: number;
-	getMessage: (ctx: TContext) => string;
+	getMessage: (ctx: TContext, translate: Translate) => string;
 	validate: (ctx: TContext) => boolean;
 }): Validator<TContext> {
 	return {
@@ -64,7 +66,11 @@ export function createValidator<TContext>(config: {
 	};
 }
 
-export function runValidators<TContext>(validators: Validator<TContext>[], context: TContext): ValidationError[] {
+export function runValidators<TContext>(
+	validators: Validator<TContext>[],
+	context: TContext,
+	translate: Translate,
+): ValidationError[] {
 	const errors: ValidationError[] = [];
 
 	for (const validator of validators) {
@@ -72,7 +78,7 @@ export function runValidators<TContext>(validators: Validator<TContext>[], conte
 		if (!isValid) {
 			errors.push({
 				...validator.error,
-				message: validator.getMessage(context),
+				message: validator.getMessage(context, translate),
 			});
 		}
 	}
@@ -80,7 +86,11 @@ export function runValidators<TContext>(validators: Validator<TContext>[], conte
 	return errors.sort((a, b) => a.priority - b.priority);
 }
 
-export function getFirstError<TContext>(validators: Validator<TContext>[], context: TContext): ValidationError | null {
-	const errors = runValidators(validators, context);
+export function getFirstError<TContext>(
+	validators: Validator<TContext>[],
+	context: TContext,
+	translate: Translate,
+): ValidationError | null {
+	const errors = runValidators(validators, context, translate);
 	return errors.length > 0 ? errors[0] : null;
 }

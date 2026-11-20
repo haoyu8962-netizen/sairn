@@ -13,18 +13,19 @@ is cumulative quote notional divided by cumulative base size; distance is
 `abs(level price - reference price) / reference price * 100`. Do not substitute
 the final level price for every price in the cumulative notional.
 
-Use the selected market's existing fast market-context `midPx`, falling back to
-its live `markPx`. The global market context must report a successful, fresh
-receipt. Do not use the grouped book midpoint or the selected-market hook's
-cached mark as a reference. Missing or stale reference data renders `—` for
-distance; it is not zero distance. Invalid or nonpositive book amounts do not
+Use only the selected market's fast market-context `midPx`, and only while its
+receipt is current (`isLiveMarkPriceReady` with `midPriceReceivedAt`); there is
+no fallback to `markPx` (Chinese revision below). Do not use the grouped book
+midpoint or the selected-market hook's cached mark as a reference. Missing or
+stale reference data renders `—` for distance; it is not zero distance. Invalid or nonpositive book amounts do not
 produce a tooltip.
 
 Distance has four decimal places. Average prices honor five significant figures
 and the market's perp/spot decimal cap, while integer prices retain their full
-integer value. Base totals use `szDecimals`. USDC totals display whole units;
-other quote units preserve the existing order-book notional precision so small
-non-USDC amounts remain visible. Tooltip totals are not abbreviated. Asset
+integer value. Base totals use `szDecimals`. Quote totals use
+`getOrderbookQuoteDecimals` for every quote unit, USDC included: whole units from
+1 up, two decimals from 0.01, and two significant digits below that, so small
+amounts remain visible. Tooltip totals are not abbreviated. Asset
 labels and translations update without replacing price rows.
 
 ## Selection and input

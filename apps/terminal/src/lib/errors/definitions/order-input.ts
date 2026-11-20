@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { ORDER_MIN_NOTIONAL_USD } from "@/config/trade";
 import { isPositive } from "@/lib/trade/numbers";
 import { createValidator, type Validator } from "../types";
@@ -20,7 +20,7 @@ export const enterLimitPriceValidator: Validator<OrderInputContext> = createVali
 	code: "INP_001",
 	category: "input",
 	priority: 100,
-	getMessage: () => t`Enter limit price`,
+	getMessage: (_ctx, translate) => translate(msg`Enter limit price`),
 	validate: (ctx) => !ctx.usesLimitPrice || ctx.price > 0,
 });
 
@@ -29,7 +29,7 @@ export const enterTriggerPriceValidator: Validator<OrderInputContext> = createVa
 	code: "INP_002",
 	category: "input",
 	priority: 101,
-	getMessage: () => t`Enter trigger price`,
+	getMessage: (_ctx, translate) => translate(msg`Enter trigger price`),
 	validate: (ctx) => !ctx.usesTriggerPrice || isPositive(ctx.triggerPriceNum),
 });
 
@@ -38,7 +38,7 @@ export const enterSizeValidator: Validator<OrderInputContext> = createValidator(
 	code: "INP_003",
 	category: "input",
 	priority: 102,
-	getMessage: () => t`Enter size`,
+	getMessage: (_ctx, translate) => translate(msg`Enter size`),
 	validate: (ctx) => ctx.sizeValue > 0,
 });
 
@@ -47,7 +47,7 @@ export const minOrderNotionalValidator: Validator<OrderInputContext> = createVal
 	code: "INP_004",
 	category: "input",
 	priority: 103,
-	getMessage: () => t`Min order $10`,
+	getMessage: (_ctx, translate) => translate(msg`Min order $10`),
 	validate: (ctx) => ctx.orderValue <= 0 || ctx.orderValue >= ORDER_MIN_NOTIONAL_USD,
 });
 
@@ -56,7 +56,7 @@ export const exceedsMaxSizeValidator: Validator<OrderInputContext> = createValid
 	code: "INP_005",
 	category: "input",
 	priority: 104,
-	getMessage: () => t`Exceeds max size`,
+	getMessage: (_ctx, translate) => translate(msg`Exceeds max size`),
 	validate: (ctx) =>
 		ctx.exceedsMaxSize === undefined ? ctx.maxSize <= 0 || ctx.sizeValue <= ctx.maxSize : !ctx.exceedsMaxSize,
 });

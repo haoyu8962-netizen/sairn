@@ -113,7 +113,7 @@ export function VaultsList({
 					</div>
 				</div>
 
-				<div className="mt-4 grid gap-3 min-[1001px]:grid-cols-[minmax(0,1fr)_auto]">
+				<div className="mt-4 grid grid-cols-1 gap-3 min-[1001px]:grid-cols-[minmax(0,1fr)_auto]">
 					<div className="py-2.5">
 						<p className="text-2xs text-fg-muted">
 							<Trans>Total value locked</Trans>
@@ -425,7 +425,7 @@ function MobileMetric({
 	return (
 		<div className="flex min-w-0 flex-col gap-0.5">
 			<dt className="text-fg-muted">{label}</dt>
-			<dd className={cn("min-w-0 truncate font-semibold tabular-nums text-fg", mono && "font-mono")}>
+			<dd className={cn("min-w-0 break-words font-semibold tabular-nums text-fg", mono && "font-mono")}>
 				{value}
 				{suffix ? <> {suffix}</> : null}
 			</dd>

@@ -7,7 +7,7 @@ import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view"
 import { depositModalIntentProps } from "@/components/trade/components/deposit-modal-intent";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
 import { isQuoteBalanceSharedWithPerps } from "@/domain/trade/balances";
-import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
 import {
 	type SelectableAccountAbstraction,
 	useAccountAbstractionControl,
@@ -72,15 +72,10 @@ export function PortfolioPage() {
 	const fundsActionsDisabled = !hasWalletAccess || geoBlocked;
 	const depositDisabled = !depositAvailability.available;
 	const modeDependentFundsActionsDisabled = fundsActionsDisabled || !accountModeReady;
-	const internalTransferDisabledReason = isMobile
-		? getFundsAvailabilityNotice(fundsActionAvailability.internalTransfer)
-		: fundsActionAvailability.internalTransfer.unavailableReason;
-	const withdrawalNotice = isMobile
-		? getFundsAvailabilityNotice(fundsActionAvailability.withdrawal)
-		: fundsActionAvailability.withdrawal.unavailableReason;
-	const depositNotice = isMobile
-		? getFundsAvailabilityNotice(depositAvailability)
-		: depositAvailability.unavailableReason;
+	const internalTransferDisabledReason = getFundsAvailabilityNotice(fundsActionAvailability.internalTransfer);
+	const withdrawalNotice = getFundsAvailabilityNotice(fundsActionAvailability.withdrawal);
+	const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+	const showsDepositRestrictionLabel = !isMobile && isFundsActionRestricted(depositAvailability);
 	const transferDisabled = !fundsActionAvailability.internalTransfer.available;
 	const modeDependentFundsActionsDisabledReason = modeDependentFundsActionsDisabled ? withdrawalNotice : null;
 	const transferDisabledReason = transferDisabled ? internalTransferDisabledReason : null;
@@ -200,17 +195,11 @@ export function PortfolioPage() {
 												aria-describedby={getUnavailableReasonId(depositDisabledReason)}
 												onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 												{...(depositAvailability.available ? depositModalIntentProps : undefined)}
-												aria-label={
-													depositAvailability.available || isMobile ? undefined : depositAvailability.unavailableLabel
-												}
+												aria-label={showsDepositRestrictionLabel ? depositAvailability.unavailableLabel : undefined}
 												title={depositNotice ?? undefined}
 												iconLeft={<DownloadSimpleIcon className="size-3.5" />}
 											>
-												{depositAvailability.available || isMobile ? (
-													<Trans>Deposit</Trans>
-												) : (
-													depositAvailability.unavailableLabel
-												)}
+												{showsDepositRestrictionLabel ? depositAvailability.unavailableLabel : <Trans>Deposit</Trans>}
 											</Button>
 										</span>
 									</Tooltip>

@@ -417,7 +417,7 @@ function TraderLink({ href, address, displayName }: TraderLinkProps) {
 			<span className="grid size-6 shrink-0 place-items-center rounded-full bg-fill-weak text-icon">
 				{visibleName ? <UserCircleIcon className="size-4" /> : <TrophyIcon className="size-4" />}
 			</span>
-			<span className="min-w-0 truncate">{visibleName ?? <bdi dir="ltr">{shortenAddress(address, 6, 4)}</bdi>}</span>
+			<span className="min-w-0 break-words">{visibleName ?? <bdi dir="ltr">{shortenAddress(address, 6, 4)}</bdi>}</span>
 			<ArrowSquareOutIcon className="size-3.5 shrink-0" />
 		</a>
 	);

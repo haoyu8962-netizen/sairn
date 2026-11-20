@@ -312,6 +312,24 @@ describe("TradeHistoryPage", () => {
 		expect(container.querySelector("tbody")?.textContent).not.toContain("UBTC");
 	});
 
+	it("gives each phone card the desktop row's type, fee and explorer link without truncating its values", () => {
+		mocks.history.fills = [{ ...createFill(1), feeToken: "UBTC", fee: "0.00001" }, createFill(0)];
+		renderPage();
+
+		const [card, zeroHashCard] = Array.from(container.querySelectorAll("article"));
+		expect(card?.textContent).toContain("Perp");
+		expect(card?.textContent).toContain("Fee");
+		expect(card?.textContent).toContain("0.00001 BTC");
+		const explorer = card?.querySelector<HTMLAnchorElement>('a[href="https://example.com/tx"]');
+		expect(explorer?.target).toBe("_blank");
+		expect(explorer?.querySelector("time")).not.toBeNull();
+		expect(zeroHashCard?.querySelector("a[href]")).toBeNull();
+		expect(card?.querySelector("dl")?.className).toContain("grid-cols-2");
+		for (const value of Array.from(card?.querySelectorAll("dd") ?? [])) {
+			expect(value.className).not.toContain("truncate");
+		}
+	});
+
 	it("renders the account's own buy-side liquidation with danger styling", () => {
 		mocks.history.fills = [createFill(0)];
 		mocks.history.fills[0] = {

@@ -13,6 +13,7 @@ import {
 	DESKTOP_NAV_NARROW_MEDIA_QUERY,
 } from "@/config/layout";
 import { MOBILE_PAIRING_FEATURES } from "@/config/mobile-pairing";
+import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
 import { useDepositAvailability } from "@/hooks/trade/use-deposit-availability";
 import { useTradeHomePath } from "@/hooks/trade/use-trade-home-path";
 import { useMediaQuery } from "@/hooks/use-mobile";
@@ -71,6 +72,8 @@ export function TopNav({ mode = "default" }: Props) {
 	const isTestnet = useIsTestnet();
 	const tradeHomePath = useTradeHomePath();
 	const showsDepositEntry = hasWalletAccess || depositAvailability.path === "sponsored";
+	const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+	const depositRestricted = isFundsActionRestricted(depositAvailability);
 	const showsLinkMobileEntry = hasWalletAccess && MOBILE_PAIRING_FEATURES.enabled;
 
 	function warmMobileSyncModal() {
@@ -168,24 +171,20 @@ export function TopNav({ mode = "default" }: Props) {
 						size="sm"
 						disabled={isMarketLoading || !depositAvailability.available}
 						onClick={!isMarketLoading && depositAvailability.available ? () => openDepositModal("deposit") : undefined}
-						aria-label={depositAvailability.available ? t`Deposit` : depositAvailability.unavailableLabel}
-						title={depositAvailability.unavailableReason ?? undefined}
-						iconLeft={depositAvailability.available ? <DownloadSimpleIcon className="size-[18px]" /> : undefined}
+						aria-label={depositRestricted ? depositAvailability.unavailableLabel : t`Deposit`}
+						title={depositNotice ?? undefined}
+						iconLeft={depositRestricted ? undefined : <DownloadSimpleIcon className="size-[18px]" />}
 						data-top-nav-deposit=""
 						{...(!isMarketLoading && depositAvailability.available ? depositModalIntentProps : undefined)}
 						className={cn(
 							APP_BAR_BUTTON_HEIGHT_CLASS,
 							TOP_NAV_DEPOSIT_CLASS,
-							!depositAvailability.available && TOP_NAV_DEPOSIT_ICON_ONLY_CLASS,
+							depositRestricted && TOP_NAV_DEPOSIT_ICON_ONLY_CLASS,
 						)}
 					>
-						{depositAvailability.available ? null : <DownloadSimpleIcon className="size-[18px]" />}
-						<span
-							className={
-								depositAvailability.available ? TOP_NAV_DEPOSIT_LABEL_CLASS : TOP_NAV_DEPOSIT_ICON_ONLY_LABEL_CLASS
-							}
-						>
-							{depositAvailability.available ? <Trans>Deposit</Trans> : depositAvailability.unavailableLabel}
+						{depositRestricted ? <DownloadSimpleIcon className="size-[18px]" /> : null}
+						<span className={depositRestricted ? TOP_NAV_DEPOSIT_ICON_ONLY_LABEL_CLASS : TOP_NAV_DEPOSIT_LABEL_CLASS}>
+							{depositRestricted ? depositAvailability.unavailableLabel : <Trans>Deposit</Trans>}
 						</span>
 					</Button>
 				)

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react";
 import type { MarkPriceStatus } from "@/domain/trade/market-price";
 import { type PerpOrderContext, validatePerpOrder } from "@/lib/errors/stacks/perp-order";
 import { type SpotOrderContext, validateSpotOrder } from "@/lib/errors/stacks/spot-order";
@@ -96,11 +97,12 @@ function toResult(result: {
 }
 
 export function useOrderValidation(input: ValidationInput): FormValidationResult {
+	const { _ } = useLingui();
 	if (input.isSpotMarket) {
 		const context: SpotOrderContext = input;
-		return toResult(validateSpotOrder(context));
+		return toResult(validateSpotOrder(context, _));
 	}
 
 	const context: PerpOrderContext = input;
-	return toResult(validatePerpOrder(context));
+	return toResult(validatePerpOrder(context, _));
 }

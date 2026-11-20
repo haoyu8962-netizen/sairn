@@ -17,6 +17,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
+import { getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { mergeHistoricalOrderSources } from "@/lib/trade/historical-orders";
 import {
 	getFilteredHistoryEmptyPresentation,
@@ -379,11 +380,11 @@ function MobileOrdersHistoryTabContent({
 					<MobileProgressiveList key={`${typeFilter}:${directionFilter}:${statusFilter}`} items={filteredEntries}>
 						{(visibleEntries) =>
 							visibleEntries.map((entry) => {
-								const marketName = entry.coin;
 								const cardKey = getOrderHistoryDisclosureKey(entry);
 								const detailsId = `mobile-order-history-${entry.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 								const isExpanded = expandedKeys.has(cardKey);
 								const market = markets.getMarket(entry.coin);
+								const marketName = getMarketListLabel(market, entry.coin);
 								const isBuy = entry.side === "B";
 								const orderTypeLabel = getEntryTypeLabel(entry);
 								const sideLabel = getOrderSideLabel(entry.side, entry.reduceOnly);
@@ -410,7 +411,7 @@ function MobileOrdersHistoryTabContent({
 										>
 											<button
 												type="button"
-												onClick={() => handleSelectMarket(marketName)}
+												onClick={() => handleSelectMarket(entry.coin)}
 												aria-label={t`Switch to ${marketName} market, ${sideLabel} order`}
 												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-left focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
 											>

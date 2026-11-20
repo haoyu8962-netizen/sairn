@@ -43,9 +43,9 @@ export function TradesPanel({ compact = false }: Props) {
 		() => processTrades(hasCurrentSnapshot ? trades : [], i18n.locale),
 		[hasCurrentSnapshot, i18n.locale, trades],
 	);
-	const initialTradeIds = useRef<Set<string> | null>(null);
-	if (initialTradeIds.current === null && processed.length > 0) {
-		initialTradeIds.current = new Set(processed.map((trade) => trade.id));
+	const initialTrades = useRef<{ coin: string; ids: Set<string> } | null>(null);
+	if (processed.length > 0 && initialTrades.current?.coin !== subscriptionCoin) {
+		initialTrades.current = { coin: subscriptionCoin, ids: new Set(processed.map((trade) => trade.id)) };
 	}
 	const showRows = hasCurrentSnapshot && processed.length > 0;
 	const showEmpty = hasCurrentSnapshot && processed.length === 0;
@@ -79,7 +79,7 @@ export function TradesPanel({ compact = false }: Props) {
 								szDecimals={szDecimals}
 								isTestnet={isTestnet}
 								compact={compact}
-								initial={initialTradeIds.current?.has(trade.id)}
+								initial={initialTrades.current?.ids.has(trade.id)}
 							/>
 						))}
 					</div>

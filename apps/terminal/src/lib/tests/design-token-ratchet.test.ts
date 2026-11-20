@@ -10,6 +10,8 @@ const ARBITRARY_FONT_SIZE = /(?<![\w-])!?text-\[\d+(?:\.\d+)?px\]/g;
 const ARBITRARY_RADIUS = /(?<![\w-])!?rounded(?:-[a-z]{1,2})?-\[\d+(?:\.\d+)?px\]/g;
 const IMPORTANT_MENU_OR_DIALOG_SURFACE = /(?<![\w-])!(?:bg-modal|bg-overlay|shadow-overlay)(?![\w-])/g;
 const RELATIVE_FONT_SIZE = /(?<![\w-])!?text-\[\d+(?:\.\d+)?(?:em|rem)\]/g;
+const NUMERIC_RADIUS = /(?<![\w-])!?rounded(?:-(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee))?-(\d+)(?![\w.-])/g;
+const UI_SOURCE_ROOT = resolve(SOURCE_ROOT, "../../../packages/ui/src");
 
 const ARBITRARY_FONT_SIZE_BASELINE = 111;
 const ARBITRARY_RADIUS_BASELINE = 199;
@@ -25,6 +27,11 @@ function listSourceFiles(directory: string): string[] {
 		}
 		return /\.(ts|tsx)$/.test(name) ? [path] : [];
 	});
+}
+
+function getDefinedNumericRadii(): Set<string> {
+	const css = readFileSync(join(UI_SOURCE_ROOT, "globals.css"), "utf8");
+	return new Set(Array.from(css.matchAll(/--radius-(\d+):/g), (match) => match[1]));
 }
 
 function countMatches(pattern: RegExp): number {
@@ -68,5 +75,19 @@ describe("design token ratchet", () => {
 		expect(total, describeRatchet("Relative text-[Nem] usage", RELATIVE_FONT_SIZE_BASELINE, total)).toBe(
 			RELATIVE_FONT_SIZE_BASELINE,
 		);
+	});
+
+	it("uses only numeric corner radii that the theme defines", () => {
+		const defined = getDefinedNumericRadii();
+		expect(defined.size).toBeGreaterThan(0);
+		const undefinedRadii = [...listSourceFiles(SOURCE_ROOT), ...listSourceFiles(UI_SOURCE_ROOT)].flatMap((path) =>
+			Array.from(readFileSync(path, "utf8").matchAll(NUMERIC_RADIUS))
+				.filter((match) => !defined.has(match[1] ?? ""))
+				.map((match) => `${path.slice(path.indexOf("/src/") + 1)}: ${match[0]}`),
+		);
+		expect(
+			undefinedRadii,
+			"Tailwind generates no rule for a rounded-N class without a matching --radius-N theme value, so the corner renders square. Use the named scale in .claude/rules/design-tokens.md.",
+		).toEqual([]);
 	});
 });
