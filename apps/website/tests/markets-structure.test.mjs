@@ -286,11 +286,9 @@ test("every Pre-IPO input states its quote basis: a verified valuation unit, per
 		const expected = row.preIpoTerms ? "valuation" : row.quotedPerShare ? "per-share" : "unknown";
 		assert.equal(getPreIpoQuoteBasis(row.coin), expected, row.coin);
 	}
-	// The committed configs: EntropyIO publishes a valuation unit; XYZ (ANT, OURA) and Paragon (ANT) quote per share.
+	// The committed configs: EntropyIO publishes a valuation unit; XYZ (OURA) quotes per share.
 	assert.equal(getPreIpoQuoteBasis("io:OAI"), "valuation");
 	assert.equal(getPreIpoQuoteBasis("xyz:OURA"), "per-share");
-	assert.equal(getPreIpoQuoteBasis("xyz:ANT"), "per-share");
-	assert.equal(getPreIpoQuoteBasis("para:ANTH"), "per-share");
 	const preIpoInputs = getLiveMarketInputs().filter((input) => input.kind === "preipo");
 	const inputBases = new Set(preIpoInputs.map((input) => input.quoteBasis));
 	assert.ok(inputBases.has("valuation") && inputBases.has("per-share"), "the live inputs cover both verified quote bases");
