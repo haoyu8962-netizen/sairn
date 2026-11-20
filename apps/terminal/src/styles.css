@@ -188,7 +188,6 @@
     --elevation-overlay: 0 20px 24px -4px rgba(0, 0, 0, 0.08), 0 8px 8px -4px rgba(0, 0, 0, 0.04);
 
     /* API wallet page — handoff semantics mapped to project tokens. */
-    --api-wallet-frame-max: 90rem;
     --api-wallet-content-max: 85rem;
     --api-wallet-description-max: 48.75rem;
     --api-wallet-page-min-height: 43.75rem;
@@ -229,7 +228,7 @@
     --api-wallet-modal-shadow: var(--shadow-overlay);
 
     /* Vaults, staking, and leaderboard redesign semantics. */
-    --earn-frame-max: 90rem;
+    --dashboard-frame-max: 90rem;
     --earn-content-max: 85rem;
     --earn-page-min-height: 35rem;
     --earn-search-max: 21.25rem;
@@ -238,8 +237,6 @@
     --earn-mobile-sort-width: 10rem;
     --earn-rows-select-width: 5rem;
     --earn-state-copy-max: 25rem;
-    --earn-frame-wide-max: 100rem;
-    --staking-frame-max: 90rem;
     --staking-validator-table-min: 60.4375rem;
     --staking-rewards-table-min: 40rem;
     --staking-history-table-min: 44rem;

@@ -118,7 +118,7 @@ export function PortfolioPage() {
 				main={
 					<>
 						<div className="mb-6 flex flex-wrap items-start justify-between gap-4 min-[1001px]:mb-8">
-							<h1 className="text-2xl font-normal tracking-tight text-fg">
+							<h1 className="text-xl font-bold tracking-tight text-fg">
 								<Trans>Portfolio</Trans>
 							</h1>
 							<div className="flex max-w-full flex-col items-end gap-2">

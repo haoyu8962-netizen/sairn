@@ -118,8 +118,8 @@ export function ApiWalletView({
 		<section
 			data-api-wallet-state={pageState}
 			className={cn(
-				"mx-auto flex w-full max-w-[var(--api-wallet-content-max)] flex-col bg-surface text-api-wallet-fg shadow-api-wallet-page",
-				!isMobile && "min-h-[var(--api-wallet-page-min-height)] overflow-hidden rounded-24",
+				"mx-auto flex w-full max-w-[var(--api-wallet-content-max)] flex-col overflow-hidden rounded-24 bg-surface text-api-wallet-fg shadow-api-wallet-page",
+				!isMobile && "min-h-[var(--api-wallet-page-min-height)]",
 			)}
 		>
 			<header className={cn("flex flex-wrap items-start justify-between gap-4 pt-4 pb-3", isMobile ? "px-4" : "px-5")}>
@@ -127,9 +127,7 @@ export function ApiWalletView({
 					<p className="text-2xs text-api-wallet-subtle">
 						<Trans>Account / API Wallet</Trans>
 					</p>
-					<h1
-						className={cn("mt-1 font-bold tracking-heading-1 text-api-wallet-fg", isMobile ? "text-base" : "text-lg")}
-					>
+					<h1 className="mt-1 text-xl font-bold tracking-heading-1 text-api-wallet-fg">
 						<Trans>API Wallet</Trans>
 					</h1>
 					<p className="mt-1 text-2sm leading-6 text-api-wallet-muted">
