@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 
-// Rendered frame of every data dashboard page: side gutter, top padding, content width, title size.
+// Rendered frame of every data dashboard page: side gutter, top padding, content width, the width,
+// left edge and radius of the page surfaces, and the title size.
 // Exits 1 when the pages differ at any width. Headless Chromium against a running dev server; it
 // reads only the states a page reaches without a wallet.
 // Usage: node apps/terminal/tests/browser/dashboard-frame-audit.mjs [origin] [address]
@@ -67,7 +68,7 @@ for (const [width, height] of VIEWPORTS) {
 		await page.waitForTimeout(800);
 		const reading = await page.evaluate(measure);
 		console.log(String(width).padEnd(5), route.replace(address, "<address>").padEnd(28), JSON.stringify(reading));
-		if (reading) seen.set(route, `${reading.gutter}/${reading.top}/${reading.content}/${reading.title}/${reading.overflow > 0}`);
+		if (reading) seen.set(route, `${reading.gutter}/${reading.top}/${reading.content}/${reading.surfaceWidths}/${reading.surfaceLeft}/${reading.radius}/${reading.title}/${reading.overflow > 0}`);
 	}
 	const distinct = new Set(seen.values());
 	if (distinct.size > 1 || seen.size !== ROUTES.length) {

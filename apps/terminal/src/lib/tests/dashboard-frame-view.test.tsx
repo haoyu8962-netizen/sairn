@@ -125,7 +125,7 @@ it("keeps the legal pages a reading column with its own gutter", () => {
 	});
 });
 
-it("never lets a page surface drop its radius or the frame gutter on phones", () => {
+it("never rounds a page surface only on desktop", () => {
 	const components = resolve(__dirname, "../../components");
 	for (const route of dataRoutes) {
 		const dir = resolve(components, route.slice(1));
