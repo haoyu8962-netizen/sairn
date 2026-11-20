@@ -205,8 +205,8 @@ describe("desktop order history direction semantics", () => {
 		expect(container.querySelector('[aria-label="Switch to ETH market, Close Long order"]')).not.toBeNull();
 		expect(container.textContent).not.toContain("Long order");
 		expect(container.querySelector('[aria-label*="short order"]')).toBeNull();
-		expect(container.textContent).toContain("All types");
-		expect(container.textContent).toContain("All statuses");
+		expect(container.textContent).toContain("Type");
+		expect(container.textContent).toContain("Status");
 		expect(Array.from(container.querySelectorAll("label"), (label) => label.textContent)).toEqual([
 			"Order type",
 			"Order status",
@@ -333,7 +333,7 @@ describe("desktop order history direction semantics", () => {
 
 		mocks.address = "0x2222222222222222222222222222222222222222";
 		act(() => root.render(<OrdersHistoryTab />));
-		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("All types");
+		expect(container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0]?.textContent).toContain("Type");
 		expect(container.querySelector('[aria-label="Switch to BTC market, Buy order"]')).not.toBeNull();
 	});
 
@@ -370,7 +370,7 @@ describe("desktop order history direction semantics", () => {
 
 	async function selectStopMarketFilter() {
 		const typeTrigger = container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[0];
-		expect(typeTrigger?.textContent).toContain("All types");
+		expect(typeTrigger?.textContent).toContain("Type");
 		await act(async () => {
 			typeTrigger?.click();
 			await Promise.resolve();
@@ -391,7 +391,7 @@ describe("desktop order history direction semantics", () => {
 		act(() => root.render(<OrdersHistoryTab />));
 
 		const statusTrigger = container.querySelectorAll<HTMLButtonElement>('[role="combobox"]')[1];
-		expect(statusTrigger?.textContent).toContain("All statuses");
+		expect(statusTrigger?.textContent).toContain("Status");
 		await act(async () => {
 			statusTrigger?.click();
 			await Promise.resolve();
