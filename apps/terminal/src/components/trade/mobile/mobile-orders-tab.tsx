@@ -3,6 +3,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ListIcon } from "@phosphor-icons/react";
 import { Button, Select } from "@sairn/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
@@ -23,6 +24,7 @@ import {
 import {
 	formatOpenOrderEditValue,
 	getOpenOrderModifyCapabilities,
+	isReduceOnlyBatchModify,
 	type OpenOrderModifyBlockReason,
 	type OpenOrderModifyMarketBinding,
 	openOrderModifyParamsEqual,
@@ -45,10 +47,12 @@ import {
 } from "@/domain/trade/trading-toolbar-metrics";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useOrderDisplayLabels } from "@/hooks/trade/use-order-display-labels";
+import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { type ActionFailure, formatActionFailure } from "@/lib/errors/action-error";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
+import { assertTradingRegionAllowed, readTradingRegionVerdict } from "@/lib/geo/trading-region";
 import {
 	type ExchangeParams,
 	type SubscriptionStatus,
@@ -224,6 +228,8 @@ function isModifyExecutionSessionBindingCurrent(
 
 export function MobileOrdersTab({ className, disclosureState, scrollMode = "contained" }: Props) {
 	const { t } = useLingui();
+	const queryClient = useQueryClient();
+	useGeoRestriction();
 	const { address, isConnected } = useWalletSession();
 	const navigateToMarket = useMarketNavigation();
 	const { setActiveTab } = useMobileTerminalTab();
@@ -606,6 +612,9 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 			!openOrderModifyParamsEqual(params, execution.params)
 		) {
 			throw createValidationErrorCause({ kind: "code", code: "trading-data-changed" });
+		}
+		if (!isReduceOnlyBatchModify(params)) {
+			assertTradingRegionAllowed(readTradingRegionVerdict(queryClient));
 		}
 		execution.guardPasses += 1;
 		if (execution.guardPasses >= 2) {

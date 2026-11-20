@@ -4,6 +4,7 @@ import {
 	createOpenOrderModifyTarget,
 	formatOpenOrderEditValue,
 	getOpenOrderModifyCapabilities,
+	isReduceOnlyBatchModify,
 	type OpenOrderModifyField,
 	type OpenOrderModifyMarketBinding,
 	type OpenOrderModifyTarget,
@@ -487,5 +488,23 @@ describe("fresh snapshot and execution binding", () => {
 			modifies: plan.params.modifies.map((modify) => ({ ...modify, order: { ...modify.order, p: "101" } })),
 		};
 		expect(openOrderModifyParamsEqual(plan.params, repriced)).toBe(false);
+	});
+});
+
+describe("isReduceOnlyBatchModify", () => {
+	const limit = { a: 0, b: true, p: "100", s: "1", t: { limit: { tif: "Gtc" as const } } };
+
+	it("treats a batch as an exit only when every replacement is reduce-only", () => {
+		expect(isReduceOnlyBatchModify({ modifies: [{ oid: 1, order: { ...limit, r: true } }] })).toBe(true);
+		expect(
+			isReduceOnlyBatchModify({
+				modifies: [
+					{ oid: 1, order: { ...limit, r: true } },
+					{ oid: 2, order: { ...limit, r: false } },
+				],
+			}),
+		).toBe(false);
+		expect(isReduceOnlyBatchModify({ modifies: [{ oid: 1, order: { ...limit, r: false } }] })).toBe(false);
+		expect(isReduceOnlyBatchModify({ modifies: [] })).toBe(false);
 	});
 });

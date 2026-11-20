@@ -12,6 +12,10 @@ const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000";
 type HistoricalOrdersStatus = "error" | "idle" | "loading" | "offline" | "ready";
 
 interface HistoricalOrdersResult {
+	/** Every order the subscription holds, newest status first; `orders` is the start of it. */
+	bufferedOrders: HistoricalOrdersResponse;
+	/** Status time of the oldest order the subscription still holds; null while it holds none. */
+	oldestBufferedStatusTime: number | null;
 	error: unknown;
 	entries: OrdinaryOrderHistoryEntry[];
 	isConnected: boolean;
@@ -42,10 +46,8 @@ export function useHistoricalOrders(): HistoricalOrdersResult {
 		enabled &&
 		hasValidRealtime &&
 		(historicalOrdersSubscription.isStale || historicalOrdersSubscription.status !== "active");
-	const orders = mergeHistoricalOrderSources(hasValidRealtime ? realtimeOrders : undefined).slice(
-		0,
-		RECENT_ACCOUNT_HISTORY_ROWS,
-	);
+	const bufferedOrders = mergeHistoricalOrderSources(hasValidRealtime ? realtimeOrders : undefined);
+	const orders = bufferedOrders.slice(0, RECENT_ACCOUNT_HISTORY_ROWS);
 	const entries = buildHistoricalOrderEntries(orders);
 
 	let status: HistoricalOrdersStatus = "loading";
@@ -62,6 +64,8 @@ export function useHistoricalOrders(): HistoricalOrdersResult {
 	}
 
 	return {
+		bufferedOrders,
+		oldestBufferedStatusTime: bufferedOrders.at(-1)?.statusTimestamp ?? null,
 		error: historicalOrdersSubscription.error ?? (hasMalformedRealtime ? new MalformedHistoryPageError() : undefined),
 		entries,
 		isConnected: enabled,

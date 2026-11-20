@@ -2,6 +2,7 @@ import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { type UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
 import { assertExchange, WalletAccountMismatchError } from "../errors";
 import { assertExchangeMutationAllowed, usePortfolioMarginActivationPolicy } from "../exchange-policy";
+import { assertExchangeActionAcknowledged } from "../internal/exchange/action-acknowledgement";
 import { requiresFundsActionLock, runWithFundsActionLock } from "../internal/exchange/funds-action-lock";
 import { getExchangeLegalCapability, verifyLegalActionAllowed } from "../internal/exchange/legal-execution";
 import {
@@ -13,14 +14,15 @@ import {
 	scheduleExchangeRequest,
 	unwrapExchangeSigningDeadline,
 } from "../internal/exchange/request-scheduler";
-import { useHyperliquid } from "../provider";
+import { type HyperliquidExchangeSessionLease, useHyperliquid } from "../provider";
 import { getExchangeMethodConfig } from "../registries/exchange";
 import {
+	type AgentRegistrationExecutionLease,
 	type AgentRegistrationPreExecutionGuard,
 	captureAgentRegistrationExecutionLease,
 	startAgentRegistrationExecution,
 } from "../signing/agent-registration-session";
-import { useHyperliquidOwnerSigner } from "../signing/owner-signer-provider";
+import { type HyperliquidOwnerSigner, useHyperliquidOwnerSigner } from "../signing/owner-signer-provider";
 import type { HyperliquidQueryError, MutationParameter } from "../types";
 import type { ExchangeMethod, ExchangeParams, ExchangeResponse } from "../types/clients";
 import { useHyperliquidClients } from "./useClients";
@@ -58,13 +60,44 @@ export type GuardedExchangeMutationOptions<M extends IsolatedManagementExchangeM
 	executionGuard: ExchangeExecutionGuard<M>;
 };
 
+export interface ExchangeSigningIdentity {
+	exchangeSession: HyperliquidExchangeSessionLease;
+	ownerSigner: HyperliquidOwnerSigner | null;
+	registrationLease: AgentRegistrationExecutionLease;
+}
+
+/** Same signer generation as the scheduler's request identity: session lease, owner binding, Agent key and epochs. */
+export function isSameExchangeSigningIdentity(
+	expected: ExchangeSigningIdentity,
+	live: ExchangeSigningIdentity | null,
+): boolean {
+	return (
+		live !== null &&
+		live.exchangeSession === expected.exchangeSession &&
+		live.ownerSigner === expected.ownerSigner &&
+		live.registrationLease.epoch.epoch === expected.registrationLease.epoch.epoch &&
+		live.registrationLease.agentPublicKey === expected.registrationLease.agentPublicKey &&
+		live.registrationLease.activeOwner?.activationEpoch === expected.registrationLease.activeOwner?.activationEpoch
+	);
+}
+
+type ExchangeMutationResult<M extends ExchangeMethod> = UseMutationResult<
+	ExchangeResponse<M>,
+	HyperliquidQueryError,
+	ExchangeParams<M>
+> & { captureSigningIdentity: () => ExchangeSigningIdentity | null };
+
 const EXECUTION_GUARD_REQUIRED_MESSAGE = "An execution guard is required for isolated margin management";
 const ASYNC_EXECUTION_GUARD_MESSAGE = "Execution guards must complete synchronously";
 const PRE_EXECUTION_GUARD_USER_CLIENT_MESSAGE =
 	"Pre-execution guards are supported only for user-signed methods and opted-in trading funds actions";
 
 // Trading-signed funds actions that may re-read account state inside the funds lock before signing.
-const TRADING_PRE_EXECUTION_GUARD_METHODS: ReadonlySet<ExchangeMethod> = new Set(["agentSetAbstraction", "borrowLend"]);
+const TRADING_PRE_EXECUTION_GUARD_METHODS: ReadonlySet<ExchangeMethod> = new Set([
+	"agentSetAbstraction",
+	"borrowLend",
+	"vaultTransfer",
+]);
 
 function supportsTradingPreExecutionGuard(method: ExchangeMethod): boolean {
 	return TRADING_PRE_EXECUTION_GUARD_METHODS.has(method) && requiresFundsActionLock(method);
@@ -93,18 +126,19 @@ function assertExecutionAllowed<M extends ExchangeMethod>(
 export function useExchange<M extends IsolatedManagementExchangeMethod>(
 	method: M,
 	options: GuardedExchangeMutationOptions<M>,
-): UseMutationResult<ExchangeResponse<M>, HyperliquidQueryError, ExchangeParams<M>>;
+): ExchangeMutationResult<M>;
 export function useExchange<M extends Exclude<ExchangeMethod, IsolatedManagementExchangeMethod>>(
 	method: M,
 	options?: ExchangeMutationOptions<M>,
-): UseMutationResult<ExchangeResponse<M>, HyperliquidQueryError, ExchangeParams<M>>;
+): ExchangeMutationResult<M>;
 export function useExchange<M extends ExchangeMethod>(
 	method: M,
 	options: ExchangeMutationOptions<M> = {},
-): UseMutationResult<ExchangeResponse<M>, HyperliquidQueryError, ExchangeParams<M>> {
+): ExchangeMutationResult<M> {
 	const { agentPublicKey, trading, user, userWalletMismatch } = useHyperliquidClients();
 	const ownerSigner = useHyperliquidOwnerSigner();
-	const { builderConfig, clientKey, enforceLegalActions, env, exchangeLifecycle, info, sessionMode } = useHyperliquid();
+	const { builderConfig, clientKey, enforceLegalActions, env, exchangeLifecycle, exchangeSession, info, sessionMode } =
+		useHyperliquid();
 	const queryClient = useQueryClient();
 	const portfolioMarginActivationEnabled = usePortfolioMarginActivationPolicy();
 	const { executionGuard, preExecutionGuard, ...mutationOptions } = options;
@@ -114,6 +148,30 @@ export function useExchange<M extends ExchangeMethod>(
 	const fundsAction = requiresFundsActionLock(method);
 
 	const mutationKey = config.useClientKey ? ["hl", method, clientKey] : ["hl", method];
+
+	function captureRegistrationLease() {
+		if (clientKey === "disconnected") return null;
+		const requiresAgent = config.client === "trading" && !ownerSigner;
+		if (requiresAgent && !agentPublicKey) return null;
+		return captureAgentRegistrationExecutionLease(
+			env,
+			clientKey as `0x${string}`,
+			requiresAgent
+				? { agentPublicKey: agentPublicKey ?? undefined, requireActiveOwner: sessionMode === "agent-only" }
+				: undefined,
+		);
+	}
+
+	function captureSigningIdentity(): ExchangeSigningIdentity | null {
+		if (!exchange || !exchangeSession.active) return null;
+		try {
+			ownerSigner?.assertCurrent();
+		} catch {
+			return null;
+		}
+		const registrationLease = captureRegistrationLease();
+		return registrationLease ? { exchangeSession, ownerSigner, registrationLease } : null;
+	}
 
 	const mutationFn = (params: ExchangeParams<M>): Promise<ExchangeResponse<M>> => {
 		ownerSigner?.assertCurrent();
@@ -128,20 +186,9 @@ export function useExchange<M extends ExchangeMethod>(
 		assertExecutionAllowed(method, requestParams as ExchangeParams<M>, executionGuard);
 		if (config.client === "user" && userWalletMismatch) throw new WalletAccountMismatchError();
 		assertExchange(exchange);
-		if (clientKey === "disconnected") throw new ExchangeRequestInvalidatedError();
-		const requiresAgent = config.client === "trading" && !ownerSigner;
-		if (requiresAgent && !agentPublicKey) throw new ExchangeRequestInvalidatedError();
-		const registrationLease = captureAgentRegistrationExecutionLease(
-			env,
-			clientKey as `0x${string}`,
-			requiresAgent
-				? {
-						agentPublicKey: agentPublicKey ?? undefined,
-						requireActiveOwner: sessionMode === "agent-only",
-					}
-				: undefined,
-		);
+		const registrationLease = captureRegistrationLease();
 		if (!registrationLease) throw new ExchangeRequestInvalidatedError();
+		const requiresAgent = config.client === "trading" && !ownerSigner;
 		const requestGeneration = captureExchangeRequestGeneration(env, clientKey, sessionMode, {
 			signer: requiresAgent ? "agent" : "user",
 			registrationEpoch: registrationLease.epoch.epoch,
@@ -194,7 +241,7 @@ export function useExchange<M extends ExchangeMethod>(
 				if (config.client === "user") {
 					fundsPreExecutionGuard = async (guardSignal) => {
 						await defaultPreExecutionGuard?.(guardSignal);
-						await verifyLegalAccess(true, signal);
+						await verifyLegalAccess(true, guardSignal);
 					};
 				} else {
 					await verifyLegalAccess(true, signal);
@@ -214,9 +261,10 @@ export function useExchange<M extends ExchangeMethod>(
 				ownerSigner?.assertCurrent();
 				assertExchangeMutationAllowed(method, requestParams, portfolioMarginActivationEnabled);
 				assertExecutionAllowed(method, requestParams as ExchangeParams<M>, executionGuard);
-				return (requestParams !== undefined ? fn.call(exchange, requestParams) : fn.call(exchange)).catch(
-					unwrapExchangeSigningDeadline,
-				);
+				return (requestParams !== undefined ? fn.call(exchange, requestParams) : fn.call(exchange)).then((response) => {
+					assertExchangeActionAcknowledged(method, response);
+					return response;
+				}, unwrapExchangeSigningDeadline);
 			},
 			requestGeneration,
 			startWithLegalGate,
@@ -224,7 +272,7 @@ export function useExchange<M extends ExchangeMethod>(
 		);
 	};
 
-	return useMutation({
+	const mutation = useMutation({
 		...mutationOptions,
 		// A user may retry explicitly after reconciling balances/history, but a
 		// post-signing transport failure must never be replayed automatically.
@@ -234,4 +282,5 @@ export function useExchange<M extends ExchangeMethod>(
 		// Never paused while offline and replayed later without a new confirmation (ADR 0053).
 		networkMode: "always",
 	});
+	return { ...mutation, captureSigningIdentity };
 }

@@ -124,11 +124,13 @@ export class ExchangeActionDeadlineError extends Error {
 	}
 }
 
-/** Cancels only reduce exposure, so they keep their place however long the queue was busy (ADR 0053). */
+/**
+ * Order cancels only reduce exposure, so they keep their place however long the queue was busy (ADR 0053).
+ * A TWAP termination is bounded like every other action: as on the official terminal, it is sent at once
+ * or reported as not sent, and the user terminates again (ADR 0053, 2026-11-19 addendum).
+ */
 export function getExchangeStartDeadlineMs(method: ExchangeMethod): number | undefined {
-	return method === "cancel" || method === "cancelByCloid" || method === "twapCancel"
-		? undefined
-		: EXCHANGE_ACTION_START_DEADLINE_MS;
+	return method === "cancel" || method === "cancelByCloid" ? undefined : EXCHANGE_ACTION_START_DEADLINE_MS;
 }
 
 function hasPassedDeadline(entry: SigningDeadline): boolean {

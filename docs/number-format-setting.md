@@ -49,7 +49,7 @@
 | `de-DE` | `1.234,56` | `.` | `,` |
 | `fr-FR` | `1 234,56` | 普通空格 | `,` |
 
-- 存在全局设置 `global-settings-v2` 的 `numberFormatLocale` 字段（`use-global-settings-store.ts`），经 `createValidatedStorage` 校验；旧的"跟随语言"取值（`auto`、`zh-CN`、`es-ES` 等）由 `normalizeNumberFormatLocale` 迁移。
+- 存在全局设置 `global-settings-v2` 的 `numberFormatLocale` 字段（`use-global-settings-store.ts`），经与 `createValidatedStorage` 相同的 schema 校验（版本高于 4 的记录不校验、不清理，见 ADR 0057）；旧的"跟随语言"取值（`auto`、`zh-CN`、`es-ES` 等）由 `normalizeNumberFormatLocale` 迁移。
 - 变化时 store 订阅调用 `notifyNumberFormatChange()`（`lib/number-format-reactivity.ts`），`useNumberFormat()` 的快照随之换成新对象（规则 9）。
 - 入口是页头语言菜单（`language-switcher.tsx`）的「数字格式」列表；`Reset` 先恢复语言再恢复数字格式。
 - 不跟随 `navigator.language`，不进 URL，不 reload（`runtime-guardrails.md` §7）。

@@ -7,7 +7,11 @@ import { act } from "react";
 import type { Root } from "react-dom/client";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useHistoricalOrdersCsvExport, useUserFillsCsvExport } from "@/hooks/trade/use-history-csv-export";
+import {
+	useFundingHistoryCsvExport,
+	useHistoricalOrdersCsvExport,
+	useUserFillsCsvExport,
+} from "@/hooks/trade/use-history-csv-export";
 import { useTwapFillHistoryCsv } from "@/hooks/trade/use-twap-fill-history-csv";
 import { formatDateTime } from "@/lib/format";
 import { clearTwapSliceFillsExportPacersForTests } from "@/lib/trade/user-fills";
@@ -17,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 	address: "0x1111111111111111111111111111111111111111" as `0x${string}`,
 	downloadCsv: vi.fn(),
 	historicalOrders: vi.fn(),
+	userFunding: vi.fn(),
 	userFillsByTime: vi.fn(),
 	userTwapSliceFillsByTime: vi.fn(),
 }));
@@ -36,6 +41,7 @@ vi.mock("@/lib/csv", async (importOriginal) => ({
 vi.mock("@/lib/hyperliquid", () => ({
 	getInfoClient: () => ({
 		historicalOrders: mocks.historicalOrders,
+		userFunding: mocks.userFunding,
 		userFillsByTime: mocks.userFillsByTime,
 		userTwapSliceFillsByTime: mocks.userTwapSliceFillsByTime,
 	}),
@@ -150,6 +156,48 @@ describe("account history CSV exports", () => {
 		expect(mocks.downloadCsv).toHaveBeenCalledWith("fills.csv", [["BTC", "null"]]);
 	});
 
+	it("P2-9 never downloads or reports success when a funding page contains malformed decimals", async () => {
+		mocks.userFunding.mockResolvedValue([
+			{ time: 1, delta: { coin: "BTC", fundingRate: "-0.0001", szi: "-1.2300", usdc: "-0.0100" } },
+			{ time: 2, delta: { coin: "BTC", fundingRate: "?", szi: "?", usdc: "not-a-number" } },
+		]);
+		let hookValue: ReturnType<typeof useFundingHistoryCsvExport> | null = null;
+		function Probe() {
+			hookValue = useFundingHistoryCsvExport({
+				filename: "funding.csv",
+				buildRows: (items) => items.map((funding) => [funding.usdc]),
+			});
+			return null;
+		}
+		act(() => root.render(<Probe />));
+		await act(async () => hookValue?.exportCsv());
+		expect(mocks.downloadCsv).not.toHaveBeenCalled();
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledWith("Failed to export funding payments.", expect.anything());
+	});
+
+	it("P3-1 describes the order API boundary without claiming older orders were dropped", async () => {
+		const order = createOrder();
+		mocks.historicalOrders.mockResolvedValue(
+			Array.from({ length: 2_000 }, (_, index) => ({
+				...order,
+				order: { ...order.order, oid: index + 1 },
+			})),
+		);
+		let hookValue: ReturnType<typeof useHistoricalOrdersCsvExport> | null = null;
+		function Probe() {
+			hookValue = useHistoricalOrdersCsvExport({
+				filename: "orders.csv",
+				buildRows: (entries) => entries.map((entry) => [entry.coin]),
+			});
+			return null;
+		}
+		act(() => root.render(<Probe />));
+		await act(async () => hookValue?.exportCsv());
+		expect(mocks.downloadCsv.mock.calls[0]?.[1]).toHaveLength(2_000);
+		expect(toast.warning).toHaveBeenCalledWith("Up to 2000 most recent ordinary orders", expect.anything());
+	});
+
 	it("walks the full fills range and exports the latest 10000 records", async () => {
 		const fills = Array.from({ length: 12_001 }, (_, index) =>
 			createFill({ oid: index + 1, tid: index + 1, time: index + 1 }),
@@ -203,6 +251,46 @@ describe("account history CSV exports", () => {
 		expect(rows.at(0)).toEqual(["2501"]);
 		expect(rows.at(-1)).toEqual(["14999"]);
 		expect(rows.every(([tid]) => Number(tid) % 5 !== 0)).toBe(true);
+	});
+
+	it("waits a full minute before retrying a rate-limited fills page that carries no Retry-After", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		try {
+			mocks.userFillsByTime
+				.mockRejectedValueOnce(
+					Object.assign(new Error("rate limited"), { response: { headers: { get: () => null }, status: 429 } }),
+				)
+				.mockResolvedValue([createFill()]);
+			let hookValue: ReturnType<typeof useUserFillsCsvExport> | null = null;
+			function Probe() {
+				hookValue = useUserFillsCsvExport({
+					filename: "fills.csv",
+					buildRows: (items) => items.map((fill) => [String(fill.tid)]),
+				});
+				return null;
+			}
+			act(() => root.render(<Probe />));
+			if (!hookValue) throw new Error("Missing fills export hook");
+
+			let pendingExport: Promise<void> | undefined;
+			act(() => {
+				pendingExport = hookValue?.exportCsv();
+			});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(59_000);
+			});
+			expect(mocks.userFillsByTime).toHaveBeenCalledTimes(1);
+			expect(toast.error).not.toHaveBeenCalled();
+
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1_000);
+			});
+			await act(async () => pendingExport);
+			expect(mocks.userFillsByTime).toHaveBeenCalledTimes(2);
+			expect(mocks.downloadCsv).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("keeps ordinary order export separate from TWAP lifecycle history", async () => {

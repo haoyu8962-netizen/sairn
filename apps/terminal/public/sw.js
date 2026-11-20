@@ -21,6 +21,8 @@ const SHELL_ASSET_LINK_RELS = new Set(["modulepreload", "preload", "stylesheet"]
 // locale catalogs, one of which the startup gate waits for when the stored language is not English.
 const STARTUP_LIST_META_NAMES = new Set(["sairn-preload-desktop", "sairn-preload-mobile", "sairn-locale-catalogs"]);
 const PRECOMPRESSED_ASSET = /\.(?:br|gz|zst)$/;
+const TRADE_MARKET_PATH = /^\/trade\/[^/]+(?:\/[^/]+)?$/;
+const FILE_EXTENSION = /\.[A-Za-z0-9]{1,16}$/;
 // The JavaScript MIME type essence matches of the HTML standard.
 const JAVASCRIPT_TYPES = new Set([
 	"application/ecmascript",
@@ -86,8 +88,6 @@ self.addEventListener("fetch", (event) => {
 	if (request.mode === "navigate") {
 		if (url.origin !== self.location.origin) return;
 		const pathname = url.pathname.replace(/\/+$/, "") || "/";
-		const segment = pathname.slice(pathname.lastIndexOf("/") + 1);
-		const dot = segment.lastIndexOf(".");
 		if (
 			pathname === "/join" ||
 			pathname.startsWith("/join/") ||
@@ -98,7 +98,7 @@ self.addEventListener("fetch", (event) => {
 			pathname.startsWith("/mobile-agent-sync-ticket/") ||
 			/^\/mobile-agent-sync(\/|$)/i.test(pathname) ||
 			pathname.startsWith("/_serverFn/") ||
-			(dot >= 0 && /^[A-Za-z0-9]{1,16}$/.test(segment.slice(dot + 1)))
+			(!TRADE_MARKET_PATH.test(pathname) && FILE_EXTENSION.test(pathname))
 		)
 			return;
 		const cacheKey = new URL(SHELL_CACHE, self.location.origin).href;

@@ -14,6 +14,7 @@ import {
 	isWalletRejectionError,
 } from "@/lib/errors/action-error";
 import { formatDateTime } from "@/lib/format";
+import { TradingRegionBlockedError } from "@/lib/geo/trading-region";
 import { type InfoResponse, useHyperliquid, useInfo } from "@/lib/hyperliquid";
 import type { Translate } from "@/lib/translate";
 import {
@@ -331,6 +332,11 @@ export function useApiWalletController({
 			if (!executionIsCurrent(lease) || lease.abortController.signal.aborted) return;
 			const latest = activeActionRef.current;
 			if (!latest) return;
+			if (error instanceof TradingRegionBlockedError) {
+				updateAction({ ...latest, state: current.state, failure: error.descriptor, isPreflighting: false });
+				finishExecution(lease);
+				return;
+			}
 			if (!isDeterministicApprovalError(error) && isWalletRejectionError(error)) {
 				updateAction({
 					...latest,
@@ -403,9 +409,11 @@ export function useApiWalletController({
 
 	async function verifyAgain(): Promise<void> {
 		const current = activeActionRef.current;
-		if (!current || current.state.stage !== "done" || current.state.result !== "unknown") return;
+		if (!mountedRef.current || !current || current.state.stage !== "done" || current.state.result !== "unknown") {
+			return;
+		}
 		const target = toReconciliationTarget(current);
-		if (!target || !isCurrentIdentityOperable(current.identityKey, identityKeyRef.current, pageState)) return;
+		if (!target || !isCurrentIdentityReadable(current.identityKey, identityKeyRef.current, pageState)) return;
 		const lease = startExecution(current.identityKey);
 		updateAction({ ...current, state: transitionApiWalletAction(current.state, { type: "retry" }) });
 		await reconcileCurrentAction(lease, target);
@@ -658,6 +666,14 @@ function isCurrentIdentityOperable(
 	pageState: ApiWalletViewProps["pageState"],
 ): boolean {
 	return expected === current && isApiWalletPageOperable(pageState);
+}
+
+function isCurrentIdentityReadable(
+	expected: string,
+	current: string,
+	pageState: ApiWalletViewProps["pageState"],
+): boolean {
+	return expected === current && pageState !== "disconnected" && pageState !== "nonMaster";
 }
 
 function isDeterministicApprovalError(error: unknown): boolean {

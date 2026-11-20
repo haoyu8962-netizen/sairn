@@ -1,7 +1,7 @@
 // Live numbers for 02 (stats band and ticker cards) and the 03 market tabs. Runs only while one of those
 // regions is at least 10% visible, the document is visible, updates are not paused and this tab holds the
 // `sairn-site-live` Web Lock; while another tab holds it this one waits in the lock queue without sending.
-// The same Pause control stops the ticker's scrolling (WCAG 2.2.2); the ticker moves only once it is wired. Requests follow createRequestPlan from
+// The same Pause control stops the ticker's scrolling (WCAG 2.2.2); the ticker moves only while it shows fresh card prices. Requests follow createRequestPlan from
 // src/lib/markets/live.js, time out after REQUEST_TIMEOUT_MS, and every answer is validated fail-closed.
 // Numbers are cleared once any planned dex has gone stale, and for the rest of the visit once a dex has used
 // up its retries. A market the exchange reports delisted (or no longer lists) is removed from 02 and 03 at
@@ -38,8 +38,6 @@ interface LiveInput {
 	quoteBasis: "valuation" | "per-share" | "unknown" | null;
 }
 
-const PRE_IPO_QUOTE_BASES = ["valuation", "per-share", "unknown"];
-
 interface Price {
 	markPx: string;
 	prevDayPx: string;
@@ -55,7 +53,12 @@ export const REQUEST_TIMEOUT_MS = 15_000;
 function readInputs(root: Document): LiveInput[] {
 	const raw = root.querySelector("[data-live-inputs]")?.textContent;
 	if (!raw) return [];
-	const parsed: unknown = JSON.parse(raw);
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return [];
+	}
 	if (!Array.isArray(parsed)) return [];
 	return parsed.filter(
 		(entry): entry is LiveInput =>
@@ -97,7 +100,7 @@ export function startLiveMarkets(root: Document): void {
 	);
 
 	const inputByCoin = new Map(inputs.map((input) => [input.coin, input]));
-	const plan = createRequestPlan(inputs.map((input) => input.coin));
+	const plan = createRequestPlan(inputs.map((input) => input.coin), statsDexes);
 
 	let sendLog: { at: number; weight: number }[] = [];
 	let retriesUsed = 0;
@@ -267,6 +270,10 @@ export function startLiveMarkets(root: Document): void {
 			if (filled && target.dataset.liveCard !== undefined) shown += 1;
 			const mirror = target.dataset.liveCard ? mirrors.get(coin) : undefined;
 			if (mirror) copySlots(target, mirror);
+		}
+		if (strip) {
+			if (paused) strip.dataset.ticker = "paused";
+			else strip.dataset.ticker = shown > 0 ? "moving" : "static";
 		}
 		renderStats(freshDexes, clearAll);
 		list?.setAttribute("aria-busy", shown > 0 ? "false" : "true");
@@ -446,13 +453,12 @@ export function startLiveMarkets(root: Document): void {
 	}
 
 	for (const separator of root.querySelectorAll<HTMLElement>("[data-live-pause-separator]")) separator.hidden = false;
-	strip.dataset.ticker = "moving";
 	for (const button of pauseButtons) {
 		button.hidden = false;
 		button.addEventListener("click", () => {
 			paused = !paused;
 			for (const each of pauseButtons) each.setAttribute("aria-pressed", String(paused));
-			strip.dataset.ticker = paused ? "paused" : "moving";
+			render();
 			update();
 		});
 	}

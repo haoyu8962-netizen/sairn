@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { i18n, type MessageDescriptor } from "@lingui/core";
 import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,9 +31,9 @@ import {
 import { type OrderQueueItem, removeOrderQueueItem, useOrderQueue } from "@/stores/use-order-queue-store";
 import { getPendingOrderActions, hasPendingOrderForAssets } from "@/stores/use-pending-order-store";
 import { getPendingTwapActions } from "@/stores/use-pending-twap-store";
-import { createExchangeHarness } from "./harness/hyperliquid-exchange";
 import { feedbackErrorText } from "./harness/order-feedback";
 import { createI18nRoot } from "./harness/react";
+import { installScheduledExchange } from "./harness/scheduled-exchange";
 
 const USER = "0x1111111111111111111111111111111111111111" as const;
 const COIN = "xyz:CXMT";
@@ -448,12 +449,45 @@ describe("usePositionMarketCloseSubmit", () => {
 		expect(mocks.toastSuccess).not.toHaveBeenCalled();
 	});
 
+	async function renderScheduledClose() {
+		act(() => root.render(null));
+		const exchange = await installScheduledExchange();
+		const client = new QueryClient();
+		act(() => root.render(createElement(QueryClientProvider, { client }, createElement(Probe))));
+		return { exchange, client };
+	}
+
+	it.each([{ s: "3" }, { r: false }])("refuses a changed SDK order field %o after planning", async (change) => {
+		const { exchange, client } = await renderScheduledClose();
+		const session = openSession();
+		const gate = createExecutionGate();
+		exchange.legalCheck.mockImplementationOnce(async () => {
+			await gate.wait();
+			return exchange.allowed;
+		});
+		await act(async () => {
+			const submission = submitConfirmed(session);
+			try {
+				await vi.waitFor(() => expect(exchange.legalCheck).toHaveBeenCalledOnce());
+				const pending = client.getMutationCache().find({ mutationKey: ["hl", "order", USER] });
+				const params = pending?.state.variables as OrderParams;
+				expect(params.orders[0]).toMatchObject({ s: "2.5", r: true });
+				params.orders[0] = { ...params.orders[0], ...change };
+			} finally {
+				gate.release();
+				await submission;
+			}
+		});
+		expect(queueErrorMessages()).toContain(localizedMessage("trading-data-changed"));
+		expect(exchange.signTypedData).not.toHaveBeenCalled();
+		expect(exchange.request).not.toHaveBeenCalled();
+	});
+
 	it.each([
 		{ kind: "percent" as const, value: "63", expectedSize: "1.575" },
 		{ kind: "max" as const, value: "100", expectedSize: "2.5" },
 	])("sends $kind close sizing through the real SDK without changing market semantics", async (sample) => {
-		const exchange = createExchangeHarness(false);
-		mocks.executeOrder.mockImplementation((params) => exchange.client.order(params));
+		const { exchange } = await renderScheduledClose();
 		const sessionId = openSession();
 		act(() =>
 			getPositionMarketCloseActions().setSizingIntent(

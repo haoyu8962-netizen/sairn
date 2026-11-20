@@ -416,9 +416,12 @@ export function getEarnFullPosition({
 }: EarnMaxAmountInput): EarnFullPosition | null {
 	if (operation === "withdraw") {
 		const supplied = Big(row.supplied);
-		const max = getEarnMaxAmount({ operation, row, summary, spotAvailable });
-		const fullAmount = supplied.round(row.weiDecimals, Big.roundDown);
-		return supplied.gt(0) && max !== null && Big(max).gte(fullAmount) ? { principal: row.suppliedBasis } : null;
+		if (supplied.lte(0) || supplied.gt(row.reserveBalance)) return null;
+		if (row.isCollateral) {
+			const collateralValue = Big(row.oraclePx).times(row.ltv);
+			if (collateralValue.lte(0) || supplied.times(collateralValue).gt(summary.availableToBorrowUsd)) return null;
+		}
+		return { principal: row.suppliedBasis };
 	}
 	if (operation === "repay") {
 		const borrowed = Big(row.borrowed);

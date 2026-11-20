@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ArrowsLeftRightIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { ExchangeRequestInvalidatedError } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { Button, ModalContent, ModalDescription, ModalHeader, ModalTitle } from "@sairn/ui";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { NumberInput } from "@/components/ui/number-input";
@@ -28,7 +28,7 @@ import {
 	formatFundsActionFeedback,
 	fundsActionFeedbackCause,
 } from "@/lib/trade/funds-action-feedback";
-import { floorToString, limitDecimalInput } from "@/lib/trade/numbers";
+import { floorToString, limitDecimalInput, toPlainDecimal } from "@/lib/trade/numbers";
 import { PendingActionModal } from "../components/pending-action-modal";
 
 type TransferDirection = "toSpot" | "toPerp";
@@ -65,7 +65,8 @@ interface BodyProps {
 
 function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) {
 	const { t } = useLingui();
-	const { formatDecimalString, formatNumber } = useNumberFormat();
+	const amountErrorId = useId();
+	const { formatDecimalString } = useNumberFormat();
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<TransferSubmission | null>(null);
@@ -203,6 +204,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 				? String(withdrawable)
 				: getSpotTransferableValue(spotUsdcBal)
 			: "0";
+	const amountExceedsBalance = accountDataReady && exceedsBalance(amount, availableBalanceExact);
 	availableBalanceRef.current = {
 		value: availableBalanceExact,
 		receivedAt: direction === "toSpot" ? perpStateReceivedAt : spotStateReceivedAt,
@@ -259,7 +261,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		const transferSummary = (
 			<span>
 				<bdi dir="ltr">
-					{formatNumber(amount)} {DEFAULT_QUOTE_TOKEN}
+					{formatDecimalString(toPlainDecimal(amount))} {DEFAULT_QUOTE_TOKEN}
 				</bdi>{" "}
 				· {fromLabel} → {toLabel}
 			</span>
@@ -351,6 +353,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 									</>
 								}
 								onLabelValueClick={handleMaxClick}
+								aria-describedby={amountExceedsBalance ? amountErrorId : undefined}
 								placeholder="0.00"
 								value={amount}
 								onChange={(e) => handleAmountChange(e.target.value)}
@@ -358,11 +361,14 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 								mobileSafe
 								className={cn(
 									"w-full tabular-nums max-[1000px]:h-11",
-									accountDataReady &&
-										exceedsBalance(amount, availableBalanceExact) &&
-										"border-stroke-error-strong focus:border-stroke-error-strong",
+									amountExceedsBalance && "border-stroke-error-strong focus:border-stroke-error-strong",
 								)}
 							/>
+							{amountExceedsBalance ? (
+								<span id={amountErrorId} hidden>
+									{t`Insufficient balance`}
+								</span>
+							) : null}
 						</>
 					) : null}
 

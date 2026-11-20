@@ -14,8 +14,7 @@ interface PersistedNonceRecord {
 export interface CrossTabNonceManagerOptions {
 	/**
 	 * The exchange's current time estimated from a usable server sample, or `undefined` without one.
-	 * With it, a persisted nonce at or beyond that time plus the future window is discarded: the
-	 * exchange never accepted it, and keeping it would block the signer until the clock caught up.
+	 * When available, it sets the allocation base and the upper bound for the persisted nonce.
 	 */
 	readExchangeNow?: () => number | undefined;
 }
@@ -69,12 +68,12 @@ function readExchangeNow(options: CrossTabNonceManagerOptions): number | undefin
 }
 
 function allocateNonce(storage: Storage, key: string, exchangeNow: number | undefined): number {
-	const now = Date.now();
+	const now = exchangeNow ?? Date.now();
 	if (!Number.isSafeInteger(now) || now < 0) {
 		throw new Error("The local clock cannot produce a safe Hyperliquid nonce.");
 	}
 
-	const futureLimit = (exchangeNow ?? now) + MAX_FUTURE_NONCE_MS;
+	const futureLimit = now + MAX_FUTURE_NONCE_MS;
 	const stored = readPersistedNonce(storage.getItem(key));
 	const previous = exchangeNow !== undefined && stored && stored.nonce >= futureLimit ? null : stored;
 	const nonce = Math.max(now, (previous?.nonce ?? -1) + 1);

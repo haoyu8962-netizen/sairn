@@ -235,10 +235,21 @@ const useOrderEntryFormStore = create<OrderEntryFormStore>()((rawSet) => {
 			setTwapAdvancedEnabled: (twapAdvancedEnabled) => set({ twapAdvancedEnabled }),
 			setTwapTriggerPrice: (twapTriggerPrice) => set({ twapTriggerPrice }),
 			setTwapStopPrice: (twapStopPrice) => set({ twapStopPrice }),
-			setReduceOnly: (reduceOnly) => set({ reduceOnly, sizeSource: null }),
+			// As on the official terminal, checking Reduce Only clears TP/SL and checking TP/SL clears Reduce Only:
+			// attached TP/SL children are sized for the parent's fill and cannot protect what a reduce-only parent leaves.
+			setReduceOnly: (reduceOnly) =>
+				set((state) => ({
+					reduceOnly,
+					sizeSource: null,
+					tpSlEnabled: reduceOnly ? false : state.tpSlEnabled,
+					tpReturnInvalid: reduceOnly ? false : state.tpReturnInvalid,
+					slReturnInvalid: reduceOnly ? false : state.slReturnInvalid,
+				})),
 			setTpSlEnabled: (tpSlEnabled) =>
 				set((state) => ({
 					tpSlEnabled,
+					reduceOnly: tpSlEnabled ? false : state.reduceOnly,
+					sizeSource: tpSlEnabled && state.reduceOnly ? null : state.sizeSource,
 					tpReturnInvalid: tpSlEnabled ? state.tpReturnInvalid : false,
 					slReturnInvalid: tpSlEnabled ? state.slReturnInvalid : false,
 				})),

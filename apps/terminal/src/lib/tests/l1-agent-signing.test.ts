@@ -11,10 +11,11 @@
  * a made-up constant and gives the tests a real-world reference point.
  */
 
+import { signL1Action } from "@nktkas/hyperliquid/signing";
 import { createL1AgentWallet } from "@sairn/hl-react/signing/l1-agent-wallet";
 import { recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // Anvil account #0 — a publicly documented test key, safe to hardcode
 const PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as const;
@@ -27,17 +28,11 @@ const GENESIS_BLOCK_HASH = "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69a
 const L1_DOMAIN = {
 	name: "Exchange",
 	version: "1",
-	chainId: 1337n,
+	chainId: 1337,
 	verifyingContract: ZERO_ADDRESS,
 } as const;
 
 const L1_TYPES = {
-	EIP712Domain: [
-		{ name: "name", type: "string" },
-		{ name: "version", type: "string" },
-		{ name: "chainId", type: "uint256" },
-		{ name: "verifyingContract", type: "address" },
-	],
 	Agent: [
 		{ name: "source", type: "string" },
 		{ name: "connectionId", type: "bytes32" },
@@ -49,6 +44,21 @@ const l1Wallet = createL1AgentWallet(account);
 
 describe("createL1AgentWallet", () => {
 	describe("signature correctness", () => {
+		it.each([false, true])("matches the SDK's own L1 signature on the fast path (isTestnet: %s)", async (isTestnet) => {
+			const action = { type: "cancel", cancels: [{ a: 0, o: 12345 }] };
+			const nonce = 1_800_000_000_000;
+			const sign = vi.fn(account.sign);
+			const signTypedData = vi.fn(account.signTypedData);
+			const wallet = createL1AgentWallet({ address: account.address, sign, signTypedData });
+
+			const expected = await signL1Action({ wallet: account, action, nonce, isTestnet });
+			const actual = await signL1Action({ wallet, action, nonce, isTestnet });
+
+			expect(actual).toEqual(expected);
+			expect(sign).toHaveBeenCalledOnce();
+			expect(signTypedData).not.toHaveBeenCalled();
+		});
+
 		it("produces identical signature to viem for mainnet (source: a)", async () => {
 			const message = { source: "a", connectionId: GENESIS_BLOCK_HASH };
 
@@ -159,6 +169,31 @@ describe("createL1AgentWallet", () => {
 	});
 
 	describe("passthrough for non-L1 domains", () => {
+		it("only uses the fast signer for the SDK chain ID", async () => {
+			const sign = vi.fn(account.sign);
+			const signTypedData = vi.fn(account.signTypedData);
+			const wallet = createL1AgentWallet({ address: account.address, sign, signTypedData });
+			const params = {
+				domain: L1_DOMAIN,
+				types: L1_TYPES,
+				primaryType: "Agent",
+				message: { source: "a", connectionId: GENESIS_BLOCK_HASH },
+			} as const;
+			for (const source of ["a", "b"]) {
+				const typedData = { ...params, message: { ...params.message, source } };
+				const signature = await wallet.signTypedData(typedData);
+				expect(signature).toBe(await account.signTypedData(typedData));
+				expect(await recoverTypedDataAddress({ ...typedData, signature })).toBe(account.address);
+			}
+			expect(sign).toHaveBeenCalledTimes(2);
+			expect(signTypedData).not.toHaveBeenCalled();
+
+			const otherChain = { ...params, domain: { ...L1_DOMAIN, chainId: 1338 } };
+			expect(await wallet.signTypedData(otherChain)).toBe(await account.signTypedData(otherChain));
+			expect(sign).toHaveBeenCalledTimes(2);
+			expect(signTypedData).toHaveBeenCalledExactlyOnceWith(otherChain);
+		});
+
 		it("falls through to standard signTypedData for a different domain", async () => {
 			// Simulates approveAgent or similar user-signed action (different domain name)
 			const domain = {
@@ -194,12 +229,6 @@ describe("createL1AgentWallet", () => {
 
 		it("falls through for the L1 domain with a different primaryType", async () => {
 			const types = {
-				EIP712Domain: [
-					{ name: "name", type: "string" },
-					{ name: "version", type: "string" },
-					{ name: "chainId", type: "uint256" },
-					{ name: "verifyingContract", type: "address" },
-				],
 				NotAnAgent: [{ name: "value", type: "string" }],
 			} as const;
 			const message = { value: "test" };

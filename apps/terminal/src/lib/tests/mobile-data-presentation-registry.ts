@@ -135,12 +135,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		copy: {
 			"No funding payments found.": "confirmed-empty",
 			"No funding payments match this direction.": "confirmed-empty",
+			Retry: "neutral-retry",
 		},
 		why: {
 			"value-announcement":
-				"Screen-reader-only live region announcing the funding total; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+				"Screen-reader-only live region announcing the funding total; a number only for a ready snapshot with no error, not offline and not stale and, while the direction filter is on, a 30-day backfill that allows a conclusion; the stable placeholder otherwise.",
 			"confirmed-empty":
-				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
+				'"No funding payments found." only for a ready live snapshot with no error, not offline, not stale and no filter; the direction no-match comes from getFilteredHistoryEmptyPresentation() on the 30-day userFunding backfill and current live payments, otherwise a blank busy region.',
+			"neutral-retry": "Neutral Retry after the backfill failed or no longer reaches the live payments.",
 			"data-value": "Short direction in the danger colour.",
 		},
 	},
@@ -201,12 +203,14 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		copy: {
 			"No order history found.": "confirmed-empty",
 			"No orders match these filters.": "confirmed-empty",
+			Retry: "neutral-retry",
 		},
 		why: {
 			"value-announcement":
-				"Screen-reader-only live region announcing the number of orders shown; a number only for a ready snapshot with no error, not offline and not stale, the stable placeholder otherwise.",
+				"Screen-reader-only live region announcing the number of orders shown; a number only for a ready snapshot with no error, not offline and not stale and, while a filter is on, a historicalOrders backfill that allows a conclusion; the stable placeholder otherwise.",
 			"confirmed-empty":
-				"Both sentences are rendered only for a ready snapshot with no error, not offline and not stale; a filter that matches nothing in retained rows shows a blank busy region.",
+				'"No order history found." only for a ready live snapshot with no error, not offline, not stale and no filter; the filter no-match comes from getFilteredHistoryEmptyPresentation() on the historicalOrders backfill and current live orders (naming the 2,000-order limit when the backfill reached it), otherwise a blank busy region.',
+			"neutral-retry": "Neutral Retry after the backfill failed or no longer reaches the live orders.",
 			"data-value":
 				"Sell direction in the danger colour; Canceled and Rejected status badge in the error colours (the official terminal leaves the status uncoloured).",
 		},
@@ -264,7 +268,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		tones: { "bg-market-close-danger": 1, "text-market-close-danger": 4, "text-error": 1 },
 		why: {
 			"data-value":
-				"Short side bar and label, stop-loss price, and the liquidation price in the error colour when a live mark is within 10% of it (the official terminal does not highlight it).",
+				"Short side bar and label, stop-loss price, and the liquidation price in the error colour when a live mark is within 10% of it (the official terminal does not highlight it), with a screen-reader-only Near liquidation under the same fresh-data condition (WCAG 1.4.1, 1.3.1).",
 			"destructive-action": "Static danger colour of Market Close and Reverse.",
 		},
 	},
@@ -298,7 +302,7 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		},
 	},
 	"trade/mobile/mobile-trade-view.tsx": {
-		announcers: { 'role="alert"': 1, "<output>": 1 },
+		announcers: { 'role="alert"': 2, "<output>": 1 },
 		tones: { "text-trading-panel-error": 1, "text-error": 2 },
 		rawErrors: 1,
 		copy: {
@@ -310,7 +314,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 		why: {
 			"input-validation":
 				'The role="alert" summary and the one .message read show order validation errors filtered by getOrderValidationPresentation(), which drops errors whose market, account or wallet data is not ready.',
-			"action-feedback": "Failure of Enable Trading after the user pressed it.",
+			"action-feedback":
+				'Failure of Enable Trading after the user pressed it, announced once through its own role="alert" (WCAG 4.1.3).',
 			"confirmed-restriction":
 				"The disabled region button and the <output> reason under the order button (Agent-only, activate trading on desktop) for resolved states only; the order button reads Connect Wallet only once the session is definitively not connected, and keeps the order's name, disabled, while useWalletSession().isResolving holds.",
 			"data-value":
@@ -395,8 +400,8 @@ export const REVIEWED_PRESENTATION: Record<string, ReviewedPresentation> = {
 			"border-stroke-error-strong": 2,
 		},
 		copy: {
-			"Unable to send funds to this address.": "action-feedback",
-			"Unable to check the destination address. Nothing was sent.": ["action-feedback", 2],
+			"Unable to send funds to this address.": ["action-feedback", 2],
+			"Unable to check the destination address. Nothing was sent.": ["action-feedback", 3],
 			"Send status unknown": "action-feedback",
 			"Check your balances and the Deposits & Withdrawals history before retrying.": "action-feedback",
 			"Send failed": "action-feedback",

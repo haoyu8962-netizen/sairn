@@ -14,6 +14,7 @@ import {
 	TableRow,
 	Tooltip,
 } from "@sairn/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ import {
 	createOpenOrderModifyTarget,
 	formatOpenOrderEditValue,
 	getOpenOrderModifyCapabilities,
+	isReduceOnlyBatchModify,
 	type OpenOrderModifyBlockReason,
 	type OpenOrderModifyField,
 	type OpenOrderModifyMarketBinding,
@@ -55,10 +57,12 @@ import {
 } from "@/domain/trade/trading-toolbar-metrics";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useOrderDisplayLabels } from "@/hooks/trade/use-order-display-labels";
+import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { type ActionFailure, formatActionFailure } from "@/lib/errors/action-error";
 import { formatDateTime, type NumberFormatters, useNumberFormat } from "@/lib/format";
+import { assertTradingRegionAllowed, readTradingRegionVerdict } from "@/lib/geo/trading-region";
 import {
 	type ExchangeParams,
 	type SubscriptionStatus,
@@ -251,6 +255,8 @@ interface Props {
 
 export function OrdersTab({ toolbarTarget }: Props = {}) {
 	const { t } = useLingui();
+	const queryClient = useQueryClient();
+	useGeoRestriction();
 	const { address, isConnected } = useWalletSession();
 	const navigateToMarket = useMarketNavigation();
 	const { setSide } = useOrderEntryActions();
@@ -574,6 +580,9 @@ export function OrdersTab({ toolbarTarget }: Props = {}) {
 			!openOrderModifyParamsEqual(params, execution.params)
 		) {
 			throw createValidationErrorCause({ kind: "code", code: "trading-data-changed" });
+		}
+		if (!isReduceOnlyBatchModify(params)) {
+			assertTradingRegionAllowed(readTradingRegionVerdict(queryClient));
 		}
 		execution.guardPasses += 1;
 		if (execution.guardPasses >= 2) {

@@ -60,6 +60,7 @@ export type SubscriptionRuntime = {
 	refCount: number;
 	subscription?: ISubscription;
 	promise?: Promise<ISubscription | undefined>;
+	abortPending?: () => void;
 	reconnectTimer?: ReturnType<typeof setTimeout>;
 	cooldownTimer?: ReturnType<typeof setTimeout>;
 	reconnectAttempts: number;
@@ -741,7 +742,11 @@ export function createHyperliquidStore(initialConfig: HyperliquidConfig): Hyperl
 					scheduleReconnect();
 				};
 
-				runtime.promise = subscribe({ onError: onSubscriptionError })
+				// Only the incremental `l2` subscriber reads the signal; other methods spread these options
+				// into the SDK's subscribe call, whose behavior must not change here.
+				const pendingController = getSubscriptionMethodForKey(key) === "l2" ? new AbortController() : undefined;
+				runtime.abortPending = pendingController ? () => pendingController.abort() : undefined;
+				runtime.promise = subscribe({ onError: onSubscriptionError, signal: pendingController?.signal })
 					.then((subscription) => {
 						const runtime = subscriptionRuntime.get(key);
 						if (runtime !== expectedRuntime) {
@@ -750,6 +755,7 @@ export function createHyperliquidStore(initialConfig: HyperliquidConfig): Hyperl
 						}
 
 						runtime.promise = undefined;
+						runtime.abortPending = undefined;
 
 						if (runtime.refCount <= 0) {
 							void subscription.unsubscribe().catch(() => {});
@@ -795,6 +801,7 @@ export function createHyperliquidStore(initialConfig: HyperliquidConfig): Hyperl
 						}
 
 						runtime.promise = undefined;
+						runtime.abortPending = undefined;
 						runtime.subscription = undefined;
 
 						setSubscriptionFailure(key, error);
@@ -880,6 +887,8 @@ export function createHyperliquidStore(initialConfig: HyperliquidConfig): Hyperl
 
 			visibilityBuffer.delete(key);
 			subscriptionRuntime.delete(key);
+			runtime.abortPending?.();
+			runtime.abortPending = undefined;
 			forgetParsedKey(key);
 			if (subscriptionRuntime.size === 0) {
 				detachSingletons();

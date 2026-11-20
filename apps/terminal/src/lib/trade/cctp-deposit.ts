@@ -72,6 +72,28 @@ export const CCTP_EXTENSION_ABI = [
 	},
 ] as const;
 
+export const USDC_EIP3009_AUTHORIZATION_ABI = [
+	{
+		type: "function",
+		name: "authorizationState",
+		stateMutability: "view",
+		inputs: [
+			{ name: "authorizer", type: "address" },
+			{ name: "nonce", type: "bytes32" },
+		],
+		outputs: [{ name: "", type: "bool" }],
+	},
+	{
+		type: "event",
+		name: "AuthorizationUsed",
+		anonymous: false,
+		inputs: [
+			{ name: "authorizer", type: "address", indexed: true },
+			{ name: "nonce", type: "bytes32", indexed: true },
+		],
+	},
+] as const;
+
 const CCTP_SPONSORED_AUTHORIZATION_COMPONENTS = [
 	{ name: "from", type: "address" },
 	{ name: "amount", type: "uint256" },
@@ -835,6 +857,35 @@ export function assertCctpDepositReceipt({
 	}
 }
 
+export function hasCctpAuthorizationUsedLog({
+	authNonce,
+	config,
+	receipt,
+	user,
+}: {
+	authNonce: Hex;
+	config: CctpDepositConfig;
+	receipt: Pick<TransactionReceipt, "status" | "logs">;
+	user: Address;
+}): boolean {
+	assertAddress(user, "CCTP depositor");
+	assertBytes32(authNonce, "CCTP authorization nonce");
+	if (receipt.status !== "success") return false;
+	return receipt.logs.some((log) => {
+		if (!isAddressEqual(log.address, config.usdc)) return false;
+		try {
+			const event = decodeEventLog({ abi: USDC_EIP3009_AUTHORIZATION_ABI, data: log.data, topics: log.topics });
+			return (
+				event.eventName === "AuthorizationUsed" &&
+				isAddressEqual(event.args.authorizer, user) &&
+				event.args.nonce.toLowerCase() === authNonce.toLowerCase()
+			);
+		} catch {
+			return false;
+		}
+	});
+}
+
 export function assertCctpSponsoredDepositReceipt({
 	amountRaw,
 	authNonce,
@@ -956,6 +1007,7 @@ export function assertCctpSponsoredDepositSourceTransaction({
 
 export function assertCctpDepositSourceTransaction({
 	amountRaw,
+	authNonce,
 	config,
 	input,
 	from,
@@ -963,6 +1015,7 @@ export function assertCctpDepositSourceTransaction({
 	user,
 }: {
 	amountRaw: bigint;
+	authNonce?: Hex;
 	config: CctpDepositConfig;
 	input: Hex;
 	from: Address;
@@ -983,6 +1036,9 @@ export function assertCctpDepositSourceTransaction({
 	}
 	const [authorization, depositForBurn] = decoded.args;
 	const expectedForwarder = addressToBytes32(config.cctpForwarder);
+	if (authNonce !== undefined && authorization.authNonce.toLowerCase() !== authNonce.toLowerCase()) {
+		throw new Error("CCTP source transaction does not carry the tracked deposit authorization");
+	}
 	if (
 		authorization.amount !== amountRaw ||
 		depositForBurn.amount !== amountRaw ||

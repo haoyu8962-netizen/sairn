@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // Static deployment of the trading terminal: uploads the client build to S3 in an order that never
 // lets a new shell reference missing assets, invalidates CloudFront, updates the API Lambda and
-// verifies the public origin. Every AWS command is printed; nothing runs without `--execute`.
+// verifies the public origin. Mutation commands only print plans without `--execute`.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { collectInlineScriptHashes, collectInlineScripts, listPrerenderedPages } from "../../scripts/collect-inline-script-hashes.mjs";
+import { isDeepStrictEqual } from "node:util";
+import { collectInlineScriptHashes, collectInlineScripts, listPrerenderedPages, parseAttributes } from "../../scripts/collect-inline-script-hashes.mjs";
+import { SURFACE_PRELOAD_META } from "../../scripts/inject-shell-preloads.mjs";
 import { applyDistributionAliases } from "./distribution-config.mjs";
 import { fillScriptHashes, hasScriptHashLines, missingScriptHashes, parseScriptHashes, readEdgeConfig, rotateScriptHashes } from "./function-code.mjs";
 
@@ -28,10 +30,6 @@ const MAX_KEYS_PER_COMMAND = 500;
 const HASHED_CHART_ENTRY = /^charting_library\/charting_library\.[0-9a-f]{16}\.js$/;
 /** The build injects the trade startup closure into the shell; a shell with fewer links skipped that step. */
 const MIN_SHELL_PRELOADS = 20;
-/** Surface-specific preload lists the bootstrap entry reads; written by scripts/inject-shell-preloads.mjs. */
-const SURFACE_PRELOAD_META_NAMES = ["sairn-preload-desktop", "sairn-preload-mobile", "sairn-chart-prefetch"];
-/** The lazy locale catalogs the service worker keeps with the startup assets (ADR 0052). */
-const LOCALE_CATALOG_META_NAME = "sairn-locale-catalogs";
 
 /** Cache policy for one object in the public directory; `null` means the file is not uploaded. */
 export function objectCacheControl(relativePath) {
@@ -157,7 +155,8 @@ function singleFileCommand({ publicDir, bucket, key }) {
 /**
  * The ordered upload as `{ stage, command }` steps. Each `--include` is a file key, and a build
  * directory or a key that contains a filter wildcard is refused before any command is built, so
- * every filter matches exactly its own file. No command touches objects from another release and
+ * every filter matches exactly its own file. Like reupload, each command carries at most
+ * `MAX_KEYS_PER_COMMAND` keys, so a stage may span several commands. No command touches objects from another release and
  * none deletes anything: viewers holding an older shell keep working until their next navigation.
  */
 export function buildSyncPlan({ publicDir, bucket, files }) {
@@ -167,12 +166,16 @@ export function buildSyncPlan({ publicDir, bucket, files }) {
 	const steps = [];
 	for (const [cacheControl, keys] of groupByCacheControl(early)) {
 		const stage = cacheControl === IMMUTABLE_CACHE_CONTROL ? "immutable" : "mutable";
-		steps.push({ stage, command: filteredCommand(stage === "immutable" ? "sync" : "cp", { publicDir, bucket, keys, cacheControl }) });
+		for (const keyChunk of chunk(keys, MAX_KEYS_PER_COMMAND)) {
+			steps.push({ stage, command: filteredCommand(stage === "immutable" ? "sync" : "cp", { publicDir, bucket, keys: keyChunk, cacheControl }) });
+		}
 	}
 	steps.sort((left, right) => Number(left.stage === "mutable") - Number(right.stage === "mutable"));
 	const pages = late.filter((item) => item.file !== SHELL_KEY && item.file !== BUILD_META_KEY);
 	for (const [cacheControl, keys] of groupByCacheControl(pages)) {
-		steps.push({ stage: "pages", command: filteredCommand("cp", { publicDir, bucket, keys, cacheControl }) });
+		for (const keyChunk of chunk(keys, MAX_KEYS_PER_COMMAND)) {
+			steps.push({ stage: "pages", command: filteredCommand("cp", { publicDir, bucket, keys: keyChunk, cacheControl }) });
+		}
 	}
 	if (files.includes(BUILD_META_KEY)) steps.push({ stage: "buildMeta", command: singleFileCommand({ publicDir, bucket, key: BUILD_META_KEY }) });
 	for (const command of buildRetiredPageCommands({ publicDir, bucket, files })) steps.push({ stage: "retiredPages", command });
@@ -336,6 +339,87 @@ export function buildFunctionUpdateCommands({ name, file, etag, comment }) {
 	];
 }
 
+async function releaseFunctions({ publicDir, functionsDir, origin, execute }) {
+	const functions = CLOUDFRONT_FUNCTIONS.map((definition) => {
+		const path = resolve(functionsDir, definition.file);
+		if (!existsSync(path)) throw new Error(`No CloudFront Function code at ${path}`);
+		return { ...definition, path, code: readFileSync(path, "utf8") };
+	});
+	const response = functions.find(({ name }) => name === RESPONSE_FUNCTION_NAME);
+	if (!existsSync(join(publicDir, SHELL_KEY))) {
+		throw new Error(`No ${SHELL_KEY} in ${publicDir}; the response function needs the build's inline script hashes`);
+	}
+	const buildHashes = collectInlineScriptHashes(publicDir).hashes;
+	let prepared = prepareResponseFunction({ committedCode: response.code, buildHashes });
+	response.path = releaseFunctionPath(publicDir);
+	if (execute) {
+		if (!origin) console.warn("No --origin given: the served pages' hashes are not checked; pass the CloudFront origin so a rotation cannot drop a page still online");
+		const servedHashes = origin ? await collectServedScriptHashes({ origin, publicDir }) : [];
+		prepared = prepareResponseFunction({ committedCode: response.code, buildHashes, liveCode: readLiveFunctionCode(response.name), servedHashes });
+		response.code = prepared.code;
+		mkdirSync(dirname(response.path), { recursive: true });
+		writeFileSync(response.path, response.code);
+		console.log(`Rendered ${response.path}: ${prepared.current.length} current + ${prepared.previous.length} previous inline script hashes`);
+	} else {
+		response.code = prepared.code;
+		console.log(`Would render ${response.path} with ${prepared.current.length} current inline script hashes; execution reads the live function${origin ? ` and samples served pages at ${origin}` : ""}`);
+	}
+	const published = [];
+	for (const { name, path, file, code } of functions) {
+		let stage = "describe-function";
+		let etag;
+		let updatedEtag;
+		let update;
+		let publish;
+		try {
+			etag = execute ? readFunctionEtag(name) : "<etag>";
+			[update, publish] = buildFunctionUpdateCommands({ name, file: path, etag, comment: functionComment(file) });
+			stage = "update-function";
+			runAws(update, execute);
+			stage = "describe-function after the update";
+			updatedEtag = execute ? readFunctionEtag(name) : "<updated-etag>";
+			stage = "publish-function";
+			publish = [...publish.slice(0, -1), updatedEtag];
+			runAws(publish, execute);
+			if (execute) published.push(`${name}: publish-function returned success.`);
+		} catch (error) {
+			throw new Error(describeFunctionFailure({ name, stage, code, etag, updatedEtag, published, cause: describeCommandFailure(stage === "update-function" ? update : stage === "publish-function" ? publish : ["cloudfront", "describe-function", "--name", name], error) }));
+		}
+	}
+}
+
+const FUNCTION_STAGE_STATUS = {
+	"describe-function": "this run did not update or publish it.",
+	"update-function": "its DEVELOPMENT code is in an unknown state (the update may have been applied although the command failed); this run did not publish it.",
+	"describe-function after the update": "update-function returned success; this run did not publish it.",
+	"publish-function": "update-function returned success; whether LIVE now runs the planned code is unknown.",
+};
+
+/**
+ * What a failed `functions` run knows: which function returned success, where the failing one
+ * stopped and the digest of the code it meant to publish. Publishing the same build again keeps the
+ * live PREVIOUS hashes (`rotateScriptHashes`), so the same command can be run again once nothing else
+ * is changing the functions.
+ */
+export function describeFunctionFailure({ name, stage, code, etag, updatedEtag, published = [], cause }) {
+	return [
+		...published,
+		`${name}: ${stage} failed; ${FUNCTION_STAGE_STATUS[stage]}`,
+		`Planned code SHA-256 for ${name}: ${sha256(code)}.`,
+		...(etag ? [`ETag read before the update: ${etag}.`] : []),
+		...(updatedEtag ? [`ETag read before the publish: ${updatedEtag}.`] : []),
+		"Do not run lambda or sync yet. Compare the code of both functions in DEVELOPMENT and LIVE with the planned code (aws cloudfront get-function --name <name> --stage LIVE <file>, then shasum -a 256 <file>).",
+		"Then run the same functions command again: it updates and publishes both functions from the same build, and publishing the same build keeps the live PREVIOUS hashes.",
+		`Cause: ${cause}`,
+	].join("\n");
+}
+
+function readFunctionEtag(name) {
+	const { ETag } = readAwsJson(["cloudfront", "describe-function", "--name", name]);
+	if (typeof ETag !== "string" || !ETag) throw new Error("AWS did not return an ETag");
+	return ETag;
+}
+
 function chunk(items, size) {
 	const chunks = [];
 	for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
@@ -347,11 +431,13 @@ function chunk(items, size) {
  * already in the bucket. This rewrites the metadata of the selected objects with an in-bucket copy
  * (`--metadata-directive REPLACE`), grouped by cache policy and bounded per command. It never
  * uploads a local body: a shell or page must only reach the bucket through `sync`, which checks the
- * live edge policy and uploads assets first.
+ * live edge policy and uploads assets first. A selected key with a filter wildcard is refused, as in
+ * sync: in the bucket its filter could match other objects and rewrite their cache policy.
  */
 export function buildReuploadCommands({ bucket, files, prefixes }) {
 	const selected = files.filter((file) => prefixes.some((prefix) => file === prefix || file.startsWith(prefix)));
 	const { early, late } = planUpload(selected);
+	assertFilterSafeKeys([...early, ...late].map((item) => item.file));
 	const commands = [];
 	for (const phase of [early, late]) {
 		for (const [cacheControl, keys] of groupByCacheControl(phase)) {
@@ -511,6 +597,12 @@ export async function probeApiAfterLambdaUpdate({
 	);
 }
 
+function assertLambdaProbeTarget({ origin, skipProbe }) {
+	if (!origin && !skipProbe) {
+		throw new Error("lambda --execute needs --origin to probe /api/health and /api/geo after the update (or --skip-probe for a function that does not serve them)");
+	}
+}
+
 /**
  * Checks the bundle, zips it, updates the function, waits for the update and probes the origin, in
  * that order. Every side effect is injected so the order and the printed output can be tested.
@@ -519,15 +611,28 @@ export async function releaseLambda({ functionName, bundle, zipPath, origin, ski
 	const entry = bundle.split(/[\\/]/).at(-1);
 	assertNoExtraLambdaModules(listBundleDir(), [...new Set([...LAMBDA_ENTRIES, entry])]);
 	assertSelfContainedLambdaEntry(readBundle(bundle), entry);
-	if (execute && !origin && !skipProbe) {
-		throw new Error("lambda --execute needs --origin to probe /api/health and /api/geo after the update (or --skip-probe for a function that does not serve them)");
-	}
+	if (execute) assertLambdaProbeTarget({ origin, skipProbe });
 	log(`zip -j ${zipPath} ${bundle}`);
-	if (execute) zip(zipPath, bundle);
 	const [update, wait] = buildLambdaCommands({ functionName, zipPath });
-	const output = capture(update, execute);
-	if (execute) log(summarizeLambdaUpdate(output));
-	run(wait, execute);
+	if (execute) {
+		let expectedHash;
+		try {
+			expectedHash = zip(zipPath, bundle);
+		} catch (error) {
+			throw new Error(`Lambda ${functionName}: zip failed, so the function was not updated. Fix the local error and run the same command again. Cause: ${error instanceof Error ? error.message : String(error)}`);
+		}
+		let stage = "update-function-code";
+		try {
+			log(summarizeLambdaUpdate(capture(update, execute)));
+			stage = "wait function-updated";
+			run(wait, execute);
+		} catch (error) {
+			throw new Error(describeLambdaFailure({ functionName, stage, expectedHash, cause: describeCommandFailure(stage === "update-function-code" ? update : wait, error) }));
+		}
+	} else {
+		capture(update, execute);
+		run(wait, execute);
+	}
 	if (skipProbe) {
 		log("Probe skipped (--skip-probe)");
 		return;
@@ -542,6 +647,26 @@ export async function releaseLambda({ functionName, bundle, zipPath, origin, ski
 	}
 	const { attempt, results } = await probe(origin);
 	log(`API probe through ${origin} passed${attempt > 1 ? ` on attempt ${attempt}` : ""}: ${results.map((result) => `${result.name}${result.detail ? ` (${result.detail})` : ""}`).join(", ")}`);
+}
+
+const LAMBDA_STAGE_STATUS = {
+	"update-function-code": "the update may or may not have been applied (a command can fail after AWS accepted it); this run did not wait or probe.",
+	"wait function-updated": "update-function-code returned success, but the waiter did not see LastUpdateStatus=Successful; this run did not probe.",
+};
+
+/**
+ * What a failed Lambda update knows, and the one read-only command that tells the rest. The query
+ * keeps the answer to status fields: the full configuration holds the environment variables.
+ */
+export function describeLambdaFailure({ functionName, stage, expectedHash, cause }) {
+	const query = "{Version: Version, RevisionId: RevisionId, CodeSha256: CodeSha256, State: State, LastUpdateStatus: LastUpdateStatus, LastUpdateStatusReason: LastUpdateStatusReason}";
+	return [
+		`Lambda ${functionName}: ${stage} failed; ${LAMBDA_STAGE_STATUS[stage]}`,
+		`Do not run sync yet. Read the function's state, never without --query: aws lambda get-function-configuration --function-name ${functionName} --query "${query}" --output json --profile <the aws profile printed above>`,
+		`CodeSha256 ${expectedHash} means $LATEST runs this package; any other value means it does not.`,
+		"Once LastUpdateStatus is no longer InProgress, run the same lambda command again: it uploads this package again, waits and probes. If LastUpdateStatus is Failed, LastUpdateStatusReason says why.",
+		`Cause: ${cause}`,
+	].join("\n");
 }
 
 function findChartBundle(publicDir) {
@@ -601,11 +726,87 @@ async function fetchTextWithin(fetchImpl, url, init, timeoutMs) {
 	}
 }
 
+const STARTUP_RELATIONS = new Set(["modulepreload", "preload", "stylesheet"]);
+const ASSET_MEDIA_TYPES = {
+	".css": new Set(["text/css"]),
+	".html": new Set(["text/html"]),
+	".js": new Set(["text/javascript", "application/javascript", "application/x-javascript"]),
+	".woff": new Set(["font/woff", "application/font-woff"]),
+	".woff2": new Set(["font/woff2"]),
+};
+
+function isSameOriginPath(href) {
+	return typeof href === "string" && href.startsWith("/") && !href.startsWith("//");
+}
+
+function readStartupAssets(html) {
+	const assets = new Set();
+	const modules = new Set();
+	const metaLists = new Map();
+	const markup = html.replace(/<!--[\s\S]*?-->/g, "");
+	for (const [, scriptAttrs, tag, attrs] of markup.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script\s*>|<(link|meta)\b([^>]*)>/gi)) {
+		const attributes = parseAttributes(scriptAttrs ?? attrs);
+		if (scriptAttrs !== undefined) {
+			const src = attributes.get("src");
+			if (isSameOriginPath(src)) assets.add(src);
+		} else if (tag.toLowerCase() === "link") {
+			const relations = attributes.get("rel")?.toLowerCase().split(/\s+/) ?? [];
+			const href = attributes.get("href");
+			if (!isSameOriginPath(href) || !relations.some((rel) => STARTUP_RELATIONS.has(rel))) continue;
+			if (relations.includes("modulepreload") && href.startsWith("/assets/")) modules.add(href);
+			if (!HASHED_CHART_ENTRY.test(href.slice(1))) assets.add(href);
+		} else {
+			const name = attributes.get("name");
+			if (!Object.values(SURFACE_PRELOAD_META).includes(name)) continue;
+			expectThat(!metaLists.has(name), `the local shell lists ${name} more than once`);
+			metaLists.set(name, (attributes.get("content") ?? "").split(/\s+/).filter(Boolean));
+		}
+	}
+	expectThat(modules.size >= MIN_SHELL_PRELOADS, `only ${modules.size} modulepreload links in the local shell`);
+	for (const name of [SURFACE_PRELOAD_META.desktop, SURFACE_PRELOAD_META.mobile, SURFACE_PRELOAD_META.chart]) {
+		expectThat(metaLists.has(name), `the local shell has no ${name} metadata`);
+	}
+	const catalogs = metaLists.get(SURFACE_PRELOAD_META.catalogs);
+	if (catalogs) expectThat(catalogs.length > 0, `the local shell lists no locale catalogs in ${SURFACE_PRELOAD_META.catalogs}`);
+	for (const paths of metaLists.values()) for (const href of paths) assets.add(href);
+	return { assets: [...assets], moduleCount: modules.size };
+}
+
+async function checkPublishedAsset(href, publicDir, fetchAsset) {
+	expectThat(/^\/(?:[\w.@+-]+\/)*[\w.@+-]+$/.test(href) && !href.split("/").some((part) => part === "." || part === ".."), `invalid startup asset path ${href}`);
+	const key = href.slice(1);
+	const localPath = join(publicDir, key);
+	expectThat(existsSync(localPath), `${href} is not in the local build`);
+	const localHash = sha256(readFileSync(localPath));
+	const response = await fetchAsset(href);
+	expectThat(response.status === 200, `${href} status ${response.status}`);
+	const type = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+	expectThat(ASSET_MEDIA_TYPES[extname(key)]?.has(type), `${href} has unexpected content-type ${type ?? "missing"}`);
+	const cache = response.headers.get("cache-control");
+	expectThat(cache === objectCacheControl(key), `${href} has unexpected cache-control ${cache}`);
+	expectThat(sha256(Buffer.from(await response.arrayBuffer())) === localHash, `${href} body differs from the local build`);
+}
+
+function readReferralDecision(text) {
+	const decision = JSON.parse(text);
+	expectThat(Number.isFinite(decision?.checkedAt), "referral decision has no checkedAt");
+	if (decision.status === "unavailable") {
+		const reason = /^(budget_exhausted|invalid_response|missing_config|missing_ip|provider_error)$/.test(decision.reason) ? decision.reason : "unrecognized reason";
+		throw new Error(`referral geo unavailable (${reason})`);
+	}
+	expectThat(decision.status === "allowed" || decision.status === "blocked", "referral decision has an unknown status");
+	expectThat(typeof decision.country === "string" && /^[A-Z]{2}$/.test(decision.country), "referral decision has no country");
+	if (decision.status === "allowed") expectThat(Number.isFinite(decision.ttlMs) && decision.ttlMs > 0, "allowed referral decision has no positive ttlMs");
+	else expectThat(decision.reason === "proxy" || decision.reason === "jurisdiction", "blocked referral decision has no valid reason");
+	return `status ${decision.status}`;
+}
+
 async function checkGeoVerdict(base, fetchImpl, timeoutMs = API_REQUEST_TIMEOUT_MS) {
 	const response = await fetchTextWithin(fetchImpl, `${base}/api/geo`, { headers: { accept: "application/json" } }, timeoutMs);
 	expectThat(response.status === 200, `status ${response.status}: ${response.text.slice(0, 120)}`);
 	const verdict = JSON.parse(response.text);
-	expectThat(typeof verdict.country === "string" && verdict.country.length === 2, "verdict has no country");
+	expectThat(typeof verdict?.country === "string" && /^[A-Z]{2}$/.test(verdict.country), "verdict has no country");
+	expectThat(typeof verdict.proxy === "boolean" && typeof verdict.tradeRestricted === "boolean", "verdict must include boolean proxy and tradeRestricted");
 	return `country ${verdict.country}`;
 }
 
@@ -688,9 +889,12 @@ export async function verifyDeployment({ origin, publicDir, network, fetchImpl =
 		const localGates = describeGateState(releaseGateState(buildMeta));
 		const remoteGates = describeGateState(releaseGateState(remote));
 		expect(remoteGates === localGates, `remote release gates (${remoteGates}) differ from the local build (${localGates})`);
+		const differing = [...new Set([...Object.keys(remote), ...Object.keys(buildMeta)])].filter((key) => !isDeepStrictEqual(remote[key], buildMeta[key]));
+		expect(differing.length === 0, `remote build-meta differs from the local build in ${differing.join(", ")}`);
 		return `${remote.commit.slice(0, 8)} / ${remote.release} / ${remoteGates}`;
 	});
 	await check("geo endpoint answers with a real verdict", () => checkGeoVerdict(base, fetchImpl, requestTimeoutMs));
+	let referralReply;
 	await check("signed lambda post with a payload hash", async () => {
 		const body = JSON.stringify({ override: null });
 		const response = await request(`${base}/api/referral-geo`, {
@@ -706,9 +910,12 @@ export async function verifyDeployment({ origin, publicDir, network, fetchImpl =
 		});
 		const text = await response.text();
 		expect(response.status === 200, `status ${response.status}: ${text.slice(0, 120)}`);
-		const decision = JSON.parse(text);
-		expect(typeof decision.status === "string", "decision has no status");
-		return `status ${decision.status}`;
+		referralReply = text;
+		return `HTTP ${response.status}`;
+	});
+	await check("referral geo answers with a decision", () => {
+		expect(referralReply !== undefined, "the signed POST did not complete successfully");
+		return readReferralDecision(referralReply);
 	});
 	await check("referral deep link headers", async () => {
 		const response = await request(`${base}/join/__sairn_healthcheck__`, { headers: { accept: "text/html" } });
@@ -737,36 +944,27 @@ export async function verifyDeployment({ origin, publicDir, network, fetchImpl =
 		const serverFn = await request(`${base}/_serverFn/abc`);
 		expect(serverFn.status === 404, `server function status ${serverFn.status}`);
 	});
+	const fetchAsset = (href) => request(`${base}${href}`, { redirect: "error" });
 	await check("chart entry is immutable and preloaded by the shell", async () => {
 		const href = /<link rel="preload" href="(\/charting_library\/charting_library\.[0-9a-f]{16}\.js)" as="script"/.exec(shell.toString("utf8"))?.[1];
 		expect(href, "the local shell does not preload a content-hashed chart entry");
-		expect(existsSync(join(publicDir, href.slice(1))), `${href} is not in the local build`);
-		const response = await request(`${base}${href}`);
-		expect(response.status === 200, `status ${response.status}`);
-		expect(response.headers.get("cache-control") === IMMUTABLE_CACHE_CONTROL, `cache-control ${response.headers.get("cache-control")}`);
+		await checkPublishedAsset(href, publicDir, fetchAsset);
 		const plain = await request(`${base}/charting_library/charting_library.js`);
 		expect(plain.headers.get("cache-control") === REVALIDATE_CACHE_CONTROL, `unhashed entry cache-control ${plain.headers.get("cache-control")}`);
 		return href;
 	});
 	await check("shell preloads the startup closure", async () => {
-		const hrefs = [...shell.toString("utf8").matchAll(/<link rel="modulepreload" href="(\/assets\/[^"]+)"/g)].map((match) => match[1]);
-		expect(hrefs.length >= MIN_SHELL_PRELOADS, `only ${hrefs.length} modulepreload links in the local shell`);
-		for (const href of hrefs) expect(existsSync(join(publicDir, href.slice(1))), `${href} is not in the local build`);
-		const response = await request(`${base}${hrefs.at(-1)}`);
-		expect(response.status === 200, `status ${response.status} for ${hrefs.at(-1)}`);
-		expect(response.headers.get("cache-control") === IMMUTABLE_CACHE_CONTROL, `cache-control ${response.headers.get("cache-control")}`);
-		for (const name of SURFACE_PRELOAD_META_NAMES) {
-			expect(shell.toString("utf8").includes(`<meta name="${name}" content="`), `the local shell has no ${name} metadata`);
+		const { assets, moduleCount } = readStartupAssets(shell.toString("utf8"));
+		const batchSize = 8;
+		for (let start = 0; start < assets.length; start += batchSize) {
+			const batch = assets.slice(start, start + batchSize);
+			const results = await Promise.allSettled(batch.map((href) => checkPublishedAsset(href, publicDir, fetchAsset)));
+			const failures = results.filter((result) => result.status === "rejected");
+			expect(failures.length === 0, failures.map((result) => result.reason.message).join("; "));
 		}
-		// Builds before the service worker's asset cache have no such list; one that has it must name real files.
-		const catalogs = new RegExp(`<meta name="${LOCALE_CATALOG_META_NAME}" content="([^"]*)"`).exec(shell.toString("utf8"));
-		if (catalogs) {
-			const listed = catalogs[1].split(" ").filter(Boolean);
-			expect(listed.length > 0, `the local shell lists no locale catalogs in ${LOCALE_CATALOG_META_NAME}`);
-			for (const href of listed) expect(existsSync(join(publicDir, href.slice(1))), `${href} is not in the local build`);
-		}
-		return `${hrefs.length} links`;
+		return `${moduleCount} modulepreload links, ${assets.length} assets verified`;
 	});
+	await check("service worker matches the build", () => checkPublishedAsset("/sw.js", publicDir, fetchAsset));
 	await check("inline scripts are allowed by the edge policy", async () => {
 		const pages = listPrerenderedPages(publicDir).filter((page) => page === "_shell.html" || page.endsWith("/index.html"));
 		const headerName = scriptHashesMode === "enforce" ? "content-security-policy" : "content-security-policy-report-only";
@@ -841,10 +1039,22 @@ export function assertReleaseIdentity(identityArn) {
 
 let awsProfile;
 
-function readArgs(argv) {
-	const [command, ...rest] = argv;
+function parseOrigin(value) {
+	let url;
+	try {
+		url = new URL(value);
+	} catch {}
+	if (!url || !/^https?:\/\/[^/\\]/i.test(value) || /[\\\s]/.test(value) || url.username || url.password || url.pathname !== "/" || /[?#]/.test(value)) {
+		throw new Error("--origin must be an absolute HTTP(S) origin without credentials, path, query or fragment");
+	}
+	return url.origin;
+}
+
+function readArgs(command, args) {
+	const { required, optional } = COMMAND_OPTIONS[command];
+	const allowed = new Set([...required, ...optional]);
+	const seen = new Set();
 	const options = {
-		command,
 		execute: false,
 		publicDir: "apps/terminal/.output/public",
 		lambdaDir: "apps/terminal/dist-lambda",
@@ -854,66 +1064,49 @@ function readArgs(argv) {
 		network: "mainnet",
 		acknowledged: [],
 	};
-	for (let index = 0; index < rest.length; index += 1) {
-		const argument = rest[index];
-		const [flag, inline] = argument.split("=", 2);
-		const value = () => inline ?? rest[++index];
-		switch (flag) {
-			case "--execute":
-				options.execute = true;
-				break;
-			case "--bucket":
-				options.bucket = value();
-				break;
-			case "--distribution":
-				options.distributionId = value();
-				break;
-			case "--function-name":
-				options.functionName = value();
-				break;
-			case "--public-dir":
-				options.publicDir = value();
-				break;
-			case "--lambda-dir":
-				options.lambdaDir = value();
-				break;
-			case "--origin":
-				options.origin = value();
-				break;
-			case "--only":
-				(options.prefixes ??= []).push(value());
-				break;
-			case "--lambda-entry":
-				options.lambdaEntry = value();
-				break;
-			case "--functions-dir":
-				options.functionsDir = value();
-				break;
-			case "--skip-probe":
-				options.skipProbe = true;
-				break;
-			case "--network":
-				options.network = value();
-				break;
-			case "--alias":
-				(options.aliases ??= []).push(value());
-				break;
-			case "--certificate-arn":
-				options.certificateArn = value();
-				break;
-			case "--profile":
-				options.profile = value();
-				break;
-			case "--allow-sponsored-mainnet-deposits":
-			case "--allow-mobile-pairing":
-			case "--allow-mainnet-card-funding":
-				options.acknowledged.push(RELEASE_GATES.find((gate) => gate.option === flag).id);
-				break;
-			default:
-				throw new Error(`Unknown argument ${argument}`);
+	for (let index = 0; index < args.length; index += 1) {
+		const argument = args[index];
+		const equals = argument.indexOf("=");
+		const flag = equals === -1 ? argument : argument.slice(0, equals);
+		if (!allowed.has(flag)) throw new Error(`Unknown argument ${flag} for ${command}`);
+		const valueOption = VALUE_OPTIONS[flag];
+		if (seen.has(flag) && !valueOption?.[2]) throw new Error(`${flag} may only be specified once`);
+		seen.add(flag);
+		if (!valueOption) {
+			if (equals !== -1) throw new Error(`${flag} must be a bare flag`);
+			if (flag === "--execute") options.execute = true;
+			else if (flag === "--skip-probe") options.skipProbe = true;
+			else options.acknowledged.push(RELEASE_GATES.find((gate) => gate.option === flag).id);
+			continue;
 		}
+		const [key, , repeatable] = valueOption;
+		const value = equals === -1 ? args[++index] : argument.slice(equals + 1);
+		if (!value?.trim() || value.startsWith("--")) throw new Error(`${flag} requires a value`);
+		if (repeatable) (options[key] ??= []).push(value);
+		else options[key] = value;
 	}
+	for (const flag of required) if (!seen.has(flag)) throw new Error(`${flag} is required`);
+	if (options.origin) options.origin = parseOrigin(options.origin);
+	if (options.network !== "mainnet" && options.network !== "testnet") throw new Error("--network must be mainnet or testnet");
+	if (command === "lambda" && options.execute) assertLambdaProbeTarget(options);
+	if (command === "aliases") applyDistributionAliases({}, options);
 	return options;
+}
+
+function usage() {
+	const commandLines = Object.entries(COMMAND_OPTIONS).map(([command, { required, optional }]) => {
+		const format = (flag) => {
+			const option = VALUE_OPTIONS[flag];
+			return option ? `${flag} ${option[1]}` : flag;
+		};
+		return `  ${[command, ...required.map(format), ...optional.map((flag) => `[${format(flag)}]`)].join(" ")}`;
+	});
+	return [
+		`usage: node deploy/cloudfront/deploy.mjs <${Object.keys(COMMAND_OPTIONS).join("|")}>`,
+		...commandLines,
+		"--only and --alias can be repeated. Boolean options take no value.",
+		"Without --execute, mutation commands only print a local plan. verify contacts the public origin.",
+	].join("\n");
 }
 
 function awsArgs(args) {
@@ -1094,24 +1287,52 @@ export function releaseStatic({
 	log(`Release markers match the local build byte for byte: ${RELEASE_MARKER_FILES.join(", ")}`);
 }
 
-function requireOption(options, name) {
-	if (!options[name]) throw new Error(`--${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)} is required`);
-	return options[name];
-}
+const AWS_OPTIONS = ["--execute", "--profile"];
+const COMMAND_OPTIONS = {
+	sync: { required: ["--bucket"], optional: [...AWS_OPTIONS, "--public-dir", ...RELEASE_GATES.map((gate) => gate.option)] },
+	reupload: { required: ["--bucket", "--only"], optional: [...AWS_OPTIONS, "--public-dir"] },
+	invalidate: { required: ["--distribution"], optional: AWS_OPTIONS },
+	aliases: { required: ["--distribution", "--alias", "--certificate-arn"], optional: AWS_OPTIONS },
+	lambda: { required: ["--function-name"], optional: [...AWS_OPTIONS, "--lambda-dir", "--lambda-entry", "--origin", "--skip-probe"] },
+	"check-lambda": { required: [], optional: ["--lambda-dir"] },
+	functions: { required: [], optional: [...AWS_OPTIONS, "--functions-dir", "--public-dir", "--origin"] },
+	verify: { required: ["--origin"], optional: ["--public-dir", "--network"] },
+};
 
-async function main() {
-	const options = readArgs(process.argv.slice(2));
+const VALUE_OPTIONS = {
+	"--bucket": ["bucket", "B"],
+	"--only": ["prefixes", "PREFIX", true],
+	"--alias": ["aliases", "HOST", true],
+	"--certificate-arn": ["certificateArn", "ARN"],
+	"--distribution": ["distributionId", "ID"],
+	"--function-name": ["functionName", "F"],
+	"--lambda-dir": ["lambdaDir", "DIR"],
+	"--lambda-entry": ["lambdaEntry", "FILE"],
+	"--functions-dir": ["functionsDir", "DIR"],
+	"--public-dir": ["publicDir", "DIR"],
+	"--origin": ["origin", "URL"],
+	"--network": ["network", "mainnet|testnet"],
+	"--profile": ["profile", "NAME"],
+};
+
+export async function main(argv) {
+	const [command, ...args] = argv;
+	if (!Object.hasOwn(COMMAND_OPTIONS, command)) {
+		console.error(usage());
+		return 2;
+	}
+	const options = readArgs(command, args);
 	const publicDir = resolve(options.publicDir);
-	if (options.command !== "verify" && options.command !== "check-lambda") {
+	if (command !== "verify" && command !== "check-lambda") {
 		awsProfile = resolveAwsProfile({ profile: options.profile });
 		console.log(`aws profile: ${awsProfile}`);
 		if (options.execute) assertReleaseIdentity(readAwsJson(["sts", "get-caller-identity"]).Arn);
 	}
-	switch (options.command) {
+	switch (command) {
 		case "sync": {
 			releaseStatic({
 				publicDir,
-				bucket: requireOption(options, "bucket"),
+				bucket: options.bucket,
 				execute: options.execute,
 				acknowledged: options.acknowledged,
 				assertLivePolicy: assertLivePolicyAllowsBuild,
@@ -1121,34 +1342,39 @@ async function main() {
 			break;
 		}
 		case "reupload": {
-			const bucket = requireOption(options, "bucket");
-			const prefixes = requireOption(options, "prefixes");
+			const { bucket, prefixes } = options;
 			const commands = buildReuploadCommands({ bucket, files: listPublicFiles(publicDir), prefixes });
 			if (commands.length === 0) throw new Error(`No uploadable files match ${prefixes.join(", ")}`);
 			for (const command of commands) runAws(command, options.execute);
 			break;
 		}
 		case "invalidate":
-			runAws(buildInvalidationCommand(requireOption(options, "distributionId")), options.execute);
+			runAws(buildInvalidationCommand(options.distributionId), options.execute);
 			break;
 		case "aliases": {
-			const distributionId = requireOption(options, "distributionId");
-			const aliases = requireOption(options, "aliases");
-			const certificateArn = requireOption(options, "certificateArn");
+			const { distributionId, aliases, certificateArn } = options;
+			if (!options.execute) {
+				console.log(`Distribution ${distributionId}: read current config and ETag, set aliases ${aliases.join(", ")} with certificate ${certificateArn}, update and wait for deployment`);
+				break;
+			}
 			const live = readAwsJson(["cloudfront", "get-distribution-config", "--id", distributionId]);
 			const updated = applyDistributionAliases(live.DistributionConfig, { aliases, certificateArn });
 			const file = join(tmpdir(), `sairn-distribution-${distributionId}-${process.pid}.json`);
-			writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`);
-			console.log(`Distribution ${distributionId}: aliases ${aliases.join(", ")} with certificate ${certificateArn} (ETag ${live.ETag}) → ${file}`);
-			runAws(
-				["cloudfront", "update-distribution", "--id", distributionId, "--if-match", live.ETag, "--distribution-config", `file://${file}`],
-				options.execute,
-			);
+			writeFileSync(file, `${JSON.stringify(updated, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+			try {
+				console.log(`Distribution ${distributionId}: aliases ${aliases.join(", ")} with certificate ${certificateArn} (ETag ${live.ETag}) → ${file}`);
+				runAws(
+					["cloudfront", "update-distribution", "--id", distributionId, "--if-match", live.ETag, "--distribution-config", `file://${file}`],
+					options.execute,
+				);
+			} finally {
+				rmSync(file, { force: true });
+			}
 			runAws(["cloudfront", "wait", "distribution-deployed", "--id", distributionId], options.execute);
 			break;
 		}
 		case "lambda": {
-			const functionName = requireOption(options, "functionName");
+			const functionName = options.functionName;
 			const bundle = resolve(options.lambdaDir, options.lambdaEntry);
 			if (!existsSync(bundle) || !statSync(bundle).isFile()) throw new Error(`No Lambda bundle at ${bundle}; run pnpm --filter @sairn/terminal build:lambda`);
 			await releaseLambda({
@@ -1160,7 +1386,10 @@ async function main() {
 				execute: options.execute,
 				readBundle: (path) => readFileSync(path, "utf8"),
 				listBundleDir: () => listLambdaOutput(options.lambdaDir),
-				zip: (zipPath, path) => execFileSync("zip", ["-j", "-q", zipPath, path], { stdio: "inherit" }),
+				zip: (zipPath, path) => {
+					execFileSync("zip", ["-j", "-q", zipPath, path], { stdio: "inherit" });
+					return createHash("sha256").update(readFileSync(zipPath)).digest("base64");
+				},
 				run: runAws,
 				capture: captureAws,
 				probe: (origin) => probeApiAfterLambdaUpdate({ origin }),
@@ -1177,56 +1406,29 @@ async function main() {
 			console.log(`Lambda entries are self-contained: ${LAMBDA_ENTRIES.join(", ")}`);
 			break;
 		}
-		case "functions": {
-			for (const { name, file } of CLOUDFRONT_FUNCTIONS) {
-				let path = resolve(options.functionsDir, file);
-				if (!existsSync(path)) throw new Error(`No CloudFront Function code at ${path}`);
-				if (name === RESPONSE_FUNCTION_NAME) {
-					if (!existsSync(join(publicDir, "_shell.html"))) throw new Error(`No _shell.html in ${publicDir}; the response function needs the build's inline script hashes`);
-					const servedHashes = options.origin ? await collectServedScriptHashes({ origin: options.origin, publicDir }) : [];
-					if (!options.origin) console.warn("No --origin given: the served pages' hashes are not checked; pass the CloudFront origin so a rotation cannot drop a page still online");
-					const prepared = prepareResponseFunction({
-						committedCode: readFileSync(path, "utf8"),
-						buildHashes: collectInlineScriptHashes(publicDir).hashes,
-						liveCode: options.execute ? readLiveFunctionCode(name) : "",
-						servedHashes,
-					});
-					path = releaseFunctionPath(publicDir);
-					mkdirSync(dirname(path), { recursive: true });
-					writeFileSync(path, prepared.code);
-					console.log(
-						`Rendered ${path}: ${prepared.current.length} current + ${prepared.previous.length} previous inline script hashes${options.execute ? "" : " (dry run: the previous set comes from the live function)"}`,
-					);
-				}
-				const current = options.execute ? readAwsJson(["cloudfront", "describe-function", "--name", name]) : { ETag: "<etag>" };
-				const [update, publish] = buildFunctionUpdateCommands({ name, file: path, etag: current.ETag, comment: functionComment(file) });
-				runAws(update, options.execute);
-				const updatedEtag = options.execute ? readAwsJson(["cloudfront", "describe-function", "--name", name]).ETag : "<updated-etag>";
-				runAws([...publish.slice(0, -1), updatedEtag], options.execute);
-			}
+		case "functions":
+			await releaseFunctions({ ...options, publicDir });
 			break;
-		}
 		case "verify": {
 			const results = await verifyDeployment({
-				origin: requireOption(options, "origin"),
+				origin: options.origin,
 				publicDir,
 				network: options.network,
 				scriptHashesMode: readEdgeConfig().cspScriptHashes,
 				imageSourcesMode: readEdgeConfig().cspImageSources,
 			});
 			for (const result of results) console.log(`${result.ok ? "ok  " : "FAIL"} ${result.name}${result.detail ? ` — ${result.detail}` : ""}`);
-			if (results.some((result) => !result.ok)) process.exit(1);
-			break;
+			return results.some((result) => !result.ok) ? 1 : 0;
 		}
-		default:
-			console.error("usage: node deploy/cloudfront/deploy.mjs <sync|reupload|invalidate|aliases|lambda|check-lambda|functions|verify> [--execute] [--bucket B] [--only PREFIX]... [--alias HOST]... [--certificate-arn ARN] [--distribution ID] [--function-name F] [--lambda-dir DIR] [--lambda-entry index.mjs] [--skip-probe] [--functions-dir DIR] [--public-dir DIR] [--origin URL] [--network mainnet|testnet] [--allow-sponsored-mainnet-deposits] [--allow-mobile-pairing] [--allow-mainnet-card-funding] [--profile NAME]");
-			process.exit(2);
 	}
+	return 0;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-	main().catch((error) => {
+	main(process.argv.slice(2)).then((status) => {
+		process.exitCode = status;
+	}).catch((error) => {
 		console.error(error instanceof Error ? error.message : String(error));
-		process.exit(1);
+		process.exitCode = 1;
 	});
 }

@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReferralActionModal } from "@/components/referrals/referral-action-modal";
 import { ReferralActionStatusUnknownError } from "@/hooks/trade/use-referral-actions";
 import { createI18nRoot } from "@/lib/tests/harness/react";
+import { getBrandReferralUrl } from "@/lib/trade/referral";
+import { isSafeReferralJoinCode, parseReferralJoinPath } from "@/lib/trade/referral-join";
 
 const REFERRAL_FAILURE = "Referral request could not be completed.";
 const NOT_SENT_IN_TIME = "The checks before this request took too long. Nothing was signed or sent. Try again.";
@@ -24,10 +26,12 @@ const arabicMessages: Messages = {
 	[getMessageId(REFERRAL_FAILURE)]: ARABIC_REFERRAL_FAILURE,
 };
 
+vi.mock("@phosphor-icons/react", () => ({ WarningCircleIcon: () => null }));
+
 vi.mock("@sairn/ui", () => ({
 	AdaptiveModal: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-	Button: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) => (
-		<button type="button" onClick={onClick}>
+	Button: ({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) => (
+		<button type="button" onClick={onClick} disabled={disabled}>
 			{children}
 		</button>
 	),
@@ -68,6 +72,38 @@ describe("ReferralActionModal invitation flow", () => {
 		container.remove();
 		vi.clearAllMocks();
 	});
+
+	it.each(["PROBE", "sairnappweb3", "Sairn Code", "邀请", "CODE-1", "A/B", "x".repeat(21)])(
+		"only routes actionable invitation %j into a locked confirmation",
+		async (code) => {
+			const parsed = parseReferralJoinPath(new URL(getBrandReferralUrl(code, "Mainnet")).pathname);
+			const supported = /^[A-Za-z0-9]{1,20}$/.test(code);
+			expect(isSafeReferralJoinCode(code)).toBe(supported);
+			if (!supported) {
+				expect(parsed).toBeNull();
+				return;
+			}
+			const onSubmit = vi.fn().mockResolvedValue(undefined);
+			act(() =>
+				root.render(
+					<ReferralActionModal
+						action="apply"
+						initialCode={parsed ?? undefined}
+						unclaimedRewards={[]}
+						onClose={vi.fn()}
+						onSubmit={onSubmit}
+					/>,
+				),
+			);
+			const confirm = Array.from(container.querySelectorAll("button")).find(
+				(button) => button.textContent === "Confirm",
+			);
+			expect(confirm?.disabled).toBe(false);
+			expect(container.querySelector("input")).toBeNull();
+			await act(async () => confirm?.click());
+			expect(onSubmit).toHaveBeenCalledExactlyOnceWith("apply", code.toUpperCase());
+		},
+	);
 
 	it("upper-cases a typed code and ignores characters a code cannot contain", async () => {
 		await act(async () => {

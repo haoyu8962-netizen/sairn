@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@sairn/ui";
 import Big from "big.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PortfolioPeriod, PortfolioSnapshot } from "@/domain/portfolio";
+import { getPortfolioHistoryPoints, type PortfolioPeriod, type PortfolioSnapshot } from "@/domain/portfolio";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatTime, type NumberFormatters, useNumberFormat } from "@/lib/format";
 
@@ -127,7 +127,9 @@ export function PortfolioPerformanceChart({
 	const latestValue = chart.points.at(-1)?.rawValue ?? null;
 	const formattedLatestValue = formatLatestValue(latestValue, metric, numberFormat);
 	const latestValueTone = metric === "accountValue" ? "text-fg" : getMarketToneClass(latestValue);
-	const activeLabel = activePoint ? formatPointLabel(activePoint, locale, numberFormat) : null;
+	const activeLabel = activePoint
+		? formatPointLabel(activePoint, (period ?? inferPeriod(chart.points)) === "day", locale, numberFormat)
+		: null;
 	const hasRenderableChart = !isLoading && !isUnavailable && chart.points.length > 0;
 	const tooltipAnchor =
 		activeInteraction?.source === "pointer"
@@ -484,8 +486,20 @@ function formatLatestValue(latestValue: string | null, metric: ChartMetric, numb
 	});
 }
 
-function formatPointLabel(point: ChartPoint, locale: string, numberFormat: NumberFormatters): string {
-	const date = formatDateTime(point.timestamp, { locale, year: "numeric", month: "long", day: "numeric" });
+function formatPointLabel(
+	point: ChartPoint,
+	includeTime: boolean,
+	locale: string,
+	numberFormat: NumberFormatters,
+): string {
+	const date = formatDateTime(point.timestamp, {
+		locale,
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+		hour: includeTime ? "numeric" : undefined,
+		minute: includeTime ? "2-digit" : undefined,
+	});
 	const value = numberFormat.formatUSD(point.rawValue, {
 		compact: false,
 		signDisplay: "exceptZero",
@@ -521,7 +535,7 @@ function buildChart(
 	locale: string,
 	numberFormat: NumberFormatters,
 ): ChartModel {
-	const points = parsePoints(history);
+	const points = getPortfolioHistoryPoints(history);
 	const plotLeft = PLOT_PADDING_LEFT;
 	const plotRight = Math.max(plotLeft + 1, size.width - PLOT_PADDING_RIGHT);
 	const plotTop = PLOT_PADDING_TOP;
@@ -562,21 +576,6 @@ function buildChart(
 		plotRight,
 		plotTop,
 	};
-}
-
-function parsePoints(history: History): ParsedPoint[] {
-	return history
-		.flatMap(([timestamp, rawValue], sourceIndex) => {
-			if (!Number.isSafeInteger(timestamp) || timestamp < 0) return [];
-			try {
-				const value = Big(rawValue).toNumber();
-				if (!Number.isFinite(value)) return [];
-				return [{ timestamp, value, rawValue, sourceIndex }];
-			} catch {
-				return [];
-			}
-		})
-		.sort((first, second) => first.timestamp - second.timestamp || first.sourceIndex - second.sourceIndex);
 }
 
 function createYScale(values: number[], plotTop: number, plotBottom: number, numberFormat: NumberFormatters) {

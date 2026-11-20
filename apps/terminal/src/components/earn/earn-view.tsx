@@ -176,7 +176,11 @@ export function EarnView({ data, isMobile, actionsAllowed, notice, onOpenAction 
 						<InterestTable data={data} />
 					</TabsContent>
 					<TabsContent value="history" className="p-3 min-[1001px]:p-4">
-						<HistoryTable rows={data.history} ready={data.historyStatus === "ready"} />
+						<HistoryTable
+							rows={data.history}
+							ready={data.historyStatus === "ready"}
+							canConfirmEmpty={data.canConfirmEmptyHistory}
+						/>
 					</TabsContent>
 				</Tabs>
 			</section>
@@ -573,9 +577,10 @@ function InterestTable({ data }: InterestTableProps) {
 interface HistoryTableProps {
 	rows: readonly AccountLedgerRow[];
 	ready: boolean;
+	canConfirmEmpty: boolean;
 }
 
-function HistoryTable({ rows, ready }: HistoryTableProps) {
+function HistoryTable({ rows, ready, canConfirmEmpty }: HistoryTableProps) {
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { formatNumber } = useNumberFormat();
@@ -610,7 +615,7 @@ function HistoryTable({ rows, ready }: HistoryTableProps) {
 						: null}
 				</TableBody>
 			</Table>
-			{ready && rows.length === 0 ? (
+			{canConfirmEmpty && rows.length === 0 ? (
 				<p className="py-6 text-center text-xs text-fg-muted">{t`No earn actions yet`}</p>
 			) : null}
 		</div>

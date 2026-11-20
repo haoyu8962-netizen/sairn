@@ -137,3 +137,11 @@ describe("trade history", () => {
 		});
 	});
 });
+
+it("P2-8 keeps outcome fills out of the perpetual filter without conflating spot and HIP-3", () => {
+	const outcome = createFill(1, { coin: "#10" });
+	const fills = [outcome, createFill(2, { coin: "@107" }), createFill(3, { coin: "xyz:TSLA" })];
+	expect(getTradeHistoryType(outcome, () => undefined)).toBeNull();
+	expect(filterTradeHistory(fills, null, "all", "all", "perp", () => undefined)).toEqual([fills[2]]);
+	expect(filterTradeHistory(fills, null, "all", "all", "spot", () => undefined)).toEqual([fills[1]]);
+});

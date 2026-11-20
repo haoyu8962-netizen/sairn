@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, lstat, mkdtemp, readdir, readFile, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,14 +44,27 @@ async function listFiles(root, directory = "") {
 	return names;
 }
 
-async function readManifestFile(root, relativePath, entry) {
-	const file = join(root, ...relativePath.split("/"));
-	let stats;
+async function lstatManifestPath(path, relativePath) {
 	try {
-		stats = await lstat(file);
+		return await lstat(path);
 	} catch {
 		throw new Error(`Chart library file is missing: ${relativePath}`);
 	}
+}
+
+// Every directory below the root on a manifest path must be a real directory, as the file itself must be a
+// regular file, so a symbolic link cannot point a manifest path elsewhere. The root is the operator's choice.
+async function readManifestFile(root, relativePath, entry) {
+	const parts = relativePath.split("/");
+	let directory = root;
+	for (const part of parts.slice(0, -1)) {
+		directory = join(directory, part);
+		if (!(await lstatManifestPath(directory, relativePath)).isDirectory()) {
+			throw new Error(`Chart library path has a component that is not a real directory: ${relativePath}`);
+		}
+	}
+	const file = join(directory, parts.at(-1));
+	const stats = await lstatManifestPath(file, relativePath);
 	if (!stats.isFile()) throw new Error(`Chart library file is not a regular file: ${relativePath}`);
 	const contents = await readFile(file);
 	if (contents.length !== entry.size) {
@@ -72,9 +85,23 @@ export async function verifyChartLibrary(root, files, { exact }) {
 	}
 }
 
+async function renameIfPresent(from, to) {
+	try {
+		await rename(from, to);
+		return true;
+	} catch (error) {
+		if (error?.code === "ENOENT") return false;
+		throw error;
+	}
+}
+
+// A directory cannot replace a non-empty one in a single rename, so the installed copy is first moved
+// aside. If the second rename fails it is moved back; if the process stops between the two renames,
+// the copy stays beside the target and the next run restores it (recoverInterruptedInstall).
 export async function installChartLibrary({ source, target, files }) {
 	await verifyChartLibrary(source, files, { exact: false });
 	const staging = `${target}.incoming-${process.pid}`;
+	const previous = `${target}.previous-${process.pid}`;
 	await rm(staging, { recursive: true, force: true });
 	try {
 		for (const relativePath of files.keys()) {
@@ -82,11 +109,57 @@ export async function installChartLibrary({ source, target, files }) {
 			await cp(join(source, ...parts), join(staging, ...parts), { recursive: false });
 		}
 		await verifyChartLibrary(staging, files, { exact: true });
-		await rm(target, { recursive: true, force: true });
-		await rename(staging, target);
+		await rm(previous, { recursive: true, force: true });
+		const movedAside = await renameIfPresent(target, previous);
+		try {
+			await rename(staging, target);
+		} catch (error) {
+			if (movedAside) await rename(previous, target);
+			throw error;
+		}
+		await rm(previous, { recursive: true, force: true });
 	} finally {
 		await rm(staging, { recursive: true, force: true });
 	}
+}
+
+function processIsRunning(pid) {
+	if (pid === process.pid) return false;
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		return error?.code === "EPERM";
+	}
+}
+
+// Leftovers of an install whose process has ended: a staging copy is removed, and when the target is
+// missing a copy moved aside is renamed back; the caller then checks it against the manifest as
+// usual. Only real directories are restored, never a symbolic link.
+export async function recoverInterruptedInstall(target) {
+	const parent = dirname(target);
+	const prefix = `${basename(target)}.`;
+	let entries;
+	try {
+		entries = await readdir(parent, { withFileTypes: true });
+	} catch {
+		return { restored: false };
+	}
+	let restored = false;
+	let targetPresent = await exists(target);
+	for (const entry of entries) {
+		const match = entry.name.startsWith(prefix) ? /^(incoming|previous)-(\d+)$/.exec(entry.name.slice(prefix.length)) : null;
+		if (!match || processIsRunning(Number(match[2])) || !entry.isDirectory()) continue;
+		const path = join(parent, entry.name);
+		if (match[1] === "previous" && !targetPresent) {
+			await rename(path, target);
+			targetPresent = true;
+			restored = true;
+		} else {
+			await rm(path, { recursive: true, force: true });
+		}
+	}
+	return { restored };
 }
 
 async function exists(path) {
@@ -98,17 +171,29 @@ async function exists(path) {
 	}
 }
 
+// CHART_LIBRARY_REPOSITORY may carry a token in its user information; Git leaves it out of its own messages.
+function withoutCredentials(repository) {
+	try {
+		const url = new URL(repository);
+		url.username = "";
+		url.password = "";
+		return url.href;
+	} catch {
+		return repository;
+	}
+}
+
 async function cloneSource(repository) {
 	const directory = await mkdtemp(join(tmpdir(), "chart-library-"));
 	try {
-		execFileSync("git", ["clone", "--quiet", "--depth", "1", repository, directory], {
+		execFileSync("git", ["clone", "--quiet", "--depth", "1", "--", repository, directory], {
 			stdio: ["ignore", "ignore", "inherit"],
 			env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
 		});
 	} catch {
 		await rm(directory, { recursive: true, force: true });
 		throw new Error(
-			`Cannot clone the private chart library from ${repository}. Sign in with access to it (for example \`gh auth setup-git\`), or pass --from <directory> with a copy of the library.`,
+			`Cannot clone the private chart library from ${withoutCredentials(repository)}. Sign in with access to it (for example \`gh auth setup-git\`), or pass --from <directory> with a copy of the library.`,
 		);
 	}
 	return directory;
@@ -129,6 +214,9 @@ async function main() {
 	const files = await readChartLibraryManifest(CHART_LIBRARY_MANIFEST);
 	const label = CHART_LIBRARY_TARGET.slice(REPOSITORY_ROOT.length + sep.length);
 
+	if (!options.check && (await recoverInterruptedInstall(CHART_LIBRARY_TARGET)).restored) {
+		console.log(`Restored the copy of ${label} that an interrupted install had moved aside.`);
+	}
 	if (await exists(CHART_LIBRARY_TARGET)) {
 		try {
 			await verifyChartLibrary(CHART_LIBRARY_TARGET, files, { exact: true });

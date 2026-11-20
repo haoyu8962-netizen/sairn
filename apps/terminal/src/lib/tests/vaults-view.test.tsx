@@ -492,6 +492,7 @@ describe("Vault views", () => {
 				isTestnet={false}
 			/>,
 		);
+		expect(container.textContent).toContain("Maximum withdrawable$12,345.678");
 		expect(container.textContent).toContain("Leader commission10.00%");
 		expect(container.textContent).toContain("$12,345.68");
 		expect(container.textContent).toContain("$1,234.50");
@@ -500,6 +501,7 @@ describe("Vault views", () => {
 		numberFormatSetting.locale = "fr-FR";
 		act(() => notifyNumberFormatChange());
 
+		expect(container.textContent).toContain("Maximum withdrawable$12 345,678");
 		expect(container.textContent).toContain("Leader commission10,00%");
 		expect(container.textContent).toContain("+12,35%");
 		expect(container.textContent).toContain("$12 345,68");

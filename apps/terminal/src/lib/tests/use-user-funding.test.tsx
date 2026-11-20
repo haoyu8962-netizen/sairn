@@ -106,6 +106,19 @@ describe("useUserFunding", () => {
 		expect(result.fundings.at(-1)?.time).toBe(NOW - RECENT_FUNDING_ROWS + 1);
 	});
 
+	it.each([{ fundingRate: "?" }, { szi: "?" }, { usdc: "not-a-number" }])(
+		"P2-9 rejects a WS snapshot containing invalid decimals %o",
+		(badFields) => {
+			mocks.subscription.status = "active";
+			mocks.subscription.data = {
+				user: ADDRESS_A,
+				isSnapshot: true,
+				fundings: [createFunding(NOW), { ...createFunding(NOW - 1), ...badFields }],
+			};
+			expect(renderHook()).toMatchObject({ status: "error", fundings: [] });
+		},
+	);
+
 	it("treats an empty WebSocket snapshot as a confirmed empty recent window", () => {
 		mocks.subscription.data = { fundings: [], isSnapshot: true, user: ADDRESS_A };
 		mocks.subscription.status = "active";

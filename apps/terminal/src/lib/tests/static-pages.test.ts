@@ -7,8 +7,23 @@ import {
 	REFERRAL_JOIN_ROUTE_MARKER,
 	STATIC_SHELL_FILE,
 } from "@/lib/static-pages/static-pages";
+import { nonShellNavigationPaths, shellNavigationPaths } from "./fixtures/shell-navigation-cases";
 
 describe("static page classification", () => {
+	it.each(shellNavigationPaths)("serves the shell for %s", (path) => {
+		for (const method of ["GET", "HEAD"]) {
+			expect(classifyStaticPageRequest(method, path)).toEqual({
+				kind: "page",
+				candidates: [STATIC_SHELL_FILE],
+				marker: null,
+			});
+		}
+	});
+
+	it.each(nonShellNavigationPaths)("keeps %s out of the shell", (path) => {
+		expect(classifyStaticPageRequest("GET", path).kind).not.toBe("page");
+	});
+
 	it("serves the shell for every application navigation, legal pages included", () => {
 		expect(classifyStaticPageRequest("GET", "/trade/BTC")).toEqual({
 			kind: "page",

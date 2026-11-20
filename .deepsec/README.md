@@ -22,6 +22,8 @@ Currently configured project: `sairn` (target: `..`).
 
 ## Daily commands
 
+Run these commands from `.deepsec/`. The exported `findings/` directory is ignored by Git.
+
 ```bash
 pnpm deepsec scan
 pnpm deepsec process     --concurrency 5
@@ -52,6 +54,7 @@ in your agent to fill in INFO.md.
 
 ```
 deepsec.config.ts        Project list (one entry per scanned repo)
+findings/                Exported Markdown findings (gitignored)
 data/sairn/
   INFO.md                Repo context — checked into git, hand-curated
   SETUP.md               Agent setup prompt — checked in, deletable

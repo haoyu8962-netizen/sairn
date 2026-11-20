@@ -12,6 +12,7 @@ import {
 	formatVaultRatio,
 	formatVaultSignedUsd,
 	formatVaultUsd,
+	formatVaultWithdrawalLimit,
 	getLatestVaultHistoryValue,
 	getVaultValueTone,
 	isPassiveVaultActionReason,
@@ -200,7 +201,7 @@ export function VaultDetailView({
 								<Trans>Maximum withdrawable</Trans>
 							</p>
 							<p className="mt-0.5 text-sm font-bold tabular-nums text-fg">
-								{formatVaultUsd(owner.maxWithdrawable, numberFormat)}
+								{formatVaultWithdrawalLimit(owner.maxWithdrawable, numberFormat)}
 							</p>
 						</div>
 					</div>

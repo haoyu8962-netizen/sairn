@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
 	assertExchangeSigningDeadline,
+	ExchangeActionDeadlineError,
 	hasExchangeActionDeadlinePassed,
 	startExchangeActionDeadline,
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
@@ -8,7 +9,7 @@ import { Button } from "@sairn/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { type Address, formatUnits, isAddress, parseUnits, zeroAddress } from "viem";
+import { type Address, formatUnits, parseUnits, zeroAddress } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
@@ -28,6 +29,7 @@ import {
 	isQuoteBalanceSharedWithPerps,
 } from "@/domain/trade/balances";
 import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { isFundsDestinationAddress } from "@/domain/trade/funds-destination-address";
 import { assertFreshFundsAmountWithFee, FundsExecutionError } from "@/domain/trade/funds-execution-guard";
 import {
 	assertPreTransferCheckMatchesReview,
@@ -160,18 +162,25 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			)
 		: null;
 	const [depositCctpPreflightErrorCode, setDepositCctpPreflightErrorCode] = useState<
-		"capacity-unavailable" | "fee-changed" | "verification-unavailable" | "balance-unavailable" | null
+		| "capacity-unavailable"
+		| "fee-changed"
+		| "verification-unavailable"
+		| "balance-unavailable"
+		| "not-sent-in-time"
+		| null
 	>(null);
 	const depositCctpPreflightError =
-		depositCctpPreflightErrorCode === "balance-unavailable"
-			? formatFundsActionFeedback("balance-unavailable", (descriptor) => t(descriptor))
-			: depositCctpPreflightErrorCode === "verification-unavailable"
-				? t`Unable to verify the current Circle CCTP fee and Fast Transfer capacity.`
-				: depositCctpPreflightErrorCode === "capacity-unavailable"
-					? t`Circle Fast Transfer capacity is temporarily unavailable. Try again later.`
-					: depositCctpPreflightErrorCode === "fee-changed"
-						? t`Circle fees changed. Review the updated fee, then submit again.`
-						: null;
+		depositCctpPreflightErrorCode === "not-sent-in-time"
+			? formatTransferError(new ExchangeActionDeadlineError(), (descriptor) => t(descriptor))
+			: depositCctpPreflightErrorCode === "balance-unavailable"
+				? formatFundsActionFeedback("balance-unavailable", (descriptor) => t(descriptor))
+				: depositCctpPreflightErrorCode === "verification-unavailable"
+					? t`Unable to verify the current Circle CCTP fee and Fast Transfer capacity.`
+					: depositCctpPreflightErrorCode === "capacity-unavailable"
+						? t`Circle Fast Transfer capacity is temporarily unavailable. Try again later.`
+						: depositCctpPreflightErrorCode === "fee-changed"
+							? t`Circle fees changed. Review the updated fee, then submit again.`
+							: null;
 	const [withdrawalRoutingPreflightFailed, setWithdrawalRoutingPreflightFailed] = useState(false);
 	const [withdrawalPreflightFeedback, setWithdrawalPreflightFeedback] = useState<{
 		contextIdentity: string;
@@ -569,7 +578,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		: null;
 	const isWithdrawDestinationValid =
 		!requiresWithdrawDestination ||
-		(!!normalizedWithdrawDestination && isAddress(normalizedWithdrawDestination) && !withdrawDestinationIssue);
+		(isFundsDestinationAddress(normalizedWithdrawDestination) && !withdrawDestinationIssue);
 	const withdrawDestinationError = getWithdrawDestinationError();
 	const withdrawalPrerequisitesPending =
 		isWithdrawalPreflighting ||
@@ -917,8 +926,10 @@ export function DepositModal({ onSurfaceChange }: Props) {
 				expectedCctpMaxFeeRaw: displayedCctpDepositFeeQuery.calculation?.maxFeeRaw,
 				deadline,
 			});
-		} catch {
-			if (isCurrentPreflight()) setDepositRoutingPreflightErrorCode("unavailable");
+		} catch (error) {
+			if (!isCurrentPreflight()) return;
+			if (error instanceof ExchangeActionDeadlineError) setDepositCctpPreflightErrorCode("not-sent-in-time");
+			else setDepositRoutingPreflightErrorCode("unavailable");
 			return;
 		} finally {
 			if (isCurrentPreflight()) setIsDepositPreflighting(false);
@@ -932,7 +943,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 
 	function getWithdrawDestinationError(): string | null {
 		if (!requiresWithdrawDestination || !normalizedWithdrawDestination) return null;
-		if (!isAddress(normalizedWithdrawDestination)) return t`Invalid destination address`;
+		if (!isFundsDestinationAddress(normalizedWithdrawDestination)) return t`Invalid destination address`;
 		if (withdrawDestinationIssue === "self") {
 			return t`Withdrawing to yourself is not allowed because it would automatically trigger a deposit. Enter a different address.`;
 		}
@@ -944,7 +955,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		const deadline = startExchangeActionDeadline();
 		if (!canSubmitWithdraw || !walletAddress || withdrawalRouteFee === null) return;
 		const destination = requiresWithdrawDestination ? normalizedWithdrawDestination : walletAddress;
-		if (!isAddress(destination)) return;
+		if (!isFundsDestinationAddress(destination)) return;
 		if (
 			requiresWithdrawDestination &&
 			getWithdrawDestinationIssue(destination, [walletAddress, embeddedWalletAddress]) !== null
@@ -1370,8 +1381,45 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	if (walletResponseDelayed) depositPendingHeading = <Trans>Taking longer than expected</Trans>;
 	if (depositStatus === "confirming") depositPendingHeading = <Trans>Waiting for chain confirmation</Trans>;
 	const recoveredCctpDeposit = visibleTab === "deposit" && !depositHash ? cctpDepositTracking.recoveryRecord : null;
+	const settledCctpDeposit =
+		visibleTab === "deposit" && !depositHash ? (cctpDepositTracking.unacknowledgedOutcomes[0] ?? null) : null;
+
+	function handleSettledCctpDepositClose() {
+		if (settledCctpDeposit) cctpDepositTracking.acknowledgeOutcome(settledCctpDeposit.sourceHash);
+		handleClose();
+	}
 
 	function buildSurface(): DepositModalSurface {
+		if (settledCctpDeposit) {
+			const settledFailure = isDefinitiveDepositSourceFailure(settledCctpDeposit.error)
+				? settledCctpDeposit.error
+				: null;
+			return {
+				kind: "status",
+				screen: (
+					<StatusScreen
+						open={open}
+						presentation={presentation}
+						title={<Trans>Deposit</Trans>}
+						icon={settledFailure ? "error" : "unknown"}
+						heading={settledFailure ? <Trans>Deposit failed</Trans> : <Trans>Deposit status unknown</Trans>}
+						description={
+							settledFailure
+								? formatTransferError(settledFailure, (descriptor) => t(descriptor))
+								: t`The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.`
+						}
+						txHash={settledCctpDeposit.sourceHash}
+						txChain={depositTxChain}
+						onClose={handleSettledCctpDepositClose}
+					>
+						<Button onClick={handleSettledCctpDepositClose} className="w-full">
+							<Trans>Close</Trans>
+						</Button>
+					</StatusScreen>
+				),
+			};
+		}
+
 		if (recoveredCctpDeposit) {
 			const forwardSubmitted = cctpDepositTracking.data?.status === "forward-submitted";
 			return {

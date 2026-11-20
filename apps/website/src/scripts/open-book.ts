@@ -9,7 +9,8 @@
 // with three invalid frames in a row, or 20 s without valid data, drops the live view back to the recorded
 // poster. Connections are budgeted (3 per minute, 6 per 5 minutes) and the view gives up for the visit
 // once the budget is spent. Reduced motion and Save-Data keep the poster until the visitor asks for the
-// live view. Numbers are shown only while the view is live.
+// live view. Numbers are shown only while the view is live. The quote follows the newest frame by exchange time:
+// a two-sided bbo, a one-sided bbo (no quote, back to the poster), or a newer book that contradicts the bbo.
 
 import Big from "big.js";
 import { formatMarkPrice, isPositiveDecimal } from "../lib/markets/live.js";
@@ -74,14 +75,36 @@ export function readBook(data: unknown, coin: string): { t: number; bids: { px: 
 	return { t: frame.time, bids, asks };
 }
 
-/** bbo frame for `coin` with both sides present and the bid below the ask; a one-sided frame is skipped (undefined). */
-export function readBbo(data: unknown, coin: string): Quote | null | undefined {
+/**
+ * bbo frame for `coin`: `quote` is the two-sided best bid and offer, or null when a side is empty (the book has no
+ * quote). Invalid frames, including a crossed quote, are null.
+ */
+export function readBbo(data: unknown, coin: string): { t: number; quote: Quote | null } | null {
 	const frame = data as { coin?: unknown; time?: unknown; bbo?: unknown };
-	if (frame?.coin !== coin || typeof frame.time !== "number" || !Array.isArray(frame.bbo) || frame.bbo.length !== 2) return null;
+	if (frame?.coin !== coin || typeof frame.time !== "number" || !Number.isFinite(frame.time)) return null;
+	if (!Array.isArray(frame.bbo) || frame.bbo.length !== 2) return null;
 	const [bid, ask] = frame.bbo as [{ px?: unknown } | null, { px?: unknown } | null];
-	if (!bid || !ask) return undefined;
-	if (!isPositiveDecimal(bid.px) || !isPositiveDecimal(ask.px) || !new Big(bid.px).lt(ask.px)) return null;
-	return { bid: bid.px, ask: ask.px, t: frame.time };
+	if ((bid !== null && !isPositiveDecimal(bid?.px)) || (ask !== null && !isPositiveDecimal(ask?.px))) return null;
+	if (bid === null || ask === null) return { t: frame.time, quote: null };
+	if (!new Big(bid.px as string).lt(ask.px as string)) return null;
+	return { t: frame.time, quote: { bid: bid.px as string, ask: ask.px as string, t: frame.time } };
+}
+
+/**
+ * Does an l2Book top of book, aggregated to N_SIG_FIGS, show that the true best bid or ask is no longer `quote`?
+ * Aggregation moves a price by less than one bucket (10^(e - N_SIG_FIGS + 1) for a price of exponent e) whichever way
+ * it rounds, so a difference of a full bucket or more cannot come from aggregation.
+ */
+export function bookContradictsQuote(book: { bid: string; ask: string }, quote: { bid: string; ask: string }): boolean {
+	return [
+		[book.bid, quote.bid],
+		[book.ask, quote.ask],
+	].some(([shown, exact]) => {
+		const a = new Big(shown);
+		const b = new Big(exact);
+		const bucket = new Big(10).pow(Math.max(a.e, b.e) - N_SIG_FIGS + 1);
+		return a.minus(b).abs().gte(bucket);
+	});
 }
 
 /** Trades for `coin`; invalid entries are dropped one by one, never drawn. */
@@ -230,8 +253,14 @@ export function startOpenBook(root: HTMLElement): void {
 	let trades: Trade[] = [];
 	const seenTrades = new Set<string>();
 	let quote: Quote | null = null;
-	/** Once a bbo frame has arrived, the quote comes only from bbo: l2Book levels are aggregated to N_SIG_FIGS. */
+	/**
+	 * While true the quote comes from bbo (exact; l2Book levels are aggregated to N_SIG_FIGS). bbo frames arrive only
+	 * when the best bid or offer changes, so silence keeps the quote; a newer book that contradicts it hands the quote
+	 * back to the book until the next bbo frame.
+	 */
 	let quoteFromBbo = false;
+	/** Exchange time of the frame that set the current quote state; an older frame on either channel cannot replace it. */
+	let quoteT = Number.NEGATIVE_INFINITY;
 	let mids: { t: number; mid: number }[] = [];
 	let firstBookT = 0;
 	let lastTrade: { px: string; t: number } | null = null;
@@ -307,6 +336,7 @@ export function startOpenBook(root: HTMLElement): void {
 		seenTrades.clear();
 		quote = null;
 		quoteFromBbo = false;
+		quoteT = Number.NEGATIVE_INFINITY;
 		lastTrade = null;
 		liveSince = 0;
 		lastValidAt = 0;
@@ -322,6 +352,13 @@ export function startOpenBook(root: HTMLElement): void {
 	function rejectFrame(channel: "l2Book" | "bbo") {
 		invalid[channel] += 1;
 		if (invalid[channel] >= INVALID_FRAME_LIMIT) dropToRecorded(true);
+	}
+
+	function withdrawQuote() {
+		quote = null;
+		mids = [];
+		liveSince = 0;
+		if (phase === "live") setPhase("recorded");
 	}
 
 	function onMessage(event: MessageEvent) {
@@ -346,17 +383,26 @@ export function startOpenBook(root: HTMLElement): void {
 			}));
 			if (columns.length === 0 || book.t > (columns.at(-1)?.t ?? 0)) columns.push({ t: book.t, levels });
 			if (firstBookT === 0) firstBookT = book.t;
-			if (!quoteFromBbo && (!quote || book.t >= quote.t)) quote = { bid: book.bids[0].px, ask: book.asks[0].px, t: book.t };
+			const top = { bid: book.bids[0].px, ask: book.asks[0].px, t: book.t };
+			const replacesQuote = quote ? !quoteFromBbo || bookContradictsQuote(top, quote) : !quoteFromBbo || book.t > quoteT;
+			if (book.t >= quoteT && replacesQuote) {
+				quote = top;
+				quoteT = book.t;
+				quoteFromBbo = false;
+			}
 			recordMid(book.t);
 		} else if (message.channel === "bbo") {
 			const read = readBbo(message.data, coin);
-			if (read === undefined) return;
 			if (!read) return rejectFrame("bbo");
 			invalid.bbo = 0;
 			lastValidAt = now;
-			if (!quoteFromBbo || !quote || read.t >= quote.t) quote = read;
-			quoteFromBbo = true;
-			recordMid(read.t);
+			if (read.t >= quoteT) {
+				quote = read.quote;
+				quoteT = read.t;
+				quoteFromBbo = true;
+				if (quote) recordMid(read.t);
+				else withdrawQuote();
+			}
 			exchangeNow = Math.max(exchangeNow, read.t);
 			exchangeNowAt = now;
 		} else if (message.channel === "trades") {
@@ -370,7 +416,7 @@ export function startOpenBook(root: HTMLElement): void {
 		} else {
 			return;
 		}
-		if (liveSince === 0 && lastBookAt > 0) liveSince = now;
+		if (liveSince === 0 && lastBookAt > 0 && quote) liveSince = now;
 		if (phase === "recorded" && liveSince > 0 && now - liveSince >= LIVE_HANDOFF_MS && quote) setPhase("live");
 		if (phase === "live" && reducedQuery.matches) draw();
 	}

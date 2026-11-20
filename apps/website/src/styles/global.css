@@ -479,8 +479,8 @@
 		white-space: nowrap;
 	}
 
-	/* 02 ticker: a scroll-snap row by default. The live script sets data-ticker="moving" once the Pause control
-	   is wired; only then, and only without a reduced-motion preference, does the row become a marquee. */
+	/* 02 ticker: a scroll-snap row by default. The live script sets data-ticker="moving" while fresh card prices are shown and updates
+	   are enabled; only then, and only without a reduced-motion preference, does the row become a marquee. */
 	.ticker-viewport {
 		overflow-x: auto;
 		scroll-snap-type: x mandatory;

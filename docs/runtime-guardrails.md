@@ -357,11 +357,16 @@ implementation.
   transaction on Hyperliquid, opens a review step in the same dialog with the fee
   and a loss warning, and its static `Send` / `Send with Fee` control stays
   disabled until the user acknowledges that this is not a withdrawal to another
-  chain; a failed or malformed answer sends nothing. The draft is locked while
-  the check runs, and an answer that arrives after the account, network or
-  draft changed is dropped. The review belongs to the account it was checked
-  for: an account change discards it and its acknowledgement, and confirming
-  re-checks that identity. Max does not reserve the activation fee, as on the
+  chain; a failed or malformed answer (including one without `userExists`)
+  sends nothing. The draft is locked while the check runs, and an answer that
+  arrives after the account, network or draft changed is dropped. The SDK
+  pre-execution guard asks `preTransferCheck` again inside the funds lock, right
+  before signing, and sends nothing when the destination became sanctioned, the
+  activation fee differs from the one the user saw, or a loss warning the user
+  was not shown is now due (2026-11-19; the official terminal checks only at
+  the click). The zero address is not a valid destination. The review belongs
+  to the account it was checked for: an account change discards it and its
+  acknowledgement, and confirming re-checks that identity. Max does not reserve the activation fee, as on the
   official terminal (its Max is the withdrawable balance floored to 2 decimals,
   or to the token's decimals for spot). Max, the available label and the
   over-balance check read the exact balance string, the same one the execution
@@ -369,9 +374,9 @@ implementation.
   as `999999999.99999999`) up, so a Max taken from it could exceed the balance
   and be refused on every retry (2026-10-31, P2 D8).
 - Email-wallet withdrawals name their Arbitrum destination. Refuse the wallet's
-  own address (the automatic email-wallet deposit would put it straight back)
-  and the native USDC token contracts of both networks, in the form and again at
-  submission.
+  own address (the automatic email-wallet deposit would put it straight back),
+  the native USDC token contracts of both networks and the zero address
+  (`isFundsDestinationAddress`), in the form and again at submission.
 - Spot Swap and position Reverse trade, so they follow the trading region gate
   (`useGeoRestriction().actionsBlocked`) like order entry: the balances table
   hides Swap, the swap dialog disables its control and names the restriction, the
@@ -392,6 +397,24 @@ implementation.
   failed lookup of the terminal's own check would then leave positions that
   cannot be closed, and exchanges that withdraw from a region usually keep a
   close-only mode.
+- Agent grants and open-order edits follow the same split (2026-11-19). A
+  named Agent (an API wallet, or the linked phone's `Mobile QR`) can trade from
+  elsewhere, so `useExplicitAgentApproval` refuses it while this terminal's
+  region verdict is restricted or unverified: before the legal check, again
+  before the wallet prompt, after the signature and while the send waits for
+  its lock. It reads the shared geo query, so a refresh that failed counts as
+  unverified. Removing a named Agent (zero address) and the unnamed
+  trading-connection Agent keep the exit rule above; the order panel already
+  refuses to start the latter while trading is blocked. An order edit is
+  classified by the order it places, as the exchange classifies a `modify`
+  ([Hyperliquid order book](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/order-book)):
+  a reduce-only replacement is an exit and stays available, any other
+  replacement (spot orders included) is an opening trade, and both order
+  editors refuse it in their `batchModify` execution guard, before queueing and
+  at the SDK boundary. Hyperliquid's own reduce-only mode for HIP-3 venues draws
+  the same line (`setReduceOnly`: reduce-only orders, modifying orders into
+  reduce-only orders, and cancels;
+  [HIP-3 deployer actions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/hip-3-deployer-actions)).
 - Privy embedded EOA can sign, but it still needs gas for EVM transactions.
 - Smart Wallet sponsorship is a Privy/paymaster concern and must be configured
   per chain. UI must not claim sponsorship is available unless the chain is
@@ -631,6 +654,8 @@ mobile regressions.
   ignored `apps/terminal/public/charting_library/` and checks every file
   against `deploy/manifests/tradingview-charting-library.json`
   (`docs/adr/0054-chart-library-outside-the-repository.md`). Never commit it.
+  Every directory below the library root on a manifest path must be a real
+  directory and each manifest file a regular file.
 - The vendored loader (`charting_library.js` and its esm/cjs/standalone
   copies) carries one local patch in `_create`: the `innerWindowLoad`
   listener is registered after `document.open()` and before
@@ -1126,6 +1151,17 @@ have an install capability.
   cacheable-shell checks. A font or asset response is cloned before it is
   handed to the page, never afterwards. Cache names, limits, the shell-scanner
   limits and the release-switch probe live in the ADR.
+- A market route of one or two path segments under `/trade` (`/trade/<symbol>`
+  or `/trade/<base>/<quote>`, a trailing slash ignored) is a navigation even
+  when its last segment ends in a dot and a short alphanumeric run, such as
+  `/trade/xyz:BRK.B` or `/trade/BTC/USD.C`. The CloudFront viewer-request
+  function, the local static-page classifier and the service worker check that
+  shape before the file-extension rule, which is unchanged for every other
+  path; they match path segments, not a market character set, because
+  Hyperliquid does not document the characters a coin or spot token name may
+  use. Changing the rule needs no service-worker cache-version bump: the
+  byte-different `sw.js` installs on the next navigation (2026-11-19,
+  `3d326e55`; `docs/work-memory/sessions/2026-11-19-dotted-market-route.md`).
 
 ### Important Files
 
@@ -1413,6 +1449,12 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
   The header lives in the same module so the dynamically imported chrome chunk shares the pages'
   header closure; without it Rollup regroups the shared header chunks and the trade desktop
   runtime startup exceeded its bundle budget.
+- The `/join/$code` invitation accepts only the codes the referral submit path can apply (1 to 20
+  ASCII letters and digits) and upper-cases the code it reads from the link, as the official terminal
+  does (`toUpperCase()` on the route parameter, production bundle of 2026-11-19) and as
+  `normalizeReferralCode` does before `setReferrer`. The route compares the router's decoded parameter
+  with the browser path decoded once, both upper-cased (`resolveReferralJoinRouteCode`), so a
+  lower-case link opens the invitation and shows the upper-case code.
 - Evidence for the narrow width (2026-09-17, local production build, disconnected, 1001px viewport,
   gap between the navigation and the wallet controls after removing Earn): en 78px, zh 189px,
   hi 185px, es 53px, fr 2px, ar 109px. French leaves no margin, so every state collapses at
@@ -1467,6 +1509,17 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
 - `apps/terminal/src/lib/navigation/boot-dashboard-route.ts`
 - `apps/terminal/src/components/dashboard/dashboard-chrome.tsx`
 - `apps/terminal/src/lib/tests/preload-trade-terminal-surface.test.ts`
+
+## 12. Trading Protection Preferences
+
+[ADR 0057](adr/0057-trading-protection-storage.md) owns this section.
+
+- Order confirmation, market-order max slippage and transaction delay protection each have their own `localStorage` key, written only by an explicit change of that protection. They are read from those keys, never from `global-settings-v2` once the one-time migration baseline exists.
+- An open window takes the stricter of its own value and the stored value on every storage event, back/forward-cache restore and ordinary settings write; only an explicit action in the window loosens a protection. A cold start uses the stored value.
+- `global-settings-v2` stays at version 4. Every write of it by this release carries, for the three fields, the stricter of the record's previous value and this release's value, so an older tab or a rolled-back release never reads a looser value than either.
+- A `global-settings-v2` record with a higher version is never migrated, cleared or overwritten.
+- A refused storage write never changes what a cold start reads: a refused baseline write falls back to the record's values in memory, a refused projection write is skipped, and storage that throws on reading yields the strictest protections, never the defaults. A refused write of any setting keeps it in this window's memory without throwing to the caller.
+- Removals count as storage events: another window's `removeItem` or `clear()` on `localStorage` makes an open window take the stricter of its value and what storage now answers, so a deletion can only tighten it.
 
 ## Required Review Checklist
 

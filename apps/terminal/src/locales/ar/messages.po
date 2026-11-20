@@ -1101,8 +1101,6 @@ msgstr "فشل الإيداع التلقائي لـ USDC"
 #: src/components/trade/positions/transfer-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 msgid "Available"
 msgstr "متاح"
 
@@ -1198,8 +1196,8 @@ msgid "Backstop Liquidation: {direction}"
 msgstr "تصفية احتياطية: {direction}"
 
 #: src/config/ui-text.ts
-msgid "Balance"
-msgstr "الرصيد"
+#~ msgid "Balance"
+#~ msgstr "الرصيد"
 
 #: src/components/trade/positions/balances-tab.tsx
 #: src/components/trade/tradebox/trade-form-fields.tsx
@@ -1786,6 +1784,7 @@ msgstr "انقر للإرسال · لا يمكن التراجع عن الصفق�
 #: src/components/trade/tradebox/bridge/success-screen.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
 #: src/components/trade/tradebox/leverage-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2225,7 +2224,6 @@ msgstr "ربط المحفظة"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/desktop-nav.ts
-#: src/config/ui-text.ts
 msgid "Connect Wallet"
 msgstr "ربط المحفظة"
 
@@ -2483,7 +2481,6 @@ msgid "Creating your wallet. Please wait..."
 msgstr "جارٍ إنشاء محفظتك. يرجى الانتظار..."
 
 #: src/components/trade/mobile/mobile-position-card.tsx
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2498,8 +2495,8 @@ msgid "Cross Account Leverage"
 msgstr "رافعة هامش المحفظة"
 
 #: src/config/ui-text.ts
-msgid "Cross Leverage"
-msgstr "الرافعة المتقاطعة"
+#~ msgid "Cross Leverage"
+#~ msgstr "الرافعة المتقاطعة"
 
 #: src/config/account-labels.ts
 #: src/hooks/trade/use-account-overview-labels.ts
@@ -2515,7 +2512,6 @@ msgid "Crypto"
 msgstr "العملات المشفرة"
 
 #: src/hooks/trade/use-account-ledger-csv.ts
-#: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
@@ -2666,13 +2662,12 @@ msgstr "جهة النشر"
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/components/trade/tradebox/deposit/deposit-method-chooser.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/config/account-ledger.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 #: src/lib/trade/use-button-content.ts
 msgid "Deposit"
 msgstr "إيداع"
@@ -2698,6 +2693,7 @@ msgstr "المبلغ"
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 msgid "Deposit failed"
 msgstr "فشل الإيداع"
 
@@ -2705,6 +2701,8 @@ msgstr "فشل الإيداع"
 msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "أودِع USDC الأصلية على Arbitrum من محفظتك المتصلة."
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -3105,7 +3103,6 @@ msgid "Enable"
 msgstr "تفعيل"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
-#: src/config/ui-text.ts
 #: src/lib/trade/use-button-content.ts
 msgid "Enable Trading"
 msgstr "تفعيل التداول"
@@ -3268,13 +3265,11 @@ msgstr "البيئة"
 
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
-#: src/config/ui-text.ts
 msgid "Equity"
 msgstr "حقوق الملكية"
 
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Est. Fee"
 msgstr "الرسوم المقدرة"
 
@@ -3504,7 +3499,6 @@ msgstr "فشل النسخ"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/tradebox/trade-panel.tsx
-#: src/config/ui-text.ts
 #: src/lib/errors/action-error.ts
 msgid "Failed to enable trading"
 msgstr "فشل تفعيل التداول"
@@ -3555,8 +3549,8 @@ msgstr "تعذر تحميل فئات الأسواق."
 #~ msgstr "فشل في تحميل الأوامر المفتوحة."
 
 #: src/config/ui-text.ts
-msgid "Failed to load order book."
-msgstr "فشل في تحميل دفتر الأوامر."
+#~ msgid "Failed to load order book."
+#~ msgstr "فشل في تحميل دفتر الأوامر."
 
 #: src/components/trade/positions/orders-history-tab.tsx
 #~ msgid "Failed to load order history."
@@ -4288,6 +4282,8 @@ msgstr "رصيد {quoteToken} غير كافٍ عند أقصى انزلاق"
 msgid "Insufficient <0/> balance"
 msgstr "رصيد <0/> غير كافٍ"
 
+#: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/transfer-modal.tsx
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
@@ -4370,7 +4366,6 @@ msgstr "ادعُ المتداولين، وراجع مزايا الرسوم، و�
 msgid "IOC (Immediate Or Cancel)"
 msgstr "IOC (تنفيذ فوري أو إلغاء)"
 
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
@@ -4595,7 +4590,6 @@ msgstr "تنفيذ محدد"
 
 #: src/components/trade/positions/position-limit-close-modal.tsx
 #: src/components/trade/positions/position-limit-close-modal.tsx
-#: src/config/ui-text.ts
 msgid "Limit Price"
 msgstr "السعر المحدد"
 
@@ -4630,7 +4624,6 @@ msgstr "حساب التخزين المرتبط: <0>{0}</0>."
 #: src/components/trade/chart/use-tradingview-overlay-lines.ts
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Liq. Price"
 msgstr "سعر التصفية"
 
@@ -4812,7 +4805,6 @@ msgstr "جاري تحميل المحفظة..."
 #: src/components/trade/components/global-modals.tsx
 #: src/components/ui/lazy-dialog-boundary.tsx
 #: src/components/ui/lazy-dialog-boundary.tsx
-#: src/config/ui-text.ts
 #: src/hooks/trade/use-account-overview-labels.ts
 msgid "Loading..."
 msgstr "جارٍ التحميل..."
@@ -4949,19 +4941,18 @@ msgstr "بيانات وضع الهامش غير متاحة"
 #~ msgstr "تم تحديث وضع الهامش. تم تحديث الرافعة المالية إلى {leverage}x"
 
 #: src/config/ui-text.ts
-msgid "Margin Ratio"
-msgstr "نسبة الهامش"
+#~ msgid "Margin Ratio"
+#~ msgstr "نسبة الهامش"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Margin Req."
 msgstr "الهامش المطلوب"
 
 #: src/config/ui-text.ts
-msgid "Margin Used"
-msgstr "الهامش المستخدم"
+#~ msgid "Margin Used"
+#~ msgstr "الهامش المستخدم"
 
 #: src/config/market-header.ts
 msgid "Mark"
@@ -5174,7 +5165,7 @@ msgstr "الحد الأقصى للمعروض"
 msgid "Maximum withdrawable"
 msgstr "الحد الأقصى القابل للسحب"
 
-#. placeholder {0}: formatVaultUsd(availableAmount, numberFormat)
+#. placeholder {0}: formatVaultWithdrawalLimit(availableAmount, numberFormat)
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Maximum withdrawable: {0}"
 msgstr "الحد الأقصى القابل للسحب: {0}"
@@ -5351,6 +5342,11 @@ msgstr "الاسم"
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 msgid "Navigation"
 msgstr "التنقل"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
+msgid "Near liquidation"
+msgstr "قريب من التصفية"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "Negative PNL"
@@ -6033,7 +6029,6 @@ msgstr "الأمر {order}: {line}"
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/components/trade/mobile/mobile-trade-layout.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Order Book"
 msgstr "دفتر الأوامر"
 
@@ -6074,7 +6069,6 @@ msgstr "تأكيد الأمر"
 #~ msgid "Order confirmed by the exchange."
 #~ msgstr "أكدت المنصة الطلب."
 
-#: src/config/ui-text.ts
 #: src/lib/trade/order-notification-copy.ts
 #: src/lib/trade/order-submission-feedback.ts
 msgid "Order failed"
@@ -6163,7 +6157,6 @@ msgstr "نوع الأمر"
 #: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Order Value"
 msgstr "قيمة الطلب"
 
@@ -6746,7 +6739,6 @@ msgstr "صفحة الخزائن السابقة"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 #: src/config/market-header.ts
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
@@ -7012,7 +7004,6 @@ msgstr "تعذر حفظ بيانات الاسترداد في هذا المتصف
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/tradebox/trade-form-twap.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Reduce Only"
@@ -7442,10 +7433,13 @@ msgstr "استئناف التتبع"
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/layout/terminal-boot-error.tsx
+#: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/offline-banner.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -8042,7 +8036,6 @@ msgstr "تعيين إلى {p}%"
 #: src/components/trade/mobile/mobile-header.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
-#: src/config/ui-text.ts
 msgid "Settings"
 msgstr "الإعدادات"
 
@@ -8157,7 +8150,6 @@ msgid "Signing with your email wallet"
 msgstr "جارٍ التوقيع بمحفظة بريدك الإلكتروني"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
-#: src/config/ui-text.ts
 msgid "Signing..."
 msgstr "جاري التوقيع..."
 
@@ -8197,8 +8189,6 @@ msgstr "جاري التوقيع..."
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/tradebox/order-toast.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Size"
@@ -8255,7 +8245,6 @@ msgstr "سعر SL"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Slippage"
 msgstr "الانزلاق"
 
@@ -8385,7 +8374,6 @@ msgstr "النقل من الحساب الفوري إلى التخزين متاح
 
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Spread"
 msgstr "الفارق"
 
@@ -9101,6 +9089,8 @@ msgstr "معاملة Arbitrum لا تطابق الإيداع الذي راجعت
 msgid "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 msgstr "أُرسلت معاملة Arbitrum، لكن حالة Circle غير متاحة مؤقتًا. سيُستأنف التتبع عند عودتك."
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."
@@ -10067,7 +10057,6 @@ msgstr "طلبات كثيرة جدًا. انتظر لحظة ثم حاول مرة
 #: src/components/trade/orderbook/orderbook-row.tsx
 #: src/components/trade/positions/balances-tab.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Total"
 msgstr "الإجمالي"
 
@@ -10146,7 +10135,6 @@ msgstr "سعر TP"
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "TP/SL"
 msgstr "TP/SL"
 
@@ -10251,7 +10239,6 @@ msgstr "المتداولون المُحالون"
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/components/trade/mobile/mobile-trade-layout.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Trades"
 msgstr "الصفقات"
 
@@ -10297,6 +10284,7 @@ msgstr "لم يُفعَّل التداول على هذا الحساب بعد. أ
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "التداول غير متاح في منطقتك"
@@ -10611,6 +10599,7 @@ msgstr "النوع"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "تعذّر التحقق من عنوان الوجهة. لم يُرسل أي شيء."
 
@@ -10628,6 +10617,7 @@ msgstr "تعذّر تحميل رصيد USDC على Arbitrum"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "تعذر تحميل رسوم السحب الحالية عبر CCTP."
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "لا يمكن إرسال الأموال إلى هذا العنوان."
@@ -10672,6 +10662,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "تعذّر التحقق من التوفر الإقليمي. لم يُرسَل طلب الإحالة هذا."
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "تعذر التحقق من التوفر الإقليمي. التداول غير متاح مؤقتًا."
@@ -10680,6 +10671,7 @@ msgstr "تعذر التحقق من التوفر الإقليمي. التداول
 #~ msgid "Unable to verify regional availability. Vault actions are temporarily unavailable."
 #~ msgstr "تعذر التحقق من التوفر الإقليمي. إجراءات الخزنة غير متاحة مؤقتًا."
 
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
@@ -10834,7 +10826,6 @@ msgid "Unrealized P&L"
 msgstr "الأرباح والخسائر غير المحققة"
 
 #: src/config/account-labels.ts
-#: src/config/ui-text.ts
 #: src/hooks/trade/use-account-overview-labels.ts
 msgid "Unrealized PNL"
 msgstr "الربح والخسارة غير المحققة"
@@ -10857,6 +10848,9 @@ msgid "Up to {cctpFee} USDC in fees will be deducted from your deposit."
 msgstr "سيُخصم ما يصل إلى {cctpFee} USDC كرسوم من إيداعك."
 
 #: src/components/historical-orders/historical-orders-page.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
+#: src/hooks/trade/use-history-csv-export.ts
 msgid "Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders"
 msgstr "ما يصل إلى أحدث {ORDER_HISTORY_API_LIMIT} من الأوامر العادية"
 
@@ -11269,7 +11263,6 @@ msgstr "بانتظار التأكيد على الشبكة"
 
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Waiting for order book..."
 msgstr "في انتظار دفتر الأوامر..."
 
@@ -11419,7 +11412,6 @@ msgstr "المركز بالكامل"
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/config/account-labels.ts
-#: src/config/ui-text.ts
 msgid "Withdraw"
 msgstr "سحب"
 

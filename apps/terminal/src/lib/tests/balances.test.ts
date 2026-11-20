@@ -731,3 +731,10 @@ describe("outcome token prices", () => {
 		).toBe("106");
 	});
 });
+
+it("P1-1 leaves balances with only a same-named perp mid unpriced", () => {
+	const prices = addSpotMarketPriceAliases({ AXL: "2.5" }, []);
+	expect(getSpotAccountValueUsdValue([{ coin: "AXL", token: 1, total: "10", hold: "0", entryNtl: "30" }], prices)).toBe(
+		"0",
+	);
+});

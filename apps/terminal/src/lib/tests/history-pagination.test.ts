@@ -273,3 +273,30 @@ describe("history pagination", () => {
 		).rejects.toMatchObject({ name: "MalformedHistoryPageError" });
 	});
 });
+
+it("P2-10 sorts uncapped funding and ledger histories once after all pages", async () => {
+	let timeReads = 0;
+	const pages = Array.from({ length: 200 }, (_, page) =>
+		Array.from({ length: 500 }, (_, row) => {
+			const time = page * 499 + row + 1;
+			return { id: String(time), time };
+		}),
+	);
+	let nextPage = 0;
+	const result = await fetchTimeRangeHistory({
+		endTime: 100_000,
+		fetchPage: async () => pages[nextPage++] ?? [],
+		getKey: (event) => event.id,
+		getTime: (event) => {
+			timeReads++;
+			return event.time;
+		},
+		maxPages: 201,
+		requireAscending: true,
+		signal: new AbortController().signal,
+	});
+	expect(result.truncated).toBe(false);
+	expect(result.items).toHaveLength(99_801);
+	expect(result.items.every((event, index) => event.time === index + 1)).toBe(true);
+	expect(timeReads).toBeLessThan(310_000);
+});

@@ -61,6 +61,9 @@ function setAsset(body, coin, fields) {
 test("the request plan polls the main dex and the featured dexes within 60 weight per rolling minute", () => {
 	const plan = createRequestPlan(FEATURED_COINS);
 	assert.deepEqual(plan.dexes, ["", "io", "xyz"]);
+	const withLinkedVenue = createRequestPlan(FEATURED_COINS, ["xyz", "para"]);
+	assert.deepEqual(withLinkedVenue.dexes, ["", "io", "xyz", "para"], "include a venue represented only by a link once");
+	assert.equal(withLinkedVenue.refreshIntervalMs, 160_000);
 	assert.equal(plan.weightPerRequest, 20);
 	assert.equal(plan.requestSpacingMs, 20_000, "three 20-weight requests fit one 60 s window");
 	assert.equal(plan.refreshIntervalMs, 120_000);

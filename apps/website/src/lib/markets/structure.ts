@@ -270,7 +270,7 @@ export function liveKindOf(category: string | null): LiveKind {
 
 /**
  * Featured markets first (02 cards, in config order), then every 03 tab row not already listed, so the
- * request plan asks the featured dexes first and the stats band's dexes answer in the first round.
+ * request plan asks the featured dexes first and the other venues follow within the same request budget.
  */
 export function getLiveMarketInputs(): LiveMarketInput[] {
 	const inputs: LiveMarketInput[] = getFeaturedMarkets().map((market) => ({
@@ -308,13 +308,12 @@ export function getRenderedMarketCoins(): string[] {
 	return [...coins];
 }
 
-/** The dexes whose totals the stats band sums: the main dex and the featured dexes, which answer first. */
+/** All venues represented on the page, with the core venue first when present. */
 export function getStatsDexes(): { dex: string; label: string }[] {
-	const dexes: { dex: string; label: string }[] = [{ dex: MAIN_DEX, label: "Hyperliquid core perps" }];
-	for (const market of getFeaturedMarkets()) {
-		if (market.dex === MAIN_DEX || dexes.some((entry) => entry.dex === market.dex)) continue;
-		dexes.push({ dex: market.dex, label: market.deployerFullName ?? market.dex });
-	}
+	const venues = new Set(getRenderedMarketCoins().map(dexOfCoin));
+	const dexes = venues.delete(MAIN_DEX) ? [{ dex: MAIN_DEX, label: "Hyperliquid core perps" }] : [];
+	const names = new Map(getDeployers().map((deployer) => [deployer.dex, deployer.fullName]));
+	for (const dex of venues) dexes.push({ dex, label: names.get(dex) ?? dex });
 	return dexes;
 }
 

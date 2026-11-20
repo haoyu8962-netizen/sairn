@@ -35,6 +35,30 @@
 - Actions 的密钥与变量、分支保护需要在新仓库重新配置；公开仓库的 Actions 不计费，[ADR 0016](0016-dev-first-pull-requests-and-ci-tiers.md) 里按计费分钟做的取舍可以重新评估。
 - 历史扫描：对公开副本运行过 gitleaks，582 条命中集中在两个生成的市场数据文件与测试夹具里，按文件与变量名判断不是真实密钥，没有逐条核对值。
 
+## 2026-11-19 补记：安装脚本的路径与克隆参数
+
+公开仓库安全审查（Codex 提出，Claude 核对）的两项低风险发现，已改：
+
+- 清单路径上根目录以下的每一级目录必须是真实目录，文件本身仍须是普通文件（此前只用 `lstat` 检查最后一级）。目录软链能把清单路径指到别处；内容仍受 SHA-256 约束，所以影响只是读到「哈希相同的别处文件」，改动是为了让「清单文件都是真实文件」这条规则完整。库的根目录不检查：`--from`、`CHART_LIBRARY_DIR` 由操作者指定，经软链给出也照常使用。
+- `git clone` 在仓库地址前加 `--`，以 `-` 开头的 `CHART_LIBRARY_REPOSITORY` 不再被当作选项。克隆失败的提示去掉地址里的用户名与密码（地址可能带令牌）；Git 自己的报错照常输出，Git 会自行隐去地址里的凭据（本机 Git 2.54 实测）。
+- `scripts/fetch-chart-library.test.mjs` 用合成库与记录参数的 Git 替身覆盖这几条，不需要私有库或网络。
+
+## 2026-11-19 补记：CI 里图表库与 PR 代码在同一个作业（审查后保持现状）
+
+审查指出：四个工作流在同一个作业里检出私有库、运行 PR 检出中的脚本、安装依赖并构建或测试，PR 控制的代码能读到图表库。核对结论是机制属实，但工作流不改，理由如下。
+
+- **谁能让带密钥的运行执行自己的代码。** fork 的 PR 拿不到仓库密钥（GitHub 文档「Using secrets in GitHub Actions」），检出私有库那一步直接失败；Dependabot 触发的运行也拿不到 Actions 密钥；工作流里没有 `pull_request_target` 与 `workflow_run`；手动触发和推标签需要写权限。所以走带密钥路径的代码都来自有写权限的人，而 GitHub 文档写明有写权限的人本来就能读取仓库的全部密钥（「Secure use reference」）。目前写权限只有仓库所有者。
+- **剩下的真实暴露面是供应链。** 被投毒的依赖或 action 在这些作业里运行时能读磁盘上的图表库，也可能取到本作业引用的 `CHART_LIBRARY_TOKEN`（同一文档：被攻破的 action 能访问仓库配置的密钥）。
+- **图表库的字节本来就公开提供。** 生产站在 `/charting_library/*` 下原样提供整个库（`deploy/cloudfront/distribution-config.mjs` 的 `CHART_PATH_PATTERNS`），浏览器都能下载；许可禁止的是在公开仓库里再分发。供应链攻击者从 CI 读到的，不比从网站下载的多。
+- **拆成两个作业反而更糟。** 由受信任作业取库再交给 PR 作业，只能经构件或缓存传递：构件对有读权限的人开放（「Downloading workflow artifacts」），公开仓库就是所有人；基分支的缓存任何能开 PR 的人都能读（「Dependency caching reference」）。这等于把库公开。PR 作业照样执行依赖代码、持有库字节，只少了令牌。
+- **调换顺序或 `--ignore-scripts` 没有作用。** pnpm 10 默认不运行依赖的生命周期脚本（v10.0.0 发布说明），本仓库没有配置 `onlyBuiltDependencies`，本机 `node_modules/.modules.yaml` 的 `ignoredBuilds` 列出了 esbuild、lefthook 等 9 个包；而类型检查、构建和测试本身就执行全部依赖代码。
+- **环境（environment）加必需审批换不来隔离。** 部署分支规则按 `GITHUB_REF` 匹配，PR 运行是 `refs/pull/<N>/merge`，要让 PR 检查拿到密钥就得放行所有 PR；必需审批则要求所有者为自己的每次推送点批准（「Deployments and environments」）。
+- 同一批依赖也在运营方本机（有云账号与发布凭据）和发给用户的前端包里运行，CI 隔离不是防供应链的主要位置。
+
+需要运营方在 GitHub 设置里做、代码不变的事：`CHART_LIBRARY_TOKEN` 保持细粒度、只授权 `gatu-chart-library`、只读 Contents，并设置到期日、按期轮换（「Managing your personal access tokens」建议设到期日）；怀疑泄露时先撤销；fork PR 的运行保持需要批准；发布标签用规则集保护；不引入 `pull_request_target`、`workflow_run` 或自托管 runner。如需让被盗令牌很快失效，可改用 GitHub App 的短期安装令牌，这要新建 App，由运营方决定。
+
+前提：结论依赖「能在本仓库推分支或触发运行的只有所有者」。以后加入协作者，或让自动化（例如 Claude 工作流）凭外部输入推送分支时，要重新评估。
+
 ## 验证
 
 在公开仓库的克隆上（Node 22.15.0）：
@@ -49,3 +73,11 @@
 - 生产构建（固定身份、配对关闭）退出码 0；`node deploy/verify-chart-build.mjs apps/terminal/public apps/terminal/.output/public deploy/manifests/tradingview-charting-library.json` 退出码 0。
 
 没有验证的：新仓库上的 CI（含 `actions/checkout` 检出私有仓库那一步）；全量单测与浏览器套件；发布脚本对新仓库产物的运行。
+
+## 2026-11-20 补记：替换已安装目录的顺序
+
+Gemini 终审第 1 轮 P3-10 指出：安装先删除目标目录再把暂存目录改名过去，中断时目标目录不存在。已改（`scripts/fetch-chart-library.mjs`）：
+
+- 目录不能用一次 `rename` 替换非空目录，所以先把已安装的目录改名为同级的 `charting_library.previous-<pid>`，再把核对过的暂存目录改名为目标；第二次改名失败时把旧目录改回去，成功后才删除旧目录。两次改名之间仍有极短的目标缺失窗口，这是文件系统决定的。
+- 进程在两次改名之间被中断时，下一次 `pnpm chart:fetch` 先把已结束进程留下的 `.previous-<pid>` 改回目标（只认真实目录，不认符号链接；该进程仍在运行时不动），再照常按清单做完整核对（包括「每一级都是真实目录、文件是普通文件」），不需要克隆；已结束进程留下的 `.incoming-<pid>` 与多余的 `.previous-<pid>` 一并删除，避免留在 `public/` 里被构建带走。`--check` 只读，不做这一步。
+- 测试：`scripts/fetch-chart-library.test.mjs` 新增 6 项（最终改名失败、成功替换后无残留、恢复与清理、符号链接与运行中进程不恢复、目标已在时只清理、经命令行在不克隆的情况下恢复），合成库，不连网络。

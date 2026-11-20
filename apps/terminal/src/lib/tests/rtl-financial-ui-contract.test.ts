@@ -74,7 +74,9 @@ describe("RTL financial UI contract", () => {
 			),
 		).toHaveLength(2);
 		expect(
-			source.match(/<bdi dir="ltr">\{formatNumber\(fill\.sz, markets\.getSzDecimals\(fill\.coin\)\)\}<\/bdi>/gu),
+			source.match(
+				/<bdi dir="ltr">\s*\{market \? formatNumber\(fill\.sz, market\.szDecimals\) : formatDecimalString\(fill\.sz\)\}\s*<\/bdi>/gu,
+			),
 		).toHaveLength(2);
 		expect(source).toContain('<bdi dir="ltr">{formatToken(fill.fee, { symbol: feeToken })}</bdi>');
 		expect(source).toContain("const feeToken = markets.getTokenDisplayName(fill.feeToken);");

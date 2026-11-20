@@ -57,6 +57,44 @@ function readHook<T>(hook: () => T): T {
 	return value as T;
 }
 
+function holdPreferenceLocks() {
+	const queue: Array<() => void> = [];
+	const request = vi.fn((_name: string, ...rest: unknown[]) => {
+		const callback = rest.at(-1) as () => unknown;
+		return new Promise((resolve, reject) => {
+			queue.push(() => {
+				try {
+					resolve(callback());
+				} catch (error) {
+					reject(error);
+				}
+			});
+		});
+	});
+	vi.stubGlobal("navigator", Object.create(window.navigator, { locks: { value: { request } } }));
+	return {
+		request,
+		pending: () => queue.length,
+		releaseNext: () => queue.shift()?.(),
+		releaseAll() {
+			while (queue.length > 0) queue.shift()?.();
+		},
+	};
+}
+
+function runBetweenReadAndWrite(operation: () => void) {
+	const write = Storage.prototype.setItem;
+	let ran = false;
+	vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+		if (key === KEY && !ran) {
+			ran = true;
+			operation();
+		}
+		write.call(this, key, value);
+	});
+	return () => ran;
+}
+
 describe("market preferences across windows", () => {
 	let tabA: MarketStoreModule;
 	let tabB: MarketStoreModule;
@@ -86,10 +124,92 @@ describe("market preferences across windows", () => {
 	});
 
 	afterEach(() => {
+		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 		window.localStorage.clear();
 		windowListeners.length = 0;
 		vi.resetModules();
+	});
+
+	it.each([
+		{ label: "keeps a favorite another window adds", other: "HYPE", expected: ["BTC", "ETH", "SOL", "HYPE"] },
+		{ label: "does not revive a favorite another window removes", other: "ETH", expected: ["BTC", "SOL"] },
+	])("$label between this window's read and write", ({ other, expected }) => {
+		const locks = holdPreferenceLocks();
+		const interleaved = runBetweenReadAndWrite(() => tabAActions.toggleFavoriteMarket(other));
+
+		tabBActions.toggleFavoriteMarket("SOL");
+		locks.releaseAll();
+
+		expect(interleaved()).toBe(true);
+		expect(readStored().state?.favoriteMarkets).toEqual(expected);
+		deliverStorageEvent(0, null);
+		deliverStorageEvent(1, null);
+		expect(readHook(tabA.useFavoriteMarkets)).toEqual(expected);
+		expect(readHook(tabB.useFavoriteMarkets)).toEqual(expected);
+	});
+
+	it("shows a click at once and keeps it through another window's update while the write waits", () => {
+		const locks = holdPreferenceLocks();
+		tabBActions.toggleFavoriteMarket("SOL");
+		tabBActions.toggleFavoriteMarket("ETH");
+
+		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "SOL"]);
+		expect(readStored().state?.favoriteMarkets).toEqual(["BTC", "ETH"]);
+
+		const stored = JSON.parse(window.localStorage.getItem(KEY) ?? "{}");
+		window.localStorage.setItem(
+			KEY,
+			JSON.stringify({ ...stored, state: { ...stored.state, favoriteMarkets: ["BTC", "ETH", "HYPE"] } }),
+		);
+		deliverStorageEvent(1, null);
+		deliver(1, new PageTransitionEvent("pageshow", { persisted: true }));
+		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "HYPE", "SOL"]);
+
+		locks.releaseNext();
+		expect(readStored().state?.favoriteMarkets).toEqual(["BTC", "ETH", "HYPE", "SOL"]);
+		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "HYPE", "SOL"]);
+
+		locks.releaseNext();
+		expect(readStored().state?.favoriteMarkets).toEqual(["BTC", "HYPE", "SOL"]);
+		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "HYPE", "SOL"]);
+	});
+
+	it("stores what each window clicked when both click the same favorite before either write", () => {
+		const locks = holdPreferenceLocks();
+		tabAActions.toggleFavoriteMarket("SOL");
+		tabBActions.toggleFavoriteMarket("SOL");
+		tabAActions.toggleFavoriteMarket("ETH");
+		tabBActions.toggleFavoriteMarket("ETH");
+		locks.releaseAll();
+
+		expect(readStored().state?.favoriteMarkets).toEqual(["BTC", "SOL"]);
+	});
+
+	it("keeps each window's selected market when selections wait for the lock", () => {
+		const locks = holdPreferenceLocks();
+		tabAActions.setSelectedMarket("perp", "SOL");
+		tabBActions.setSelectedMarket("spot", "HYPE/USDC");
+
+		expect(tabA.getStoredSelectedMarket("perp")).toBe("SOL");
+		expect(readStored().state?.selectedMarkets?.perp).toBe("BTC");
+
+		locks.releaseAll();
+		deliverStorageEvent(0, null);
+		deliverStorageEvent(1, null);
+
+		expect(readStored().state?.selectedMarkets).toMatchObject({ perp: "SOL", spot: "HYPE/USDC" });
+		expect(tabA.getStoredSelectedMarket("spot")).toBe("PURR/USDC");
+		expect(tabB.getStoredSelectedMarket("perp")).toBe("BTC");
+	});
+
+	it("writes without the lock when the lock request fails before it runs", async () => {
+		const request = vi.fn(() => Promise.reject(new DOMException("denied", "SecurityError")));
+		vi.stubGlobal("navigator", Object.create(window.navigator, { locks: { value: { request } } }));
+
+		tabBActions.toggleFavoriteMarket("SOL");
+		await vi.waitFor(() => expect(readStored().state?.favoriteMarkets).toEqual(["BTC", "ETH", "SOL"]));
+		expect(request).toHaveBeenCalledTimes(1);
 	});
 
 	it("keeps a favorite added in another window when this window selects a market", () => {
@@ -153,7 +273,6 @@ describe("market preferences across windows", () => {
 	it.each([
 		["unparseable text", "{not json"],
 		["a schema violation", JSON.stringify({ state: { favoriteMarkets: ["../evil"] }, version: 3 })],
-		["a newer version", JSON.stringify({ state: { favoriteMarkets: ["DOGE"] }, version: 99 })],
 	])("ignores %s written by another window", (_label, value) => {
 		const before = window.localStorage.getItem(KEY);
 		window.localStorage.setItem(KEY, value);
@@ -199,5 +318,97 @@ describe("market preferences across windows", () => {
 
 		expect(readHook(tabB.useFavoriteMarkets)).toEqual(["BTC", "ETH", "SOL"]);
 		expect(setItem).not.toHaveBeenCalled();
+	});
+
+	it("leaves a newer release's record intact when this window edits markets afterwards", () => {
+		const future = JSON.stringify({
+			state: { selectedMarkets: { all: "ETH" }, favoriteMarkets: ["HYPE"], pinnedMarkets: ["SOL"] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		deliverStorageEvent(0, null);
+		tabAActions.toggleFavoriteMarket("SOL");
+		tabAActions.setSelectedMarket("perp", "SOL");
+
+		expect(readHook(tabA.useFavoriteMarkets)).toEqual(["BTC", "ETH", "SOL"]);
+		expect(readHook(tabA.useSelectedMarkets).perp).toBe("SOL");
+		expect(window.localStorage.getItem(KEY)).toBe(future);
+	});
+});
+
+describe("market preferences stored by a newer release", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		window.localStorage.clear();
+		windowListeners.length = 0;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.resetModules();
+	});
+
+	it("starts from a newer record's readable preferences without migrating, clearing or overwriting it", async () => {
+		const future = JSON.stringify({
+			state: { selectedMarkets: { all: "ETH", perp: "ETH" }, favoriteMarkets: ["HYPE"], pinnedMarkets: ["SOL"] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		const tab = await openWindow();
+		const actions = readHook(tab.useMarketActions);
+
+		expect(readHook(tab.useFavoriteMarkets)).toEqual(["HYPE"]);
+		expect(tab.getTradeHomeMarketName()).toBe("ETH");
+		actions.toggleFavoriteMarket("BTC");
+
+		expect(readHook(tab.useFavoriteMarkets)).toEqual(["HYPE", "BTC"]);
+		expect(window.localStorage.getItem(KEY)).toBe(future);
+	});
+
+	it("keeps a newer record this release cannot validate", async () => {
+		const future = JSON.stringify({
+			state: { favoriteMarkets: [{ name: "BTC", pinned: true }] },
+			version: 4,
+		});
+		window.localStorage.setItem(KEY, future);
+		const tab = await openWindow();
+		readHook(tab.useMarketActions).toggleFavoriteMarket("SOL");
+
+		expect(readHook(tab.useFavoriteMarkets)).toContain("SOL");
+		expect(window.localStorage.getItem(KEY)).toBe(future);
+	});
+});
+
+describe("market preferences with a damaged record on storage that refuses removal", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+			throw new DOMException("read-only storage", "SecurityError");
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		windowListeners.length = 0;
+		vi.resetModules();
+	});
+
+	it.each([
+		["unparseable", "{not json"],
+		["invalid", JSON.stringify({ state: { favoriteMarkets: "BTC" }, version: 3 })],
+	])("starts and stores an edit over the %s record", async (_kind, record) => {
+		window.localStorage.setItem(KEY, record);
+		const tab = await openWindow();
+
+		expect(() => readHook(tab.useMarketActions).toggleFavoriteMarket("DOGE")).not.toThrow();
+		expect(readHook(tab.useFavoriteMarkets)).toContain("DOGE");
+		expect(JSON.parse(window.localStorage.getItem(KEY) ?? "{}").state.favoriteMarkets).toContain("DOGE");
+		expect(() => deliverStorageEvent(0, null)).not.toThrow();
 	});
 });

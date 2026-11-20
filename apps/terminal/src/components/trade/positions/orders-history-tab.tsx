@@ -1,4 +1,4 @@
-import { Plural, useLingui } from "@lingui/react/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Button, Select, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -10,17 +10,25 @@ import { useHistoricalOrders } from "@/hooks/trade/use-historical-orders";
 import { useHistoricalOrdersCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useOrderDisplayLabels } from "@/hooks/trade/use-order-display-labels";
+import { useOrderHistory } from "@/hooks/trade/use-order-history";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
+import { mergeHistoricalOrderSources } from "@/lib/trade/historical-orders";
 import {
+	getFilteredHistoryEmptyPresentation,
+	historySnapshotReachesLive,
+} from "@/lib/trade/history-filter-presentation";
+import {
+	buildHistoricalOrderEntries,
 	getOrderHistoryStatusCategory,
 	getOrderHistoryTriggerPrice,
 	type OrderHistoryStatusCategory,
 	type OrdinaryOrderHistoryEntry,
 } from "@/lib/trade/order-history";
+import { ORDER_HISTORY_API_LIMIT as ORDER_HISTORY_API_LIMIT_COUNT } from "@/lib/trade/order-history-page";
 import { AssetBadge } from "../components/asset-badge";
 import { HistoricalOrderPrice } from "../components/historical-order-price";
 import { DesktopTabToolbarPortal } from "./desktop-tab-toolbar-portal";
@@ -90,24 +98,30 @@ interface OrdersHistoryTabContentProps extends Props {
 }
 
 function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabContentProps) {
-	const { formatToken } = useNumberFormat();
+	const { formatNumber, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { getHistoricalOrderStatusPresentation, getOrderSideLabel, getOrderTypeLabel } = useOrderDisplayLabels();
-	const { entries, error, isConnected, isOffline, isStale, status } = useHistoricalOrders();
+	const { bufferedOrders, entries, error, isConnected, isOffline, isStale, oldestBufferedStatusTime, status } =
+		useHistoricalOrders();
 	const navigateToMarket = useMarketNavigation();
 	const markets = useMarkets();
 	const [typeFilter, setTypeFilter] = useState<OrderHistoryTypeFilter>("all");
 	const [statusFilter, setStatusFilter] = useState<OrderHistoryStatusFilter>("all");
+	const filtersActive = typeFilter !== "all" || statusFilter !== "all";
+	const orderSnapshot = useOrderHistory(address ?? "", { enabled: filtersActive });
+	const searchableEntries = buildHistoricalOrderEntries(
+		mergeHistoricalOrderSources(orderSnapshot.orders, bufferedOrders),
+	);
 
-	const filteredEntries = entries
+	const filteredEntries = (filtersActive ? searchableEntries : entries)
 		.filter(
 			(entry) =>
 				(typeFilter === "all" || entry.type === typeFilter) &&
 				(statusFilter === "all" || getOrderHistoryStatusCategory(entry) === statusFilter),
 		)
 		.slice(0, RECENT_ACCOUNT_HISTORY_ROWS);
-	const availableTypeFilters = new Set(entries.map((entry) => entry.type));
+	const availableTypeFilters = new Set(searchableEntries.map((entry) => entry.type));
 	if (typeFilter !== "all") availableTypeFilters.add(typeFilter);
 	const typeOptions = [
 		{ value: "all", label: t`All types` },
@@ -116,7 +130,7 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 			label: getOrderTypeLabel(value),
 		})),
 	];
-	const availableStatusFilters = new Set(entries.map(getOrderHistoryStatusCategory));
+	const availableStatusFilters = new Set(searchableEntries.map(getOrderHistoryStatusCategory));
 	if (statusFilter !== "all") availableStatusFilters.add(statusFilter);
 	const statusOptions = [
 		{ value: "all", label: t`All statuses` },
@@ -125,7 +139,24 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 			.map((value) => ({ value, label: getStatusFilterLabel(value) })),
 	];
 
-	const headerCount = isConnected ? <Plural value={filteredEntries.length} one="# order" other="# orders" /> : null;
+	const canShowResult = status === "ready" && (filteredEntries.length > 0 || !(error || isOffline || isStale));
+	const emptyPresentation = getFilteredHistoryEmptyPresentation({
+		liveCurrent: status === "ready" && !error && !isOffline && !isStale,
+		snapshot: {
+			hasData: orderSnapshot.status === "ready",
+			failed: orderSnapshot.hasFailed,
+			fetching: orderSnapshot.isFetching,
+			offline: orderSnapshot.isOffline,
+			reachedLimit: orderSnapshot.reachedLimit,
+			reachesLive: historySnapshotReachesLive(orderSnapshot.newestStatusTime, oldestBufferedStatusTime),
+		},
+	});
+	const canConclude = emptyPresentation === "noMatch" || emptyPresentation === "noMatchWithinLimit";
+	const ORDER_HISTORY_API_LIMIT = formatNumber(ORDER_HISTORY_API_LIMIT_COUNT, 0);
+	const headerCount =
+		isConnected && canShowResult && (!filtersActive || canConclude) ? (
+			<Plural value={filteredEntries.length} one="# order" other="# orders" />
+		) : null;
 
 	function getStatusFilterLabel(filter: Exclude<OrderHistoryStatusFilter, "all">) {
 		if (filter === "open") return t`Open`;
@@ -192,13 +223,35 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 		if (status === "loading" || status === "idle") return <PassiveDataPlaceholder busy />;
 		if (status !== "ready" || (entries.length === 0 && (error || isOffline || isStale)))
 			return <PassiveDataPlaceholder />;
-		if (entries.length === 0) return <Placeholder>{t`No order history found.`}</Placeholder>;
+		if (entries.length === 0 && !filtersActive) return <Placeholder>{t`No order history found.`}</Placeholder>;
 		return null;
 	}
 
-	const placeholder =
-		renderPlaceholder() ??
-		(filteredEntries.length === 0 ? <Placeholder>{t`No orders match these filters.`}</Placeholder> : null);
+	function renderFilteredEmpty() {
+		if (emptyPresentation === "offline") return <PassiveDataPlaceholder />;
+		if (emptyPresentation === "loading") return <PassiveDataPlaceholder busy />;
+		if (emptyPresentation === "retry") {
+			return (
+				<Placeholder>
+					<Button variant="outline" intent="neutral" size="sm" onClick={orderSnapshot.refresh}>
+						{t`Retry`}
+					</Button>
+				</Placeholder>
+			);
+		}
+		return (
+			<Placeholder>
+				{t`No orders match these filters.`}
+				{emptyPresentation === "noMatchWithinLimit" ? (
+					<span className="block text-xs">
+						<Trans>Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders</Trans>
+					</span>
+				) : null}
+			</Placeholder>
+		);
+	}
+
+	const placeholder = renderPlaceholder() ?? (filteredEntries.length === 0 ? renderFilteredEmpty() : null);
 
 	return (
 		<div className={positionsPanelTabRootClass}>

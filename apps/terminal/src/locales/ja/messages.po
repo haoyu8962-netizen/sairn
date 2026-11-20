@@ -987,8 +987,6 @@ msgstr "USDC の自動入金に失敗しました"
 #: src/components/trade/positions/transfer-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 msgid "Available"
 msgstr "利用可能"
 
@@ -1080,8 +1078,8 @@ msgid "Backstop Liquidation: {direction}"
 msgstr "バックストップ清算：{direction}"
 
 #: src/config/ui-text.ts
-msgid "Balance"
-msgstr "残高"
+#~ msgid "Balance"
+#~ msgstr "残高"
 
 #: src/components/trade/positions/balances-tab.tsx
 #: src/components/trade/tradebox/trade-form-fields.tsx
@@ -1601,6 +1599,7 @@ msgstr "クリックして送信 · 約定した取引は取り消せません"
 #: src/components/trade/tradebox/bridge/success-screen.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
 #: src/components/trade/tradebox/leverage-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -1996,7 +1995,6 @@ msgstr "ウォレットを接続"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/desktop-nav.ts
-#: src/config/ui-text.ts
 msgid "Connect Wallet"
 msgstr "ウォレットを接続"
 
@@ -2214,7 +2212,6 @@ msgid "Creating your wallet. Please wait..."
 msgstr "ウォレットを作成中です。お待ちください..."
 
 #: src/components/trade/mobile/mobile-position-card.tsx
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -2229,8 +2226,8 @@ msgid "Cross Account Leverage"
 msgstr "クロスアカウントレバレッジ"
 
 #: src/config/ui-text.ts
-msgid "Cross Leverage"
-msgstr "クロスレバレッジ"
+#~ msgid "Cross Leverage"
+#~ msgstr "クロスレバレッジ"
 
 #: src/config/account-labels.ts
 #: src/hooks/trade/use-account-overview-labels.ts
@@ -2246,7 +2243,6 @@ msgid "Crypto"
 msgstr "暗号資産"
 
 #: src/hooks/trade/use-account-ledger-csv.ts
-#: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-history-csv-export.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
@@ -2393,13 +2389,12 @@ msgstr "デプロイヤー"
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit/amount-input.tsx
 #: src/components/trade/tradebox/deposit/deposit-method-chooser.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/config/account-ledger.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 #: src/lib/trade/use-button-content.ts
 msgid "Deposit"
 msgstr "入金"
@@ -2425,6 +2420,7 @@ msgstr "入金額"
 #: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 msgid "Deposit failed"
 msgstr "入金に失敗しました"
 
@@ -2432,6 +2428,8 @@ msgstr "入金に失敗しました"
 msgid "Deposit native USDC on Arbitrum from your connected wallet."
 msgstr "接続中のウォレットから Arbitrum 上のネイティブ USDC を入金します。"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "Deposit status unknown"
@@ -2804,7 +2802,6 @@ msgid "Enable"
 msgstr "有効化"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
-#: src/config/ui-text.ts
 #: src/lib/trade/use-button-content.ts
 msgid "Enable Trading"
 msgstr "取引を有効化"
@@ -2955,13 +2952,11 @@ msgstr "環境"
 
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
-#: src/config/ui-text.ts
 msgid "Equity"
 msgstr "純資産"
 
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Est. Fee"
 msgstr "推定手数料"
 
@@ -3179,7 +3174,6 @@ msgstr "コピーできませんでした"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/tradebox/trade-panel.tsx
-#: src/config/ui-text.ts
 #: src/lib/errors/action-error.ts
 msgid "Failed to enable trading"
 msgstr "取引を有効化できませんでした"
@@ -3217,8 +3211,8 @@ msgid "Failed to load market categories."
 msgstr "市場カテゴリーを読み込めませんでした。"
 
 #: src/config/ui-text.ts
-msgid "Failed to load order book."
-msgstr "板を読み込めませんでした。"
+#~ msgid "Failed to load order book."
+#~ msgstr "板を読み込めませんでした。"
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Failed to load positions."
@@ -3848,6 +3842,8 @@ msgstr "最大スリッページで計算すると {quoteToken} の残高が不�
 msgid "Insufficient <0/> balance"
 msgstr "<0/> の残高が不足しています"
 
+#: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/transfer-modal.tsx
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/errors/definitions/deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
@@ -3930,7 +3926,6 @@ msgstr "トレーダーを招待し、手数料特典を確認し、Hyperliquid 
 msgid "IOC (Immediate Or Cancel)"
 msgstr "IOC（即時約定またはキャンセル）"
 
-#: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/position-filter-toolbar.tsx
 #: src/components/trade/positions/position-row.tsx
@@ -4127,7 +4122,6 @@ msgstr "指値執行"
 
 #: src/components/trade/positions/position-limit-close-modal.tsx
 #: src/components/trade/positions/position-limit-close-modal.tsx
-#: src/config/ui-text.ts
 msgid "Limit Price"
 msgstr "指値価格"
 
@@ -4158,7 +4152,6 @@ msgstr "リンク済みステーキングアカウント：<0>{0}</0>。"
 #: src/components/trade/chart/use-tradingview-overlay-lines.ts
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Liq. Price"
 msgstr "清算価格"
 
@@ -4289,7 +4282,6 @@ msgstr "ウォレットを読み込み中..."
 #: src/components/trade/components/global-modals.tsx
 #: src/components/ui/lazy-dialog-boundary.tsx
 #: src/components/ui/lazy-dialog-boundary.tsx
-#: src/config/ui-text.ts
 #: src/hooks/trade/use-account-overview-labels.ts
 msgid "Loading..."
 msgstr "読み込み中..."
@@ -4418,19 +4410,18 @@ msgid "Margin mode data is unavailable"
 msgstr "証拠金モードのデータを利用できません"
 
 #: src/config/ui-text.ts
-msgid "Margin Ratio"
-msgstr "証拠金率"
+#~ msgid "Margin Ratio"
+#~ msgstr "証拠金率"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Margin Req."
 msgstr "必要証拠金"
 
 #: src/config/ui-text.ts
-msgid "Margin Used"
-msgstr "使用証拠金"
+#~ msgid "Margin Used"
+#~ msgstr "使用証拠金"
 
 #: src/config/market-header.ts
 msgid "Mark"
@@ -4635,7 +4626,7 @@ msgstr "最大供給量"
 msgid "Maximum withdrawable"
 msgstr "最大出金可能額"
 
-#. placeholder {0}: formatVaultUsd(availableAmount, numberFormat)
+#. placeholder {0}: formatVaultWithdrawalLimit(availableAmount, numberFormat)
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Maximum withdrawable: {0}"
 msgstr "最大出金可能額：{0}"
@@ -4785,6 +4776,11 @@ msgstr "名前"
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 msgid "Navigation"
 msgstr "ナビゲーション"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
+msgid "Near liquidation"
+msgstr "清算間近"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "Negative PNL"
@@ -5425,7 +5421,6 @@ msgstr "注文 {order}：{line}"
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/components/trade/mobile/mobile-trade-layout.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Order Book"
 msgstr "板"
 
@@ -5458,7 +5453,6 @@ msgstr "確認前に注文条件が変更されました。注文を確認して
 msgid "Order confirmation"
 msgstr "注文確認"
 
-#: src/config/ui-text.ts
 #: src/lib/trade/order-notification-copy.ts
 #: src/lib/trade/order-submission-feedback.ts
 msgid "Order failed"
@@ -5530,7 +5524,6 @@ msgstr "注文タイプ"
 #: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/tradebox/scale-order-summary.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Order Value"
 msgstr "注文金額"
 
@@ -6053,7 +6046,6 @@ msgstr "ボールトの前のページ"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 #: src/config/market-header.ts
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
@@ -6295,7 +6287,6 @@ msgstr "このブラウザーに復旧情報を保存できませんでした。
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/tradebox/trade-form-twap.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Reduce Only"
@@ -6701,10 +6692,13 @@ msgstr "追跡を再開"
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/components/market-asset-info.tsx
 #: src/components/trade/layout/terminal-boot-error.tsx
+#: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/offline-banner.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -7194,7 +7188,6 @@ msgstr "{p}% に設定"
 #: src/components/trade/mobile/mobile-header.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
-#: src/config/ui-text.ts
 msgid "Settings"
 msgstr "設定"
 
@@ -7305,7 +7298,6 @@ msgid "Signing with your email wallet"
 msgstr "メールウォレットで署名中"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
-#: src/config/ui-text.ts
 msgid "Signing..."
 msgstr "署名中..."
 
@@ -7345,8 +7337,6 @@ msgstr "署名中..."
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/tradebox/order-toast.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
-#: src/config/ui-text.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Size"
@@ -7403,7 +7393,6 @@ msgstr "損切り価格"
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "Slippage"
 msgstr "スリッページ"
 
@@ -7529,7 +7518,6 @@ msgstr "ステーキングへ移動可能な現物"
 
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Spread"
 msgstr "スプレッド"
 
@@ -8164,6 +8152,8 @@ msgstr "Arbitrum トランザクションが確認した入金と一致しませ
 msgid "The Arbitrum transaction was submitted, but Circle status is temporarily unavailable. Tracking will resume when you return."
 msgstr "Arbitrum トランザクションは送信されましたが、Circle の状況を一時的に取得できません。ページに戻ると追跡を再開します。"
 
+#: src/components/trade/tradebox/cctp-deposit-tracking-notifier.tsx
+#: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/embedded-deposit-auto-bridge.tsx
 msgid "The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying."
@@ -8950,7 +8940,6 @@ msgstr "リクエストが多すぎます。しばらく待ってから再試行
 #: src/components/trade/orderbook/orderbook-row.tsx
 #: src/components/trade/positions/balances-tab.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Total"
 msgstr "合計"
 
@@ -9025,7 +9014,6 @@ msgstr "利確価格"
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
-#: src/config/ui-text.ts
 msgid "TP/SL"
 msgstr "TP/SL"
 
@@ -9118,7 +9106,6 @@ msgstr "紹介したトレーダー数"
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/components/trade/mobile/mobile-trade-layout.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Trades"
 msgstr "約定"
 
@@ -9164,6 +9151,7 @@ msgstr "このアカウントでは取引がまだ有効化されていません
 
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/config/trade-panel-labels.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Trading is not available in your region"
 msgstr "お住まいの地域では取引を利用できません"
@@ -9441,6 +9429,7 @@ msgstr "タイプ"
 
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
+#: src/components/trade/positions/send-modal.tsx
 msgid "Unable to check the destination address. Nothing was sent."
 msgstr "送信先アドレスを確認できませんでした。何も送金されていません。"
 
@@ -9458,6 +9447,7 @@ msgstr "Arbitrum の USDC 残高を読み込めません"
 msgid "Unable to load the current CCTP withdrawal fee."
 msgstr "現在の CCTP 出金手数料を読み込めません。"
 
+#: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 msgid "Unable to send funds to this address."
 msgstr "このアドレスには送金できません。"
@@ -9502,6 +9492,7 @@ msgid "Unable to verify regional availability. This referral request was not sub
 msgstr "地域別の利用可否を確認できません。この紹介リクエストは送信されていません。"
 
 #: src/lib/errors/action-error.ts
+#: src/lib/geo/trading-region.ts
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Unable to verify regional availability. Trading is temporarily unavailable."
 msgstr "地域別の利用可否を確認できません。取引は一時的に利用できません。"
@@ -9510,6 +9501,7 @@ msgstr "地域別の利用可否を確認できません。取引は一時的に
 #~ msgid "Unable to verify regional availability. Vault actions are temporarily unavailable."
 #~ msgstr "地域別の利用可否を確認できません。ボールト操作は一時的に利用できません。"
 
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Unable to verify the CCTP authorization."
@@ -9652,7 +9644,6 @@ msgid "Unrealized P&L"
 msgstr "未実現損益"
 
 #: src/config/account-labels.ts
-#: src/config/ui-text.ts
 #: src/hooks/trade/use-account-overview-labels.ts
 msgid "Unrealized PNL"
 msgstr "未実現損益"
@@ -9675,6 +9666,9 @@ msgid "Up to {cctpFee} USDC in fees will be deducted from your deposit."
 msgstr "入金額から最大 {cctpFee} USDC の手数料が差し引かれます。"
 
 #: src/components/historical-orders/historical-orders-page.tsx
+#: src/components/trade/mobile/mobile-orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
+#: src/hooks/trade/use-history-csv-export.ts
 msgid "Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders"
 msgstr "直近最大 {ORDER_HISTORY_API_LIMIT} 件の通常注文"
 
@@ -10025,7 +10019,6 @@ msgstr "チェーンの確認待ち"
 
 #: src/components/trade/mobile/mobile-book-view.tsx
 #: src/config/orderbook-labels.ts
-#: src/config/ui-text.ts
 msgid "Waiting for order book..."
 msgstr "板を待機中..."
 
@@ -10167,7 +10160,6 @@ msgstr "ポジション全体"
 #: src/components/vaults/vault-detail-view.tsx
 #: src/components/vaults/vault-detail-view.tsx
 #: src/config/account-labels.ts
-#: src/config/ui-text.ts
 msgid "Withdraw"
 msgstr "出金"
 

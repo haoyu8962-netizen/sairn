@@ -28,6 +28,10 @@ function createParams(orderCount = 1): TrackedOrderParams {
 	};
 }
 
+function orderResponse(statuses: readonly unknown[]) {
+	return { status: "ok", response: { type: "order", data: { statuses } } };
+}
+
 describe("order tracking", () => {
 	it("creates SDK-compatible 128-bit client order IDs", () => {
 		const ids = new Set(Array.from({ length: 100 }, createClientOrderId));
@@ -128,6 +132,7 @@ describe("order tracking", () => {
 				},
 			},
 			3,
+			"na",
 		);
 
 		expect(resolution).toEqual({
@@ -139,20 +144,95 @@ describe("order tracking", () => {
 		});
 	});
 
-	it("treats a single batch prevalidation error as rejection of every child", () => {
-		const resolution = resolveOrderBatchResponse(
-			{
-				status: "ok",
-				response: { type: "order", data: { statuses: [{ error: "Invalid order request" }] } },
-			},
-			4,
-		);
+	describe("attached TP/SL batch acceptance", () => {
+		const parentError = { error: "Entry rejected" };
+		const childError = { error: "Trigger rejected" };
+		const resting = { resting: { oid: 1 } };
+		const filled = { filled: { totalSz: "1", avgPx: "10", oid: 1 } };
+
+		it.each([
+			[[parentError, "waitingForFill", "waitingForTrigger"]],
+			[[parentError, "waitingForFill", "waitingForFill"]],
+			[[parentError, childError, "waitingForTrigger"]],
+			[[parentError, "waitingForFill", childError]],
+			[[parentError, "waitingForTrigger"]],
+		])("reconciles contradictory statuses %j", (statuses) => {
+			expect(resolveOrderBatchResponse(orderResponse(statuses), statuses.length, "normalTpsl")).toBeNull();
+		});
+
+		it("rejects a batch when the parent and both attachments explicitly fail", () => {
+			expect(resolveOrderBatchResponse(orderResponse([parentError, childError, childError]), 3, "normalTpsl")).toEqual({
+				status: "rejected",
+				totalCount: 3,
+				acceptedCount: 0,
+				rejectedCount: 3,
+				errors: [
+					{ index: 0, text: parentError.error },
+					{ index: 1, text: childError.error },
+					{ index: 2, text: childError.error },
+				],
+			});
+		});
+
+		it.each([resting, filled])("accepts waiting attachments when the parent is accepted (%j)", (parentStatus) => {
+			const response = orderResponse([parentStatus, "waitingForFill", "waitingForTrigger"]);
+			expect(resolveOrderBatchResponse(response, 3, "normalTpsl")).toEqual({
+				status: "accepted",
+				totalCount: 3,
+				acceptedCount: 3,
+				rejectedCount: 0,
+				errors: [],
+			});
+		});
+
+		it("reports partial acceptance when the parent succeeds and one attachment fails", () => {
+			const response = orderResponse([filled, "waitingForTrigger", childError]);
+			expect(resolveOrderBatchResponse(response, 3, "normalTpsl")).toEqual({
+				status: "partial",
+				totalCount: 3,
+				acceptedCount: 2,
+				rejectedCount: 1,
+				errors: [{ index: 2, text: childError.error }],
+			});
+		});
+
+		it("preserves a mixed result with explicit resting status and no waiting marker", () => {
+			const response = orderResponse([parentError, childError, resting]);
+			expect(resolveOrderBatchResponse(response, 3, "normalTpsl")).toEqual({
+				status: "partial",
+				totalCount: 3,
+				acceptedCount: 1,
+				rejectedCount: 2,
+				errors: [
+					{ index: 0, text: parentError.error },
+					{ index: 1, text: childError.error },
+				],
+			});
+		});
+
+		it.each(["na", "positionTpsl"] as const)("preserves wait markers in the %s grouping", (grouping) => {
+			const response = orderResponse([parentError, "waitingForFill", "waitingForTrigger"]);
+			expect(resolveOrderBatchResponse(response, 3, grouping)).toEqual({
+				status: "partial",
+				totalCount: 3,
+				acceptedCount: 2,
+				rejectedCount: 1,
+				errors: [{ index: 0, text: parentError.error }],
+			});
+		});
+	});
+
+	it.each([
+		[4, undefined],
+		[3, "normalTpsl"],
+	] as const)("treats a single batch prevalidation error as rejection of every child (%i, %s)", (count, grouping) => {
+		const resolution = resolveOrderBatchResponse(orderResponse([{ error: "Invalid order request" }]), count, grouping);
 
 		expect(resolution).toEqual({
 			status: "rejected",
-			totalCount: 4,
+			totalCount: count,
 			acceptedCount: 0,
-			rejectedCount: 4,
+			rejectedCount: count,
 			errors: [{ text: "Invalid order request" }],
 		});
 	});

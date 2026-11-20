@@ -1,5 +1,7 @@
 # Feature: Isolated Margin Mode
 
+**Status: Historical plan.** The `Planned` field below records the original proposal. Use the current [trading toolbar and isolated-margin rules](../docs/trading-toolbar-redesign.md) for implemented behavior.
+
 ## Meta
 
 | Field | Value |

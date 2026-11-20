@@ -40,7 +40,13 @@ import {
 	type TradeHistoryRoleFilter,
 	type TradeHistoryTypeFilter,
 } from "@/lib/trade/trade-history";
-import { getUserFillKey, getUserFillNetClosedPnl, hasUserFillExplorerTransaction } from "@/lib/trade/user-fills";
+import {
+	formatUserFillNetPnl,
+	getUserFillKey,
+	getUserFillNetClosedPnl,
+	getUserFillQuoteToken,
+	hasUserFillExplorerTransaction,
+} from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 
@@ -60,7 +66,7 @@ function getDirectionColorClass(fill: UserFill, owner: string) {
 }
 
 export function TradeHistoryPage({ address }: Props) {
-	const { formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
+	const { formatDecimalString, formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const isMobile = useIsMobile();
@@ -330,7 +336,9 @@ export function TradeHistoryPage({ address }: Props) {
 					<>
 						<div className="divide-y divide-stroke-weak min-[1001px]:hidden">
 							{pagination.rows.map((fill) => {
-								const closedPnl = getUserFillNetClosedPnl(fill, markets.getMarket(fill.coin));
+								const market = markets.getMarket(fill.coin);
+								const closedPnl = getUserFillNetClosedPnl(fill, market);
+								const pnlQuote = getUserFillQuoteToken(fill, market);
 								return (
 									<article key={getUserFillKey(fill)} className="px-4 py-3">
 										<div className="flex min-w-0 items-center justify-between gap-3">
@@ -366,7 +374,9 @@ export function TradeHistoryPage({ address }: Props) {
 													<Trans>Size</Trans>
 												</dt>
 												<dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-fg">
-													<bdi dir="ltr">{formatNumber(fill.sz, markets.getSzDecimals(fill.coin))}</bdi>
+													<bdi dir="ltr">
+														{market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz)}
+													</bdi>
 												</dd>
 											</div>
 											<div className="min-w-0 text-right">
@@ -381,7 +391,12 @@ export function TradeHistoryPage({ address }: Props) {
 												>
 													<bdi dir="ltr">
 														{closedPnl
-															? formatUSD(closedPnl, { signDisplay: "exceptZero" })
+															? formatUserFillNetPnl(
+																	closedPnl,
+																	pnlQuote,
+																	{ formatToken, formatUSD },
+																	markets.getTokenDisplayName,
+																)
 															: FALLBACK_VALUE_PLACEHOLDER}
 													</bdi>
 												</dd>
@@ -445,7 +460,9 @@ export function TradeHistoryPage({ address }: Props) {
 								</TableHeader>
 								<TableBody>
 									{pagination.rows.map((fill) => {
-										const closedPnl = getUserFillNetClosedPnl(fill, markets.getMarket(fill.coin));
+										const market = markets.getMarket(fill.coin);
+										const closedPnl = getUserFillNetClosedPnl(fill, market);
+										const pnlQuote = getUserFillQuoteToken(fill, market);
 										const hasExplorerTransaction = hasUserFillExplorerTransaction(fill);
 										const feeToken = markets.getTokenDisplayName(fill.feeToken);
 										return (
@@ -471,7 +488,9 @@ export function TradeHistoryPage({ address }: Props) {
 													</bdi>
 												</TableCell>
 												<TableCell className="px-3 py-0 text-right text-fg">
-													<bdi dir="ltr">{formatNumber(fill.sz, markets.getSzDecimals(fill.coin))}</bdi>
+													<bdi dir="ltr">
+														{market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz)}
+													</bdi>
 												</TableCell>
 												<TableCell className="px-3 py-0 text-right text-fg-muted">
 													<bdi dir="ltr">{formatToken(fill.fee, { symbol: feeToken })}</bdi>
@@ -484,7 +503,12 @@ export function TradeHistoryPage({ address }: Props) {
 												>
 													<bdi dir="ltr">
 														{closedPnl
-															? formatUSD(closedPnl, { signDisplay: "exceptZero" })
+															? formatUserFillNetPnl(
+																	closedPnl,
+																	pnlQuote,
+																	{ formatToken, formatUSD },
+																	markets.getTokenDisplayName,
+																)
 															: FALLBACK_VALUE_PLACEHOLDER}
 													</bdi>
 												</TableCell>

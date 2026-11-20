@@ -47,6 +47,29 @@ describe("portfolio data", () => {
 		expect(getLatestHistoryValue([[1, "invalid"]])).toBeNull();
 	});
 
+	it("P2-2 reads the latest valid timestamp, breaking ties by input order", () => {
+		expect(
+			getLatestHistoryValue([
+				[20, "8"],
+				[10, "3"],
+			]),
+		).toBe("8");
+		expect(
+			getLatestHistoryValue([
+				[20, "8"],
+				[20, "9.00"],
+				[30, "bad"],
+				[-1, "42"],
+			]),
+		).toBe("9");
+		expect(
+			getLatestHistoryValue([
+				[10, "bad"],
+				[-1, "42"],
+			]),
+		).toBeNull();
+	});
+
 	it("sums maker and taker volume for the latest fourteen calendar entries", () => {
 		const dailyVolume = Array.from({ length: 16 }, (_, index) => ({
 			date: `2026-07-${String(16 - index).padStart(2, "0")}`,

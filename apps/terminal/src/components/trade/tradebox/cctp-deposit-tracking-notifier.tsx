@@ -1,24 +1,27 @@
 import { useLingui } from "@lingui/react/macro";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
+import type { Hash } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatTransferError } from "@/lib/errors/format";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
+import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { useDepositModalOpen } from "@/stores/use-global-modal-store";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { DepositExplorerLink } from "./deposit-explorer-link";
 
 interface DepositNotification {
 	presentationId: string;
-	sourceHash: string;
-	phase: "forwarding" | "success" | "failed";
+	sourceHash: Hash;
+	phase: "forwarding" | "success" | "failed" | "unknown";
 	error: Error | null;
 	statusUnavailable: boolean;
 	locale: string;
 	dismissed: boolean;
+	retired: boolean;
 }
 
 let presentationSequence = 0;
@@ -43,8 +46,10 @@ export function CctpDepositTrackingNotifier() {
 	const notificationKey = sourceHash && owner ? `cctp-deposit:${identity}:${sourceHash.toLowerCase()}` : null;
 	const forwardSubmitted = tracking.data?.status === "forward-submitted";
 	const definitiveFailure = isDefinitiveDepositSourceFailure(tracking.error) ? tracking.error : null;
-	const statusUnavailable = tracking.isError && !definitiveFailure;
+	const outcomeUnknown = tracking.error instanceof CctpDepositOutcomeUnknownError;
+	const statusUnavailable = tracking.isError && !definitiveFailure && !outcomeUnknown;
 	const txChain = isTestnet ? arbitrumSepolia : arbitrum;
+	const { acknowledgeOutcome, unacknowledgedOutcomes } = tracking;
 
 	useLayoutEffect(() => {
 		const notifications = notificationsRef.current;
@@ -52,6 +57,7 @@ export function CctpDepositTrackingNotifier() {
 		return () => {
 			for (const [id, notification] of notifications) {
 				if (!id.startsWith(prefix)) continue;
+				notification.retired = true;
 				toast.dismiss(notification.presentationId);
 				notifications.delete(id);
 			}
@@ -62,36 +68,50 @@ export function CctpDepositTrackingNotifier() {
 		const notifications = notificationsRef.current;
 		for (const [id, notification] of notifications) {
 			if (notification.phase === "forwarding" && (depositModalOpen || id !== notificationKey)) {
+				notification.retired = true;
 				toast.dismiss(notification.presentationId);
 				notifications.delete(id);
 			}
 		}
-		if (notificationKey && sourceHash && !depositModalOpen) {
-			const previous = notifications.get(notificationKey);
-			let phase: DepositNotification["phase"] = "forwarding";
-			if (definitiveFailure) {
-				phase = "failed";
-			} else if (forwardSubmitted) {
-				phase = "success";
-			}
-			if (!previous || previous.phase === "forwarding") {
-				if (
-					!previous ||
-					previous.phase !== phase ||
-					previous.error !== definitiveFailure ||
-					previous.statusUnavailable !== statusUnavailable
-				) {
+		if (owner && !depositModalOpen) {
+			for (const outcome of unacknowledgedOutcomes) {
+				const outcomeKey = `cctp-deposit:${identity}:${outcome.sourceHash.toLowerCase()}`;
+				const previous = notifications.get(outcomeKey);
+				if (!previous || previous.phase === "forwarding") {
+					const failure = isDefinitiveDepositSourceFailure(outcome.error) ? outcome.error : null;
 					const presentationId = previous?.dismissed ? undefined : previous?.presentationId;
-					notifications.set(notificationKey, {
-						presentationId: presentationId ?? `${notificationKey}:presentation:${++presentationSequence}`,
-						sourceHash,
-						phase,
-						error: definitiveFailure,
-						statusUnavailable,
+					notifications.set(outcomeKey, {
+						presentationId: presentationId ?? `${outcomeKey}:presentation:${++presentationSequence}`,
+						sourceHash: outcome.sourceHash,
+						phase: failure ? "failed" : "unknown",
+						error: failure,
+						statusUnavailable: false,
 						locale: "",
 						dismissed: false,
+						retired: false,
 					});
 				}
+			}
+		}
+		if (notificationKey && sourceHash && !depositModalOpen && !definitiveFailure && !outcomeUnknown) {
+			const previous = notifications.get(notificationKey);
+			const phase: DepositNotification["phase"] = forwardSubmitted ? "success" : "forwarding";
+			if (
+				!previous ||
+				(previous.phase === "forwarding" &&
+					(previous.phase !== phase || previous.statusUnavailable !== statusUnavailable))
+			) {
+				const presentationId = previous?.dismissed ? undefined : previous?.presentationId;
+				notifications.set(notificationKey, {
+					presentationId: presentationId ?? `${notificationKey}:presentation:${++presentationSequence}`,
+					sourceHash,
+					phase,
+					error: null,
+					statusUnavailable,
+					locale: "",
+					dismissed: false,
+					retired: false,
+				});
 			}
 		}
 
@@ -103,6 +123,9 @@ export function CctpDepositTrackingNotifier() {
 			);
 			const onDismiss = () => {
 				notification.dismissed = true;
+				if (!notification.retired && (notification.phase === "failed" || notification.phase === "unknown")) {
+					acknowledgeOutcome(notification.sourceHash);
+				}
 			};
 			const lifecycle = { id: notification.presentationId, onDismiss, onAutoClose: onDismiss };
 			if (notification.phase === "failed") {
@@ -111,6 +134,20 @@ export function CctpDepositTrackingNotifier() {
 					description: (
 						<span className="flex flex-col gap-1">
 							<span>{formatTransferError(notification.error, (descriptor) => t(descriptor))}</span>
+							{explorerLink}
+						</span>
+					),
+					duration: Number.POSITIVE_INFINITY,
+					closeButton: true,
+				});
+			} else if (notification.phase === "unknown") {
+				toast.warning(t`Deposit status unknown`, {
+					...lifecycle,
+					description: (
+						<span className="flex flex-col gap-1">
+							<span>
+								{t`The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.`}
+							</span>
 							{explorerLink}
 						</span>
 					),
@@ -146,15 +183,20 @@ export function CctpDepositTrackingNotifier() {
 			}
 		}
 	}, [
+		acknowledgeOutcome,
 		definitiveFailure,
 		depositModalOpen,
 		forwardSubmitted,
 		i18n.locale,
+		identity,
+		outcomeUnknown,
+		owner,
 		sourceHash,
 		statusUnavailable,
 		t,
 		notificationKey,
 		txChain,
+		unacknowledgedOutcomes,
 	]);
 
 	return null;

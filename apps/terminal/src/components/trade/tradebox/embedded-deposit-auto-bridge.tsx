@@ -28,11 +28,17 @@ const AUTO_DEPOSIT_RETRY_DELAY_MS = 30_000;
 const AUTO_DEPOSIT_MAX_RETRY_DELAY_MS = 5 * 60_000;
 let notificationPresentationSequence = 0;
 
-function hasNoSponsoredAuthorizationIntent(env: "Mainnet" | "Testnet", owner: string): boolean {
+type SponsoredAuthorizationState =
+	| { kind: "none" }
+	| { kind: "unresolved"; validBefore: number }
+	| { kind: "unreadable" };
+
+function readSponsoredAuthorizationState(env: "Mainnet" | "Testnet", owner: string): SponsoredAuthorizationState {
 	try {
-		return readCctpSponsoredAuthorizationIntent(env, owner.toLowerCase()) === null;
+		const intent = readCctpSponsoredAuthorizationIntent(env, owner.toLowerCase());
+		return intent ? { kind: "unresolved", validBefore: intent.validBefore } : { kind: "none" };
 	} catch {
-		return false;
+		return { kind: "unreadable" };
 	}
 }
 
@@ -90,6 +96,7 @@ export function EmbeddedDepositAutoBridge() {
 	const retryCountRef = useRef(0);
 	const retryTimeoutRef = useRef<number | null>(null);
 	const authorizationRecheckTimeoutRef = useRef<number | null>(null);
+	const authorizationRecheckScopeRef = useRef<string | null>(null);
 	const [authorizationRecheck, setAuthorizationRecheck] = useState(0);
 	const legalActionsAllowedRef = useRef(legalActionsAllowed);
 	legalActionsAllowedRef.current = legalActionsAllowed;
@@ -144,12 +151,19 @@ export function EmbeddedDepositAutoBridge() {
 		isEmbeddedDeposit && depositEmbeddedWalletAddress
 			? `${networkName}:${depositEmbeddedWalletAddress.toLowerCase()}`
 			: null;
+	const authorizationScope =
+		isEmbeddedDeposit && depositEmbeddedWalletAddress
+			? `${cctpTrackingEnv}:${depositEmbeddedWalletAddress.toLowerCase()}`
+			: null;
+	const authorizationScopeRef = useRef(authorizationScope);
+	authorizationScopeRef.current = authorizationScope;
 
 	useEffect(() => {
 		return () => {
 			if (retryTimeoutRef.current) window.clearTimeout(retryTimeoutRef.current);
 			if (authorizationRecheckTimeoutRef.current) window.clearTimeout(authorizationRecheckTimeoutRef.current);
 			authorizationRecheckTimeoutRef.current = null;
+			authorizationRecheckScopeRef.current = null;
 			activeAttemptAbortRef.current?.abort();
 			attemptKeyRef.current = null;
 			lastEligibleKeyRef.current = null;
@@ -191,14 +205,35 @@ export function EmbeddedDepositAutoBridge() {
 			}, retryDelay);
 		}
 
-		function scheduleAuthorizationRecheck(validBeforeSeconds: number) {
+		function clearAuthorizationRecheck() {
 			if (authorizationRecheckTimeoutRef.current) window.clearTimeout(authorizationRecheckTimeoutRef.current);
+			authorizationRecheckTimeoutRef.current = null;
+			authorizationRecheckScopeRef.current = null;
+		}
+
+		function scheduleAuthorizationRecheck(validBeforeSeconds: number, owner: string) {
+			const scope = `${cctpTrackingEnv}:${owner.toLowerCase()}`;
+			if (authorizationScopeRef.current !== scope) return;
+			clearAuthorizationRecheck();
 			const delay = Math.max(1_000, validBeforeSeconds * 1_000 - Date.now() + 1_000);
+			authorizationRecheckScopeRef.current = scope;
 			authorizationRecheckTimeoutRef.current = window.setTimeout(() => {
 				authorizationRecheckTimeoutRef.current = null;
+				authorizationRecheckScopeRef.current = null;
+				if (authorizationScopeRef.current !== scope) return;
+				const authorization = readSponsoredAuthorizationState(cctpTrackingEnv, owner);
+				if (authorization.kind === "unresolved") {
+					scheduleAuthorizationRecheck(authorization.validBefore, owner);
+					return;
+				}
+				if (authorization.kind === "unreadable") return;
 				attemptKeyRef.current = null;
 				setAuthorizationRecheck((count) => count + 1);
 			}, delay);
+		}
+
+		if (authorizationRecheckScopeRef.current !== null && authorizationRecheckScopeRef.current !== authorizationScope) {
+			clearAuthorizationRecheck();
 		}
 
 		if (activeAttemptIdentityRef.current && activeAttemptIdentityRef.current !== depositIdentityKey) {
@@ -234,6 +269,7 @@ export function EmbeddedDepositAutoBridge() {
 		if (depositStatus === "pending" || depositStatus === "confirming") return;
 
 		if (depositStatus === "success") {
+			clearAuthorizationRecheck();
 			reconciledErrorRef.current = null;
 			if (retryTimeoutRef.current) {
 				window.clearTimeout(retryTimeoutRef.current);
@@ -267,16 +303,16 @@ export function EmbeddedDepositAutoBridge() {
 			}
 
 			// A rejected smart-account submission can still have reached the bundler.
-			// Keep the failed attempt latched until its balance/identity changes instead
-			// of signing a second EIP-3009 authorization automatically. A failure before
+			// Keep the failed attempt latched until its balance/identity changes, or until
+			// its unresolved authorization expires, instead of signing a second EIP-3009
+			// authorization automatically. A failure before
 			// any authorization reached the bundler (no hash, no unresolved intent, no
 			// unknown outcome) left nothing in flight, so it is retried with backoff; a
 			// retry already scheduled for this key is kept across re-renders.
-			const retrySafe =
-				!depositHash &&
-				!submissionOutcomeUnknown &&
-				!!depositEmbeddedWalletAddress &&
-				hasNoSponsoredAuthorizationIntent(cctpTrackingEnv, depositEmbeddedWalletAddress);
+			const authorization: SponsoredAuthorizationState = depositEmbeddedWalletAddress
+				? readSponsoredAuthorizationState(cctpTrackingEnv, depositEmbeddedWalletAddress)
+				: { kind: "unreadable" };
+			const retrySafe = !depositHash && !submissionOutcomeUnknown && authorization.kind === "none";
 			if (retrySafe) {
 				scheduleRetry(eligibleDepositKey);
 				return;
@@ -286,6 +322,9 @@ export function EmbeddedDepositAutoBridge() {
 				retryTimeoutRef.current = null;
 			}
 			retryKeyRef.current = null;
+			if (authorization.kind === "unresolved" && depositEmbeddedWalletAddress) {
+				scheduleAuthorizationRecheck(authorization.validBefore, depositEmbeddedWalletAddress);
+			}
 			return;
 		}
 
@@ -305,7 +344,7 @@ export function EmbeddedDepositAutoBridge() {
 			task: async () => {
 				const unresolvedAuthorization = readCctpSponsoredAuthorizationIntent(cctpTrackingEnv, normalizedWalletAddress);
 				if (unresolvedAuthorization) {
-					scheduleAuthorizationRecheck(unresolvedAuthorization.validBefore);
+					scheduleAuthorizationRecheck(unresolvedAuthorization.validBefore, normalizedWalletAddress);
 					return;
 				}
 				const currentBalanceRaw = await refreshBalance();
@@ -340,6 +379,7 @@ export function EmbeddedDepositAutoBridge() {
 			});
 	}, [
 		authorizationRecheck,
+		authorizationScope,
 		cctpTrackingEnv,
 		deposit,
 		depositEmbeddedWalletAddress,

@@ -210,7 +210,7 @@ There is no Leaderboard read method in `@nktkas/hyperliquid@0.33.3`, and Hyperli
 
 | Display field / behavior | Current official-App source | Decision |
 | --- | --- | --- |
-| Address/display name/account value | `leaderboardRows[].{ethAddress,displayName,accountValue}` | Runtime-validate every row. Use display name as optional copy, never identity. |
+| Address/display name/account value | `leaderboardRows[].{ethAddress,displayName,accountValue}` | Runtime-validate every row. Use display name as optional copy, never identity. A missing or blank display name shows the shortened address with the full address as the link's `title` (hover tooltip), as the official terminal does (2026-11-19); the link's accessible name stays its visible text, with no `aria-label`. |
 | Window metrics | `windowPerformances: [["day"|"week"|"month"|"allTime", {pnl,roi,vlm}], ...]` | Map 24h/7D/30D/All-time exactly. Field is `vlm`, not the handoff's invented `volume`. |
 | PNL/ROI/Volume | Period strings `pnl`, `roi`, `vlm` | Big.js parsing/formatting. ROI is a ratio and is multiplied by 100 only for display. |
 | ROI definition | Feed-provided `roi`; the current App describes ROI as PNL divided by the greater of 100 and starting account value plus maximum net deposits | Render the feed value. Required starting-balance/deposit inputs are not present in each row, so do not reimplement or “correct” the formula in the page. |

@@ -18,19 +18,19 @@ for (const width of [1440, 1108, 375]) {
 		await form.getByRole("tab", { name: "Sell Short", exact: true }).click();
 		await form.getByRole("checkbox", { name: "Reduce Only", exact: true }).check();
 		await page.getByRole("button", { name: "Funding", exact: true }).click();
-		const max = form.getByRole("button", { name: "Use max reducible size", exact: true });
+		const max = form.getByTitle("Use max reducible size", { exact: true });
 		await expect(max).toBeEnabled();
 		await expect(max).toContainText("0.00");
 		await max.click();
 		await expect(form.getByRole("textbox", { name: "Size", exact: true })).toHaveValue("7.150");
 		await max.evaluate((node) => node.setAttribute("data-max-identity", "preserved"));
 		await page.getByRole("button", { name: "中文", exact: true }).click();
-		const chineseMax = form.getByRole("button", { name: "使用最大可减仓数量", exact: true });
+		const chineseMax = form.getByTitle("使用最大可减仓数量", { exact: true });
 		await expect(chineseMax).toHaveAttribute("data-max-identity", "preserved");
 		await expect(form.getByRole("textbox", { name: "数量", exact: true })).toHaveValue("7.150");
 		await page.getByRole("button", { name: "English", exact: true }).click();
 		await form.getByRole("checkbox", { name: "Reduce Only", exact: true }).uncheck();
-		await expect(form.getByRole("button", { name: "Use max available balance", exact: true })).toBeDisabled();
+		await expect(form.getByTitle("Use max available balance", { exact: true })).toBeDisabled();
 	});
 
 	test(`review regression: healthy balance survives unavailable positions at ${width}px`, async ({ page }) => {
@@ -43,7 +43,7 @@ for (const width of [1440, 1108, 375]) {
 		const size = form.getByRole("textbox", { name: "Size", exact: true });
 		await size.fill("1");
 		await size.blur();
-		const max = form.getByRole("button", { name: /Use max|Available/ });
+		const max = form.getByTitle(/^Use max (available balance|reducible size)$/);
 		const submit = form.getByRole("button", { name: width <= 1000 ? "Short" : "Place Short Order", exact: true });
 		await expect(max).toContainText("1,000.00");
 		await expect(submit).toBeEnabled();
@@ -104,7 +104,7 @@ for (const width of [1440, 1108, 375]) {
 			await pct.fill("");
 			await pct.fill("100");
 			await pct.blur();
-			await form.getByRole("button", { name: width <= 1000 ? "BTC" : "Toggle size mode", exact: true }).click();
+			await form.getByRole("button", { name: "BTC", exact: true }).click();
 			await expect(size).toHaveValue("715.00");
 			await expect(submit).toBeEnabled();
 			await page.getByRole("button", { name: "Positions pending", exact: true }).click();

@@ -2,11 +2,14 @@
 
 import type { ExchangeParams } from "@sairn/hl-react";
 import { useExchange } from "@sairn/hl-react/hooks/useExchange";
+import { ExchangeResponseUnverifiedError } from "@sairn/hl-react/internal/exchange/action-acknowledgement";
 import { FundsActionLockTimeoutError } from "@sairn/hl-react/internal/exchange/funds-action-lock";
+import { AgentRegistrationPreExecutionGuardTimeoutError } from "@sairn/hl-react/signing/agent-registration-session";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, useLayoutEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isAmbiguousExchangeActionError } from "@/lib/errors/format";
 
 const OWNER = "0x1234567890abcdef1234567890abcdef12345678";
 const SESSION_STORAGE_KEY = `hyperliquid_agent_registration_session_Mainnet_${OWNER}`;
@@ -22,6 +25,7 @@ const clients = vi.hoisted(() => {
 	const secondWithdraw = vi.fn(async () => response);
 	const tokenDelegate = vi.fn(async () => response);
 	const borrowLend = vi.fn(async () => response);
+	const vaultTransfer = vi.fn(async () => response);
 	return {
 		agentPublicKey: "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf" as const,
 		borrowLend,
@@ -32,7 +36,8 @@ const clients = vi.hoisted(() => {
 		second: { withdraw3: secondWithdraw },
 		secondWithdraw,
 		tokenDelegate,
-		trading: { borrowLend },
+		trading: { borrowLend, vaultTransfer },
+		vaultTransfer,
 	};
 });
 
@@ -43,6 +48,20 @@ const providerState = vi.hoisted(() => ({
 	preExecutionGuard: vi.fn(),
 	executionGuard: vi.fn(),
 }));
+
+const legalWaitSignals = vi.hoisted(() => [] as AbortSignal[]);
+
+vi.mock("../../../../../packages/hl-react/src/internal/exchange/legal-execution", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../../../packages/hl-react/src/internal/exchange/legal-execution")>();
+	return {
+		...actual,
+		verifyLegalActionAllowed: (options: Parameters<typeof actual.verifyLegalActionAllowed>[0]) => {
+			if (options.signal) legalWaitSignals.push(options.signal);
+			return actual.verifyLegalActionAllowed(options);
+		},
+	};
+});
 
 vi.mock("@sairn/hl-react/hooks/useClients", () => ({
 	useHyperliquidClients: () => {
@@ -408,6 +427,79 @@ describe("useExchange funds action lock integration", () => {
 		);
 	});
 
+	it("lets a Vault transfer re-read its funds inside the lock and sends nothing when they changed", async () => {
+		window.localStorage.setItem(
+			AGENT_STORAGE_KEY,
+			JSON.stringify({
+				privateKey: AGENT_PRIVATE_KEY,
+				publicKey: clients.agentPublicKey,
+				source: "local-registration",
+			}),
+		);
+		const locks = installExclusiveLockManager();
+		const spent = new Error("The amount exceeds the freshly verified maximum.");
+		const observed: boolean[] = [];
+		const guard = vi.fn(async () => {
+			observed.push(locks.isHeld(FUNDS_LOCK_NAME));
+			throw spent;
+		});
+		let vaultTransfer: ((params: ExchangeParams<"vaultTransfer">) => Promise<unknown>) | null = null;
+		function VaultProbe() {
+			vaultTransfer = useExchange("vaultTransfer", { preExecutionGuard: guard }).mutateAsync;
+			return null;
+		}
+		act(() => {
+			root.render(
+				<QueryClientProvider client={queryClient}>
+					<VaultProbe />
+				</QueryClientProvider>,
+			);
+		});
+		const otherTab = holdLock(FUNDS_LOCK_NAME);
+		let request: Promise<unknown> | undefined;
+		await act(async () => {
+			request = vaultTransfer?.({ vaultAddress: OWNER, isDeposit: true, usd: 80_000_000 });
+			request?.catch(() => {});
+			await flushMicrotasks();
+		});
+		expect(guard).not.toHaveBeenCalled();
+
+		await act(async () => {
+			otherTab.release();
+			await otherTab.held;
+			await expect(request).rejects.toBe(spent);
+		});
+		expect(observed).toEqual([true]);
+		expect(clients.vaultTransfer).not.toHaveBeenCalled();
+	});
+
+	it("ends a user-signed funds action's legal wait the moment its pre-execution guard times out", async () => {
+		vi.useFakeTimers();
+		installExclusiveLockManager();
+		providerState.enforceLegalActions = true;
+		providerState.preExecutionGuard.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 9_000)));
+		providerState.legalCheck.mockImplementation(() => new Promise(() => {}));
+		legalWaitSignals.length = 0;
+		const mutations = renderProbe();
+		const rejection = mutations.first({ destination: OWNER, amount: "10" }).catch((error: unknown) => error);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(9_500);
+		});
+		expect(providerState.legalCheck).toHaveBeenCalledTimes(1);
+		const legalWait = legalWaitSignals.at(-1);
+		expect(legalWait?.aborted).toBe(false);
+
+		vi.advanceTimersByTime(500);
+		expect(legalWait?.aborted).toBe(true);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1);
+			await expect(rejection).resolves.toBeInstanceOf(AgentRegistrationPreExecutionGuardTimeoutError);
+		});
+		expect(clients.firstWithdraw).not.toHaveBeenCalled();
+	});
+
 	it("rechecks the mounted attempt at the SDK boundary after deferred legal verification", async () => {
 		installExclusiveLockManager();
 		providerState.enforceLegalActions = true;
@@ -576,5 +668,34 @@ describe("useExchange funds action lock integration", () => {
 		expect(clients.secondWithdraw).not.toHaveBeenCalled();
 		expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
 		expect(queryClient.getMutationCache().getAll()[0]?.state.failureCount).toBe(1);
+	});
+
+	it.each([
+		["an empty object", {}],
+		["null", null],
+		["an ok status without the default acknowledgement", { status: "ok", response: { type: "order" } }],
+	])(
+		"reports a withdrawal answered with %s as unknown instead of accepted, without retrying",
+		async (_case, answer) => {
+			installExclusiveLockManager();
+			clients.firstWithdraw.mockResolvedValueOnce(answer as never);
+			const mutations = renderProbe();
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await mutations.first({ destination: OWNER, amount: "10" }).catch((error: unknown) => error);
+			});
+
+			expect(rejection).toBeInstanceOf(ExchangeResponseUnverifiedError);
+			expect(isAmbiguousExchangeActionError(rejection)).toBe(true);
+			expect(clients.firstWithdraw).toHaveBeenCalledOnce();
+		},
+	);
+
+	it("still resolves a withdrawal the exchange acknowledged as documented", async () => {
+		installExclusiveLockManager();
+		const mutations = renderProbe();
+		await act(async () => {
+			await expect(mutations.first({ destination: OWNER, amount: "10" })).resolves.toEqual(clients.response);
+		});
 	});
 });

@@ -1,11 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
-import { Select } from "@sairn/ui";
+import { Button, Select } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
 import { DataPendingState } from "@/components/ui/data-pending-state";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
-import { getToolbarAbsoluteSize, getToolbarFundingTotal } from "@/domain/trade/trading-toolbar-metrics";
+import { RECENT_FUNDING_ROWS } from "@/config/trade";
+import { getToolbarAbsoluteSize } from "@/domain/trade/trading-toolbar-metrics";
+import { useFundingHistory } from "@/hooks/trade/use-funding-history";
 import { useFundingHistoryCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useUserFunding } from "@/hooks/trade/use-user-funding";
@@ -14,14 +16,21 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
-import { getFundingCollateralSymbol } from "@/lib/trade/collateral-amount";
+import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
 import {
 	type FundingHistorySideFilter,
+	filterFundingHistory,
+	formatFundingTotal,
 	getFundingHistorySide,
+	getFundingTotals,
 	isFundingHistorySideFilter,
 } from "@/lib/trade/funding-history";
 import { getFundingSideLabel } from "@/lib/trade/funding-position";
-import { getUserFundingKey } from "@/lib/trade/user-funding";
+import {
+	getFilteredHistoryEmptyPresentation,
+	historySnapshotReachesLive,
+} from "@/lib/trade/history-filter-presentation";
+import { getUserFundingKey, mergeUserFundingSources } from "@/lib/trade/user-funding";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import { MobileBulkDisclosureActions } from "./mobile-bulk-disclosure-actions";
 import { MobileDisclosureHeader } from "./mobile-disclosure-header";
@@ -47,7 +56,7 @@ export function MobileFundingTab(props: Props) {
 
 	return (
 		<MobileFundingTabContent
-			key={ownerKey}
+			key={`${env}:${ownerKey}`}
 			address={hasConnectedOwner ? address : undefined}
 			disclosureIdentity={`${env}:${ownerKey}`}
 			isConnected={hasConnectedOwner}
@@ -75,23 +84,44 @@ function MobileFundingTabContent({
 	const locale = i18n.locale;
 	const navigateToMarket = useMarketNavigation();
 	const { setActiveTab } = useMobileTerminalTab();
-	const { error, fundings: updates, isOffline, isStale, status } = useUserFunding();
+	const {
+		bufferedFundings,
+		error,
+		fundings: updates,
+		isOffline,
+		isStale,
+		oldestBufferedFundingTime,
+		status,
+	} = useUserFunding();
 	const markets = useMarkets();
 	const [directionFilter, setDirectionFilter] = useState<FundingHistorySideFilter>("all");
+	const filtersActive = directionFilter !== "all";
+	const fundingSnapshot = useFundingHistory(address ?? "", { enabled: filtersActive });
+	const searchedUpdates = filtersActive ? mergeUserFundingSources(fundingSnapshot.fundings, bufferedFundings) : updates;
 
-	const filteredUpdates = updates.filter(
-		(update) => directionFilter === "all" || getFundingHistorySide(update.szi) === directionFilter,
-	);
+	const filteredUpdates = filterFundingHistory(searchedUpdates, null, directionFilter).slice(0, RECENT_FUNDING_ROWS);
 	const filteredUpdateKeys = filteredUpdates.map(getUserFundingKey);
 	const disclosure = useMobileDisclosureSet(disclosureIdentity, filteredUpdateKeys, disclosureState);
 	const { expandedKeys, setExpanded } = disclosure;
-	const totalFunding = getToolbarFundingTotal(filteredUpdates);
 	const isSnapshotCurrent = status === "ready" && !error && !isOffline && !isStale;
+	const emptyPresentation = getFilteredHistoryEmptyPresentation({
+		liveCurrent: isSnapshotCurrent,
+		snapshot: {
+			hasData: fundingSnapshot.status === "ready",
+			failed: fundingSnapshot.hasFailed,
+			fetching: fundingSnapshot.isFetching,
+			offline: fundingSnapshot.isOffline,
+			reachedLimit: false,
+			reachesLive: historySnapshotReachesLive(fundingSnapshot.rangeEndTime, oldestBufferedFundingTime),
+		},
+	});
+	const canTotal = isSnapshotCurrent && (!filtersActive || emptyPresentation === "noMatch");
 	const headerTotal =
-		isConnected && isSnapshotCurrent
-			? formatUSD(totalFunding, { signDisplay: "exceptZero" })
+		isConnected && canTotal
+			? getFundingTotals(filteredUpdates, markets.getMarket)
+					.map((total) => formatFundingTotal(total, { formatToken, formatUSD }))
+					.join(" · ")
 			: FALLBACK_VALUE_PLACEHOLDER;
-	const headerClass = getMarketCloseValueColorClass(totalFunding);
 	const isPageScroll = scrollMode === "page";
 
 	function handleSelectMarket(name: string) {
@@ -102,7 +132,7 @@ function MobileFundingTabContent({
 	const { exportCsv, isExporting } = useFundingHistoryCsvExport({
 		filename: "funding_history.csv",
 		buildRows: (fundings) =>
-			buildCsvRows(fundings, [
+			buildCsvRows(filterFundingHistory(fundings, null, directionFilter), [
 				{
 					header: t`Time`,
 					getValue: (update) =>
@@ -114,13 +144,13 @@ function MobileFundingTabContent({
 					getValue: (update) =>
 						getFundingSideLabel(update.szi, (descriptor) => t(descriptor)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
-				{ header: t`Size`, getValue: (update) => getToolbarAbsoluteSize(update.szi) ?? update.szi },
+				{ header: t`Size`, getValue: (update) => update.szi.replace(/^-/, "") },
 				{ header: t`Rate`, getValue: (update) => update.fundingRate },
 				{ header: t`Payment`, getValue: (update) => update.usdc },
 				{
 					header: t`Payment Token`,
 					getValue: (update) =>
-						getFundingCollateralSymbol(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
+						getFundingCollateralToken(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
 			]),
 	});
@@ -162,7 +192,7 @@ function MobileFundingTabContent({
 					/>
 				</div>
 				<span className="sr-only" aria-live="polite">
-					{t`Funding shown`} <span className={cn("font-semibold tabular-nums", headerClass)}>{headerTotal}</span>
+					{t`Funding shown`} <span className="font-semibold tabular-nums">{headerTotal}</span>
 				</span>
 				<MobileBulkDisclosureActions
 					keys={disabled ? [] : filteredUpdateKeys}
@@ -191,7 +221,7 @@ function MobileFundingTabContent({
 		);
 	}
 
-	if (status === "ready" && updates.length === 0) {
+	if (status === "ready" && updates.length === 0 && !filtersActive) {
 		return (
 			<div className={cn("font-market-close min-h-0 flex flex-1 flex-col", className)}>
 				<div className="flex flex-1 items-center justify-center p-6 text-sm text-market-close-muted">
@@ -202,20 +232,31 @@ function MobileFundingTabContent({
 		);
 	}
 
-	const noMatch = isSnapshotCurrent ? (
-		<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
-			{t`No funding payments match this direction.`}
-		</div>
-	) : (
-		<DataPendingState className="min-h-28" />
-	);
+	function renderFilteredEmpty() {
+		if (emptyPresentation === "offline") return <DataPendingState className="min-h-28" loading={false} />;
+		if (emptyPresentation === "retry") {
+			return (
+				<div className="flex min-h-28 items-center justify-center">
+					<Button variant="outline" intent="neutral" size="sm" onClick={fundingSnapshot.refresh}>
+						{t`Retry`}
+					</Button>
+				</div>
+			);
+		}
+		if (emptyPresentation !== "noMatch") return <DataPendingState className="min-h-28" />;
+		return (
+			<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
+				{t`No funding payments match this direction.`}
+			</div>
+		);
+	}
 
 	return (
 		<div className={cn("font-market-close min-h-0 flex flex-col", isPageScroll ? "min-h-0" : "flex-1", className)}>
 			{renderFilterRow(false)}
 			<div className={cn("min-h-0", !isPageScroll && "flex-1 overflow-y-auto overscroll-y-contain")}>
 				<div className="flex flex-col gap-2.5 px-3.5 pt-3">
-					{filteredUpdates.length === 0 ? noMatch : null}
+					{filteredUpdates.length === 0 ? renderFilteredEmpty() : null}
 					<MobileProgressiveList key={directionFilter} items={filteredUpdates}>
 						{(visibleUpdates) =>
 							visibleUpdates.map((update) => {

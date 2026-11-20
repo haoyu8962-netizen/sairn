@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { ShareIcon } from "@phosphor-icons/react";
 import { TableCell, TableRow, Tooltip } from "@sairn/ui";
+import { useId } from "react";
 import { LIQ_WARNING_PROXIMITY } from "@/config/trade";
 import { getPerpMarginConstraint } from "@/domain/trade/isolated-margin";
 import type { MarkPriceStatus } from "@/domain/trade/market-price";
@@ -140,6 +141,11 @@ export function PositionRow({
 	const fundingDisplay = formatCollateralAmount(fundingPayment, quoteSymbol, collateralFormat, {
 		signDisplay: "exceptZero",
 	});
+	const tpDisplay = tpSlInfo?.tpPrice ? formatPrice(tpSlInfo.tpPrice, { szDecimals, style: "decimal" }) : "—";
+	const slDisplay = tpSlInfo?.slPrice ? formatPrice(tpSlInfo.slPrice, { szDecimals, style: "decimal" }) : "—";
+	const marginTypeLabel = p.leverage.type === "isolated" ? t`Isolated` : t`Cross`;
+	const tpSlValueId = useId();
+	const marginValueId = useId();
 	function renderTpSlContent() {
 		if (hasTpSl) {
 			return (
@@ -147,13 +153,13 @@ export function PositionRow({
 					<span>
 						<span className="me-1 text-[10px] text-market-close-subtle">TP</span>
 						<span className={tpSlInfo?.tpPrice ? "font-semibold text-market-close-success" : "text-fg-disabled"}>
-							{tpSlInfo?.tpPrice ? formatPrice(tpSlInfo.tpPrice, { szDecimals, style: "decimal" }) : "—"}
+							{tpDisplay}
 						</span>
 					</span>
 					<span>
 						<span className="me-1 text-[10px] text-market-close-subtle">SL</span>
 						<span className={tpSlInfo?.slPrice ? "font-semibold text-market-close-danger" : "text-fg-disabled"}>
-							{tpSlInfo?.slPrice ? formatPrice(tpSlInfo.slPrice, { szDecimals, style: "decimal" }) : "—"}
+							{slDisplay}
 						</span>
 					</span>
 				</span>
@@ -260,7 +266,7 @@ export function PositionRow({
 						: "border border-market-close-stroke-card bg-transparent leading-3",
 				)}
 			>
-				{p.leverage.type === "isolated" ? t`Isolated` : t`Cross`}
+				{marginTypeLabel}
 			</span>
 		</span>
 	);
@@ -353,6 +359,7 @@ export function PositionRow({
 			>
 				<span className="block text-[13px]" title={liquidationPriceDisplay}>
 					{liquidationPriceDisplay}
+					{liqIsNear ? <span className="sr-only"> {t`Near liquidation`}</span> : null}
 				</span>
 			</TableCell>
 			<TableCell size="dense" className={positionTableCellClass}>
@@ -362,6 +369,7 @@ export function PositionRow({
 						onClick={handleOpenTpSl}
 						disabled={!canManage || isRowClosing}
 						aria-label={hasTpSl ? t`Edit TP/SL` : t`Add TP/SL`}
+						aria-describedby={hasTpSl ? tpSlValueId : undefined}
 						className={cn(
 							"group inline-flex min-h-[26px] items-center justify-end rounded-[6px] transition-all duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50",
 							!hasTpSl && "text-fg-disabled hover:text-fg-muted",
@@ -370,20 +378,31 @@ export function PositionRow({
 						{renderTpSlContent()}
 					</button>
 				</Tooltip>
+				{hasTpSl ? (
+					<span id={tpSlValueId} hidden>
+						{`TP ${tpDisplay} SL ${slDisplay}`}
+					</span>
+				) : null}
 			</TableCell>
 			<TableCell size="dense" className={cn(positionTableCellClass, "text-market-close-fg")}>
 				{p.leverage.type === "isolated" ? (
-					<Tooltip content={t`Adjust Margin`} side="left">
-						<button
-							type="button"
-							onClick={handleAdjustMargin}
-							disabled={!canManage || isRowClosing}
-							aria-label={t`Adjust Margin`}
-							className="inline-flex min-h-[30px] items-center justify-end rounded-[6px] transition-colors duration-[120ms] hover:bg-market-close-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							{marginContent}
-						</button>
-					</Tooltip>
+					<>
+						<Tooltip content={t`Adjust Margin`} side="left">
+							<button
+								type="button"
+								onClick={handleAdjustMargin}
+								disabled={!canManage || isRowClosing}
+								aria-label={t`Adjust Margin`}
+								aria-describedby={marginValueId}
+								className="inline-flex min-h-[30px] items-center justify-end rounded-[6px] transition-colors duration-[120ms] hover:bg-market-close-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{marginContent}
+							</button>
+						</Tooltip>
+						<span id={marginValueId} hidden>
+							{`${marginDisplay} ${marginTypeLabel}`}
+						</span>
+					</>
 				) : (
 					marginContent
 				)}

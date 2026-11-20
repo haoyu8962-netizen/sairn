@@ -373,8 +373,8 @@ test("deployer names, live inputs and terminal links come from the snapshot and 
 		if (category === "preipo" && !getPreIpoTerms(coin)) assert.equal(input.valuationPerPriceUsd, null, `${coin} has no verified unit`);
 		assert.equal(input.quoteBasis, category === "preipo" ? getPreIpoQuoteBasis(coin) : null, `${coin} quote basis`);
 	}
-	assert.deepEqual(getStatsDexes().map((entry) => entry.dex), ["", "io", "xyz"]);
-	assert.deepEqual(getStatsDexes().map((entry) => entry.label), ["Hyperliquid core perps", "EntropyIO", "XYZ"]);
+	assert.deepEqual(new Set(getStatsDexes().map((entry) => entry.dex)), new Set([...inputs, ...getPreIpoRows()].map((market) => market.dex)));
+	assert.deepEqual(getStatsDexes().map((entry) => entry.label), ["Hyperliquid core perps", "EntropyIO", "XYZ", "Paragon"]);
 	assert.deepEqual(getListedTotals(), {
 		markets: MARKET_STRUCTURE.dexes.reduce((sum, dex) => sum + dex.markets.length, 0),
 		deployers: MARKET_STRUCTURE.dexes.length - 1,

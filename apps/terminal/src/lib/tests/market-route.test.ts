@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import type { UnifiedMarketInfo } from "@/lib/hyperliquid";
 import {
@@ -7,6 +9,25 @@ import {
 	isMalformedTradeMarketPath,
 	isSafeTradeRouteMarketName,
 } from "@/lib/hyperliquid/market-route";
+import { tradeMarketLinks } from "./fixtures/shell-navigation-cases";
+
+describe("trade links through the CloudFront viewer-request function", () => {
+	const source = readFileSync(
+		new URL("../../../../../deploy/cloudfront/functions/terminal-request.js", import.meta.url),
+		"utf8",
+	);
+	const { handler } = runInNewContext(`${source}\n({ handler })`);
+
+	it.each(tradeMarketLinks)("serves the shell for $market.pairName", ({ market, pathnames }) => {
+		const pathname = getTradePathForMarket(market as UnifiedMarketInfo);
+		expect(pathname).toBe(pathnames[0]);
+
+		for (const uri of [pathname, ...pathnames.slice(1)]) {
+			const request = { method: "GET", uri, querystring: {}, headers: {}, cookies: {} };
+			expect(handler({ request }).uri, uri).toBe("/_shell.html");
+		}
+	});
+});
 
 describe("trade route market parsing", () => {
 	it.each([

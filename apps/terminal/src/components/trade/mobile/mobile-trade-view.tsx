@@ -77,7 +77,11 @@ import {
 	usesLimitPrice as usesLimitPriceForOrder,
 	usesTriggerPrice as usesTriggerPriceForOrder,
 } from "@/lib/trade/order-types";
-import { getOrderValidationPresentation, isInlineTpSlValidationError } from "@/lib/trade/order-validation-presentation";
+import {
+	getOrderPriceFieldErrorMessage,
+	getOrderValidationPresentation,
+	isInlineTpSlValidationError,
+} from "@/lib/trade/order-validation-presentation";
 import { AGENT_ONLY_OWNER_APPROVAL_MESSAGE } from "@/lib/trade/owner-approval-message";
 import { getTpSlCollateralSymbol } from "@/lib/trade/tpsl";
 import type { ButtonContent, Side, SizeMode } from "@/lib/trade/types";
@@ -150,6 +154,8 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 	const { formatPrice, formatSlippageBps, formatToken } = numberFormat;
 	const { t } = useLingui();
 	const validationErrorId = useId();
+	const triggerErrorId = useId();
+	const limitErrorId = useId();
 	const { address, isConnected, hasWalletAccess, isResolving, sessionMode } = useWalletSession();
 	const { data: connectionWalletClient } = useConnectionWalletClient();
 	const depositAvailability = useDepositAvailability();
@@ -589,6 +595,8 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 			.join(" \u2022 "),
 		hasSizeError: hasOrderSizeValidationError(visibleValidationErrors),
 	};
+	const triggerErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "trigger");
+	const limitErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "limit");
 
 	function applySizeFromPercent(pct: number) {
 		if (maxSize <= 0) return;
@@ -924,7 +932,6 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 
 				<MobileTradeAvailableView
 					label={t`Available`}
-					aria-label={maxSizeLabel}
 					title={maxSizeLabel}
 					value={formatAvailableBalance()}
 					token={availableBalanceToken}
@@ -932,6 +939,11 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 					onClick={() => applySizeFromPercent(100)}
 				/>
 
+				{usesTriggerPrice && triggerErrorMessage ? (
+					<span id={triggerErrorId} hidden>
+						{triggerErrorMessage}
+					</span>
+				) : null}
 				{usesTriggerPrice && (
 					<MobileTradePriceField
 						label={t`Trigger Price`}
@@ -940,6 +952,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 						placeholder="0.00"
 						value={triggerPrice}
 						onChange={(e: ChangeEvent<HTMLInputElement>) => setTriggerPrice(e.target.value)}
+						aria-describedby={triggerErrorMessage ? triggerErrorId : undefined}
 						midPrice={midReferencePrice}
 						szDecimals={market?.szDecimals}
 						marketType={marketType}
@@ -950,6 +963,11 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 
 				{usesLimitPrice && (
 					<div className={cn(embedded ? "space-y-1.5" : "space-y-2")}>
+						{limitErrorMessage ? (
+							<span id={limitErrorId} hidden>
+								{limitErrorMessage}
+							</span>
+						) : null}
 						<MobileTradePriceField
 							label={t`Price`}
 							unitLabel={priceUnitLabel}
@@ -960,6 +978,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 								setLimitPriceFromUser(limitPrefillIdentity, e.target.value)
 							}
 							onMidClick={(value) => setLimitPriceFromUser(limitPrefillIdentity, value)}
+							aria-describedby={limitErrorMessage ? limitErrorId : undefined}
 							midPrice={midReferencePrice}
 							szDecimals={market?.szDecimals}
 							marketType={marketType}
@@ -1142,7 +1161,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 					</p>
 				)}
 				{approvalError && (
-					<p className="text-xs text-error mb-2">
+					<p role="alert" className="text-xs text-error mb-2">
 						<MobileTradingApprovalErrorMessage cause={approvalError.cause} />
 					</p>
 				)}

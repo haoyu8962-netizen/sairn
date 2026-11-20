@@ -2,7 +2,7 @@ import Big from "big.js";
 import { FILLED_AMOUNT_MIN_DECIMALS } from "@/config/app";
 import type { NumberFormatters } from "@/lib/format";
 import type { PassiveQueryState } from "@/lib/passive-query-state";
-import { formatDecimalFloor } from "@/lib/trade/numbers";
+import { formatDecimalFloor, toPlainDecimal } from "@/lib/trade/numbers";
 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/u;
 const HASH_PATTERN = /^0x[0-9a-fA-F]{64}$/u;
@@ -261,7 +261,7 @@ export function parseSpotHypeAvailable(value: unknown): string | null {
 	}
 
 	const available = Big(hype.total).minus(Big(typeof hype.spotHold === "string" ? hype.spotHold : hype.hold));
-	return available.gte(0) ? available.toString() : null;
+	return available.gte(0) ? toPlainDecimal(available) : null;
 }
 
 export function createValidatorViews(

@@ -1,5 +1,5 @@
-import { Plural, useLingui } from "@lingui/react/macro";
-import { Select } from "@sairn/ui";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
+import { Button, Select } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
@@ -11,17 +11,25 @@ import { useHistoricalOrders } from "@/hooks/trade/use-historical-orders";
 import { useHistoricalOrdersCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useOrderDisplayLabels } from "@/hooks/trade/use-order-display-labels";
+import { useOrderHistory } from "@/hooks/trade/use-order-history";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
+import { mergeHistoricalOrderSources } from "@/lib/trade/historical-orders";
 import {
+	getFilteredHistoryEmptyPresentation,
+	historySnapshotReachesLive,
+} from "@/lib/trade/history-filter-presentation";
+import {
+	buildHistoricalOrderEntries,
 	getOrderHistoryStatusCategory,
 	getOrderHistoryTriggerPrice,
 	type OrderHistoryStatusCategory,
 	type OrdinaryOrderHistoryEntry,
 } from "@/lib/trade/order-history";
+import { ORDER_HISTORY_API_LIMIT as ORDER_HISTORY_API_LIMIT_COUNT } from "@/lib/trade/order-history-page";
 import { HistoricalOrderPrice } from "../components/historical-order-price";
 import { MobileBulkDisclosureActions } from "./mobile-bulk-disclosure-actions";
 import { MobileDisclosureHeader } from "./mobile-disclosure-header";
@@ -78,7 +86,7 @@ export function MobileOrdersHistoryTab(props: Props) {
 
 	return (
 		<MobileOrdersHistoryTabContent
-			key={ownerKey}
+			key={`${env}:${ownerKey}`}
 			address={address}
 			disclosureIdentity={`${env}:${ownerKey}`}
 			{...props}
@@ -98,19 +106,26 @@ function MobileOrdersHistoryTabContent({
 	disclosureState,
 	scrollMode = "contained",
 }: MobileOrdersHistoryTabContentProps) {
-	const { formatToken } = useNumberFormat();
+	const { formatNumber, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { getHistoricalOrderStatusPresentation, getOrderSideLabel, getOrderTypeLabel } = useOrderDisplayLabels();
-	const { entries, error, isConnected, isOffline, isStale, status } = useHistoricalOrders();
+	const { bufferedOrders, entries, error, isConnected, isOffline, isStale, oldestBufferedStatusTime, status } =
+		useHistoricalOrders();
 	const navigateToMarket = useMarketNavigation();
 	const { setActiveTab } = useMobileTerminalTab();
 	const markets = useMarkets();
 	const [typeFilter, setTypeFilter] = useState<OrderHistoryTypeFilter>("all");
 	const [directionFilter, setDirectionFilter] = useState<ToolbarOrderDirectionFilter>("all");
 	const [statusFilter, setStatusFilter] = useState<OrderHistoryStatusFilter>("all");
+	const filtersActive = typeFilter !== "all" || directionFilter !== "all" || statusFilter !== "all";
+	const orderSnapshot = useOrderHistory(address ?? "", { enabled: filtersActive });
+	const searchableEntries = buildHistoricalOrderEntries(
+		mergeHistoricalOrderSources(orderSnapshot.orders, bufferedOrders),
+	);
+	const searchedEntries = filtersActive ? searchableEntries : entries;
 
-	const filteredEntries = entries
+	const filteredEntries = searchedEntries
 		.filter(
 			(entry) =>
 				(typeFilter === "all" || entry.type === typeFilter) &&
@@ -121,7 +136,7 @@ function MobileOrdersHistoryTabContent({
 	const filteredOrderKeys = filteredEntries.map(getOrderHistoryDisclosureKey);
 	const disclosure = useMobileDisclosureSet(disclosureIdentity, filteredOrderKeys, disclosureState);
 	const { expandedKeys, setExpanded } = disclosure;
-	const availableTypeFilters = new Set(entries.map((entry) => entry.type));
+	const availableTypeFilters = new Set(searchableEntries.map((entry) => entry.type));
 	if (typeFilter !== "all") availableTypeFilters.add(typeFilter);
 	const typeOptions = [
 		{ value: "all", label: t`Type` },
@@ -130,7 +145,7 @@ function MobileOrdersHistoryTabContent({
 			label: getOrderTypeLabel(value),
 		})),
 	];
-	const availableStatusFilters = new Set(entries.map(getOrderHistoryStatusCategory));
+	const availableStatusFilters = new Set(searchableEntries.map(getOrderHistoryStatusCategory));
 	if (statusFilter !== "all") availableStatusFilters.add(statusFilter);
 	const statusOptions = [
 		{ value: "all", label: t`Status` },
@@ -140,8 +155,23 @@ function MobileOrdersHistoryTabContent({
 	];
 
 	const isSnapshotCurrent = status === "ready" && !error && !isOffline && !isStale;
+	const emptyPresentation = getFilteredHistoryEmptyPresentation({
+		liveCurrent: isSnapshotCurrent,
+		snapshot: {
+			hasData: orderSnapshot.status === "ready",
+			failed: orderSnapshot.hasFailed,
+			fetching: orderSnapshot.isFetching,
+			offline: orderSnapshot.isOffline,
+			reachedLimit: orderSnapshot.reachedLimit,
+			reachesLive: historySnapshotReachesLive(orderSnapshot.newestStatusTime, oldestBufferedStatusTime),
+		},
+	});
+	const ORDER_HISTORY_API_LIMIT = formatNumber(ORDER_HISTORY_API_LIMIT_COUNT, 0);
+	const canCount =
+		isSnapshotCurrent &&
+		(!filtersActive || emptyPresentation === "noMatch" || emptyPresentation === "noMatchWithinLimit");
 	const headerCount =
-		isConnected && isSnapshotCurrent ? (
+		isConnected && canCount ? (
 			<Plural value={filteredEntries.length} one="# order" other="# orders" />
 		) : (
 			FALLBACK_VALUE_PLACEHOLDER
@@ -305,7 +335,7 @@ function MobileOrdersHistoryTabContent({
 		);
 	}
 
-	if (status === "ready" && entries.length === 0) {
+	if (status === "ready" && entries.length === 0 && !filtersActive) {
 		return (
 			<div className={cn("font-market-close min-h-0 flex flex-1 flex-col", className)}>
 				<div className="flex flex-1 items-center justify-center p-6 text-sm text-market-close-muted">
@@ -316,20 +346,36 @@ function MobileOrdersHistoryTabContent({
 		);
 	}
 
-	const noMatch = isSnapshotCurrent ? (
-		<div className="flex min-h-28 items-center justify-center text-center text-sm text-market-close-muted">
-			{t`No orders match these filters.`}
-		</div>
-	) : (
-		<DataPendingState className="min-h-28" />
-	);
+	function renderFilteredEmpty() {
+		if (emptyPresentation === "offline") return <DataPendingState className="min-h-28" loading={false} />;
+		if (emptyPresentation === "loading") return <DataPendingState className="min-h-28" />;
+		if (emptyPresentation === "retry") {
+			return (
+				<div className="flex min-h-28 items-center justify-center">
+					<Button variant="outline" intent="neutral" size="sm" onClick={orderSnapshot.refresh}>
+						{t`Retry`}
+					</Button>
+				</div>
+			);
+		}
+		return (
+			<div className="flex min-h-28 flex-col items-center justify-center gap-1 text-center text-sm text-market-close-muted">
+				<p>{t`No orders match these filters.`}</p>
+				{emptyPresentation === "noMatchWithinLimit" ? (
+					<p className="text-xs">
+						<Trans>Up to {ORDER_HISTORY_API_LIMIT} most recent ordinary orders</Trans>
+					</p>
+				) : null}
+			</div>
+		);
+	}
 
 	return (
 		<div className={cn("font-market-close min-h-0 flex flex-col", isPageScroll ? "min-h-0" : "flex-1", className)}>
 			{renderFilterRow(false)}
 			<div className={cn("min-h-0", !isPageScroll && "flex-1 overflow-y-auto overscroll-y-contain")}>
 				<div className="flex flex-col gap-2.5 px-3.5 pt-3">
-					{filteredEntries.length === 0 ? noMatch : null}
+					{filteredEntries.length === 0 ? renderFilteredEmpty() : null}
 					<MobileProgressiveList key={`${typeFilter}:${directionFilter}:${statusFilter}`} items={filteredEntries}>
 						{(visibleEntries) =>
 							visibleEntries.map((entry) => {

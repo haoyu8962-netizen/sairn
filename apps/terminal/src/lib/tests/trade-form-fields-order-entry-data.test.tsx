@@ -92,6 +92,11 @@ const committedOrderEntryData = {
 	szDecimals: 4,
 };
 
+function describedText(element: Element | null | undefined): string {
+	const ids = element?.getAttribute("aria-describedby")?.split(/\s+/).filter(Boolean) ?? [];
+	return ids.map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+}
+
 function changeInput(input: HTMLInputElement, value: string) {
 	const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
 	act(() => {
@@ -197,10 +202,17 @@ describe("TradeFormFields order-entry data ownership", () => {
 
 		act(() => root.render(<ParentHarness visibleValidationErrors={[tickError("trigger-price-tick")]} />));
 		expect(invalidInputs()).toEqual([trigger()]);
+		expect(describedText(trigger())).toBe("Price must be a multiple of the tick size");
 
 		act(() => root.render(<ParentHarness visibleValidationErrors={[tickError("limit-price-tick")]} />));
 		expect(invalidInputs()).toHaveLength(1);
 		expect(invalidInputs()[0]).not.toBe(trigger());
+		expect(describedText(invalidInputs()[0])).toBe("Price must be a multiple of the tick size");
+		expect(trigger()?.getAttribute("aria-describedby")).toBeNull();
+
+		act(() => root.render(<ParentHarness />));
+		expect(invalidInputs()).toEqual([]);
+		expect(container.querySelector('input[aria-describedby][aria-label="Trigger Price (USDC)"]')).toBeNull();
 	});
 
 	it("marks the TWAP trigger and price limit fields whose price is off the market tick", () => {
@@ -231,6 +243,27 @@ describe("TradeFormFields order-entry data ownership", () => {
 		expect(invalidLabels()).toEqual(["Max Price (USDC)"]);
 	});
 
+	it("gives the size field its unit and keeps the visible unit as the toggle's name", () => {
+		act(() => root.render(<ParentHarness />));
+		const sizeLabel = [...container.querySelectorAll("label")].find((label) => label.textContent === "Size");
+		const sizeInput = sizeLabel ? document.getElementById(sizeLabel.htmlFor) : null;
+		const unitToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent === "BTC",
+		);
+		if (!sizeInput || !unitToggle) throw new Error("Expected the size field and its unit toggle");
+
+		expect(describedText(sizeInput)).toBe("BTC");
+		expect(unitToggle.getAttribute("aria-label")).toBeNull();
+		expect(describedText(unitToggle)).toBe("Toggle size mode");
+	});
+
+	it("names the available balance button by the balance it shows and describes the Max action", () => {
+		act(() => root.render(<ParentHarness />));
+		const max = container.querySelector<HTMLButtonElement>('button[title="Use max available balance"]');
+		expect(max?.getAttribute("aria-label")).toBeNull();
+		expect(max?.textContent).toBe("1,000.00 USDC");
+	});
+
 	it("writes the open position size with the number-format separators, truncated to the size decimals", () => {
 		act(() => root.render(<ParentHarness positionSize={1234.56789} />));
 		const position = () =>
@@ -254,7 +287,8 @@ describe("TradeFormFields order-entry data ownership", () => {
 		});
 		act(() => root.render(<ParentHarness swapTargetToken="USDH" />));
 		act(() => actions.setReduceOnly(true));
-		const max = container.querySelector<HTMLButtonElement>('button[aria-label="Use max reducible size"]');
+		const max = container.querySelector<HTMLButtonElement>('button[title="Use max reducible size"]');
+		expect(max?.getAttribute("aria-label")).toBeNull();
 		expect(max?.textContent).toBe("1,000.00 USDC");
 		expect(max?.disabled).toBe(true);
 		expect(container.querySelector('button[aria-label="Swap USDH"]')).not.toBeNull();

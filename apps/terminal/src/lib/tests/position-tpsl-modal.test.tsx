@@ -795,6 +795,41 @@ describe("PositionTpSlModal live data", () => {
 		});
 	});
 
+	it("links each editable field to its own error and drops the link once corrected", () => {
+		renderModal();
+		const describedText = (input: HTMLInputElement) =>
+			(input.getAttribute("aria-describedby") ?? "")
+				.split(/\s+/)
+				.filter(Boolean)
+				.map((id) => document.getElementById(id)?.textContent ?? "")
+				.join(" ");
+		act(() => setInputValue(getInput(container, "Take Profit"), "27500"));
+		act(() => setInputValue(getInput(container, "Stop Loss"), "31000"));
+		act(() => getInput(container, "Configure amount").click());
+		act(() => setInputValue(getInput(container, "Configured TP/SL amount"), "999"));
+		act(() => getInput(container, "Limit execution").click());
+		act(() => setInputValue(getInput(container, "Take profit limit price"), "27400"));
+		act(() => setInputValue(getInput(container, "Stop loss limit price"), "30000"));
+
+		expect(describedText(getInput(container, "Configured TP/SL amount"))).toBe(
+			"Amount must be greater than zero and no more than the current position.",
+		);
+		expect(describedText(getInput(container, "Take profit limit price"))).toBe(
+			"Take profit limit must be at or above its trigger.",
+		);
+		expect(describedText(getInput(container, "Stop loss limit price"))).toBe(
+			"Stop loss limit must be at or above its trigger.",
+		);
+		expect(getButton(container, "Confirm").disabled).toBe(true);
+
+		act(() => setInputValue(getInput(container, "Configured TP/SL amount"), "0.1"));
+		act(() => setInputValue(getInput(container, "Take profit limit price"), "27600"));
+		act(() => setInputValue(getInput(container, "Stop loss limit price"), "31100"));
+		for (const label of ["Configured TP/SL amount", "Take profit limit price", "Stop loss limit price"]) {
+			expect(getInput(container, label).getAttribute("aria-describedby")).toBeNull();
+		}
+	});
+
 	it("blocks zero percent without replacing or deleting existing protection", () => {
 		testState.orders = [openOrder({ triggerPx: "27500" })];
 		renderModal();

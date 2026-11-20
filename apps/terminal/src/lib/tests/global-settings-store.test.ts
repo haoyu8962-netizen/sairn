@@ -10,13 +10,17 @@ const GLOBAL_SETTINGS_VERSION = 4;
 
 type GlobalSettingsModule = typeof import("@/stores/use-global-settings-store");
 
+async function reopenStore(): Promise<GlobalSettingsModule> {
+	vi.resetModules();
+	return await import("@/stores/use-global-settings-store");
+}
+
 async function loadStore(persisted?: unknown): Promise<GlobalSettingsModule> {
 	window.localStorage.clear();
 	if (persisted !== undefined) {
 		window.localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, JSON.stringify(persisted));
 	}
-	vi.resetModules();
-	return await import("@/stores/use-global-settings-store");
+	return await reopenStore();
 }
 
 describe("global settings market-order slippage", () => {
@@ -48,6 +52,27 @@ describe("global settings order-confirmation preference", () => {
 		expect(store.getSkipOrderConfirmation()).toBe(false);
 	});
 
+	it("starts with the safe defaults and leaves a newer release's record intact", async () => {
+		const future = {
+			state: { skipOrderConfirmation: true, transactionDelayProtection: false, marketOrderSlippagePercent: 5 },
+			version: GLOBAL_SETTINGS_VERSION + 1,
+		};
+		const store = await loadStore(future);
+		let slippage: number | undefined;
+		function Probe() {
+			slippage = store.useMarketOrderSlippagePercent();
+			return null;
+		}
+		const probeRoot = createRoot(document.createElement("div"));
+		act(() => probeRoot.render(createElement(Probe)));
+		act(() => probeRoot.unmount());
+
+		expect.soft(store.getSkipOrderConfirmation()).toBe(false);
+		expect.soft(store.getTransactionDelayProtection()).toBe(true);
+		expect.soft(slippage).toBe(2.5);
+		expect(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS)).toBe(JSON.stringify(future));
+	});
+
 	it("restores a persisted opt-out", async () => {
 		const store = await loadStore({
 			state: { skipOrderConfirmation: true },
@@ -76,13 +101,11 @@ describe("global settings order-confirmation preference", () => {
 		expect(store.getNumberFormatLocale()).toBe("de-DE");
 	});
 
-	it("persists the opt-out under the current store version", async () => {
+	it("keeps a version-3 opt-out across later reloads and for an older release reading the record", async () => {
 		await loadStore({ state: { skipOrderConfirmation: true }, version: 3 });
 
-		const raw = window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS);
-		const persisted = JSON.parse(raw ?? "{}") as { version?: number; state?: { skipOrderConfirmation?: boolean } };
-
-		expect(persisted.version).toBe(GLOBAL_SETTINGS_VERSION);
+		expect((await reopenStore()).getSkipOrderConfirmation()).toBe(true);
+		const persisted = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS) ?? "{}");
 		expect(persisted.state?.skipOrderConfirmation).toBe(true);
 	});
 });
@@ -138,11 +161,18 @@ describe("global settings transaction delay protection", () => {
 		const toggle = renderPreference(await loadStore());
 		act(() => toggle.click());
 
-		const persisted = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS) ?? "{}");
-		expect(persisted.state?.transactionDelayProtection).toBe(false);
+		expect(window.localStorage.getItem(STORAGE_KEYS.TRANSACTION_DELAY_PROTECTION)).toBe("false");
 		act(() => root?.unmount());
 		root = undefined;
-		expect((await loadStore(persisted)).getTransactionDelayProtection()).toBe(false);
+		expect((await reopenStore()).getTransactionDelayProtection()).toBe(false);
+	});
+
+	it("never shows an older release a looser protection than it last stored", async () => {
+		const toggle = renderPreference(await loadStore());
+		act(() => toggle.click());
+
+		const persisted = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS) ?? "{}");
+		expect(persisted).toMatchObject({ version: GLOBAL_SETTINGS_VERSION, state: { transactionDelayProtection: true } });
 	});
 });
 
@@ -246,5 +276,66 @@ describe("global settings order-book animations", () => {
 		const restoredToggle = renderPreference(await loadStore(persisted));
 
 		expect(restoredToggle.getAttribute("aria-checked")).toBe("false");
+	});
+});
+
+describe("global settings with a damaged record on storage that refuses removal", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		window.localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		window.localStorage.clear();
+		vi.resetModules();
+	});
+
+	function refuseRemoval() {
+		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+			throw new DOMException("read-only storage", "SecurityError");
+		});
+	}
+
+	function readSlippage(store: GlobalSettingsModule): number {
+		let value = Number.NaN;
+		function Reader() {
+			value = store.useMarketOrderSlippagePercent();
+			return null;
+		}
+		const container = document.createElement("div");
+		const reader = createRoot(container);
+		act(() => reader.render(createElement(Reader)));
+		act(() => reader.unmount());
+		return value;
+	}
+
+	it.each([
+		["unparseable", "{not json"],
+		["invalid", JSON.stringify({ state: { theme: 7 }, version: GLOBAL_SETTINGS_VERSION })],
+	])("still reads the protections' own keys when the %s record cannot be removed", async (_kind, record) => {
+		window.localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, record);
+		window.localStorage.setItem(STORAGE_KEYS.TRANSACTION_DELAY_PROTECTION, "false");
+		window.localStorage.setItem(STORAGE_KEYS.SKIP_ORDER_CONFIRMATION, "true");
+		refuseRemoval();
+		const store = await reopenStore();
+
+		expect(store.getTransactionDelayProtection()).toBe(false);
+		expect(store.getSkipOrderConfirmation()).toBe(true);
+		expect(window.localStorage.getItem(STORAGE_KEYS.GLOBAL_SETTINGS)).toBe(record);
+	});
+
+	it("starts from the strictest protections when their keys are unreadable too", async () => {
+		window.localStorage.setItem(STORAGE_KEYS.GLOBAL_SETTINGS, "{not json");
+		window.localStorage.setItem(STORAGE_KEYS.MARKET_ORDER_SLIPPAGE, "5");
+		refuseRemoval();
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+			if (key === STORAGE_KEYS.MARKET_ORDER_SLIPPAGE) throw new DOMException("denied", "SecurityError");
+			return getItem.call(this, key);
+		});
+		const store = await reopenStore();
+
+		expect(readSlippage(store)).toBe(0.1);
 	});
 });

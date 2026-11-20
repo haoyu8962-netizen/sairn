@@ -33,6 +33,7 @@ export function getTradeHistoryType(
 	// The live catalog intentionally excludes delisted markets. Historical fills still
 	// retain Hyperliquid's canonical coin name, so use that protocol identity when an
 	// exact current-market lookup is no longer available.
+	if (fill.coin.startsWith("#")) return null;
 	const marketKind = getMarketKind(fill.coin) ?? getMarketKindFromName(fill.coin);
 	if (marketKind === "spot") return "spot";
 	if (marketKind === "perp" || marketKind === "builderPerp") return "perp";

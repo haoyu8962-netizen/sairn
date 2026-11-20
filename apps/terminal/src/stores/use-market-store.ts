@@ -4,7 +4,6 @@ import { DEFAULT_FAVORITE_MARKETS, DEFAULT_MARKET_NAME, STORAGE_KEYS } from "@/c
 import { DEFAULT_SELECTED_MARKETS } from "@/config/markets";
 import type { ExchangeScope } from "@/domain/market";
 import { isSafeTradeRouteMarketName } from "@/lib/hyperliquid/market-route";
-import { createValidatedStorage } from "@/lib/storage/validated-storage";
 import { z } from "@/lib/zod";
 import { useExchangeScope } from "@/providers/exchange-scope";
 
@@ -16,8 +15,6 @@ const marketStoreSchema = z.object({
 		favoriteMarkets: z.array(safeMarketNameSchema).optional(),
 	}),
 });
-
-const validatedStorage = createValidatedStorage(marketStoreSchema, "market store");
 
 const MARKET_STORE_VERSION = 3;
 
@@ -55,106 +52,176 @@ function partializeMarketPrefs(state: MarketStore): MarketPrefs {
 	return { selectedMarkets: state.selectedMarkets, favoriteMarkets: state.favoriteMarkets };
 }
 
-// What this window last agreed with storage: its own selected markets (each window keeps showing the
-// market it chose) and the favorites shared by every window. A write sends only what differs from it.
-let lastSyncedPrefs: MarketPrefs | null = null;
-let applyingStoredPrefs = false;
+type MarketEdit =
+	| { kind: "select"; scope: ExchangeScope; marketName: string }
+	| { kind: "favorite"; marketName: string; included: boolean };
 
-function readStoredPrefs(): MarketPrefs | null {
-	const raw = validatedStorage.getItem(STORAGE_KEYS.MARKET_PREFS);
-	if (typeof raw !== "string") return null;
-	const stored = JSON.parse(raw) as { state: unknown; version?: unknown };
-	if (typeof stored.version === "number" && stored.version !== MARKET_STORE_VERSION) return null;
-	return normalizeMarketPrefs(stored.state, DEFAULT_FAVORITE_MARKETS);
+const MARKET_PREFS_LOCK_NAME = `${STORAGE_KEYS.MARKET_PREFS}:lock`;
+
+// Edits this window shows but has not stored yet. Storage only changes inside persistMarketEdit,
+// which reads, applies one edit and writes under one cross-window lock where Web Locks exist.
+const pendingEdits = new Set<MarketEdit>();
+
+type StoredMarketRecord =
+	| { kind: "missing" }
+	| { kind: "supported"; raw: string; record: { state: unknown; version?: unknown } }
+	| { kind: "future"; state: z.infer<typeof marketStoreSchema>["state"] | null };
+
+function marketStorage(): Storage | null {
+	if (typeof window === "undefined") return null;
+	try {
+		return window.localStorage;
+	} catch {
+		return null;
+	}
+}
+
+// Clearing is best effort: storage that refuses removal keeps the damaged record, and every read
+// still treats it as missing.
+function discardStoredRecord(storage: Storage, reason: string, detail: unknown): StoredMarketRecord {
+	console.warn(`[market store] persisted state ${reason}, clearing`, detail);
+	try {
+		storage.removeItem(STORAGE_KEYS.MARKET_PREFS);
+	} catch {}
+	return { kind: "missing" };
+}
+
+// One read decides the version and the content, so a record a newer release writes is never
+// validated against this release's schema, cleared or overwritten.
+function readStoredRecord(storage: Storage | null = marketStorage()): StoredMarketRecord {
+	if (!storage) return { kind: "missing" };
+	let raw: string | null;
+	try {
+		raw = storage.getItem(STORAGE_KEYS.MARKET_PREFS);
+	} catch {
+		return { kind: "missing" };
+	}
+	if (!raw) return { kind: "missing" };
+	let record: unknown;
+	try {
+		record = JSON.parse(raw);
+	} catch (error) {
+		return discardStoredRecord(storage, "could not be parsed", error);
+	}
+	const version = (record as { version?: unknown } | null)?.version;
+	const parsed = marketStoreSchema.safeParse(record);
+	if (typeof version === "number" && version > MARKET_STORE_VERSION) {
+		return { kind: "future", state: parsed.success ? parsed.data.state : null };
+	}
+	if (!parsed.success) return discardStoredRecord(storage, "failed schema validation", parsed.error.issues);
+	return { kind: "supported", raw, record: record as { state: unknown; version?: unknown } };
+}
+
+function readStoredPrefs(stored: StoredMarketRecord = readStoredRecord()): MarketPrefs | null {
+	if (stored.kind !== "supported") return null;
+	const { state, version } = stored.record;
+	if (typeof version === "number" && version !== MARKET_STORE_VERSION) return null;
+	return normalizeMarketPrefs(state, DEFAULT_FAVORITE_MARKETS);
 }
 
 function sameMarkets(a: readonly string[], b: readonly string[]): boolean {
 	return a.length === b.length && a.every((market, index) => market === b[index]);
 }
 
-function combineWithStoredPrefs(outgoing: MarketPrefs): MarketPrefs | null {
-	const previous = lastSyncedPrefs;
-	if (!previous) return null;
-	const stored = readStoredPrefs();
-	if (!stored) return null;
-
-	const selectedMarkets = { ...stored.selectedMarkets };
-	for (const scope of new Set([...Object.keys(previous.selectedMarkets), ...Object.keys(outgoing.selectedMarkets)])) {
-		const next = outgoing.selectedMarkets[scope];
-		if (next !== undefined && next !== previous.selectedMarkets[scope]) selectedMarkets[scope] = next;
+function applyMarketEdit(prefs: MarketPrefs, edit: MarketEdit): MarketPrefs {
+	if (edit.kind === "select") {
+		return { ...prefs, selectedMarkets: { ...prefs.selectedMarkets, [edit.scope]: edit.marketName } };
 	}
-
-	const added = outgoing.favoriteMarkets.filter((market) => !previous.favoriteMarkets.includes(market));
-	const removed = previous.favoriteMarkets.filter((market) => !outgoing.favoriteMarkets.includes(market));
-	const favoriteMarkets = [
-		...stored.favoriteMarkets.filter((market) => !removed.includes(market)),
-		...added.filter((market) => !stored.favoriteMarkets.includes(market)),
-	];
-
-	return { selectedMarkets, favoriteMarkets };
+	if (prefs.favoriteMarkets.includes(edit.marketName) === edit.included) return prefs;
+	return {
+		...prefs,
+		favoriteMarkets: edit.included
+			? [...prefs.favoriteMarkets, edit.marketName]
+			: prefs.favoriteMarkets.filter((market) => market !== edit.marketName),
+	};
 }
 
-function applyStoredFavorites(favoriteMarkets: string[]) {
-	if (!sameMarkets(useMarketStore.getState().favoriteMarkets, favoriteMarkets)) {
-		applyingStoredPrefs = true;
-		try {
-			useMarketStore.setState({ favoriteMarkets });
-		} finally {
-			applyingStoredPrefs = false;
-		}
+function showStoredFavorites(stored: MarketPrefs) {
+	let visible = stored;
+	for (const edit of pendingEdits) visible = applyMarketEdit(visible, edit);
+	if (!sameMarkets(useMarketStore.getState().favoriteMarkets, visible.favoriteMarkets)) {
+		useMarketStore.setState({ favoriteMarkets: visible.favoriteMarkets });
 	}
-	lastSyncedPrefs = partializeMarketPrefs(useMarketStore.getState());
 }
 
-const crossWindowMarketStorage: StateStorage = {
-	getItem: (name) => validatedStorage.getItem(name),
-	setItem: (name, value) => {
-		if (applyingStoredPrefs) return;
-		const outgoing = JSON.parse(value) as { state: MarketPrefs; version: number };
-		const combined = combineWithStoredPrefs(outgoing.state);
-		if (!combined) {
-			validatedStorage.setItem(name, value);
-			lastSyncedPrefs = outgoing.state;
-			return;
-		}
-		validatedStorage.setItem(name, JSON.stringify({ state: combined, version: outgoing.version }));
-		applyStoredFavorites(combined.favoriteMarkets);
-	},
-	removeItem: (name) => validatedStorage.removeItem(name),
-};
+// While a newer release owns the record, this window's edits stay in its memory only.
+function writeMarketEdit(edit: MarketEdit, fallback: MarketPrefs) {
+	let next: MarketPrefs;
+	try {
+		const storage = marketStorage();
+		const stored = readStoredRecord(storage);
+		if (!storage || stored.kind === "future") return;
+		next = applyMarketEdit(readStoredPrefs(stored) ?? fallback, edit);
+		storage.setItem(STORAGE_KEYS.MARKET_PREFS, JSON.stringify({ state: next, version: MARKET_STORE_VERSION }));
+	} finally {
+		pendingEdits.delete(edit);
+	}
+	showStoredFavorites(next);
+}
+
+function persistMarketEdit(edit: MarketEdit, fallback: MarketPrefs) {
+	pendingEdits.add(edit);
+	const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+	if (!locks) {
+		writeMarketEdit(edit, fallback);
+		return;
+	}
+	locks
+		.request(MARKET_PREFS_LOCK_NAME, () => writeMarketEdit(edit, fallback))
+		.catch(() => {
+			if (pendingEdits.has(edit)) writeMarketEdit(edit, fallback);
+		});
+}
+
+function editMarketPrefs(edit: MarketEdit) {
+	const current = partializeMarketPrefs(useMarketStore.getState());
+	useMarketStore.setState(applyMarketEdit(current, edit));
+	persistMarketEdit(edit, current);
+}
 
 function syncStoredPrefs() {
 	const stored = readStoredPrefs();
-	if (!stored) return;
-	applyStoredFavorites(stored.favoriteMarkets);
+	if (stored) showStoredFavorites(stored);
 }
+
+const hydrateOnlyStorage: StateStorage = {
+	getItem: () => {
+		const stored = readStoredRecord();
+		if (stored.kind === "supported") return stored.raw;
+		if (stored.kind === "future" && stored.state) {
+			return JSON.stringify({ state: stored.state, version: MARKET_STORE_VERSION });
+		}
+		return null;
+	},
+	setItem: () => {},
+	removeItem: (name) => {
+		const storage = marketStorage();
+		if (storage && readStoredRecord(storage).kind !== "future") storage.removeItem(name);
+	},
+};
 
 const useMarketStore = create<MarketStore>()(
 	persist(
-		(set) => ({
+		(): MarketStore => ({
 			selectedMarkets: { ...DEFAULT_SELECTED_MARKETS },
 			favoriteMarkets: [...DEFAULT_FAVORITE_MARKETS],
 			actions: {
 				setSelectedMarket: (scope, marketName) => {
 					if (!isSafeTradeRouteMarketName(marketName)) return;
-					set((state) => ({
-						selectedMarkets: { ...state.selectedMarkets, [scope]: marketName },
-					}));
+					if (useMarketStore.getState().selectedMarkets[scope] === marketName) return;
+					editMarketPrefs({ kind: "select", scope, marketName });
 				},
 				toggleFavoriteMarket: (marketName) => {
 					if (!isSafeTradeRouteMarketName(marketName)) return;
-					set((state) => ({
-						favoriteMarkets: state.favoriteMarkets.includes(marketName)
-							? state.favoriteMarkets.filter((m) => m !== marketName)
-							: [...state.favoriteMarkets, marketName],
-					}));
+					const included = !useMarketStore.getState().favoriteMarkets.includes(marketName);
+					editMarketPrefs({ kind: "favorite", marketName, included });
 				},
 			},
 		}),
 		{
 			name: STORAGE_KEYS.MARKET_PREFS,
 			version: MARKET_STORE_VERSION,
-			storage: createJSONStorage(() => crossWindowMarketStorage),
+			storage: createJSONStorage(() => hydrateOnlyStorage),
 			partialize: partializeMarketPrefs,
 			merge: (persisted, current) => ({
 				...current,
@@ -163,9 +230,6 @@ const useMarketStore = create<MarketStore>()(
 					"selectedMarkets" | "favoriteMarkets"
 				>),
 			}),
-			onRehydrateStorage: () => (state) => {
-				if (state) lastSyncedPrefs = partializeMarketPrefs(state);
-			},
 		},
 	),
 );

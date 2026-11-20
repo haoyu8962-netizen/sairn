@@ -77,6 +77,7 @@
 | 带 TP/SL 的市价或限价单，已核实执行摘要为部分成交 | 在部分成交摘要下追加一句中性规则：附带 TP/SL 只在订单完全成交，或剩余部分因保证金不足被取消时才会下达，并提示检查持仓的 TP/SL | 只写「完全成交后才下达」而漏掉保证金不足的例外，声称 TP/SL 已生效、已取消或已按成交量缩小，或对未携带 TP/SL、完全成交、失败的结果显示该句 |
 | WS / REST 只有 `filled`，缺少完整数量证据 | 顶层 Filled；子项 `filled-unverified`，显示 Filled (quantity unverified) | 子项 Fully filled 或虚构完全成交计数 |
 | 拒绝、取消、未知混合 | 逐项区分 rejected / canceled / unknown；汇总 partial 或对应结局 | 顶层 `ok` 代表整批成功，或未知等于拒单 |
+| `normalTpsl` 批次的父项（首项）为 `error`，附属项为 `waitingForFill` / `waitingForTrigger`（2026-11-19） | 不按回包计数，转入既有确认中，按 `cloid` 查询，两分钟内查不到转为结果待确认；查到父项 `rejected`、附属项 `open` 时为部分受理并带批次拒绝说明 | 「部分受理 2/3」：等待标记不证明附属单已受理，官方文档没有说明父项报错时附属项如何回填；也不直接判整批拒绝 |
 | 完整成交加原提交路径取得的新账户仓位快照确认 | All positions closed | 后台 orderStatus 单独提供同样结论 |
 
 `acceptedCount` 是兼容既有提交器的字段名，渲染必须按 `countMode` 分辨「已接受」与「完全成交」。全部平仓使用 filled 模式；后台无法证明成交量时不输出虚构的 X/Y 完全成交计数。后台对账不设置 `positionsClosed: true`。通知不承诺清理 TP/SL，不扩大确认范围，也不对整批自动重发。部分成交的 TP/SL 提示依据 [官方 TP/SL 文档](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/take-profit-and-stop-loss-orders-tp-sl)：父单完全成交，或部分成交后因保证金不足被取消，附带 TP/SL 才会下达；其余部分成交后取消会连同附带 TP/SL 一并取消。通知只陈述这条规则，不推断某一笔的附属单状态（保证金不足的分支在提交时无法区分），因此不写「已取消」，也不写成「只有完全成交才下达」这种省掉例外的绝对说法（2026-09-23 [对抗审查](work-memory/sessions/2026-09-23-claude-eight-commit-adversarial-review.md) F3 更正了最初的文案，修复见[任务记录](work-memory/sessions/2026-09-23-market-close-attempt-sealing-fix.md)）。2026-09-23 核对官方终端英文文案，官方部分成交通知只有 `Partially Filled`，没有这句规则；这是本终端在官方文档基础上补充的说明，沿用部分成交的 3 秒时长。
@@ -143,10 +144,16 @@ queue 与 pending feedback 的可选 `execution` 保存 `filledSize`、实际主
 
 ## TWAP 终止排队（2026-11-13）
 
-TWAP 终止在同一资产的锁被占用时排队等待，最多等 15 秒（与 ADR 0053 的时长相同，`TWAP_CANCEL_LOCK_WAIT_MS`），不再立即失败；排队期间按钮名字不变，重复点击不重复提交。三种情况下排队中的终止作废，不签名、不发送，结果通过通知报告：
+TWAP 终止在同一资产的锁被占用时排队等待，最多等 15 秒（与 ADR 0053 的时长相同，`TWAP_CANCEL_LOCK_WAIT_MS`），不再立即失败；排队期间按钮名字不变，重复点击不重复提交。以下情况下排队中的终止作废，不签名、不发送，结果通过通知报告：
 
 - 等满 15 秒（含计时器被浏览器推迟、拿到锁时才发现已超时）：提示 "The checks before this request took too long. Nothing was signed or sent. Try again."。这句是 ADR 0053 的现成文案，「checks」指的其实是同一市场上的另一个操作，不够贴切。
+- 拿到资产锁之后，入队 15 秒内没能调用签名器（排在别的请求后面、会话锁被占、复核或服务器时钟同步太慢，2026-11-19）：与等锁超时同一句提示，通知记为失败，可以立即再点。此前这一段不设上限，终止可能一直停在提交中；现在照官方终端「点击即发、失败提示、用户再点」的做法设上限（ADR 0053 的 2026-11-19 补记）。
 - 终止所在的列表卸载（切换账户页签、窗口宽度跨过 1000px）：结果代码 `twap-cancel-not-sent`，提示 "Request not submitted"。
 - 账户或网络变化：沿用原有的身份变化提示。
+- 签名身份变化（2026-11-19）：点击时记下签名身份（`useExchange` 的 `captureSigningIdentity`：会话租约、owner 签名器绑定、Agent 注册 epoch、Agent 公钥与 Agent-only 激活代际，与调度器请求代际是同一组事实），执行守卫在入队前与 SDK 边界各用 `isSameExchangeSigningIdentity` 比较一次，会话变化时也立即作废排队中的终止。所以同一 owner 从钱包会话换成导入的 Agent-only 会话（ADR 0039）或反过来、同一会话里的 Agent 密钥或注册 epoch 被替换，旧点击都不会由新身份签名。提示沿用上一条的 "The trading account or network changed. Review active TWAP orders before retrying."，对同一 owner 的会话或密钥更换只是近似说法。
+
+点击时离线，或点击时没有可用的签名身份，不登记待确认记录、不申请资产锁，只提示 "Request not submitted"，联网后也不会发出（ADR 0053 决策 6）。
+
+两个标签页各对同一 TWAP 点一次 `Terminate`：资产锁只把两次请求串行，第二次照常签名发出，本地不做跨标签页去重。官方文档写明对已终止或已结束的 TWAP 再发 `twapCancel`，交易所返回 `{"status":"ok","response":{"type":"twapCancel","data":{"status":{"error":"TWAP was never placed, already canceled, or filled."}}}}`（[Exchange endpoint · Cancel a TWAP order](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint)），SDK 0.33.3 把它作为 `ApiRequestError` 抛出，第二个标签页按 ADR 0024 原样显示这句交易所原文、记为失败；TWAP ID 不复用，第二次请求不会影响别的订单。共享的本地终止记录要处理写入失败、另一页崩溃后的残留和对账快照迟迟不来等情况，任何一处出错都会挡住一次降风险的撤单，代价大于一次被交易所拒绝的重复请求，所以没有采用。
 
 已知边界：执行宿主仍在页签面板里，所以切换页签会让排队中的终止作废；把它搬到页面层（像 `PositionMarketCloseSubmitHost`）是后续项。真实浏览器的 Web Locks 对中止信号的处理与跨标签页排队没有验证。

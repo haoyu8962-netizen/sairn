@@ -31,6 +31,8 @@ export type InferSubParams<TMethod extends AnyMethod> = Exclude<Parameters<TMeth
 /** Failure hooks forwarded to the SDK's subscribe options (v0.33+ replaces `failureSignal`). */
 export type SubscribeFailureOptions = {
 	onError?: (error: unknown) => void;
+	/** Set only for incremental `l2` keys: aborted when the last consumer leaves before the subscription settles. */
+	signal?: AbortSignal;
 };
 
 export type SubscriptionStatus = "idle" | "subscribing" | "active" | "error";

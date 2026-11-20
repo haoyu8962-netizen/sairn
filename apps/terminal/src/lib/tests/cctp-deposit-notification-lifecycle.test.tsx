@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
 	isTestnet: false,
 	depositModalOpen: false,
 	phase: "waiting" as "waiting" | "forward-submitted" | "failed",
+	acknowledged: new Set<string>(),
+	failure: null as Error | null,
 }));
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 	useWalletSession: () => ({ walletAddress: state.owner, walletIntent: "external" }),
@@ -25,16 +27,25 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 vi.mock("@/stores/use-global-settings-store", () => ({ useIsTestnet: () => state.isTestnet }));
 vi.mock("@/stores/use-global-modal-store", () => ({ useDepositModalOpen: () => state.depositModalOpen }));
 vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
-	useCctpDepositTracking: () => ({
-		recoveryRecord: state.owner === OWNER && !state.isTestnet ? { sourceHash: SOURCE_HASH } : null,
-		trackedSourceHash: state.owner === OWNER && !state.isTestnet ? SOURCE_HASH : undefined,
-		data: { status: state.phase === "forward-submitted" ? "forward-submitted" : "waiting" },
-		error:
-			state.phase === "failed"
-				? new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted")
-				: null,
-		isError: state.phase === "failed",
-	}),
+	useCctpDepositTracking: () => {
+		const tracked = state.owner === OWNER && !state.isTestnet;
+		const scope = `${state.isTestnet ? "Testnet" : "Mainnet"}:${state.owner}`;
+		const failure = state.phase === "failed" ? state.failure : null;
+		return {
+			recoveryRecord: tracked ? { sourceHash: SOURCE_HASH } : null,
+			trackedSourceHash: tracked ? SOURCE_HASH : undefined,
+			data: { status: state.phase === "forward-submitted" ? "forward-submitted" : "waiting" },
+			error: failure,
+			isError: !!failure,
+			unacknowledgedOutcomes:
+				tracked && failure && !state.acknowledged.has(`${scope}:${SOURCE_HASH}`)
+					? [{ acknowledged: false, error: failure, sourceHash: SOURCE_HASH }]
+					: [],
+			acknowledgeOutcome: (sourceHash: string) => {
+				state.acknowledged.add(`${scope}:${sourceHash}`);
+			},
+		};
+	},
 }));
 
 describe("CCTP notification presentation lifecycle with real Sonner", () => {
@@ -46,6 +57,8 @@ describe("CCTP notification presentation lifecycle with real Sonner", () => {
 		state.isTestnet = false;
 		state.depositModalOpen = false;
 		state.phase = "waiting";
+		state.acknowledged = new Set();
+		state.failure = new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted");
 		container = document.createElement("div");
 		document.body.appendChild(container);
 		root = createI18nRoot(container);

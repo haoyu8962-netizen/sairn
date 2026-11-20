@@ -1,15 +1,19 @@
 // @vitest-environment jsdom
 
-import { HttpRequestError } from "@nktkas/hyperliquid";
+import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
 import { startExchangeActionDeadline } from "@sairn/hl-react/internal/exchange/request-scheduler";
-import { act, createElement } from "react";
+import { act, createElement, Fragment } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OrderReconciliation } from "@/components/trade/order-reconciliation";
 import { getOrderExecutionSummary } from "@/domain/trade/order-execution-summary";
+import { ORDER_RECONCILIATION_CONFIRMATION_WINDOW_MS, type TrackedOrderParams } from "@/domain/trade/order-tracking";
+import { useOrderSubmit } from "@/hooks/trade/use-order-submit";
 import { useTrackedOrder } from "@/hooks/trade/use-tracked-order";
 import { reserveOrderAssets, runWithOrderAssetLocks } from "@/lib/trade/order-asset-lock";
 import {
 	addOrderQueueItem,
+	getOrderQueueItem,
 	getOrderQueueItems,
 	removeOrderQueueItem,
 	updateOrderQueueItem,
@@ -22,6 +26,14 @@ import {
 
 const mutateAsync = vi.fn();
 const reset = vi.fn();
+const info = { orderStatus: vi.fn() };
+const exchangeSession = {
+	id: Symbol("order-submit-session"),
+	clientKey: "0x1111111111111111111111111111111111111111",
+	env: "Mainnet",
+	sessionMode: "wallet",
+	active: true,
+} as const;
 const CROSS_PERP_SUBMIT_OPTIONS = {
 	riskContext: { marketKind: "perp", marginMode: "cross" },
 } as const;
@@ -36,13 +48,20 @@ const EXCLUSIVE_FILLED_SUBMIT_OPTIONS = {
 
 vi.mock("@/lib/hyperliquid", () => ({
 	useExchange: () => ({ mutateAsync, isPending: false, error: null, reset }),
-	useHyperliquid: () => ({ clientKey: "0x1111111111111111111111111111111111111111", env: "Mainnet" }),
+	useHyperliquid: () => ({ ...exchangeSession, exchangeSession, info }),
+	useSubscription: () => ({ data: undefined }),
 }));
 
 let hookValue: ReturnType<typeof useTrackedOrder> | null = null;
+let entryHookValue: ReturnType<typeof useOrderSubmit> | null = null;
 
 function Probe() {
 	hookValue = useTrackedOrder();
+	return null;
+}
+
+function OrderEntryProbe() {
+	entryHookValue = useOrderSubmit();
 	return null;
 }
 
@@ -130,6 +149,7 @@ describe("useTrackedOrder", () => {
 		for (const item of getOrderQueueItems()) removeOrderQueueItem(item.id);
 		mutateAsync.mockReset();
 		reset.mockReset();
+		info.orderStatus.mockReset();
 		getPendingOrderActions().prune(Number.MAX_SAFE_INTEGER);
 		window.localStorage.clear();
 		installExclusiveLockManager();
@@ -143,7 +163,132 @@ describe("useTrackedOrder", () => {
 		act(() => root.unmount());
 		container.remove();
 		hookValue = null;
+		entryHookValue = null;
+		vi.useRealTimers();
 		Object.defineProperty(window.navigator, "locks", { configurable: true, value: undefined });
+	});
+
+	async function submitContradictoryTpSlResponse(delivery: "returned" | "SDK error") {
+		vi.useFakeTimers();
+		const response = {
+			status: "ok",
+			response: {
+				type: "order",
+				data: { statuses: [{ error: "Entry rejected" }, "waitingForFill", "waitingForTrigger"] },
+			},
+		};
+		if (delivery === "returned") mutateAsync.mockResolvedValueOnce(response);
+		else mutateAsync.mockRejectedValueOnce(new ApiRequestError(response));
+		act(() =>
+			root.render(createElement(Fragment, null, createElement(OrderEntryProbe), createElement(OrderReconciliation))),
+		);
+		const entry = entryHookValue;
+		const draftResetToken = entry?.captureDraftResetToken();
+		if (!entry || !draftResetToken) throw new Error("Expected a current order-entry draft");
+		await act(() =>
+			entry.handleSubmit({
+				draftResetToken,
+				market: { assetId: 0, kind: "perp", name: "BTC", szDecimals: 5 },
+				baseToken: "BTC",
+				side: "buy",
+				orderType: "limit",
+				sizeValue: 1,
+				price: 100,
+				executionReferencePx: 100,
+				markPx: 100,
+				marginMode: "cross",
+				slippageBps: 50,
+				reduceOnly: false,
+				tif: "Gtc",
+				limitPriceInput: "100",
+				triggerPriceInput: "",
+				scaleStartPriceInput: "",
+				scaleEndPriceInput: "",
+				scaleLevelsNum: null,
+				scaleSkewInput: "",
+				twapMinutesNum: null,
+				twapRandomize: false,
+				twapAdvancedEnabled: false,
+				twapTriggerPx: null,
+				twapStopPx: null,
+				tpSlEnabled: true,
+				canUseTpSl: true,
+				tpPriceNum: 120,
+				slPriceNum: 80,
+				twapOrder: false,
+				scaleOrder: false,
+				triggerOrder: false,
+			}),
+		);
+
+		expect(mutateAsync).toHaveBeenCalledOnce();
+		const sent: TrackedOrderParams = mutateAsync.mock.calls[0][0];
+		expect(sent.grouping).toBe("normalTpsl");
+		const cloids = sent.orders.map((order) => order.c);
+		expect(cloids).toEqual(Array.from({ length: 3 }, () => expect.stringMatching(/^0x[\da-f]{32}$/)));
+
+		const [notification] = getOrderQueueItems();
+		expect(notification).toMatchObject({
+			status: "confirming",
+			owner: exchangeSession.clientKey,
+			env: exchangeSession.env,
+		});
+		expect(notification.acceptedCount).toBeUndefined();
+		expect(entry.isDraftResetTokenCurrent(draftResetToken)).toBe(false);
+		expect(createPendingOrderStore(window.localStorage).getState().submissions).toMatchObject([
+			{ queueId: notification.id, children: cloids.map((cloid) => ({ cloid })) },
+		]);
+		return { queueId: notification.id, cloids };
+	}
+
+	it.each(["returned", "SDK error"] as const)(
+		"reconciles a contradictory TP/SL response delivered as %s",
+		async (delivery) => {
+			const { queueId, cloids } = await submitContradictoryTpSlResponse(delivery);
+			info.orderStatus.mockResolvedValue({ status: "order", order: { status: "rejected" } });
+			await act(() => vi.advanceTimersByTimeAsync(3_000));
+
+			expect(info.orderStatus.mock.calls).toEqual(cloids.map((oid) => [{ user: exchangeSession.clientKey, oid }]));
+			expect(getOrderQueueItems()).toHaveLength(1);
+			expect(getOrderQueueItem(queueId)).toMatchObject({
+				status: "failed",
+				error: { code: "order-rejected" },
+				children: cloids.map(() => ({ status: "rejected" })),
+			});
+			expect(getOrderQueueItem(queueId)?.acceptedCount).toBeUndefined();
+			expect(createPendingOrderStore(window.localStorage).getState().submissions).toHaveLength(0);
+		},
+	);
+
+	it("reports the attachments the cloid lookups find live after a contradictory TP/SL response", async () => {
+		const { queueId, cloids } = await submitContradictoryTpSlResponse("SDK error");
+		info.orderStatus.mockImplementation(async ({ oid }: { oid: string }) => ({
+			status: "order",
+			order: { status: oid === cloids[0] ? "rejected" : "open" },
+		}));
+		await act(() => vi.advanceTimersByTimeAsync(3_000));
+
+		expect(getOrderQueueItem(queueId)).toMatchObject({
+			status: "partial",
+			acceptedCount: 2,
+			totalCount: 3,
+			error: { code: "batch-rejected" },
+			children: [{ status: "rejected" }, { status: "accepted" }, { status: "accepted" }],
+		});
+		expect(createPendingOrderStore(window.localStorage).getState().submissions).toHaveLength(0);
+	});
+
+	it("keeps the contradictory TP/SL submission tracked as unconfirmed when cloid lookups stay unknown", async () => {
+		const { queueId } = await submitContradictoryTpSlResponse("SDK error");
+		info.orderStatus.mockResolvedValue({ status: "unknownOid" });
+		await act(() => vi.advanceTimersByTimeAsync(ORDER_RECONCILIATION_CONFIRMATION_WINDOW_MS));
+
+		expect(info.orderStatus).toHaveBeenCalled();
+		expect(getOrderQueueItem(queueId)).toMatchObject({ status: "unconfirmed", error: { code: "status-unconfirmed" } });
+		expect(getOrderQueueItem(queueId)?.acceptedCount).toBeUndefined();
+		expect(createPendingOrderStore(window.localStorage).getState().submissions).toMatchObject([
+			{ queueId, unconfirmedAt: expect.any(Number) },
+		]);
 	});
 
 	it("marks an HTTP timeout as reconciling and blocks a duplicate asset submission", async () => {

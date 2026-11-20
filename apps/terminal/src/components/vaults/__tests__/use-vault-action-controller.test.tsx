@@ -19,7 +19,7 @@ import {
 	persistFundsActionMarker,
 } from "@/components/funds-action/funds-action-marker";
 import { getFundsActionHistoryStartTime } from "@/components/funds-action/funds-action-reconciliation";
-import type { VaultDetail, VaultOwnerViewState } from "@/components/vaults/domain/vaults";
+import type { VaultDetail, VaultOwnerView, VaultOwnerViewState } from "@/components/vaults/domain/vaults";
 import { createVaultIdentityKey, useVaultActionController } from "@/components/vaults/use-vault-action-controller";
 import { describeActionFailure } from "@/lib/errors/action-error";
 import { createI18nRoot } from "@/lib/tests/harness/react";
@@ -47,6 +47,8 @@ const mocks = vi.hoisted(() => ({
 	failBeforeSdkBoundary: null as Error | null,
 	geoRetry: vi.fn(),
 	history: vi.fn(),
+	inLock: false,
+	lockReads: {} as Partial<Record<string, unknown>>,
 	legalRefetch: vi.fn(),
 	locksRequest: vi.fn(),
 	queries: new Map<string, QueryState>(),
@@ -66,6 +68,11 @@ const mocks = vi.hoisted(() => ({
 		clearinghouse: { withdrawable: "49" },
 	},
 }));
+
+function lockRead(method: string): unknown {
+	if (!mocks.inLock) return undefined;
+	return method in mocks.lockReads ? mocks.lockReads[method] : mocks.queries.get(method)?.data;
+}
 
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 
@@ -91,13 +98,28 @@ vi.mock("@/lib/hyperliquid", () => ({
 	useActiveAgentOwner: () => mocks.activeAgentOwner,
 	useAgentRegistration: () => ({ register: mocks.agentRegister, status: "idle", error: null }),
 	useTradingStatus: () => ({ signerMode: "agent", refetchSigner: mocks.agentRefetch }),
-	useExchange: (_method: string, options: { executionGuard: typeof mocks.exchangeGuard }) => {
+	useExchange: (
+		_method: string,
+		options: {
+			executionGuard: typeof mocks.exchangeGuard;
+			preExecutionGuard?: (
+				params: { vaultAddress: `0x${string}`; isDeposit: boolean; usd: number },
+				signal: AbortSignal,
+			) => Promise<void>;
+		},
+	) => {
 		mocks.exchangeGuard = options.executionGuard;
 		return {
 			mutateAsync: async (params: { vaultAddress: `0x${string}`; isDeposit: boolean; usd: number }) => {
 				mocks.exchangeSubmit(params);
 				options.executionGuard?.(params);
 				if (mocks.failBeforeSdkBoundary) throw mocks.failBeforeSdkBoundary;
+				mocks.inLock = true;
+				try {
+					await options.preExecutionGuard?.(params, new AbortController().signal);
+				} finally {
+					mocks.inLock = false;
+				}
 				options.executionGuard?.(params);
 				return mocks.exchangeMutate(params);
 			},
@@ -109,9 +131,11 @@ vi.mock("@/lib/hyperliquid", () => ({
 		sessionMode: mocks.sessionMode,
 		info: {
 			userNonFundingLedgerUpdates: mocks.history,
-			vaultDetails: async () => mocks.queries.get("vaultDetails")?.data,
-			userVaultEquities: async () => mocks.reconciliationData.equities,
-			clearinghouseState: async () => mocks.reconciliationData.clearinghouse,
+			vaultDetails: async () => lockRead("vaultDetails") ?? mocks.queries.get("vaultDetails")?.data,
+			userVaultEquities: async () => lockRead("userVaultEquities") ?? mocks.reconciliationData.equities,
+			clearinghouseState: async () => lockRead("clearinghouseState") ?? mocks.reconciliationData.clearinghouse,
+			spotClearinghouseState: async () => lockRead("spotClearinghouseState"),
+			userAbstraction: async () => lockRead("userAbstraction"),
 		},
 	}),
 	useInfo: (method: string) => {
@@ -214,6 +238,8 @@ describe("useVaultActionController", () => {
 		});
 		mocks.toastError.mockReset();
 		mocks.reconnectWallet.mockReset();
+		mocks.inLock = false;
+		mocks.lockReads = {};
 		mocks.queries = new Map([
 			["vaultDetails", query(RAW_DETAIL)],
 			["userVaultEquities", query(mocks.preflightData.equities)],
@@ -573,6 +599,93 @@ describe("useVaultActionController", () => {
 			expect(mocks.exchangeMutate).toHaveBeenCalledWith({ vaultAddress: VAULT, isDeposit: true, usd: 5_000_000 });
 		},
 	);
+
+	it.each([
+		{
+			change: "another tab spent the spot balance",
+			lockReads: {
+				spotClearinghouseState: { balances: [{ coin: "USDC", token: 0, total: "40", hold: "0.0", entryNtl: "0.0" }] },
+			},
+			error: "The amount exceeds the freshly verified maximum.",
+		},
+		{
+			change: "the account mode left Unified",
+			lockReads: { userAbstraction: "default" },
+			error: "Fresh Vault balances and limits could not be verified.",
+		},
+		{
+			change: "the Vault stopped taking deposits",
+			lockReads: { vaultDetails: { ...RAW_DETAIL, allowDeposits: false } },
+			error: "This Vault no longer accepts deposits.",
+		},
+	])("re-reads the deposit inside the funds lock and signs nothing when $change", async ({ lockReads, error }) => {
+		setUnifiedSpot("100");
+		act(() => root.render(<Probe />));
+		await act(async () => current().requestAction("deposit"));
+		act(() => current().setAmount("80"));
+		act(() => current().review());
+		mocks.lockReads = lockReads;
+		await act(async () => current().confirm());
+
+		expect(mocks.exchangeSubmit).toHaveBeenCalledTimes(1);
+		expect(mocks.exchangeMutate).not.toHaveBeenCalled();
+		expect(getFundsActionMarkers()).toHaveLength(0);
+		expect(current().action?.state).toMatchObject({ stage: "done", result: "apiError" });
+		expect(vaultErrorText()).toBe(error);
+	});
+
+	it.each([
+		{
+			change: "the withdrawal limit fell below the reviewed amount",
+			lockReads: { vaultDetails: { ...RAW_DETAIL, maxWithdrawable: 0.5 } },
+			error: "The amount exceeds the freshly verified maximum.",
+		},
+		{
+			change: "a new deposit restarted the lock-up",
+			lockReads: {
+				userVaultEquities: [{ vaultAddress: VAULT, equity: "10", lockedUntilTimestamp: Date.now() + 86_400_000 }],
+			},
+			error: "Withdrawal is still locked by the fresh server timestamp.",
+		},
+	])("re-reads the withdrawal inside the funds lock and signs nothing when $change", async ({ lockReads, error }) => {
+		await openAndReview("withdraw");
+		mocks.lockReads = lockReads;
+		await act(async () => current().confirm());
+
+		expect(mocks.exchangeSubmit).toHaveBeenCalledTimes(1);
+		expect(mocks.exchangeMutate).not.toHaveBeenCalled();
+		expect(getFundsActionMarkers()).toHaveLength(0);
+		expect(vaultErrorText()).toBe(error);
+	});
+
+	it("signs the reviewed deposit when the re-read inside the funds lock still covers it", async () => {
+		setUnifiedSpot("100");
+		act(() => root.render(<Probe />));
+		await act(async () => current().requestAction("deposit"));
+		act(() => current().setAmount("80"));
+		act(() => current().review());
+		mocks.lockReads = {
+			spotClearinghouseState: { balances: [{ coin: "USDC", token: 0, total: "80", hold: "0.0", entryNtl: "0.0" }] },
+		};
+		await act(async () => current().confirm());
+
+		expect(mocks.exchangeMutate).toHaveBeenCalledWith({ vaultAddress: VAULT, isDeposit: true, usd: 80_000_000 });
+	});
+
+	it.each([
+		["9.999999", "10"],
+		["0.000001", "0.000002"],
+	])("allows the exact withdrawal Max %s and refuses the next micro-USDC", async (maxWithdrawable, aboveMax) => {
+		act(() => root.render(<Probe owner={{ ...OWNER_VIEW, maxWithdrawable }} />));
+		await act(async () => current().requestAction("withdraw"));
+		expect(current().maxAmount).toBe(maxWithdrawable);
+		act(() => current().setAmount(aboveMax));
+		expect(current().canReview).toBe(false);
+		act(() => current().setAmount(maxWithdrawable));
+		expect(current().canReview).toBe(true);
+		act(() => current().review());
+		expect(current().action?.state.stage).toBe("review");
+	});
 
 	it("rounds Max down to micro-USDC", async () => {
 		mocks.queries.set("clearinghouseState", query({ withdrawable: "12.3456789" }));
@@ -1492,7 +1605,7 @@ const DETAIL: VaultDetail = {
 	alwaysCloseOnWithdraw: false,
 };
 
-const OWNER_VIEW: VaultOwnerViewState = {
+const OWNER_VIEW: VaultOwnerView = {
 	status: "ready",
 	equity: "10",
 	pnl: "0",

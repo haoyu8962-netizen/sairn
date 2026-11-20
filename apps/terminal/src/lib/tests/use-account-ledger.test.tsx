@@ -16,9 +16,11 @@ const mocks = vi.hoisted(() => ({
 	address: "0x1111111111111111111111111111111111111111" as `0x${string}` | undefined,
 	env: "Mainnet",
 	isConnected: true,
+	isOnline: true,
 	subscription: {
 		data: undefined as UserNonFundingLedgerUpdatesWsEvent | undefined,
 		error: undefined as unknown,
+		isStale: false,
 		status: "idle" as "active" | "error" | "idle" | "subscribing",
 	},
 	subAccounts: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 	useWalletSession: () => ({ address: mocks.address, isConnected: mocks.isConnected }),
 }));
 
+vi.mock("@/hooks/use-mobile", () => ({ useOnlineStatus: () => mocks.isOnline }));
 vi.mock("@/lib/hyperliquid", () => ({
 	useHyperliquid: () => ({
 		env: mocks.env,
@@ -46,9 +49,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let hookValue: ReturnType<typeof useAccountLedger> | null = null;
 let ledgerEnabled = true;
 
-function Probe() {
+function Probe({ revision }: { revision: number }) {
 	hookValue = useAccountLedger({ enabled: ledgerEnabled });
-	return null;
+	return <output hidden>{revision}</output>;
 }
 
 function createDeposit(time: number): UserNonFundingLedgerUpdatesResponse[number] {
@@ -75,6 +78,8 @@ describe("useAccountLedger", () => {
 		mocks.address = ADDRESS_A;
 		mocks.env = "Mainnet";
 		mocks.isConnected = true;
+		mocks.isOnline = true;
+		mocks.subscription.isStale = false;
 		mocks.subscription.data = undefined;
 		mocks.subscription.error = undefined;
 		mocks.subscription.status = "idle";
@@ -90,11 +95,13 @@ describe("useAccountLedger", () => {
 		vi.restoreAllMocks();
 	});
 
+	let revision = 0;
+
 	function renderHook() {
 		act(() => {
 			root.render(
 				<QueryClientProvider client={queryClient}>
-					<Probe />
+					<Probe revision={++revision} />
 				</QueryClientProvider>,
 			);
 		});
@@ -346,6 +353,8 @@ describe("useAccountLedger", () => {
 	});
 
 	it("confirms an empty history only from a successful snapshot with no refresh running or failed", async () => {
+		mocks.subscription.status = "active";
+		mocks.subscription.data = { user: ADDRESS_A, isSnapshot: true, nonFundingLedgerUpdates: [] };
 		renderHook();
 		const ready = await waitUntilReady();
 		expect(ready.rows).toEqual([]);
@@ -360,6 +369,36 @@ describe("useAccountLedger", () => {
 		expect(hookValue?.status).toBe("ready");
 		expect(hookValue?.canConfirmEmpty).toBe(false);
 	});
+
+	it.each(["offline", "paused", "resubscribing", "stale", "missing-frame"])(
+		"P2-4 withholds empty ledger while %s and confirms it after recovery",
+		async (state) => {
+			mocks.subscription.status = "active";
+			mocks.subscription.data = { user: ADDRESS_A, isSnapshot: true, nonFundingLedgerUpdates: [] };
+			renderHook();
+			expect((await waitUntilReady()).canConfirmEmpty).toBe(true);
+			const query = queryClient.getQueryCache().find({ queryKey: ["hl", "recent-history"], exact: false });
+			if (!query) throw new Error("Missing ledger query");
+			act(() => {
+				if (state === "offline") mocks.isOnline = false;
+				if (state === "paused") query.setState({ fetchStatus: "paused" });
+				if (state === "resubscribing") mocks.subscription.status = "subscribing";
+				if (state === "stale") mocks.subscription.isStale = true;
+				if (state === "missing-frame") mocks.subscription.data = undefined;
+			});
+			renderHook();
+			expect(hookValue?.canConfirmEmpty).toBe(false);
+			act(() => {
+				mocks.isOnline = true;
+				mocks.subscription.status = "active";
+				mocks.subscription.isStale = false;
+				mocks.subscription.data = { user: ADDRESS_A, isSnapshot: true, nonFundingLedgerUpdates: [] };
+				query.setState({ fetchStatus: "idle" });
+			});
+			renderHook();
+			expect(hookValue?.canConfirmEmpty).toBe(true);
+		},
+	);
 
 	it("disables both data paths while disconnected", () => {
 		mocks.address = undefined;

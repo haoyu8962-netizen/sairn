@@ -15,13 +15,29 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DepositModalHost } from "@/components/trade/components/deposit-modal-host";
 import { renderFundsModalBackButton } from "@/components/trade/components/funds-modal-back-button";
+import { CctpDepositTrackingNotifier } from "@/components/trade/tradebox/cctp-deposit-tracking-notifier";
 import { AccountAbstractionExecutionError } from "@/hooks/trade/use-account-abstraction-guard";
+import { CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { FundsActionGeoExecutionError } from "@/hooks/trade/use-funds-action-availability";
 import { UsdcDepositRouteError } from "@/hooks/trade/use-usdc-routing";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import type { DepositReview } from "@/lib/hyperliquid/use-deposit";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
+import {
+	readCctpDepositTrackingRecords,
+	saveCctpDepositTrackingRecord,
+	saveCctpSponsoredAuthorizationIntent,
+} from "@/lib/trade/cctp-deposit-tracking";
+import {
+	AUTH_NONCE,
+	createAuthorizationChainFetch,
+	OWNER,
+	SOURCE_BLOCK,
+	SOURCE_HASH,
+	VALID_BEFORE,
+} from "./harness/cctp-authorization-chain";
+import { installScheduledExchange } from "./harness/scheduled-exchange";
 import { unknownStatusToastIcon } from "./harness/status-glyph";
 
 const WITHDRAWAL_MESSAGES = {
@@ -52,7 +68,13 @@ const WITHDRAWAL_MESSAGES_AR: Record<keyof typeof WITHDRAWAL_MESSAGES, string> =
 	routeUnavailable: "تعذّر التحقق من مسار السحب الحالي في Hyperliquid.",
 };
 
-const toastMocks = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), warning: vi.fn() }));
+const toastMocks = vi.hoisted(() => ({
+	dismiss: vi.fn(),
+	error: vi.fn(),
+	loading: vi.fn(),
+	success: vi.fn(),
+	warning: vi.fn(),
+}));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 const closeDepositModal = vi.hoisted(() => vi.fn());
 const resetDeposit = vi.hoisted(() => vi.fn());
@@ -103,6 +125,7 @@ const testState = vi.hoisted(() => ({
 	submissionOutcomeUnknown: false,
 	exchangeSignal: undefined as AbortSignal | undefined,
 	cctpRecoveryRecord: null as null | { sourceHash: `0x${string}` },
+	realCctpTracking: false,
 	fiatFlags: { mainnet: false, testnet: false },
 	isTestnet: false,
 	fiatOffer: null as null | { walletKind: "embedded" | "external"; disabled: boolean; start: ReturnType<typeof vi.fn> },
@@ -287,13 +310,23 @@ vi.mock("@/config/cctp-deposit", async (importOriginal) => {
 	};
 });
 
-vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
-	useCctpDepositTracking: () => ({
+vi.mock("@/hooks/trade/use-cctp-deposit-tracking", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/hooks/trade/use-cctp-deposit-tracking")>();
+	const stubTracking = () => ({
+		acknowledgeOutcome: vi.fn(),
 		data: undefined,
 		isError: false,
 		recoveryRecord: testState.cctpRecoveryRecord,
-	}),
-}));
+		unacknowledgedOutcomes: [],
+	});
+	return {
+		...actual,
+		useCctpDepositTracking: (options: Parameters<typeof actual.useCctpDepositTracking>[0]) => {
+			const tracking = testState.realCctpTracking ? actual.useCctpDepositTracking : stubTracking;
+			return tracking(options);
+		},
+	};
+});
 
 vi.mock("@/hooks/trade/use-deposit-availability", () => ({
 	useDepositAvailability: () => ({
@@ -348,7 +381,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 vi.mock("@/hooks/wallet/use-email-embedded-wallet", () => ({
 	useEmailEmbeddedWallet: () => ({
 		emailAddress: testState.emailAddress,
-		embeddedWalletAddress: testState.emailAddress ? "0x1111111111111111111111111111111111111111" : null,
+		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
 		embeddedWalletError: null,
 		ensureEmailEmbeddedWallet: vi.fn(),
 		isCreatingEmbeddedWallet: false,
@@ -364,7 +397,7 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 		walletsReady: true,
 	}),
 	useWalletSession: () => ({
-		embeddedWalletAddress: testState.emailAddress ? "0x1111111111111111111111111111111111111111" : null,
+		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
 		hasWalletAccess: true,
 		user: testState.emailAddress ? {} : null,
 		walletAddress: testState.walletAddress,
@@ -611,14 +644,18 @@ vi.mock("@/components/trade/tradebox/deposit/shared-ui", () => ({
 		children,
 		description,
 		heading,
+		icon,
+		txHash,
 	}: {
 		children?: ReactNode;
 		description?: ReactNode;
 		heading?: ReactNode;
+		icon?: string;
+		txHash?: string;
 	}) =>
 		createElement(
 			"div",
-			{ "data-testid": "status-screen" },
+			{ "data-testid": "status-screen", "data-icon": icon, "data-tx-hash": txHash },
 			createElement("p", { "data-testid": "status-heading" }, heading),
 			createElement("p", { "data-testid": "status-description" }, description),
 			children,
@@ -737,6 +774,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		testState.infoQueryCalls.length = 0;
 		testState.activeTab = "deposit";
 		testState.cctpRecoveryRecord = null;
+		testState.realCctpTracking = false;
 		testState.fiatFlags = { mainnet: false, testnet: false };
 		testState.fiatOffer = null;
 		testState.fiatOfferOptions = null;
@@ -913,7 +951,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 	it.each([
 		[
 			"the email wallet itself",
-			"0x1111111111111111111111111111111111111111",
+			"0x52908400098527886E0F7030069857D2E4169EE7",
 			"Withdrawing to yourself is not allowed because it would automatically trigger a deposit. Enter a different address.",
 		],
 		[
@@ -926,7 +964,10 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			"0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 			"Cannot withdraw to the USDC contract address.",
 		],
+		["the zero address", "0x0000000000000000000000000000000000000000", "Invalid destination address"],
 	])("refuses an email withdrawal to %s", async (_case, destination, message) => {
+		testState.walletAddress = "0x52908400098527886e0f7030069857d2e4169ee7";
+		testState.hyperliquidClientKey = testState.walletAddress;
 		testState.modalOpen = true;
 		testState.activeTab = "withdraw";
 		testState.emailAddress = "trader@example.com";
@@ -1063,6 +1104,29 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		{ route: "cctp", method: "sendToEvmWithData" },
 		{ route: "bridge", method: "withdraw3" },
 	] as const)("$method final execution guard", ({ route, method }) => {
+		it("refuses a balance change during the real locked legal check", async () => {
+			act(() => root.render(null));
+			const exchange = await installScheduledExchange();
+			const releaseLegal = exchange.delayLegalCheck();
+			testState.modalOpen = true;
+			testState.activeTab = "withdraw";
+			testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: route };
+			testState.freshRoutingResponse = testState.routingResponse;
+			await submitWithdrawal();
+			try {
+				await vi.waitFor(() => expect(exchange.legalCheck).toHaveBeenCalledOnce());
+				expect(exchange.heldLocks.has(`hyperliquid_funds_action:Mainnet:${testState.walletAddress}`)).toBe(true);
+				expect(queryClient.getMutationCache().getAll().at(-1)?.options.mutationKey).toContain(method);
+				testState.withdrawable = "1";
+				await rerender();
+			} finally {
+				await act(async () => releaseLegal());
+			}
+			await expectWithdrawalErrorNotified("balanceChanged");
+			expect(exchange.signTypedData).not.toHaveBeenCalled();
+			expect(exchange.request).not.toHaveBeenCalled();
+		});
+
 		async function pauseAfterPreflight() {
 			testState.modalOpen = true;
 			testState.activeTab = "withdraw";
@@ -1393,7 +1457,8 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 	describe("checks that answer long after the click", () => {
 		const WITHDRAWAL_NOT_SUBMITTED =
 			"Withdrawal conditions changed before signing. Review the withdrawal and submit it again.";
-		const DEPOSIT_NOT_SUBMITTED = "Unable to verify the current Hyperliquid deposit route. Deposit was not submitted.";
+		const DEPOSIT_NOT_SENT_IN_TIME =
+			"The checks before this request took too long. Nothing was signed or sent. Try again.";
 		const WITHDRAWAL_WAITS = [
 			{ route: "cctp", method: "sendToEvmWithData", wait: "spotMetaRefetch" },
 			{ route: "cctp", method: "sendToEvmWithData", wait: "fetchFreshRouting" },
@@ -1534,17 +1599,15 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			await act(async () => held.release());
 
 			expect(testState.deposit).not.toHaveBeenCalled();
-			expect(container.querySelector('[data-testid="deposit-routing-preflight-error"]')?.textContent).toBe(
-				DEPOSIT_NOT_SUBMITTED,
-			);
-			expect(depositForm()?.getAttribute("data-status")).toBe("error");
+			expect(container.querySelector('[data-testid="deposit-data-error"]')?.textContent).toBe(DEPOSIT_NOT_SENT_IN_TIME);
+			expect(container.querySelector('[data-testid="deposit-routing-preflight-error"]')).toBeNull();
+			expect(depositForm()?.getAttribute("data-status")).toBe("ready");
 			expect(depositForm()?.getAttribute("data-is-pending")).toBe("false");
 			expect(toastMocks.error).not.toHaveBeenCalled();
 			expect(closeDepositModal).not.toHaveBeenCalled();
 
-			await act(async () => getButton("Retry deposit route").click());
-			expect(depositForm()?.getAttribute("data-status")).toBe("ready");
 			await act(async () => getButton("Submit deposit").click());
+			expect(container.querySelector('[data-testid="deposit-data-error"]')?.textContent).toBe("");
 			expect(testState.deposit).toHaveBeenCalledExactlyOnceWith("0.4", {
 				expectedBalanceRaw: undefined,
 				expectedCctpMaxFeeRaw: 200_000n,
@@ -2922,6 +2985,179 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			await rerender();
 			expect(methods()).not.toBeNull();
 			expect(testState.fiatOfferOptions?.available).toBe(false);
+		});
+	});
+
+	describe("a tracked deposit that settles while the dialog is open", () => {
+		const UNKNOWN_DESCRIPTION =
+			"The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.";
+		const LATER_HASH = `0x${"d".repeat(64)}` as const;
+
+		beforeEach(() => {
+			window.localStorage.clear();
+			testState.realCctpTracking = true;
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			saveCctpSponsoredAuthorizationIntent({
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				owner: OWNER,
+				amount: "5",
+				validBefore: Math.floor(Date.now() / 1000) + 3_600,
+			});
+			saveCctpDepositTrackingRecord({
+				authNonce: AUTH_NONCE,
+				env: "Mainnet",
+				mode: "direct",
+				owner: OWNER,
+				sourceBlock: SOURCE_BLOCK,
+				sourceHash: SOURCE_HASH,
+				amount: "5",
+				validBefore: VALID_BEFORE,
+			});
+		});
+
+		afterEach(() => {
+			queryClient.clear();
+			window.localStorage.clear();
+			vi.unstubAllGlobals();
+		});
+
+		async function renderDialogAndNotifier() {
+			await act(async () => {
+				testState.renderVersion += 1;
+				for (const listener of testState.renderListeners) listener();
+				root.render(
+					createElement(
+						QueryClientProvider,
+						{ client: queryClient },
+						createElement(
+							I18nProvider,
+							{ i18n },
+							createElement(DepositModalHost, { key: "real-cctp-tracking" }),
+							createElement(CctpDepositTrackingNotifier, { key: "notifier" }),
+						),
+					),
+				);
+			});
+		}
+
+		async function settleAsStatusUnknown() {
+			const chain = createAuthorizationChainFetch({ authorizationUsed: true, blockTimestamp: VALID_BEFORE + 600 });
+			vi.stubGlobal("fetch", vi.fn(chain.fetch));
+			testState.modalOpen = true;
+			await renderDialogAndNotifier();
+			await act(async () => {
+				await vi.waitFor(() => expect(chain.logFilters).toHaveLength(1));
+			});
+			if (testState.activeTab === "deposit") {
+				expect(container.querySelector('[data-testid="status-heading"]')?.textContent).toBe("Forwarding deposit");
+			}
+			for (let poll = 1; poll < CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN; poll += 1) {
+				await act(async () => {
+					await queryClient.refetchQueries({ type: "active" });
+				});
+			}
+			await act(async () => {
+				await vi.waitFor(() => expect(readCctpDepositTrackingRecords("Mainnet", OWNER)).toEqual([]));
+			});
+			await renderDialogAndNotifier();
+			return chain;
+		}
+
+		function statusScreen() {
+			return container.querySelector('[data-testid="status-screen"]');
+		}
+
+		async function closeDialog() {
+			await act(async () => getButton("Close").click());
+			expect(closeDepositModal).toHaveBeenCalled();
+			testState.modalOpen = false;
+			await renderDialogAndNotifier();
+		}
+
+		it("keeps the unknown outcome on screen instead of returning to an unlocked deposit form", async () => {
+			const chain = await settleAsStatusUnknown();
+
+			expect(chain.logFilters).toHaveLength(CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN);
+			expect(statusScreen()?.getAttribute("data-icon")).toBe("unknown");
+			expect(container.querySelector('[data-testid="status-heading"]')?.textContent).toBe("Deposit status unknown");
+			expect(container.querySelector('[data-testid="status-description"]')?.textContent).toBe(UNKNOWN_DESCRIPTION);
+			expect(statusScreen()?.getAttribute("data-tx-hash")).toBe(SOURCE_HASH);
+			expect(container.querySelector('[data-testid="deposit-routing-status"]')).toBeNull();
+			expect([...container.querySelectorAll("button")].map((button) => button.textContent)).not.toContain(
+				"Submit deposit",
+			);
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+
+			await renderDialogAndNotifier();
+			expect(container.querySelector('[data-testid="status-heading"]')?.textContent).toBe("Deposit status unknown");
+
+			await closeDialog();
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+
+			testState.modalOpen = true;
+			await renderDialogAndNotifier();
+			expect(statusScreen()).toBeNull();
+			expect(getButton("Submit deposit").disabled).toBe(false);
+		});
+
+		it("shows a definitive source failure that settles while the dialog is open as a failure", async () => {
+			const chain = createAuthorizationChainFetch({ authorizationUsed: false, blockTimestamp: VALID_BEFORE });
+			vi.stubGlobal("fetch", vi.fn(chain.fetch));
+			testState.modalOpen = true;
+			await renderDialogAndNotifier();
+			await act(async () => {
+				await vi.waitFor(() => expect(readCctpDepositTrackingRecords("Mainnet", OWNER)).toEqual([]));
+			});
+			await renderDialogAndNotifier();
+
+			expect(statusScreen()?.getAttribute("data-icon")).toBe("error");
+			expect(container.querySelector('[data-testid="status-heading"]')?.textContent).toBe("Deposit failed");
+			expect(statusScreen()?.getAttribute("data-tx-hash")).toBe(SOURCE_HASH);
+			expect(container.querySelector('[data-testid="deposit-routing-status"]')).toBeNull();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+
+			await closeDialog();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+		});
+
+		it("still announces an outcome the dialog never showed after a later deposit starts being tracked", async () => {
+			testState.activeTab = "withdraw";
+			await settleAsStatusUnknown();
+			expect(container.querySelector('[data-testid="withdraw-routing-status"]')).not.toBeNull();
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+
+			vi.stubGlobal("fetch", vi.fn(createAuthorizationChainFetch({ authorizationUsed: true }).fetch));
+			await act(async () => {
+				saveCctpDepositTrackingRecord({ env: "Mainnet", owner: OWNER, sourceHash: LATER_HASH, amount: "5" });
+			});
+			await renderDialogAndNotifier();
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+
+			testState.modalOpen = false;
+			await renderDialogAndNotifier();
+
+			expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(
+				"Deposit status unknown",
+				expect.objectContaining({
+					closeButton: true,
+					duration: Number.POSITIVE_INFINITY,
+					id: expect.stringMatching(new RegExp(`^cctp-deposit:Mainnet:${OWNER}:${SOURCE_HASH}:presentation:\\d+$`)),
+				}),
+			);
+			expect(toastMocks.loading).toHaveBeenCalledWith(
+				"Forwarding deposit",
+				expect.objectContaining({ id: expect.stringContaining(LATER_HASH) }),
+			);
+
+			testState.modalOpen = true;
+			testState.activeTab = "deposit";
+			await renderDialogAndNotifier();
+			expect(container.querySelector('[data-testid="status-heading"]')?.textContent).toBe("Deposit status unknown");
+			expect(container.querySelector('[data-testid="deposit-routing-status"]')).toBeNull();
+			await closeDialog();
+			expect(toastMocks.warning).toHaveBeenCalledOnce();
 		});
 	});
 });

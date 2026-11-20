@@ -32,6 +32,10 @@ export const HL_ALL_DEXS = "ALL_DEXS" as const;
 export const STORAGE_KEYS = {
 	MARKET_PREFS: "market-prefs-v2",
 	GLOBAL_SETTINGS: "global-settings-v2",
+	TRADING_PROTECTION_BASELINE: "trading-protection-baseline-v1",
+	SKIP_ORDER_CONFIRMATION: "skip-order-confirmation-v1",
+	TRANSACTION_DELAY_PROTECTION: "transaction-delay-protection-v1",
+	MARKET_ORDER_SLIPPAGE: "market-order-slippage-v1",
 	NETWORK: "hyperliquid-network-v1",
 	LOCALE: "locale-v1",
 	META_CACHE: "hyperliquid-meta-cache-v2",

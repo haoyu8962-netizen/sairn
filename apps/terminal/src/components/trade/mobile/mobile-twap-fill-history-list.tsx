@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 import { formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { useMarkets } from "@/lib/hyperliquid";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
-import { getUserFillNotional } from "@/lib/trade/user-fills";
+import { getUserFillNotional, getUserFillQuoteToken } from "@/lib/trade/user-fills";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
 import type { MobileDataScrollMode } from "./mobile-positions-view";
 import { useMobileTerminalTab } from "./use-mobile-terminal-tab";
@@ -95,6 +95,7 @@ export function MobileTwapFillHistoryList({ className, scrollMode = "contained" 
 					const notional = getUserFillNotional(fill);
 					const quoteToken = getMarketQuoteToken(market);
 					const feeToken = markets.getTokenDisplayName(fill.feeToken);
+					const pnlQuote = getUserFillQuoteToken(fill, market);
 
 					return (
 						<article
@@ -163,7 +164,7 @@ export function MobileTwapFillHistoryList({ className, scrollMode = "contained" 
 											compact: false,
 											decimals: 2,
 											signDisplay: "exceptZero",
-											symbol: feeToken,
+											symbol: pnlQuote === null ? undefined : markets.getTokenDisplayName(pnlQuote),
 										})}
 									</div>
 								</div>

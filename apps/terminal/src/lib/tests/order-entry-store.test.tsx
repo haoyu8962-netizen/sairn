@@ -321,6 +321,37 @@ describe("order entry store persistence", () => {
 		expect(snapshot).toEqual({ orderType: "scale", reduceOnly: true, tpSlEnabled: false, tif: "Gtc" });
 	});
 
+	it("keeps reduce-only and attached TP/SL mutually exclusive, as the official terminal's checkboxes are", () => {
+		let snapshot: { reduceOnly: boolean; tpSlEnabled: boolean; returnInvalid: boolean } | undefined;
+
+		function StateProbe() {
+			snapshot = { reduceOnly: useReduceOnly(), tpSlEnabled: useTpSlEnabled(), returnInvalid: useTpSlReturnInvalid() };
+			return null;
+		}
+
+		act(() => root.render(createElement(StateProbe)));
+		act(() => {
+			actions.setOrderType("limit");
+			actions.setTpSlEnabled(true);
+			actions.setTpReturnInvalid(true);
+		});
+		expect(snapshot).toEqual({ reduceOnly: false, tpSlEnabled: true, returnInvalid: true });
+
+		act(() => actions.setReduceOnly(true));
+		expect(snapshot).toEqual({ reduceOnly: true, tpSlEnabled: false, returnInvalid: false });
+
+		act(() => actions.setTpSlEnabled(true));
+		expect(snapshot).toEqual({ reduceOnly: false, tpSlEnabled: true, returnInvalid: false });
+
+		act(() => actions.setReduceOnly(false));
+		expect(snapshot).toEqual({ reduceOnly: false, tpSlEnabled: true, returnInvalid: false });
+
+		act(() => actions.setTpSlEnabled(false));
+		act(() => actions.setReduceOnly(true));
+		act(() => actions.setTpSlEnabled(false));
+		expect(snapshot).toEqual({ reduceOnly: true, tpSlEnabled: false, returnInvalid: false });
+	});
+
 	it("leaves reduce-only under user control when switching to and from trigger order types", () => {
 		let snapshot: { orderType: string; reduceOnly: boolean } | undefined;
 

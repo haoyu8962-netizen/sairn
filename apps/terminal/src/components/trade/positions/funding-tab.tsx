@@ -3,7 +3,6 @@ import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow }
 import { Link } from "@tanstack/react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
-import { getToolbarAbsoluteSize, getToolbarFundingTotal } from "@/domain/trade/trading-toolbar-metrics";
 import { useFundingHistoryCsvExport } from "@/hooks/trade/use-history-csv-export";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useUserFunding } from "@/hooks/trade/use-user-funding";
@@ -12,7 +11,8 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useMarkets } from "@/lib/hyperliquid";
-import { getFundingCollateralSymbol } from "@/lib/trade/collateral-amount";
+import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
+import { formatFundingTotal, getFundingTotals } from "@/lib/trade/funding-history";
 import { getFundingPositionPresentation, getFundingSideLabel } from "@/lib/trade/funding-position";
 import { toBig } from "@/lib/trade/numbers";
 import { getMarketCloseValueColorClass } from "@/lib/ui/value-color";
@@ -60,10 +60,8 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 	const { error, fundings: updates, isConnected, isOffline, isStale, status } = useUserFunding();
 	const { address } = useWalletSession();
 	const markets = useMarkets();
-	const totalFunding = getToolbarFundingTotal(updates);
-
-	const headerTotal = formatUSD(totalFunding, { signDisplay: "exceptZero" });
-	const headerClass = totalFunding === null ? "text-market-close-subtle" : getMarketCloseValueColorClass(totalFunding);
+	const totals = getFundingTotals(updates, markets.getMarket);
+	const unconfirmed = status !== "ready" || (updates.length === 0 && (error || isOffline || isStale));
 
 	const { exportCsv, isExporting } = useFundingHistoryCsvExport({
 		filename: "funding_history.csv",
@@ -80,13 +78,13 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 					getValue: (update) =>
 						getFundingSideLabel(update.szi, (descriptor) => t(descriptor)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
-				{ header: t`Size`, getValue: (update) => getToolbarAbsoluteSize(update.szi) ?? update.szi },
+				{ header: t`Size`, getValue: (update) => update.szi.replace(/^-/, "") },
 				{ header: t`Rate`, getValue: (update) => update.fundingRate },
 				{ header: t`Payment`, getValue: (update) => update.usdc },
 				{
 					header: t`Payment Token`,
 					getValue: (update) =>
-						getFundingCollateralSymbol(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
+						getFundingCollateralToken(update.coin, markets.getMarket(update.coin)) ?? FALLBACK_VALUE_PLACEHOLDER,
 				},
 			]),
 	});
@@ -95,8 +93,7 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 		if (!isConnected)
 			return <ConnectPlaceholder>{t`Connect your wallet to view funding payments.`}</ConnectPlaceholder>;
 		if (status === "loading" || status === "idle") return <FundingLoadingPlaceholder />;
-		if (status !== "ready" || (updates.length === 0 && (error || isOffline || isStale)))
-			return <PassiveDataPlaceholder />;
+		if (unconfirmed) return <PassiveDataPlaceholder />;
 		if (updates.length === 0) return <Placeholder>{t`No funding payments found.`}</Placeholder>;
 		return null;
 	}
@@ -107,9 +104,22 @@ export function FundingTab({ toolbarTarget }: Props = {}) {
 		<div className={positionsPanelTabRootClass}>
 			<DesktopTabToolbarPortal target={toolbarTarget}>
 				<div data-testid="funding-history-toolbar" className="flex shrink-0 items-center gap-3 font-market-close">
-					{isConnected && status === "ready" ? (
+					{isConnected && !unconfirmed ? (
 						<span className="whitespace-nowrap text-xs text-market-close-muted">
-							{t`Funding shown`} <span className={cn("font-bold tabular-nums", headerClass)}>{headerTotal}</span>
+							{t`Funding shown`}{" "}
+							{totals.map((total, index) => (
+								<span key={total.token ?? FALLBACK_VALUE_PLACEHOLDER}>
+									{index > 0 ? " · " : null}
+									<span
+										className={cn(
+											"font-bold tabular-nums",
+											total.amount === null ? "text-market-close-subtle" : getMarketCloseValueColorClass(total.amount),
+										)}
+									>
+										{formatFundingTotal(total, { formatToken, formatUSD })}
+									</span>
+								</span>
+							))}
 						</span>
 					) : null}
 				</div>

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { ApiRequestError } from "@nktkas/hyperliquid";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,11 +19,20 @@ import {
 } from "@/stores/use-pending-trading-action-store";
 import { createI18nRoot } from "./harness/react";
 
+const queryClient = new QueryClient();
 let queueItems: OrderQueueItem[] = [];
 function ReviewedOrders() {
 	queueItems = useOrderQueue();
-	return <MobileOrdersTab scrollMode="page" />;
+	return (
+		<QueryClientProvider client={queryClient}>
+			<MobileOrdersTab scrollMode="page" />
+		</QueryClientProvider>
+	);
 }
+
+vi.mock("@/lib/geo/get-geo", () => ({
+	getGeo: vi.fn().mockRejectedValue(new Error("Geo restriction check unavailable")),
+}));
 
 function cancelRejection(text: string) {
 	return new ApiRequestError(
@@ -234,6 +244,8 @@ describe("MobileOrdersTab disclosure card", () => {
 	});
 
 	beforeEach(() => {
+		queryClient.clear();
+		queryClient.setQueryData(["geo", null], { country: "GB", proxy: false, tradeRestricted: false });
 		getPendingTradingActionActions().reset();
 		mocks.toastError.mockReset();
 		mocks.toastInfo.mockReset();
@@ -479,7 +491,8 @@ describe("MobileOrdersTab disclosure card", () => {
 		expect(container.querySelector("article")).toBeNull();
 	});
 
-	it("preserves market navigation and the exact cancel payload", () => {
+	it("preserves market navigation and the exact cancel payload in a restricted region", () => {
+		queryClient.setQueryData(["geo", null], { country: "US", proxy: false, tradeRestricted: true });
 		renderOrders();
 
 		const market = container.querySelector<HTMLButtonElement>('button[aria-label="Switch to ORCL market"]');

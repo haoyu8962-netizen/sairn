@@ -1,5 +1,7 @@
 # Feature: Deposit USDC from Arbitrum
 
+**Status: Historical plan.** The `Planned` field below records the original proposal, which uses Bridge2. The current deposit path is [CCTP deposits](../docs/cctp-deposits.md); do not use the old flow or limits as current requirements.
+
 ## Meta
 
 | Field | Value |

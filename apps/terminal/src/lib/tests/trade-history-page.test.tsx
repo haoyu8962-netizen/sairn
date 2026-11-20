@@ -138,7 +138,13 @@ vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
 vi.mock("@/lib/hyperliquid", () => ({
 	getExplorerTxUrl: () => "https://example.com/tx",
 	useMarkets: () => ({
-		getMarket: (coin: string) => ({ kind: coin === "PURR/USDC" ? "spot" : "perp" }),
+		getMarket: (coin: string) => {
+			if (coin === "GONE" || coin.startsWith("#") || coin.startsWith("@")) return undefined;
+			if (coin === "xyz:TSLA") return { kind: "builderPerp", quoteToken: { name: "USDT0" } };
+			if (coin === "PURR/USDC")
+				return { kind: "spot", szDecimals: 2, tokensInfo: [{ name: "PURR" }, { name: "USDC" }] };
+			return { kind: "perp", szDecimals: 2 };
+		},
 		getSzDecimals: () => 2,
 		getTokenDisplayName: (name: string) => (name === "UBTC" ? "BTC" : name),
 	}),
@@ -150,6 +156,8 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 }));
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+
+import { serializeCsv } from "@/lib/csv";
 
 const ZH_PAGINATION_MESSAGES = Object.fromEntries(
 	[
@@ -282,6 +290,18 @@ describe("TradeHistoryPage", () => {
 		renderPage();
 
 		expect(container.querySelector("tbody")?.textContent).toContain("-$0.01");
+	});
+
+	it("P2-1 displays HIP-3 net PNL in collateral units", () => {
+		mocks.history.fills = [{ ...createFill(0), coin: "xyz:TSLA", closedPnl: "3", fee: "1", feeToken: "USDT0" }];
+		renderPage();
+		expect(container.querySelector("tbody")?.textContent).toContain("+2.00 USDT0");
+	});
+
+	it("P2-8 keeps the exact size when a delisted market has no precision metadata", () => {
+		mocks.history.fills = [{ ...createFill(0), coin: "GONE", sz: "0.00001" }];
+		renderPage();
+		expect(container.querySelector("tbody")?.textContent).toContain("0.00001");
 	});
 
 	it("shows a fill's fee token by its display name", () => {
@@ -501,6 +521,12 @@ describe("TradeHistoryPage", () => {
 		expect(container.querySelector("tbody")?.textContent).toContain(withYear);
 		expect(container.querySelector("time")?.textContent).toBe(withYear);
 		expect(mocks.buildRows?.([fill])[1]?.[0]).toBe(withYear);
+	});
+
+	it("P2-7 serializes a canonical spot asset unchanged while escaping text and preserving signed decimals", () => {
+		renderPage();
+		const rows = mocks.buildRows?.([{ ...createFill(0), coin: "@107", feeToken: "@107", fee: "-0.0100" }]) ?? [];
+		expect(serializeCsv(rows)).toContain(",@107,Open Long,Spot,Maker,100,1,-0.0100,@107,0,");
 	});
 
 	it("exports the public address and disables actions for an invalid address", () => {

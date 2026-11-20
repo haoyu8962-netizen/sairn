@@ -22,8 +22,10 @@ import { fillSnapshotReachesLiveFills, getFilteredFillsEmptyPresentation } from 
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
 import { TRADE_HISTORY_SNAPSHOT_LIMIT } from "@/lib/trade/trade-history";
 import {
+	formatUserFillNetPnl,
 	getUserFillKey,
 	getUserFillNetClosedPnl,
+	getUserFillQuoteToken,
 	hasUserFillExplorerTransaction,
 	mergeUserFillSources,
 } from "@/lib/trade/user-fills";
@@ -70,8 +72,9 @@ function isTradeHistoryRoleFilter(value: string | null): value is TradeHistoryRo
 export function MobileHistoryTab(props: Props) {
 	const { address, isConnected } = useWalletSession();
 	const ownerKey = isConnected && address ? address.toLowerCase() : "disconnected";
+	const isTestnet = useIsTestnet();
 
-	return <MobileHistoryTabContent key={ownerKey} address={address} ownerKey={ownerKey} {...props} />;
+	return <MobileHistoryTabContent key={`${isTestnet}:${ownerKey}`} address={address} ownerKey={ownerKey} {...props} />;
 }
 
 interface MobileHistoryTabContentProps extends Props {
@@ -86,7 +89,7 @@ function MobileHistoryTabContent({
 	ownerKey,
 	scrollMode = "contained",
 }: MobileHistoryTabContentProps) {
-	const { formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
+	const { formatDecimalString, formatNumber, formatPrice, formatToken, formatUSD } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { bufferedFills, error, fills, isConnected, isOffline, isStale, oldestBufferedFillTime, status } =
@@ -110,8 +113,9 @@ function MobileHistoryTabContent({
 				(roleFilter === "all" || (roleFilter === "taker") === fill.crossed),
 		)
 		.slice(0, RECENT_ACCOUNT_HISTORY_ROWS);
+	const liveCurrent = status === "ready" && !error && !isOffline && !isStale;
 	const emptyPresentation = getFilteredFillsEmptyPresentation({
-		liveCurrent: status === "ready" && !error && !isOffline && !isStale,
+		liveCurrent,
 		snapshot: {
 			hasData: fillSnapshot.status === "ready",
 			failed: fillSnapshot.hasFailed,
@@ -144,11 +148,14 @@ function MobileHistoryTabContent({
 		{ value: "taker", label: t`Taker` },
 	];
 
-	const headerCount = isConnected ? (
-		<Plural value={filteredFills.length} one="# trade" other="# trades" />
-	) : (
-		FALLBACK_VALUE_PLACEHOLDER
-	);
+	const headerCount =
+		isConnected &&
+		liveCurrent &&
+		(!filtersActive || emptyPresentation === "noMatch" || emptyPresentation === "noMatchWithinLimit") ? (
+			<Plural value={filteredFills.length} one="# trade" other="# trades" />
+		) : (
+			FALLBACK_VALUE_PLACEHOLDER
+		);
 	const isPageScroll = scrollMode === "page";
 
 	function handleSelectMarket(name: string) {
@@ -340,14 +347,16 @@ function MobileHistoryTabContent({
 								const cardKey = getUserFillKey(fill);
 								const detailsId = `mobile-trade-history-${fill.hash}-${fill.tid}`;
 								const isExpanded = expandedKeys.has(cardKey);
-								const closedPnl = getUserFillNetClosedPnl(fill, markets.getMarket(fill.coin));
+								const market = markets.getMarket(fill.coin);
+								const closedPnl = getUserFillNetClosedPnl(fill, market);
+								const pnlQuote = getUserFillQuoteToken(fill, market);
 								const showPnl = closedPnl !== null;
 								const direction = getDirection(fill);
 								const isBuy = fill.side === "B";
 								const explorerUrl = hasUserFillExplorerTransaction(fill)
 									? getExplorerTxUrl(fill.hash, isTestnet)
 									: null;
-								const sizeDisplay = formatNumber(fill.sz, markets.getSzDecimals(fill.coin));
+								const sizeDisplay = market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz);
 
 								function handleToggle() {
 									setExpanded(cardKey, !isExpanded);
@@ -434,7 +443,12 @@ function MobileHistoryTabContent({
 															)}
 														>
 															{showPnl
-																? formatUSD(closedPnl, { signDisplay: "exceptZero" })
+																? formatUserFillNetPnl(
+																		closedPnl,
+																		pnlQuote,
+																		{ formatToken, formatUSD },
+																		markets.getTokenDisplayName,
+																	)
 																: FALLBACK_VALUE_PLACEHOLDER}
 														</div>
 													</div>

@@ -38,6 +38,6 @@ Hyperliquid 文档的 `trading/fees` 页给前端提供了参考实现 `feeRates
 ## 已知偏差（未修）
 
 1. **缺少 `deployerFeeScale` 时 HIP-3 费率翻倍。** `apps/terminal/src/lib/hyperliquid/markets/use-markets.tsx` 在字段缺失时取 `"1"`，`getHip3DeployerFeeScale` 把它算成 × 2；取 `"0"` 才是 × 1。只在 dex 没有返回这个字段时出现，影响的是展示估算。官方终端在字段缺失时的取值没有核实。
-2. **没有实现 aligned quote asset 折扣。** `fees.ts` 不认识这类报价资产，用它计价的市场显示的手续费比官方终端高约 20%。
+2. **没有实现 aligned quote asset 折扣。** `fees.ts` 不认识这类报价资产，用它计价的市场显示的手续费比官方终端高约 20%。2026-11-19 复核：官方 `trading/fees` 页的 `feeRates()` 已给出公式（taker 乘 `(1 − deployerShare) × 0.8 + deployerShare`，负的 maker 返佣乘 `(1 − deployerShare) × 1.5 + deployerShare`，`deployerShare` 在 dfs < 1 时为 `dfs / (1 + dfs)`，否则 0.5），但 SDK 0.33.3 的 info 类型里没有标出哪些代币属于 aligned quote asset 的字段，[Aligned quote assets](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/aligned-quote-assets) 页也只写资格条件。数据来源确认之前不改。第 1 项同日复核：SDK 类型把 `perpDexs[].deployerFeeScale` 标为必填字符串，官方文档没有写缺省值，仍按原状保留。
 
 修复其中任何一项时，同步更新本节和对应测试。

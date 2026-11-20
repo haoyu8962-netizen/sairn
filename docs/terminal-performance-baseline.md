@@ -433,6 +433,187 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Fix integration third review round re-baseline (2026-11-20)
+
+The third review round (deposit dialog terminal states, the tracking notifier keeping an outcome until the user
+dismisses it, storage clean-up and the `aliases` temporary file) grew static trade startup again. Measured on the
+same machine and configuration as the two sections below, each build run on its own:
+
+| Surface | Pairing off before | Pairing off after | Pairing on before | Pairing on after |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,671,321 | 1,671,517 (+196) | 1,672,459 | 1,672,795 (+336) |
+| Total client gzip | 3,399,755 | 3,400,404 (+649) | 3,403,213 | 3,403,964 (+751) |
+| `trade-terminal-page` | 128,858 | 128,841 | 128,856 | 128,844 |
+
+Only the static-startup baseline was raised, by the pairing-on increment (+336, to 1,662,933): the pairing-off
+increment (+196) would have left the pairing-on build 2 bytes over the allowance. After the raise pairing on keeps
+138 bytes and pairing off 1,416. The growth is the notifier and the tracking hook, which are page-level and load at
+startup; nothing new was pulled in by a static import. The release configuration was not built; with 138 bytes left a
+release preflight is likely to stop on this surface, which needs either a real cut of at least 162 bytes or an
+operator decision on the allowance.
+
+## Fix integration second review round re-baseline (2026-11-20)
+
+The second review round of the same integration (uncommitted on `codex/integration` `e6790a3f`: deposit recovery
+that scans the authorization logs for a replacing transaction, keeps its consumer hash under a side key and settles
+an unfindable consumer as status unknown; trading-protection fallbacks when storage refuses a write; favourites
+merging; phone history tabs, position card, liquidation, CSV and `useExchange` fixes) exceeded the static-startup
+allowance again.
+
+Same setup as the section below (fixed identity, Node 22.15.0, pnpm 10.21.0, no `.env.local`,
+`NITRO_PRESET=node-server`), each build alone. The base is the first round's integration reading recorded below; the
+head is the working tree after the second round, 451 client chunks pairing off and 452 on. A copy of the head tree
+built in the `main` worktree read the same bytes in both configurations, so the two worktrees measure alike.
+
+| Metric | First round | Second round | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,397,254 | 3,399,732 | +2,478 | 5,597 |
+| Static trade startup | 1,669,606 | 1,671,303 | +1,697 | 1,294 |
+| Mobile runtime increment | 119,581 | 119,675 | +94 | 905 |
+| Desktop runtime increment | 205,375 | 205,696 | +321 | 6,987 |
+| `trade-terminal-page` | 128,819 | 128,852 | +33 | 292 |
+| `vaults-page` | 30,497 | 30,499 | +2 | 381 |
+| `token-selector-popup` | 15,343 | 15,366 | +23 | 489 |
+
+The other surfaces moved by 1 to 26 bytes.
+
+Static-startup growth by chunk:
+
+- `cctp-deposit-tracking` +733: the deposit recovery's authorization-log scan, consumer side key and unknown-outcome
+  settlement in `lib/trade/cctp-deposit-tracking.ts`. That chunk also holds the Privy, viem and Solana code the
+  wallet runtime loads at startup.
+- `use-cctp-deposit-tracking` +262: the hook's not-found poll count and settlement.
+- `validated-storage` +321, a new chunk: the market store stopped using `createValidatedStorage`, so the module
+  left the entry chunk and became a chunk of its own for the order-entry, HIP-3 disclaimer and diagnostics stores.
+- `vendor-tanstack-router` +157: favourites merging in the market store and the `useExchange` change.
+- About 220 more spread over chunks that each moved by less than 100.
+
+One cut was tried and not kept. The network half of recovery (receipt and log reads, the Circle query, about 540
+lines) was moved into a module that `cctp-deposit-tracking.ts` loads on first use, with the storage, the errors and the
+pending-deposit block left in startup. The behaviour held: the deposit, settings and store tests passed (43 files),
+and an added test showed that a failed load keeps the record and the block. Static startup fell by 625 pairing off
+(527 on). But the total grew by 5,397 (5,655 on), `trade-terminal-page` by 100 and the desktop runtime increment by
+696. The cause is that the lazy module shares its dependencies with startup chunks: `cctp-deposit.ts`, the CCTP
+configuration, the action errors and viem's ABI helpers. Rollup gave each of those its own chunk (seven more client
+chunks), and code gzipped alone compresses worse than inside the large chunk. The change was reverted. Trading
+startup bytes for more total and more desktop and trade-page bytes was not a saving.
+
+Change to the baselines, allowances unchanged:
+
+- all client JS + CSS raised by +2,478 to 3,395,329;
+- static trade startup raised by +1,697 to 1,662,597 (before the raise the build exceeded the allowance by 403);
+- `trade-terminal-page` raised by +33 to 125,144 (it passed without the raise, with 63 bytes left);
+- the runtime increments and the other surfaces are unchanged.
+
+Pairing on, same trees:
+
+| Metric | First round | Second round | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,400,644 | 3,403,213 | +2,569 | 2,116 |
+| Static trade startup | 1,670,634 | 1,672,459 | +1,825 | **138** |
+| Mobile runtime increment | 119,602 | 119,696 | +94 | 884 |
+| Desktop runtime increment | 205,488 | 205,735 | +247 | 6,948 |
+| `trade-terminal-page` | 128,821 | 128,856 | +35 | 288 |
+
+Limits:
+
+- With pairing on, static trade startup has 138 bytes left, and `trade-terminal-page` has 292 pairing off and 288 on.
+  Both are under the 300 the coordinator asked for, and static startup is under the release precheck's 200. Raising a
+  baseline only by measured growth keeps the room the trees had before, which was already 266 pairing on. Reaching
+  300 needs a real cut of at least 162 bytes from pairing-on static startup, or an operator decision on the
+  allowance or on measuring in the release configuration.
+- The release configuration (production `.env.local`, pairing on) was not built.
+- The confirming pairing-off build after the change, with the same source, passed every budget. It read 23 more in
+  total (3,399,755), 18 more in static startup (1,671,321, 1,276 left) and 6 more in `trade-terminal-page`
+  (128,858, 286 left). The pairing-on build, checked against the new baselines, passed as in the table.
+
+## Fix integration total, static-startup and trade-page re-baseline (2026-11-19)
+
+The 2026-11-19 fix integration (branch `codex/integration`: `main` `79b268ea` plus 23 fix branches) failed the
+budget check of its first build: the total read 13,793 and static trade startup 16,997 over their baselines. Most of
+that was not the integration: `main` itself reads 4,403 and 8,706 over them in the protocol configuration below.
+
+Both trees were built on the same machine on 2026-11-19, `main` in a new worktree of the `haoyu8962-netizen/sairn`
+clone and the integration in its own worktree, each alone, without `.env.local`, with Node 22.15.0 and pnpm 10.21.0
+(`pnpm install --frozen-lockfile`), the fixed identity of the reproduction protocol, `NITRO_PRESET=node-server` and
+`VITE_MOBILE_PAIRING_ENABLED=false`. `main` has 452 client chunks and reads the same bytes as the merged tree
+`e18663b1` recorded in the next section. The integration column is its working tree after the change below, built
+with the new baselines: 450 client chunks, no circular static imports, every budget passed.
+
+| Metric | `main` `79b268ea` | Integration | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,392,466 | 3,397,254 | +4,788 | 5,597 |
+| Static trade startup | 1,663,577 | 1,669,606 | +6,029 | 1,294 |
+| Mobile runtime increment | 119,724 | 119,581 | −143 | 999 |
+| Desktop runtime increment | 204,803 | 205,375 | +572 | 7,308 |
+| `trade-terminal-page` | 128,623 | 128,819 | +196 | 292 |
+| `token-selector-popup` | 15,377 | 15,343 | −34 | 512 |
+| `api-wallet` | 18,413 | 18,427 | +14 | 1,540 |
+| `fundingHistory._address` | 6,944 | 6,132 | −812 | 2,188 |
+| `tradeHistory._address` | 7,469 | 7,490 | +21 | 2,383 |
+| `historicalOrders._address` | 8,235 | 7,253 | −982 | 2,410 |
+| `leaderboard` | 12,060 | 12,072 | +12 | 1,511 |
+| `staking` | 24,456 | 24,491 | +35 | 1,140 |
+| `vaults-page` | 30,634 | 30,497 | −137 | 383 |
+| `fundingComparison` | 10,525 | 10,523 | −2 | 2,110 |
+| `funding-history-panel` | 9,381 | 9,341 | −40 | 820 |
+
+Where the static-startup growth comes from (chunk by chunk, same pair of builds):
+
+- The phone account tabs, which static startup already holds, gained the history backfill (`f3326295`):
+  `useFundingHistory` and `useOrderHistory` moved from their history route chunks into startup chunks
+  (`funding-position` +1,378, `historical-order-price` +1,003, `use-history-csv-export` +669 with
+  `order-history-page`), and `use-account-abstraction-control` grew by 911 with the filter presentation, the
+  geo-checked modify path (`bb6f46bd`), the TWAP cancel (`bb3744a4`) and the exact history values (`f13de42f`).
+  The two history route chunks shrink by about 810 and 980 for the same reason.
+- `format` +847: the per-key trading-protection storage read by the global settings store (`81b5f285`).
+- `funds-action-feedback` +526 and `funds-execution-guard` −313: the funds-availability module moved between them and
+  gained the fresh geo check (`96e709b8`); `use-geo-restriction` +240 is the shared region verdict (`bb6f46bd`).
+- `vendor-tanstack-router` +270: the acknowledgement check and request changes in `hl-react` (`96e709b8`, `bb3744a4`,
+  `3877b286`), the favourites lock in the market store (`0945c1c0`), the liquidation estimate (`046cef11`,
+  `06a29016`) and the English catalog.
+- `trade-terminal-page` +196: the phone order form's accessible text (`90a7135a`) and the order-book probe gating
+  (`7909ee3a`), less the unused UI text removed by `f7813076`.
+- The deposit recovery (`dc9f01fc`, `96e709b8`) regroups startup chunks (`deposit-execution-state`,
+  `use-cctp-deposit-tracking`, `action-error`, `exchange-error-text` and `cctp` became `cctp-deposit-tracking`), with
+  a net change of under 100 bytes; `use-cctp-deposit-fee` grows by 140.
+
+One regression was removed instead of counted. The referral join route lives in the application entry chunk, and the
+uppercase-code fix (`6936980b`) imported the two code helpers from `lib/trade/referral.ts`, which pulled the referral
+page's response schemas into static startup (`vendor-tanstack-router` +1,359 in an unpinned first build). The helpers
+now live in `lib/trade/referral-code.ts`, which `referral.ts` re-exports; the chunk's growth fell to +270, about
+1,000 bytes less, with the same behaviour.
+
+Change to the baselines, allowances unchanged:
+
+- all client JS + CSS raised by +4,788 to 3,392,851;
+- static trade startup raised by +6,029 to 1,660,900 (before the raise the build exceeded the allowance by 4,735);
+- `trade-terminal-page` raised by +196 to 125,111, which keeps `main`'s room of 292. The surface passed without the
+  raise with 96 bytes left, which the release configuration (about 150 above the protocol build) would not.
+- The runtime increments and the other surfaces are unchanged.
+
+Pairing on, same setup otherwise (`main` 453 chunks, integration 451; the integration passed every budget):
+
+| Metric | `main` `79b268ea` | Integration | Change | Room left after this change |
+| --- | ---: | ---: | ---: | ---: |
+| All client JS + CSS | 3,395,725 | 3,400,644 | +4,919 | 2,207 |
+| Static trade startup | 1,664,725 | 1,670,634 | +5,909 | 266 |
+| Mobile runtime increment | 119,736 | 119,602 | −134 | 978 |
+| Desktop runtime increment | 204,780 | 205,488 | +708 | 7,195 |
+| `trade-terminal-page` | 128,615 | 128,821 | +206 | 290 |
+| `vaults-page` | 30,634 | 30,504 | −130 | 376 |
+
+Limits:
+
+- With pairing on, static trade startup has 266 bytes left; `main` had 146 before this change. The release
+  configuration (production `.env.local`, pairing on) was not built, so the next release precheck may find it, and
+  `trade-terminal-page` as before, under the 200-byte rule.
+- The pairing-on `main` build ran in parallel with an integration build and was not repeated alone. The integration's
+  pairing-on reading was repeated alone byte for byte. Its pairing-off build in the parallel run read 583 more in total
+  and 119 more in static startup than the solo build above, with the same source; no chunk differed by 100 bytes.
+- The backfill hooks reach static startup because the phone account tabs are imported statically; loading those
+  tabs lazily would remove them but changes the phone account view's loading path and was not done here.
+
 ## Wallet session resolving presentation, no baseline change (2026-11-17)
 
 The presentation-only change that tells a resolving wallet session from a disconnected one (branch

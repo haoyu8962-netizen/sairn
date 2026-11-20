@@ -266,6 +266,7 @@ export function isSmartWalletNonceConflict(error: Error | null): boolean {
 
 /** True when a signed exchange request may or may not have been executed. */
 export function isAmbiguousExchangeActionError(error: unknown): boolean {
+	if (isRecord(error) && error.name === "ExchangeResponseUnverifiedError") return true;
 	if (!isRecord(error) || error.name !== "HttpRequestError") return false;
 	const status = getHttpStatus(error.response);
 	if (status === undefined) return true;

@@ -1,6 +1,7 @@
 import type { InfoClient, UserNonFundingLedgerUpdatesWsEvent } from "@nktkas/hyperliquid";
 import { useQuery } from "@tanstack/react-query";
 import { MAX_HISTORY_ROWS } from "@/config/trade";
+import { useOnlineStatus } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { useHyperliquid, useSubscription } from "@/lib/hyperliquid";
 import {
@@ -35,7 +36,7 @@ export function accountLedgerQueryKey(env: "Mainnet" | "Testnet", user: string) 
 }
 
 interface AccountLedgerResult {
-	/** True only when the last REST snapshot succeeded and no refresh is running, so an empty list is a fact. */
+	/** True only when the last REST snapshot succeeded and the realtime source is current. */
 	canConfirmEmpty: boolean;
 	earnRows: AccountLedgerRow[];
 	error: unknown;
@@ -80,6 +81,7 @@ export async function fetchRecentAccountLedgerUpdates(
 export function useAccountLedger({ enabled: requestedEnabled = true }: AccountLedgerOptions = {}): AccountLedgerResult {
 	const { address, isConnected } = useWalletSession();
 	const { env, info } = useHyperliquid();
+	const isOnline = useOnlineStatus();
 	const enabled = requestedEnabled && isConnected && !!address;
 	const user = address ?? EMPTY_ADDRESS;
 	const ledgerQuery = useQuery({
@@ -141,7 +143,14 @@ export function useAccountLedger({ enabled: requestedEnabled = true }: AccountLe
 	const isRefreshing = ledgerQuery.fetchStatus === "fetching";
 
 	return {
-		canConfirmEmpty: status === "ready" && !ledgerQuery.isError && !isRefreshing,
+		canConfirmEmpty:
+			status === "ready" &&
+			isOnline &&
+			!ledgerQuery.isError &&
+			ledgerQuery.fetchStatus === "idle" &&
+			ledgerSubscription.status === "active" &&
+			!ledgerSubscription.isStale &&
+			Array.isArray(realtimeUpdates),
 		earnRows,
 		error:
 			status === "error"

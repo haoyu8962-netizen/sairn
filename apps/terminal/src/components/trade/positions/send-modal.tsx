@@ -15,9 +15,8 @@ import {
 	Select,
 	TextInput,
 } from "@sairn/ui";
-import { type ChangeEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { isAddress } from "viem";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { NumberInput } from "@/components/ui/number-input";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
@@ -30,8 +29,15 @@ import {
 	isQuoteBalanceSharedWithPerps,
 } from "@/domain/trade/balances";
 import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { isFundsDestinationAddress } from "@/domain/trade/funds-destination-address";
 import { assertFreshFundsAmount, FundsExecutionError } from "@/domain/trade/funds-execution-guard";
-import { getSendDestinationVerdict } from "@/domain/trade/send-destination";
+import { PreTransferCheckExecutionError } from "@/domain/trade/pre-transfer-check";
+import {
+	assertSendDestinationUnchanged,
+	getSendDestinationVerdict,
+	type SendDestinationReview,
+	UNREVIEWED_SEND_DESTINATION,
+} from "@/domain/trade/send-destination";
 import {
 	AccountAbstractionExecutionError,
 	useAccountAbstractionPreExecutionGuard,
@@ -54,7 +60,7 @@ import {
 	formatFundsActionFeedback,
 	fundsActionFeedbackCause,
 } from "@/lib/trade/funds-action-feedback";
-import { floorToString, limitDecimalInput } from "@/lib/trade/numbers";
+import { floorToString, limitDecimalInput, toPlainDecimal } from "@/lib/trade/numbers";
 import { formatTokenId } from "@/lib/trade/token-id";
 import { clearSendDraft, getSendDraft, saveSendDraft } from "@/stores/use-send-draft-store";
 import { PendingActionModal } from "../components/pending-action-modal";
@@ -67,6 +73,8 @@ interface SendSubmission {
 	method: "sendAsset" | "spotSend";
 	amount: string;
 	destination: string;
+	source: string;
+	reviewedDestination: SendDestinationReview;
 	token: string;
 	sourceDex: string | undefined;
 	destinationDex: string | undefined;
@@ -129,7 +137,8 @@ interface BodyProps {
 
 function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }: BodyProps) {
 	const { t } = useLingui();
-	const { formatDecimalString, formatNumber } = useNumberFormat();
+	const amountErrorId = useId();
+	const { formatDecimalString } = useNumberFormat();
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<SendSubmission | null>(null);
@@ -277,6 +286,24 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		}
 		requestSubmissionsRef.current.set(params, submission);
 	}
+	async function assertCurrentSendDestination(
+		method: SendSubmission["method"],
+		params: ExchangeParams<"sendAsset"> | ExchangeParams<"spotSend">,
+		signal: AbortSignal,
+	): Promise<void> {
+		assertCurrentSendSubmission(method, params);
+		const submission = requestSubmissionsRef.current.get(params);
+		if (!submission) throw new ExchangeRequestInvalidatedError();
+		let check: unknown;
+		try {
+			check = await info.preTransferCheck({ user: submission.destination, source: submission.source }, signal);
+		} catch (error) {
+			if (signal.aborted) throw signal.reason ?? error;
+			throw new PreTransferCheckExecutionError("unavailable");
+		}
+		signal.throwIfAborted();
+		assertSendDestinationUnchanged(submission.reviewedDestination, check);
+	}
 	const { mutateAsync: sendAsset, isPending: isSendAssetPending } = useExchange("sendAsset", {
 		executionGuard: (params) => {
 			assertCurrentSendSubmission("sendAsset", params);
@@ -288,6 +315,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			await assertCurrentAccountAbstraction(signal);
 			signal.throwIfAborted();
 			assertCurrentSendAssetBalance(params);
+			await assertCurrentSendDestination("sendAsset", params, signal);
 		},
 	});
 	const { mutateAsync: spotSend, isPending: isSpotSendPending } = useExchange("spotSend", {
@@ -301,6 +329,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			await assertCurrentAccountAbstraction(signal);
 			signal.throwIfAborted();
 			assertCurrentSpotSendBalance(params);
+			await assertCurrentSendDestination("spotSend", params, signal);
 		},
 	});
 
@@ -362,9 +391,10 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		source: activeAccountType,
 	};
 
-	const isValidDestination = isAddress(destination);
+	const isValidDestination = isFundsDestinationAddress(destination);
 	const destinationError = destination && !isValidDestination ? t`Enter a valid Ethereum address.` : undefined;
 	const isValidAmount = isAmountWithinBalance(amount, availableBalanceExact);
+	const amountExceedsBalance = accountDataReady && exceedsBalance(amount, availableBalanceExact);
 	const canSend =
 		sendAvailability.available &&
 		accountModeReady &&
@@ -468,16 +498,30 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			toast.error(t`Unable to check the destination address. Nothing was sent.`);
 			return;
 		}
-		await submitSend();
+		await submitSend(UNREVIEWED_SEND_DESTINATION);
 	}
 
 	async function handleReviewConfirm() {
 		if (!reviewIsCurrent || !reviewAcknowledged || review?.identity !== submissionIdentityRef.current) return;
-		await submitSend();
+		await submitSend({ fee: review.fee, destinationHasSentTx: review.destinationHasSentTx });
 	}
 
-	async function submitSend() {
-		if (!canSend) return;
+	function formatSendFailure(error: unknown): string {
+		if (error instanceof FundsActionFeedbackCause) {
+			return formatFundsActionFeedback(error.code, (descriptor) => t(descriptor));
+		}
+		if (!(error instanceof PreTransferCheckExecutionError)) {
+			return formatExchangeActionError(error, t`Send failed`, (descriptor) => t(descriptor));
+		}
+		if (error.reason === "sanctioned") return t`Unable to send funds to this address.`;
+		if (error.reason === "changed") {
+			return formatFundsActionFeedback("withdrawal-activation-fee-changed", (descriptor) => t(descriptor));
+		}
+		return t`Unable to check the destination address. Nothing was sent.`;
+	}
+
+	async function submitSend(reviewedDestination: SendDestinationReview) {
+		if (!canSend || !address) return;
 
 		const submissionIdentity = submissionIdentityRef.current;
 		if (!submissionIdentity || submissionRef.current) return;
@@ -490,6 +534,8 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			method,
 			amount,
 			destination,
+			source: address,
+			reviewedDestination,
 			token: tokenId,
 			sourceDex: method === "sendAsset" ? dex : undefined,
 			destinationDex: method === "sendAsset" ? dex : undefined,
@@ -498,7 +544,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		const isCurrentSubmission = () =>
 			submissionIdentityRef.current === submissionIdentity && submissionSequenceRef.current === submissionSequence;
 		const draftAmount = amount;
-		const sentAmount = formatNumber(amount);
+		const sentAmount = formatDecimalString(toPlainDecimal(amount));
 		const draftToken = selectedToken;
 		const sentToken = getTokenDisplayName(selectedToken);
 		try {
@@ -546,11 +592,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 					token: draftToken,
 					accountType: activeAccountType,
 				});
-				toast.error(
-					err instanceof FundsActionFeedbackCause
-						? formatFundsActionFeedback(err.code, (descriptor) => t(descriptor))
-						: formatExchangeActionError(err, t`Send failed`, (descriptor) => t(descriptor)),
-				);
+				toast.error(formatSendFailure(err));
 			}
 		} finally {
 			if (submissionRef.current === submission) submissionRef.current = null;
@@ -709,6 +751,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 								</>
 							}
 							onLabelValueClick={handleMaxClick}
+							aria-describedby={amountExceedsBalance ? amountErrorId : undefined}
 							placeholder="0.00"
 							value={amount}
 							onChange={(e: ChangeEvent<HTMLInputElement>) => handleAmountChange(e.target.value)}
@@ -716,11 +759,14 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 							mobileSafe
 							className={cn(
 								"w-full tabular-nums max-[1000px]:h-11",
-								accountDataReady &&
-									exceedsBalance(amount, availableBalanceExact) &&
-									"border-stroke-error-strong focus:border-stroke-error-strong",
+								amountExceedsBalance && "border-stroke-error-strong focus:border-stroke-error-strong",
 							)}
 						/>
+						{amountExceedsBalance ? (
+							<span id={amountErrorId} hidden>
+								{t`Insufficient balance`}
+							</span>
+						) : null}
 
 						<Button variant="filled" intent="neutral" onClick={handleSendClick} disabled={!canSend} className="w-full">
 							<PaperPlaneTiltIcon className="me-2 size-3.5" />

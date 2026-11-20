@@ -148,6 +148,33 @@ describe("Vault action modal", () => {
 		expect(container.textContent).not.toContain("Minimum deposit is");
 	});
 
+	it.each(["9.999999", "0.000001"])("shows the exact withdrawal Max %s in the input hint", (maxAmount) => {
+		const onAmountChange = vi.fn();
+		act(() =>
+			root.render(
+				<VaultActionModal
+					{...props({
+						action: "withdraw",
+						stage: "input",
+						availableAmount: maxAmount,
+						maxAmount,
+						onAmountChange,
+					})}
+				/>,
+			),
+		);
+		act(() => button("Max")?.click());
+		expect(onAmountChange).toHaveBeenCalledWith(maxAmount);
+		expect(container.querySelector('[data-testid="text-input-hint"]')?.textContent).toBe(
+			`Maximum withdrawable: $${maxAmount}`,
+		);
+		numberFormatSetting.locale = "de-DE";
+		act(() => notifyNumberFormatChange());
+		expect(container.querySelector('[data-testid="text-input-hint"]')?.textContent).toBe(
+			`Maximum withdrawable: $${maxAmount.replace(".", ",")}`,
+		);
+	});
+
 	it("writes the verified balance, leader commission and reviewed amount with the number-format separators", () => {
 		const hint = () => container.querySelector('[data-testid="text-input-hint"]')?.textContent;
 		act(() =>
