@@ -85,7 +85,7 @@ export function VaultsList({
 			<header className="border-b border-stroke-weak px-4 py-4 min-[1001px]:px-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<h1 className="text-xl font-bold tracking-tight text-fg min-[1001px]:text-2xl">
+						<h1 className="text-xl font-bold tracking-tight text-fg">
 							<Trans>Vaults</Trans>
 						</h1>
 						<p className="mt-1 max-w-2xl text-xs leading-5 text-fg-muted">

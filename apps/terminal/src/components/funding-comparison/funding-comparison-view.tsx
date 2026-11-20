@@ -91,12 +91,11 @@ export function FundingComparisonView(props: FundingComparisonViewProps) {
 			data-state={props.pageState}
 			aria-busy={props.pageState === "loading"}
 			className={cn(
-				"mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col bg-surface text-fg shadow-raised",
-				!isMobile && "overflow-hidden rounded-24",
+				"mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col overflow-hidden rounded-24 bg-surface text-fg shadow-raised",
 			)}
 		>
 			<header className={cn(isMobile ? "px-4 pt-4 pb-3" : "px-5 pt-4 pb-3")}>
-				<h1 className={cn("font-bold tracking-heading-1", isMobile ? "text-xl" : "text-lg")}>
+				<h1 className="text-xl font-bold tracking-heading-1">
 					<Trans>Funding Comparison</Trans>
 				</h1>
 				<p className="mt-1 text-xs text-fg-muted">

@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view";
-import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
+import { DASHBOARD_FRAMES, DASHBOARD_MAIN_CLASS } from "@/config/dashboard-frames";
 
 function dom(node: ReactNode) {
 	const host = document.createElement("div");
@@ -100,83 +100,68 @@ describe("dashboard frame runtime layout", () => {
 	});
 });
 
-function mobileSidePadding(className: string): number {
-	const tokens = className.split(" ");
-	const token =
-		tokens.find((item) => /^max-\[\d+px\]:px-\d+$/.test(item)) ?? tokens.find((item) => /^px-\d+$/.test(item));
-	return token ? Number(token.slice(token.lastIndexOf("-") + 1)) : 0;
-}
+const dataRoutes = routes.filter((route) => route !== "legal");
 
-it("reads the side padding that applies on phones", () => {
-	expect(mobileSidePadding("mx-auto px-4 py-4 min-[1001px]:px-10")).toBe(4);
-	expect(mobileSidePadding("mx-auto py-4 min-[1001px]:px-10")).toBe(0);
-	expect(mobileSidePadding("mx-auto px-0 py-4")).toBe(0);
-	expect(mobileSidePadding("mx-auto py-4 max-[1000px]:px-4")).toBe(4);
-	expect(mobileSidePadding("mx-auto px-4 max-[1000px]:px-0")).toBe(0);
+it("gives every data dashboard page the one shared frame", () => {
+	expect(DASHBOARD_MAIN_CLASS).toBe(
+		"mx-auto w-full max-w-[var(--dashboard-frame-max)] px-4 py-4 min-[1001px]:px-10 min-[1001px]:py-6",
+	);
+	expect(dataRoutes.length).toBeGreaterThan(0);
+	for (const route of dataRoutes) expect(DASHBOARD_FRAMES[route].mainClassName, route).toBe(DASHBOARD_MAIN_CLASS);
+
+	const frames = readFileSync(resolve(__dirname, "../../config/dashboard-frames.ts"), "utf8");
+	expect(frames.match(/\bmax-w-/g)).toHaveLength(2);
+	expect(frames.match(/mainClassName: DASHBOARD_MAIN_CLASS,/g)).toHaveLength(dataRoutes.length);
+
+	const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+	expect(styles.match(/--dashboard-frame-max:/g)).toHaveLength(1);
+	expect(styles).not.toMatch(/--(?:earn|staking|api-wallet)-frame(?:-wide)?-max\b/);
 });
 
-it("keeps a mobile page gutter unless the page renders one flat full-width sheet", () => {
-	const flatSheets = {
-		"/leaderboard": "leaderboard/leaderboard-view.tsx",
-		"/funding-comparison": "funding-comparison/funding-comparison-view.tsx",
-		"/api-wallet": "api-wallet/api-wallet-view.tsx",
-	} as const;
-	const withoutMobileGutter = routes.filter((route) => mobileSidePadding(DASHBOARD_FRAMES[route].mainClassName) === 0);
-
-	expect(withoutMobileGutter.sort()).toEqual(Object.keys(flatSheets).sort());
-	for (const file of Object.values(flatSheets)) {
-		const source = readFileSync(resolve(__dirname, "../../components", file), "utf8");
-		const sheet = /cn\(\s*"([^"]*\bbg-surface\b[^"]*)",\s*!isMobile && "([^"]*)",?\s*\)/.exec(source);
-		expect(sheet, file).not.toBeNull();
-		expect(sheet?.[1], file).not.toMatch(/\brounded-/);
-		expect(sheet?.[2], file).toMatch(/\brounded-\d+/);
-	}
-});
-
-it("pins all preset classes", () => {
-	expect(DASHBOARD_FRAMES["/portfolio"]).toEqual({
-		canvasClassName: "min-h-dvh bg-portfolio-canvas text-fg font-sans",
-		mainClassName: "mx-auto w-full max-w-[1440px] px-4 py-6 min-[1001px]:px-8 min-[1200px]:px-16 min-[1001px]:py-8",
-	});
-	expect(DASHBOARD_FRAMES["/vaults"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[var(--earn-frame-wide-max)] px-4 py-4 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/staking"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName:
-			"mx-auto w-full max-w-[var(--staking-frame-max)] px-4 py-4 min-[1001px]:px-8 min-[1001px]:py-6 min-[1200px]:px-16",
-	});
-	expect(DASHBOARD_FRAMES["/referrals"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[1440px] px-4 py-5 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/leaderboard"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[var(--earn-frame-max)] py-4 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/funding-comparison"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[var(--earn-frame-max)] py-4 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/funding-history"]).toEqual({
-		canvasClassName: "min-h-dvh bg-grid-container font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[1440px] px-4 py-5 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/historical-orders"]).toEqual({
-		canvasClassName: "min-h-dvh bg-grid-container font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[1440px] px-4 py-5 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/api-wallet"]).toEqual({
-		canvasClassName: "min-h-dvh bg-dashboard-canvas font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[var(--api-wallet-frame-max)] py-4 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
-	expect(DASHBOARD_FRAMES["/trade-history"]).toEqual({
-		canvasClassName: "min-h-dvh bg-grid-container font-sans text-fg",
-		mainClassName: "mx-auto w-full max-w-[1440px] px-4 py-5 min-[1001px]:px-10 min-[1001px]:py-6",
-	});
+it("keeps the legal pages a reading column with its own gutter", () => {
 	expect(DASHBOARD_FRAMES.legal).toEqual({
 		canvasClassName: "min-h-dvh bg-background font-sans text-fg",
 		mainClassName: "mx-auto w-full max-w-3xl px-5 py-8 min-[1001px]:py-12",
 	});
+});
+
+it("never lets a page surface drop its radius or the frame gutter on phones", () => {
+	const components = resolve(__dirname, "../../components");
+	for (const route of dataRoutes) {
+		const dir = resolve(components, route.slice(1));
+		for (const name of readdirSync(dir).filter((file) => file.endsWith(".tsx"))) {
+			const source = readFileSync(resolve(dir, name), "utf8");
+			expect(source, name).not.toMatch(/!isMobile && "[^"]*\brounded-/);
+			expect(source, name).not.toMatch(/isMobile \? "[^"]*"\s*:\s*"[^"]*\brounded-24\b/);
+		}
+	}
+});
+
+it("gives every page title the same size", () => {
+	const titles = {
+		"portfolio/portfolio-page.tsx": 1,
+		"earn/earn-view.tsx": 1,
+		"vaults/vaults-list.tsx": 1,
+		"vaults/vault-detail-view.tsx": 1,
+		"staking/staking-view.tsx": 1,
+		"referrals/referral-dashboard.tsx": 1,
+		"leaderboard/leaderboard-view.tsx": 1,
+		"funding-comparison/funding-comparison-view.tsx": 1,
+		"funding-history/funding-history-page.tsx": 1,
+		"historical-orders/historical-orders-page.tsx": 1,
+		"trade-history/trade-history-page.tsx": 1,
+		"api-wallet/api-wallet-view.tsx": 1,
+	} as const;
+	for (const [file, count] of Object.entries(titles)) {
+		const source = readFileSync(resolve(__dirname, "../../components", file), "utf8");
+		const headings = [...source.matchAll(/<h1\b[^>]*?className=(?:"([^"]*)"|\{([^}]*)\})/g)].map(
+			(match) => match[1] ?? match[2] ?? "",
+		);
+		expect(headings, file).toHaveLength(count);
+		for (const heading of headings) {
+			expect(heading.match(/\btext-(?:3xs|2xs|xs|2sm|sm|base|lg|xl|2xl|3xl)\b/g), file).toEqual(["text-xl"]);
+			expect(heading, file).toMatch(/\bfont-bold\b/);
+			expect(heading, file).not.toMatch(/isMobile/);
+		}
+	}
 });
