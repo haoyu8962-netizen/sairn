@@ -28,7 +28,7 @@ const SOURCES = DASHBOARD_COMPONENT_DIRS.flatMap((dir) =>
 
 const STRING_LITERAL = /"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g;
 const DESKTOP_COLUMNS = /^min-\[1001px\]:grid-cols-/;
-const BASE_COLUMNS = /^grid-cols-/;
+const BASE_COLUMNS = /^grid-cols-(?:[1-9]\d*|\[[^\]]+\])$/;
 
 /**
  * `.claude/rules/style-ui-guide.md` (Dashboard page gutters): a grid that takes its columns only

@@ -7,7 +7,8 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const TERMINAL_SRC = resolve(TEST_DIR, "../..");
 const ALERT_PRIMITIVE = resolve(TERMINAL_SRC, "../../../packages/ui/src/alert.tsx");
 
-const NOTICE_BACKGROUND = /(?:^|\s)bg-(?:warning|error|success|info|signal)-soft(?:\/\d+)?(?:\s|$)/;
+const NOTICE_BACKGROUND =
+	/(?:^|\s)bg-(?:warning|error|success|info|signal)-soft(?:\/(?:\d+(?:\.\d+)?|\[[^\]\s]+\]))?(?:\s|$)/;
 const PENDING_REASON = "trading dialog notice that predates the rule; waiting for a design decision";
 
 const PENDING_EXCEPTIONS = [

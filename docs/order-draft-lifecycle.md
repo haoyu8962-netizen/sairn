@@ -29,7 +29,9 @@ read quantity, size mode and reduce-only from the same shared draft
 (`docs/order-entry-surface-parity.md`, cross-breakpoint drafts), so editing them
 advances the same revision on both surfaces.
 Transient edits and revisions never write localStorage; only the existing side,
-order-type and desktop size-mode preferences are persisted.
+order-type and size-mode preferences are persisted, and the size mode is one
+preference shared by both surfaces (the phone's unit control writes it through
+the same `setSizeMode` action).
 
 The submission hook validates the token before starting an order. After an order
 has started, success, partial failure and reconciling outcomes still update the

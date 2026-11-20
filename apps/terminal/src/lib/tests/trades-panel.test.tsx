@@ -307,6 +307,55 @@ describe("TradesPanel", () => {
 		expect(flagged()).toHaveLength(3);
 		expect(container.querySelectorAll(".recent-trade-row")).toHaveLength(4);
 		expect(container.querySelector('.recent-trade-row[href$="/0x6"]')?.hasAttribute("data-initial")).toBe(false);
+
+		mocks.market = { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
+		mocks.result.data = [trade("HYPE", 1), trade("HYPE", 2)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(2);
+		mocks.result.data = [trade("HYPE", 7), trade("HYPE", 1), trade("HYPE", 2)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(2);
+		expect(container.querySelector('.recent-trade-row[href$="/0x7"]')?.hasAttribute("data-initial")).toBe(false);
+		mocks.market = { kind: "perp", markPx: "60000", name: "BTC", pairName: "BTC-USDC", szDecimals: 5 };
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(container.querySelectorAll(".recent-trade-row")).toHaveLength(0);
+		mocks.market = { kind: "perp", markPx: "64.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(3);
+		mocks.result.data = [trade("HYPE", 8), trade("HYPE", 7), trade("HYPE", 1), trade("HYPE", 2)];
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<TradesPanel />
+				</I18nProvider>,
+			),
+		);
+		expect(flagged()).toHaveLength(3);
+		expect(container.querySelector('.recent-trade-row[href$="/0x8"]')?.hasAttribute("data-initial")).toBe(false);
 	});
 
 	it("does not call a stale empty snapshot an empty market", () => {

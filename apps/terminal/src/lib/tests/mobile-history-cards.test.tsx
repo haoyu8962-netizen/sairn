@@ -292,6 +292,7 @@ vi.mock("@/lib/hyperliquid", () => ({
 				: coin === "xyz:TSLA"
 					? {
 							kind: "builderPerp",
+							dex: "xyz",
 							pairName: "TSLA-USDT",
 							shortName: "TSLA",
 							szDecimals: 3,
@@ -612,10 +613,22 @@ describe("mobile history disclosure cards", () => {
 		expect(container.textContent).toContain("HYPE/USDC");
 		expect(container.textContent).not.toContain("@107");
 
-		mocks.fundings = [{ ...mocks.fundings[0], coin: "xyz:TSLA" }];
+		mocks.fundings = [
+			{ ...mocks.fundings[0], coin: "xyz:TSLA" },
+			{ ...mocks.fundings[0], coin: "TSLA", time: 1_754_350_400_001 },
+		];
 		render(<MobileFundingTab scrollMode="page" />);
-		expect(container.querySelector('button[aria-label="Switch to TSLA market"]')).not.toBeNull();
+		const deployerMarket = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Switch to TSLA (xyz) market"]',
+		);
+		const nativeMarket = container.querySelector<HTMLButtonElement>('button[aria-label="Switch to TSLA market"]');
+		expect(deployerMarket?.textContent).toContain("xyz");
+		expect(nativeMarket?.textContent).not.toContain("xyz");
 		expect(container.textContent).not.toContain("xyz:TSLA");
+		act(() => deployerMarket?.click());
+		expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("xyz:TSLA", undefined, { displayedContent: "trade" });
+		act(() => nativeMarket?.click());
+		expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("TSLA", undefined, { displayedContent: "trade" });
 	});
 
 	it("shows a fill's fee token by its display name", () => {

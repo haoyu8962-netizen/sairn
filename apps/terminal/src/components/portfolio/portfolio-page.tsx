@@ -36,6 +36,8 @@ import { PortfolioOverview } from "./portfolio-overview";
 
 const PositionsPanel = createLazyComponent(() => import("../trade/positions/positions-panel"), "PositionsPanel");
 
+type PassiveReasonKey = "modeDependent" | "transfer" | "withdrawal" | "deposit";
+
 export function PortfolioPage() {
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
@@ -90,9 +92,23 @@ export function PortfolioPage() {
 		{ actions: [t`Withdraw`], reason: withdrawalDisabledReason },
 		{ actions: [t`Deposit`], reason: depositDisabledReason },
 	]);
-	const getUnavailableReasonId = (reason: string | null) => {
+	const passiveUnavailableReasons: Record<PassiveReasonKey, string | null> = {
+		modeDependent:
+			modeDependentFundsActionsDisabled && !modeDependentFundsActionsDisabledReason
+				? fundsActionAvailability.withdrawal.unavailableReason
+				: null,
+		transfer:
+			transferDisabled && !transferDisabledReason ? fundsActionAvailability.internalTransfer.unavailableReason : null,
+		withdrawal:
+			!fundsActionAvailability.withdrawal.available && !withdrawalDisabledReason
+				? fundsActionAvailability.withdrawal.unavailableReason
+				: null,
+		deposit: depositDisabled && !depositDisabledReason ? depositAvailability.unavailableReason : null,
+	};
+	const getUnavailableReasonId = (reason: string | null, passiveKey: PassiveReasonKey) => {
 		const index = reason ? unavailableActionGroups.findIndex((group) => group.reason === reason) : -1;
-		return index >= 0 ? `${unavailableActionsId}-${index}` : undefined;
+		if (index >= 0) return `${unavailableActionsId}-${index}`;
+		return passiveUnavailableReasons[passiveKey] ? `${unavailableActionsId}-passive-${passiveKey}` : undefined;
 	};
 	const handleAccountModeChange = useCallback(
 		async (nextMode: SelectableAccountAbstraction) => {
@@ -127,7 +143,7 @@ export function PortfolioPage() {
 										size="sm"
 										disabled={modeDependentFundsActionsDisabled}
 										focusableWhenDisabled
-										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason)}
+										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason, "modeDependent")}
 										onClick={openStablecoinSwapModal}
 										iconLeft={<ArrowsLeftRightIcon className="size-3.5" />}
 									>
@@ -141,7 +157,7 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={transferDisabled}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(transferDisabledReason)}
+												aria-describedby={getUnavailableReasonId(transferDisabledReason, "transfer")}
 												onClick={
 													fundsActionAvailability.internalTransfer.available
 														? () => openTransferModal("toPerp")
@@ -159,7 +175,7 @@ export function PortfolioPage() {
 										size="sm"
 										disabled={modeDependentFundsActionsDisabled}
 										focusableWhenDisabled
-										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason)}
+										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason, "modeDependent")}
 										onClick={() => openSendModal()}
 										iconLeft={<PaperPlaneTiltIcon className="size-3.5" />}
 									>
@@ -173,7 +189,7 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={!fundsActionAvailability.withdrawal.available}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(withdrawalDisabledReason)}
+												aria-describedby={getUnavailableReasonId(withdrawalDisabledReason, "withdrawal")}
 												onClick={
 													fundsActionAvailability.withdrawal.available ? () => openDepositModal("withdraw") : undefined
 												}
@@ -192,7 +208,7 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={depositDisabled}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(depositDisabledReason)}
+												aria-describedby={getUnavailableReasonId(depositDisabledReason, "deposit")}
 												onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 												{...(depositAvailability.available ? depositModalIntentProps : undefined)}
 												aria-label={showsDepositRestrictionLabel ? depositAvailability.unavailableLabel : undefined}
@@ -204,6 +220,13 @@ export function PortfolioPage() {
 										</span>
 									</Tooltip>
 								</div>
+								{Object.entries(passiveUnavailableReasons).map(([key, reason]) =>
+									reason ? (
+										<span key={key} id={`${unavailableActionsId}-passive-${key}`} className="sr-only">
+											{reason}
+										</span>
+									) : null,
+								)}
 								{unavailableActionGroups.length ? (
 									<div
 										aria-live="polite"

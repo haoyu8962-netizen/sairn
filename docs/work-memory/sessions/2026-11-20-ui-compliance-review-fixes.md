@@ -58,15 +58,29 @@
 
 ### 其他已处理项
 
-- 报告 3.2.2：15 处 `border-stroke-*-strong/20|/30|/40` 改为对应的 `-weak`（强描边本身 80% 透明度，叠加 /20 约 16%，weak 为 20%）。`dialog-notice-radius-contract` 的提示条识别补上带 `/N` 的软背景，并纳入 `bridge/confirmation-screen.tsx`；由此查出的三处 `rounded-xs` 提示条改为 `rounded-16`。手机数据展示登记表按类名计数更新。
+- 报告 3.2.2：15 处 `border-stroke-*-strong/20|/30|/40` 统一改为对应语义的 `-weak` 描边令牌。这不是逐像素等效：原来的 /20、/30、/40 本来就各不相同，`-weak` 的透明度也因色调和主题而异（例如浅色 warning 为 `33`、error 为 `24`），改动的目的是按规范使用语义令牌。`dialog-notice-radius-contract` 的提示条识别补上带 `/N` 的软背景，并纳入 `bridge/confirmation-screen.tsx`；由此查出的三处 `rounded-xs` 提示条改为 `rounded-16`。手机数据展示登记表按类名计数更新。
 - 6.1 手机成交页签不再显示数量单位菜单（成交数量恒为基础币，`docs/recent-trades.md`）；6.2 成交面板只在挂载后记录一次「首帧成交」，切市场后新市场的全部成交都被当成新成交闪烁：改为按订阅的 coin 重新记录首帧（`responsive-panel-layout` 契约有意让桌面面板常驻、不带 `key`，所以没有用重挂载），`trades-panel.test.tsx` 新用例在修复前失败；6.4 手机 TP/SL 区补 `capabilities.hasTpSl`；6.6 授权错误的定时清除只清自己那一次。
 - 文档：`order-draft-lifecycle.md`（手机已用共享草稿，`onReset` 已无调用方）、`trading-toolbar-redesign.md`（v7 几何标为已被取代）、`orderbook-hover.md`（只用 `midPx`，计价总额统一用 `getOrderbookQuoteDecimals`）、`design-tokens.md`（`bg-sunken` 暗色默认值、两层响应式字号、数字圆角规则）、`order-entry-surface-parity.md`（Max 按钮只设 `title`）。报告的 5.6（Earn 文档）不成立：文档说的是页头四个按钮，与代码一致；行内 Withdraw 不给原因、行内 Repay 给原因的差异记为后续。
 
 ## 验证与限制
 
-- 每个新增行为测试都用 `git stash push -- <修复文件>` 撤掉修复后确认失败，再恢复。
-- 本地全量结果、Biome、类型检查与 Codex 审查轮次见下节（完成后补记）。
+- 每个新增行为测试都撤掉修复（`git stash push -- <修复文件>`，或用 `git show <提交>:<路径>` 换回旧版）确认失败，再恢复。
+- 第一个提交 `484ae325` 之前，本机全量终端 Vitest（`pnpm --filter @sairn/terminal test --maxWorkers=4`，767 个文件）有 3 个用例失败：`responsive-panel-layout` 契约禁止给桌面 `TradesPanel` 加 `key`（当时 6.2 用的就是 `key`，已改为面板内部按 coin 重置并撤回 `key`）；`root-route-transition` 的两个用例单独重跑通过，属于并发负载下的时序抖动。Biome、终端类型检查、`git diff --check`、`pnpm memory:check` 与 `pnpm memory:test` 通过。类型检查和工作记忆校验需要图表库：工作树里放了主检出图表库的副本（Git 忽略，没有提交）。
 - 没有做真机、浏览器或计算样式测量；H-13 的换行效果没有在 375px 宽度实测。
+
+### Codex 对抗审查
+
+`codex exec -m gpt-6.2-sol -s read-only`，medium 强度，提示词要求逐条证伪作者的主张；有 P2 时评分不得高于 8.5，有 P0/P1 不得高于 7。
+
+- 第一轮（审 `484ae325`，约 19 万 token）：8.2 分，两项 P2、四项 P3，逐条核对后全部成立并修复：
+  - P2 手机历史卡片把 HIP-3 市场压成短名，`xyz:TSLA` 与原生 `TSLA` 无法区分：新增 `getMarketDexLabel`，名称旁加 DEX 标记，可访问名称为 `TSLA (xyz)`（沿用手机持仓页的写法；变量名保持 `marketName`，消息 ID 不变）；测试覆盖同名的两个市场各自跳转。
+  - P2 切到尚无快照的市场再切回时，首帧基线仍是旧集合，切走前已看过的实时成交会再次闪烁：订阅 coin 一变就清空基线，用新身份的第一份可显示数据初始化；新用例按「A 首帧 → A 实时成交 → B 无快照 → A」在上一版提交上失败。
+  - P3 关闭中的账户类型表单在未连接时仍可点 Connect、抽屉仍可切页签：`isUpdating` 同时挡住 Connect 与处理函数，`handleTabChange` 检查 `open`；新用例在上一版提交上失败。
+  - P3 Portfolio 桌面隐藏被动原因后，按钮失去读屏描述：被动原因放进 `sr-only` 节点并由 `aria-describedby` 关联，可见列表仍只显示已确认限制；新用例在 `484ae325` 与 `ba78481a` 上都失败。
+  - P3 三条契约可被绕过（`rounded-6.5`、`grid-cols-none`、`bg-*-soft/12.5` 与 `/[0.125]`）：正则改为接受小数与任意值，基础列只认数字或任意值轨道，已在 Node 里逐个核对。
+  - P3 两处措辞：`order-draft-lifecycle.md` 写成桌面专属的数量单位偏好实为双端共享；本记录把描边替换写成等效，已改为按语义令牌统一。
+  - 另按它的变异表补了现货校验的语言切换用例。
+  - 第一轮修复后本机全量终端 Vitest：766 个文件、11,286 个用例通过，1 个文件跳过（`websocket-soak`）。
 
 ## 后续与替代关系
 

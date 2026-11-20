@@ -17,7 +17,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl, useMarkets } from "@/lib/hyperliquid";
-import { getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
+import { getMarketDexLabel, getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { getFillDirectionPresentation, getFillDirectionTone } from "@/lib/trade/fill-direction";
 import { fillSnapshotReachesLiveFills, getFilteredFillsEmptyPresentation } from "@/lib/trade/fill-filter-presentation";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
@@ -348,7 +348,9 @@ function MobileHistoryTabContent({
 								const detailsId = `mobile-trade-history-${fill.hash}-${fill.tid}`;
 								const isExpanded = expandedKeys.has(cardKey);
 								const market = markets.getMarket(fill.coin);
-								const marketName = getMarketListLabel(market, fill.coin);
+								const marketLabel = getMarketListLabel(market, fill.coin);
+								const marketDex = getMarketDexLabel(market);
+								const marketName = marketDex ? `${marketLabel} (${marketDex})` : marketLabel;
 								const closedPnl = getUserFillNetClosedPnl(fill, market);
 								const pnlQuote = getUserFillQuoteToken(fill, market);
 								const showPnl = closedPnl !== null;
@@ -385,8 +387,15 @@ function MobileHistoryTabContent({
 												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-left focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
 											>
 												<span className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
-												<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
-													{marketName}
+												<span className="flex min-w-0 items-center gap-1">
+													<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
+														{marketLabel}
+													</span>
+													{marketDex ? (
+														<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+															{marketDex}
+														</span>
+													) : null}
 												</span>
 											</button>
 											<div className="min-w-0">

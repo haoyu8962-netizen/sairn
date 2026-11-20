@@ -10,7 +10,7 @@ const ARBITRARY_FONT_SIZE = /(?<![\w-])!?text-\[\d+(?:\.\d+)?px\]/g;
 const ARBITRARY_RADIUS = /(?<![\w-])!?rounded(?:-[a-z]{1,2})?-\[\d+(?:\.\d+)?px\]/g;
 const IMPORTANT_MENU_OR_DIALOG_SURFACE = /(?<![\w-])!(?:bg-modal|bg-overlay|shadow-overlay)(?![\w-])/g;
 const RELATIVE_FONT_SIZE = /(?<![\w-])!?text-\[\d+(?:\.\d+)?(?:em|rem)\]/g;
-const NUMERIC_RADIUS = /(?<![\w-])!?rounded(?:-(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee))?-(\d+)(?![\w.-])/g;
+const NUMERIC_RADIUS = /(?<![\w-])!?rounded(?:-(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee))?-(\d+(?:\.\d+)?)(?![\w.-])/g;
 const UI_SOURCE_ROOT = resolve(SOURCE_ROOT, "../../../packages/ui/src");
 
 const ARBITRARY_FONT_SIZE_BASELINE = 111;

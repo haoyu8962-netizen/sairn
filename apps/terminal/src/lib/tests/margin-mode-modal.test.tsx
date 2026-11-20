@@ -514,6 +514,34 @@ describe("MarginModeModal", () => {
 		expect(accountApply).not.toHaveBeenCalled();
 	});
 
+	it("neither connects a wallet nor switches tabs from a closing mobile drawer", async () => {
+		const onConnect = vi.fn();
+		const onSettingsTabChange = vi.fn();
+		modalHarness.keepAdaptiveMounted = true;
+		renderModal({
+			open: false,
+			presentation: "drawer",
+			marketIdentity: "HYPE",
+			marketLabel: "HYPE-USDC",
+			settingsTab: "account",
+			onSettingsTabChange,
+			accountModeForm: {
+				currentMode: null,
+				canChange: false,
+				portfolioMarginActivationEnabled: true,
+				onApply: vi.fn(),
+				onConnect,
+			},
+		});
+
+		const connect = getButton(container, "Connect");
+		expect(connect.disabled).toBe(true);
+		await act(async () => connect.click());
+		act(() => modalHarness.tabChange?.("margin"));
+		expect(onConnect).not.toHaveBeenCalled();
+		expect(onSettingsTabChange).not.toHaveBeenCalled();
+	});
+
 	it("keeps leverage out of the mobile margin view", async () => {
 		renderModal({
 			presentation: "drawer",

@@ -112,7 +112,7 @@ export function AccountModeForm({
 	const confirmDescriptionId =
 		(agentOnlySession && agentOnlyReasonId) || (automaticSetup && automaticSetupNoteId) || undefined;
 	async function handleApply() {
-		if (applyInFlightRef.current || agentOnlySession) return;
+		if (applyInFlightRef.current || agentOnlySession || isUpdating) return;
 		if (!canChange) {
 			onClose();
 			onConnect?.();
@@ -225,7 +225,11 @@ export function AccountModeForm({
 					variant="filled"
 					intent="neutral"
 					onClick={handleApply}
-					disabled={agentOnlySession || (canChange ? isBusy || isModeUnavailable || !isDirty || automaticSetup : false)}
+					disabled={
+						agentOnlySession ||
+						!!isUpdating ||
+						(canChange ? isBusy || isModeUnavailable || !isDirty || automaticSetup : false)
+					}
 					focusableWhenDisabled={agentOnlySession}
 					aria-describedby={confirmDescriptionId}
 					className="min-h-11 w-full flex-1 rounded-[10px] bg-trading-panel-control font-bold text-trading-panel-on-control shadow-none hover:opacity-90"

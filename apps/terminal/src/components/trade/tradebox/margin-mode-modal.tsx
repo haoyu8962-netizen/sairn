@@ -202,6 +202,7 @@ function MarginModeModalComponent({
 			);
 
 		function handleTabChange(value: string) {
+			if (!open) return;
 			if (value === "margin" || value === "account") onSettingsTabChange?.(value);
 		}
 
