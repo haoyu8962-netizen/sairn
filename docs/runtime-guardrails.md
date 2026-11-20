@@ -1413,10 +1413,13 @@ guard's bound outward would silently permit a price beyond the user's tolerance.
   the connected header was measured, ADR 0013 addendum 2026-10-01) and
   `DESKTOP_NAV_NARROW_MAX_PX` (1150; 1100 until Earn became a top-level link, ADR 0021 D8). The `nav-compact` Tailwind variant in `styles.css` must equal
   the compact constant (`desktop-nav-layout` pins it); never write a literal `max-[…px]` for it.
-- An unavailable deposit button (for any reason: region restricted or still unresolved, or the
-  deposit path disabled for the wallet or network) shows only its icon, centred, at every desktop
-  width, with the unavailable label as its accessible name and the reason as its title; an
-  available one keeps its `Deposit` label above the compact width. The
+- A deposit button unavailable for a confirmed reason (region restricted, an Agent-only session, or
+  the deposit path disabled for the wallet or network) shows only its icon, centred, at every desktop
+  width, with the unavailable label as its accessible name and the reason as its title. While the
+  region check or the wallet session is still being resolved it keeps its `Deposit` label, disabled,
+  with no visible reason, like an available one (operator decision 2026-11-20, following
+  `docs/mobile-data-presentation.md`; `isFundsActionRestricted`). An available one keeps its
+  `Deposit` label above the compact width. The
   unavailable labels are 39–80px longer than `Deposit`, and a visible label that differs from the
   accessible name would fail WCAG 2.5.3.
 - Above the compact width every connected combination must keep 16px between the navigation and

@@ -134,7 +134,10 @@ const budgets = {
 	// Raised 2026-11-20 by +2,478 for the integration's second review round (deposit recovery log scan and settlement,
 	// trading-protection fallbacks, favourites merge, history and liquidation fixes): 3,399,732 minus the first
 	// round's 3,397,254, same fixed-identity pairing-off builds (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_395_329,
+	// Raised 2026-11-20 by +1,501 for the UI compliance fixes (PR #15: validators that take an explicit translator,
+	// funds-entry presentation, phone history names, trade-history cards): 3,401,914 minus main ba78481a's 3,400,413,
+	// fixed-identity pairing-off builds; pairing on measures +624 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_396_830,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -170,7 +173,10 @@ const budgets = {
 		// Raised 2026-11-20 by +336 for the third review round (deposit outcome kept until the user dismisses it):
 		// pairing on 1,672,795 minus 1,672,459 (pairing off measures +196: 1,671,517 minus 1,671,321). The pairing-on
 		// increment is used because the pairing-off one would leave pairing on 2 bytes over; pairing on keeps 138 bytes.
-		baselineGzipBytes: 1_662_933,
+		// Raised 2026-11-20 by +524 for the UI compliance fixes (PR #15, see the total above): pairing off 1,672,121 minus
+		// main ba78481a's 1,671,597 (pairing on measures +450: 1,673,266 minus 1,672,816). The larger increment is used;
+		// pairing on keeps 191 bytes, against main's own 117 (docs/terminal-performance-baseline.md).
+		baselineGzipBytes: 1_663_457,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
@@ -220,7 +226,9 @@ const budgets = {
 		// Raised 2026-11-19 by +196 for the 2026-11-19 fix integration (phone order form a11y text, order-book probe
 		// gating): 128,819 minus main 79b268ea's 128,623, so the room stays at main's 292.
 		// Raised 2026-11-20 by +33 for the second review round: 128,852 minus 128,819, so the room stays at 292.
-		{ name: "trade-terminal-page", baselineGzipBytes: 125_144, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-20 by +493 for the UI compliance fixes (PR #15): pairing on 129,354 minus main ba78481a's
+		// 128,861 (pairing off measures +485: 129,334 minus 128,849), so pairing on keeps main's 283 bytes.
+		{ name: "trade-terminal-page", baselineGzipBytes: 125_637, allowedIncreaseBytes: 4_000 },
 		{ name: "token-selector-popup", baselineGzipBytes: 14_355, allowedIncreaseBytes: 1_500 },
 		{ name: "api-wallet", baselineGzipBytes: 17_967, allowedIncreaseBytes: 2_000 },
 		{ name: "fundingHistory._address", baselineGzipBytes: 6_820, allowedIncreaseBytes: 1_500 },

@@ -10,7 +10,7 @@
   "summary": "运营方转来一份基于 ba78481a 的 UI 实践、双端一致性与文档合规审查报告（14 高、24 中、17 低）。逐条对照代码、规范与官方终端核实后，14 项高严重度里 12 项成立并修复：关闭中的划转、发送弹窗与手机账户类型页签仍可提交（新测试在修复前失败）；手机历史卡片显示 @107 等协议名；TIF 提示与下单校验文案切语言后不更新（新测试在修复前失败）；rounded-6、rounded-10、rounded-2 不生成样式（用 Tailwind 编译确认）；桌面账户面板在地区未解析时整块隐藏资金入口、持仓工具栏提款按钮由原因文案决定禁用、被动原因下 Deposit 被改名；五处单列网格缺 grid-cols-1；仪表盘卡片截断数值；交易历史手机卡片缺类型、手续费与浏览器链接。H-03（手机现货没有账户模式入口）与官方手机终端一致，H-04（手机余额页对 manual 状态静默）是规范明文要求，均不成立。另修了 15 处强描边加透明度、四项小功能缺陷与五处文档漂移，并新增三条会失败的契约。其余中低项未处理，列在后续。Codex gpt-6.2-sol 三轮只读对抗审查评分 8.2、8.3、9.1，前两轮的发现全部核实并修复，第三轮余下三项 P3 记入后续。没有做真机或浏览器验收。",
   "thread": null,
   "baseCommit": "ba78481a",
-  "commits": ["484ae325", "2f563262", "500e9b1f"],
+  "commits": ["484ae325", "2f563262", "500e9b1f", "60badc99"],
   "sources": [
     { "path": "docs/mobile-data-presentation.md" },
     { "path": "docs/i18n-presentation.md" },
@@ -22,7 +22,10 @@
     { "path": "apps/terminal/src/lib/tests/dashboard-mobile-grid-track-contract.test.ts" },
     { "path": "apps/terminal/src/lib/tests/use-order-validation-locale.test.tsx" },
     { "path": "apps/terminal/src/lib/tests/definition-tooltip-locale.test.tsx" },
-    { "url": "https://app.hyperliquid.xyz/trade/BTC" }
+    { "url": "https://app.hyperliquid.xyz/trade/BTC" },
+    { "url": "https://github.com/haoyu8962-netizen/sairn/pull/15" },
+    { "path": "docs/terminal-performance-baseline.md" },
+    { "path": "docs/runtime-guardrails.md" }
   ],
   "supersedes": []
 }
@@ -92,10 +95,18 @@
   - 网格契约仍可被 `grid-cols-[NONE]`、`grid-cols-[none_]` 和 `min-[1001px]:!grid-cols-2` 绕过；`grid-cols-1!` 会压过桌面列定义。
   - 提示条契约漏掉嵌套括号的 `/(--opacity,calc(12.5%))`，又把不生成 CSS 的 `/(12.5%)` 认作背景。
 
+### PR #15 的 CI 与两项决定
+
+推送后 PR #15 的 CI 有三类失败：
+
+- `Build website`：仓库里的官网快照已 7.2 天，与本 PR 无关；运营方要求另开 PR 刷新，见 [PR #16 的记录](2026-11-20-website-market-snapshot-refresh.md)。
+- 浏览器回归（两片，共 6 个用例）：`top-nav-connected.pw.ts` 的 `deposit-unavailable` 场景期望顶栏 Deposit 收成图标。夹具用的是「地区检查未完成」，H-11 的修复让这种被动状态保留 `Deposit` 名称。这暴露了规范冲突：`docs/runtime-guardrails.md` 写明无论受限还是仍在解析都收成图标，`docs/mobile-data-presentation.md` 禁止在未就绪时改名为「不可用」。运营方 2026-11-20 决定：保持 `Deposit` 名称并禁用，只有已确认限制收成图标。已改 `runtime-guardrails.md` 的规则，夹具的 `deposit=unavailable` 改为已确认的地区受限（被动状态的布局与可用时相同，可用场景已覆盖）；本机跑这个 Playwright 配置 13 项通过。
+- 两个终端构建：包体预算超限。运营方决定按复现规则重定基线。固定构建身份、Node 22.15.0、无 `.env.local` 的成对构建（main `ba78481a` 对本分支）读数与新基线写在 `docs/terminal-performance-baseline.md`「UI compliance fixes re-baseline (2026-11-20)」：`trade-terminal-page` +493、静态交易启动 +524、总量 +1,501（各取两种配对开关中较大的增量）；用本分支配对开的产物重跑预算脚本通过。配对开的静态启动余量 191 字节，main 自身只有 117，仍低于发布预检要求的 200 字节。
+
 ## 后续与替代关系
 
 - 未处理的中低项（未逐条核实）：报告 2.1 第 2–6 项、2.2 表、2.3 其余项、3.1 按钮状态（`hover:opacity-*`、原语缺 `not-data-disabled`、WalletModal 静息与悬停同值）、3.2.1 四个仪表盘弹窗的退场过渡、3.2.3 静态内容用 `bg-fill-weak`、3.3 触控按压反馈、4.2 仪表盘与弹窗的 `isResolving`、4.3 发送弹窗对新账号的模式提示、4.4 API 钱包被动横幅、4.5 硬编码千分位与英文 `aria-label`、6.3 成交历史 Type 列、6.5 Scale 订单数清空回弹（需要把草稿字段改成可空）、6.7、6.8，以及第七节官网两项。
 - 桌面历史表格与交易、资金费历史页的切换按钮 `aria-label` 仍用协议 coin（`Switch to @107 market`）；手机历史卡片已改用显示名。
 - Earn 行内 Withdraw 在没有存入时不给原因。
 - 第三轮 Codex 审查留下的三项 P3（见上节）。
-- 本分支只在本机提交，没有推送，也没有开 PR。
+- 发布预检前，配对开的静态交易启动余量（本分支 191 字节，main 117 字节）需要真实削减或运营方对上限的决定。
