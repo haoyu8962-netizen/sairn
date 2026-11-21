@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { toBig } from "@/lib/trade/numbers";
 import type { Side } from "@/lib/trade/types";
 import { createValidator, type Validator } from "../types";
@@ -19,7 +19,7 @@ export const reduceOnlyPositionExistsValidator: Validator<ReduceOnlyContext> = c
 	code: "TRG_005",
 	category: "trigger",
 	priority: 304,
-	getMessage: () => t`Reduce Only requires an open position`,
+	getMessage: (_ctx, translate) => translate(msg`Reduce Only requires an open position`),
 	validate: (ctx) => !isReduceOnlyOrder(ctx) || !!toBig(ctx.positionSize)?.abs().gt(0),
 });
 
@@ -28,7 +28,7 @@ export const reduceOnlyPositionDirectionValidator: Validator<ReduceOnlyContext> 
 	code: "TRG_006",
 	category: "trigger",
 	priority: 305,
-	getMessage: () => t`Order must reduce your current position`,
+	getMessage: (_ctx, translate) => translate(msg`Order must reduce your current position`),
 	validate: (ctx) => {
 		if (!isReduceOnlyOrder(ctx) || !toBig(ctx.positionSize)?.abs().gt(0)) return true;
 		return ctx.side === "sell" ? !!toBig(ctx.positionSize)?.gt(0) : !!toBig(ctx.positionSize)?.lt(0);
@@ -40,7 +40,7 @@ export const reduceOnlyPositionSizeValidator: Validator<ReduceOnlyContext> = cre
 	code: "TRG_007",
 	category: "trigger",
 	priority: 306,
-	getMessage: () => t`Reduce Only size exceeds position size`,
+	getMessage: (_ctx, translate) => translate(msg`Reduce Only size exceeds position size`),
 	validate: (ctx) => {
 		if (!isReduceOnlyOrder(ctx) || !toBig(ctx.positionSize)?.abs().gt(0)) return true;
 		const reducesPosition = ctx.side === "sell" ? !!toBig(ctx.positionSize)?.gt(0) : !!toBig(ctx.positionSize)?.lt(0);

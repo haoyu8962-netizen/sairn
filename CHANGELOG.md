@@ -121,6 +121,31 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- Transfer, Send and the phone's Account type tab no longer submit from a dialog that is closing:
+  during the exit animation their confirm controls are disabled and their handlers do nothing.
+- Phone trade, order and funding history cards name spot and HIP-3 markets as the official terminal
+  does (`HYPE/USDC`, `TSLA`) instead of the protocol coin (`@107`, `xyz:TSLA`); tapping a card still
+  opens the same market.
+- The Time In Force tooltip and order-form validation messages follow a language switch instead of
+  keeping the previous language.
+- The desktop account panel keeps Deposit, Withdraw and Perps / Spot in place and disabled while the
+  region check is still running, instead of replacing them with a regional sentence; Bridge is
+  disabled meanwhile. Deposit buttons on the account toolbar, Balances tab, top bar and Portfolio
+  keep the name Deposit while data or the region is still being resolved; only a confirmed
+  restriction shows "Deposit unavailable" and its reason. The positions toolbar's Withdraw is
+  disabled from its availability, not from whether an explanation exists. While the account mode is
+  still loading, disabled funds buttons tell screen readers that it is loading instead of asking for
+  a mode to be selected.
+- Phone trade history cards on the Trade History page show the fill's type, fee and explorer link,
+  and history, Vault, API wallet and leaderboard cards wrap long values instead of cutting them off.
+- Corners that were silently square (footer links and shortcut key, Settings copy control, markdown
+  link focus ring, Swap token panels) now use the defined radius scale, and dialog notices that used
+  faded strong borders use the weak notice border.
+- The phone order book's size-unit menu is no longer shown on the Trades view, where sizes are always
+  in the base asset; the desktop Trades tab no longer flashes every row after a market switch; the
+  phone order form never shows TP/SL fields for a market without TP/SL; a second trading-approval
+  error is no longer cleared early by the first one's timer.
+
 - Website Live market view: a one-sided best bid/offer keeps the quote withdrawn when an order-book
   snapshot from the same block arrives after it; only a newer snapshot or bbo restores it. The 02
   market section keeps its static content instead of failing when its inline market list is unreadable.

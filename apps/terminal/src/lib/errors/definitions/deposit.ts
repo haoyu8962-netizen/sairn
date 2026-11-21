@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { createValidator, type Validator } from "../types";
 
 interface HasDepositAmount {
@@ -30,7 +30,7 @@ export const depositMinAmountValidator: Validator<HasDepositAmount> = createVali
 	code: "DEP_001",
 	category: "deposit",
 	priority: 100,
-	getMessage: (ctx) => t`Minimum deposit is ${ctx.minDeposit} USDC`,
+	getMessage: (ctx, translate) => translate(msg`Minimum deposit is ${ctx.minDeposit} USDC`),
 	validate: (ctx) => ctx.amount === 0 || ctx.amount >= ctx.minDeposit,
 });
 
@@ -39,7 +39,7 @@ export const depositInsufficientBalanceValidator: Validator<HasWalletBalance> = 
 	code: "DEP_002",
 	category: "deposit",
 	priority: 101,
-	getMessage: () => t`Insufficient balance`,
+	getMessage: (_ctx, translate) => translate(msg`Insufficient balance`),
 	validate: (ctx) => ctx.amount === 0 || ctx.amount <= ctx.walletBalance,
 });
 
@@ -48,7 +48,7 @@ export const withdrawMinAmountValidator: Validator<HasWithdrawAmount> = createVa
 	code: "WDR_001",
 	category: "withdraw",
 	priority: 100,
-	getMessage: (ctx) => t`Minimum withdrawal is $${ctx.minWithdraw}`,
+	getMessage: (ctx, translate) => translate(msg`Minimum withdrawal is $${ctx.minWithdraw}`),
 	validate: (ctx) => ctx.amount === 0 || ctx.amount >= ctx.minWithdraw,
 });
 
@@ -57,7 +57,7 @@ export const withdrawInsufficientBalanceValidator: Validator<HasWithdrawableBala
 	code: "WDR_002",
 	category: "withdraw",
 	priority: 101,
-	getMessage: () => t`Insufficient balance`,
+	getMessage: (_ctx, translate) => translate(msg`Insufficient balance`),
 	validate: (ctx) => ctx.amount === 0 || ctx.amount <= ctx.withdrawableBalance,
 });
 

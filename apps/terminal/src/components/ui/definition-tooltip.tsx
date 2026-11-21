@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react";
 import { Tooltip } from "@sairn/ui";
 import type { ReactElement } from "react";
 import { getTooltip, type TooltipId } from "@/config/tooltips";
@@ -11,7 +12,8 @@ interface Props {
 }
 
 export function DefinitionTooltip({ topic, only, side = "top", align, children }: Props) {
-	const content = getTooltip(topic, { only });
+	const { _ } = useLingui();
+	const content = getTooltip(topic, _, { only });
 	return (
 		<Tooltip
 			side={side}

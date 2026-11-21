@@ -491,7 +491,7 @@ function PositionIsolatedMarginModalBody({ open, isMobile, position, onOpenChang
 							<p className="text-xs text-error">{t`Enter a positive amount with up to 6 decimal places.`}</p>
 						) : null}
 						{direction === "remove" ? (
-							<div className="flex items-start gap-2 rounded-xs border border-stroke-warning-strong/20 bg-warning-soft/10 p-2.5">
+							<div className="flex items-start gap-2 rounded-16 border border-stroke-warning-weak bg-warning-soft/10 p-2.5">
 								<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 								<p className="text-xs leading-relaxed text-warning">
 									{t`Removing margin increases liquidation risk. Hyperliquid will reject amounts that breach margin requirements.`}
@@ -541,7 +541,7 @@ function PositionIsolatedMarginModalBody({ open, isMobile, position, onOpenChang
 				)}
 
 				{positionStatus ? (
-					<div className="rounded-xs border border-stroke-error-strong/20 bg-error-soft p-2.5 text-xs text-error">
+					<div className="rounded-xs border border-stroke-error-weak bg-error-soft p-2.5 text-xs text-error">
 						{positionStatus}
 					</div>
 				) : null}

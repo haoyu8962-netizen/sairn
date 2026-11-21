@@ -3627,6 +3627,7 @@ msgstr "Favorites"
 
 #: src/components/trade-history/trade-history-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
+#: src/components/trade-history/trade-history-page.tsx
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
@@ -4670,6 +4671,10 @@ msgstr "Load more"
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "Loading"
+
+#: src/hooks/trade/use-funds-action-availability.ts
+msgid "Loading account mode. Funds actions are temporarily unavailable."
+msgstr "Loading account mode. Funds actions are temporarily unavailable."
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Loading asset information..."

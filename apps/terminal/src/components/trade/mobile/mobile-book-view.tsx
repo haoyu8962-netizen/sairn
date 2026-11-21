@@ -380,19 +380,21 @@ export function MobileBookView({
 						<span className="tabular-nums">{spreadText}</span>
 					</span>
 				)}
-				<Dropdown
-					triggerVariant="minimal"
-					size="xxs"
-					trigger={showOrderbookInQuote ? quoteToken : baseToken}
-					triggerAriaLabel={t(ORDERBOOK_LABELS.sizeUnit)}
-					triggerClassName={MOBILE_FILTER_CHIP_CLASS}
-					popupClassName="min-w-28"
-					align="end"
-					items={[
-						{ label: quoteToken, active: showOrderbookInQuote, onSelect: () => requestSizeMode(name, "quote") },
-						{ label: baseToken, active: !showOrderbookInQuote, onSelect: () => requestSizeMode(name, "base") },
-					]}
-				/>
+				{view === "book" && (
+					<Dropdown
+						triggerVariant="minimal"
+						size="xxs"
+						trigger={showOrderbookInQuote ? quoteToken : baseToken}
+						triggerAriaLabel={t(ORDERBOOK_LABELS.sizeUnit)}
+						triggerClassName={MOBILE_FILTER_CHIP_CLASS}
+						popupClassName="min-w-28"
+						align="end"
+						items={[
+							{ label: quoteToken, active: showOrderbookInQuote, onSelect: () => requestSizeMode(name, "quote") },
+							{ label: baseToken, active: !showOrderbookInQuote, onSelect: () => requestSizeMode(name, "base") },
+						]}
+					/>
+				)}
 			</div>
 
 			{view === "book" ? (

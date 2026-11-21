@@ -433,6 +433,31 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## UI compliance fixes re-baseline (2026-11-20)
+
+PR #15 (`claude/ui-compliance-fixes` `500e9b1f`: order-form validators that take an explicit translator, funds-entry
+presentation on the account panel, positions toolbar, top bar and Portfolio, phone history market names, trade-history
+phone cards, the trades panel's per-market first-snapshot state and three contract tests) exceeded the
+`trade-terminal-page` allowance in both configurations and static trade startup with pairing on. Measured with the
+fixed identity of the reproduction protocol, Node 22.15.0, pnpm 10.21.0, no `.env.local` and no `NITRO_PRESET`; the
+base is `main` `ba78481a` (built in a worktree whose only change was the website snapshot), the head is the PR branch;
+451 client chunks pairing off and 452 on. The two worktrees were built at the same time, one configuration at a time.
+
+| Surface | Pairing off main | Pairing off PR | Pairing on main | Pairing on PR |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,671,597 | 1,672,121 (+524) | 1,672,816 | 1,673,266 (+450) |
+| Total client gzip | 3,400,413 | 3,401,914 (+1,501) | 3,404,273 | 3,404,897 (+624) |
+| `trade-terminal-page` | 128,849 | 129,334 (+485) | 128,861 | 129,354 (+493) |
+
+Each baseline was raised by the larger of its two increments: static startup +524 (to 1,663,457), total +1,501 (to
+3,396,830), `trade-terminal-page` +493 (to 125,637). After the raise pairing on keeps 191 bytes of static startup
+(main itself keeps 117 there) and 283 of `trade-terminal-page`; pairing off keeps 1,336 and 303. Per chunk, pairing
+off: `trade-terminal-page` +485, `portfolio` +154, `positions-panel` +153, `account-panel` +150,
+`use-account-abstraction-control` +113, the English catalog +91, the stylesheet −144. The CI builds of the PR read
+4,209 and 10,356 for the two exceeded surfaces with pairing on, within about 25 bytes of these local readings. The
+release configuration was not built; static startup with pairing on stays under the 200-byte margin the release
+preflight asks for, as it already did on `main`.
+
 ## Fix integration third review round re-baseline (2026-11-20)
 
 The third review round (deposit dialog terminal states, the tracking notifier keeping an outcome until the user

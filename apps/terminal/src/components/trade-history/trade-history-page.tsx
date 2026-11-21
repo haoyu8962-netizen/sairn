@@ -339,6 +339,8 @@ export function TradeHistoryPage({ address }: Props) {
 								const market = markets.getMarket(fill.coin);
 								const closedPnl = getUserFillNetClosedPnl(fill, market);
 								const pnlQuote = getUserFillQuoteToken(fill, market);
+								const hasExplorerTransaction = hasUserFillExplorerTransaction(fill);
+								const fillTime = formatDateTime(fill.time, { locale, dateStyle: "short", timeStyle: "short" });
 								return (
 									<article key={getUserFillKey(fill)} className="px-4 py-3">
 										<div className="flex min-w-0 items-center justify-between gap-3">
@@ -350,20 +352,31 @@ export function TradeHistoryPage({ address }: Props) {
 												className="h-auto min-h-0 border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
 												fit
 											/>
-											<time className="shrink-0 text-xs tabular-nums text-fg-muted">
-												{formatDateTime(fill.time, { locale, dateStyle: "short", timeStyle: "short" })}
-											</time>
+											{hasExplorerTransaction ? (
+												<a
+													className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs tabular-nums text-fg-muted hover:text-fg"
+													href={getExplorerTxUrl(fill.hash, isTestnet)}
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													<time>{fillTime}</time>
+													<ArrowSquareOutIcon className="size-3" aria-hidden="true" />
+												</a>
+											) : (
+												<time className="shrink-0 text-xs tabular-nums text-fg-muted">{fillTime}</time>
+											)}
 										</div>
-										<div className="mt-2 flex items-center gap-2 text-2xs font-semibold">
+										<div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs font-semibold">
 											<span className={getDirectionColorClass(fill, address)}>{getDirection(fill).label}</span>
+											<span className="text-fg-muted">{getTypeLabel(fill)}</span>
 											<span className="text-fg-muted">{getRoleLabel(fill)}</span>
 										</div>
-										<dl className="mt-3 grid grid-cols-3 gap-3">
+										<dl className="mt-3 grid grid-cols-2 gap-3">
 											<div className="min-w-0">
 												<dt className="text-2xs text-fg-muted">
 													<Trans>Price</Trans>
 												</dt>
-												<dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-fg">
+												<dd className="mt-0.5 break-words text-xs font-semibold tabular-nums text-fg">
 													<bdi dir="ltr">
 														{formatPrice(fill.px, getMarketPriceFormatOptions(markets.getMarket(fill.coin)))}
 													</bdi>
@@ -373,9 +386,19 @@ export function TradeHistoryPage({ address }: Props) {
 												<dt className="text-2xs text-fg-muted">
 													<Trans>Size</Trans>
 												</dt>
-												<dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-fg">
+												<dd className="mt-0.5 break-words text-xs font-semibold tabular-nums text-fg">
 													<bdi dir="ltr">
 														{market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz)}
+													</bdi>
+												</dd>
+											</div>
+											<div className="min-w-0">
+												<dt className="text-2xs text-fg-muted">
+													<Trans>Fee</Trans>
+												</dt>
+												<dd className="mt-0.5 break-words text-xs font-semibold tabular-nums text-fg-muted">
+													<bdi dir="ltr">
+														{formatToken(fill.fee, { symbol: markets.getTokenDisplayName(fill.feeToken) })}
 													</bdi>
 												</dd>
 											</div>
@@ -385,7 +408,7 @@ export function TradeHistoryPage({ address }: Props) {
 												</dt>
 												<dd
 													className={cn(
-														"mt-0.5 truncate text-xs font-semibold tabular-nums",
+														"mt-0.5 break-words text-xs font-semibold tabular-nums",
 														closedPnl ? getMarketCloseValueColorClass(closedPnl) : "text-fg-muted",
 													)}
 												>

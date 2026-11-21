@@ -212,6 +212,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 	};
 
 	const isValidAmount =
+		open &&
 		fundsActionAvailability.internalTransfer.available &&
 		isAmountWithinBalance(amount, availableBalanceExact) &&
 		hasWalletAccess &&
@@ -244,7 +245,8 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 	}
 
 	async function handleTransfer() {
-		if (!isValidAmount || !accountDataReady || isPending || !walletAddress || internalTransfersDisabled) return;
+		if (!open || !isValidAmount || !accountDataReady || isPending || !walletAddress || internalTransfersDisabled)
+			return;
 
 		const submissionIdentity = submissionIdentityRef.current;
 		if (!submissionIdentity || submissionRef.current) return;

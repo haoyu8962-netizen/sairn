@@ -58,7 +58,7 @@ function renderInline(text: string): ReactNode[] {
 						key={key++}
 						href={href}
 						{...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-						className="text-signal underline underline-offset-2 hover:text-signal-hover focus-visible:rounded-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+						className="text-signal underline underline-offset-2 hover:text-signal-hover focus-visible:rounded-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
 					>
 						{match[1]}
 					</a>,

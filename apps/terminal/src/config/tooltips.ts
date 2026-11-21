@@ -1,4 +1,5 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
+import type { Translate } from "@/lib/translate";
 
 export interface DefinitionItem {
 	key: string;
@@ -11,26 +12,26 @@ export interface DefinitionTooltipContent {
 	items: DefinitionItem[];
 }
 
-type TooltipBuilder = () => DefinitionTooltipContent;
+type TooltipBuilder = (translate: Translate) => DefinitionTooltipContent;
 
 const TOOLTIPS = {
-	tif: (): DefinitionTooltipContent => ({
-		title: t`Time In Force`,
+	tif: (translate: Translate): DefinitionTooltipContent => ({
+		title: translate(msg`Time In Force`),
 		items: [
 			{
 				key: "Gtc",
-				term: t`GTC (Good Til Cancel)`,
-				definition: t`Order will rest until filled or canceled.`,
+				term: translate(msg`GTC (Good Til Cancel)`),
+				definition: translate(msg`Order will rest until filled or canceled.`),
 			},
 			{
 				key: "Ioc",
-				term: t`IOC (Immediate Or Cancel)`,
-				definition: t`Any portion that is not immediately filled will be canceled.`,
+				term: translate(msg`IOC (Immediate Or Cancel)`),
+				definition: translate(msg`Any portion that is not immediately filled will be canceled.`),
 			},
 			{
 				key: "Alo",
-				term: t`ALO (Add Liquidity Only)`,
-				definition: t`Order will exist only as a limit order on the book. Also known as post-only.`,
+				term: translate(msg`ALO (Add Liquidity Only)`),
+				definition: translate(msg`Order will exist only as a limit order on the book. Also known as post-only.`),
 			},
 		],
 	}),
@@ -38,8 +39,12 @@ const TOOLTIPS = {
 
 export type TooltipId = keyof typeof TOOLTIPS;
 
-export function getTooltip(id: TooltipId, options?: { only?: readonly string[] }): DefinitionTooltipContent {
-	const content = TOOLTIPS[id]();
+export function getTooltip(
+	id: TooltipId,
+	translate: Translate,
+	options?: { only?: readonly string[] },
+): DefinitionTooltipContent {
+	const content = TOOLTIPS[id](translate);
 	if (!options?.only) return content;
 	const allow = new Set(options.only);
 	return { ...content, items: content.items.filter((item) => allow.has(item.key)) };

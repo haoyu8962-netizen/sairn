@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { formatPriceForOrder } from "@/domain/trade/orders";
 import { isPositive } from "@/lib/trade/numbers";
 import { validateSlPrice, validateTpPrice } from "@/lib/trade/tpsl";
@@ -27,7 +27,7 @@ export const tpSlReturnValidator: Validator<TpSlContext> = createValidator({
 	code: "TPSL_004",
 	category: "tpsl",
 	priority: 199,
-	getMessage: () => t`Invalid amount`,
+	getMessage: (_ctx, translate) => translate(msg`Invalid amount`),
 	validate: (ctx) => !ctx.tpSlEnabled || !ctx.canUseTpSl || !ctx.tpSlReturnInvalid,
 });
 
@@ -36,7 +36,7 @@ export const enterTpSlPriceValidator: Validator<TpSlContext> = createValidator({
 	code: "TPSL_001",
 	category: "tpsl",
 	priority: 200,
-	getMessage: () => t`Enter TP or SL price`,
+	getMessage: (_ctx, translate) => translate(msg`Enter TP or SL price`),
 	validate: (ctx) => {
 		if (!ctx.tpSlEnabled || !ctx.canUseTpSl) return true;
 		if (ctx.tpSlReturnInvalid) return true;
@@ -51,7 +51,8 @@ export const tpPriceValidator: Validator<TpSlContext> = createValidator({
 	code: "TPSL_002",
 	category: "tpsl",
 	priority: 201,
-	getMessage: (ctx) => (ctx.side === "buy" ? t`TP must be above entry` : t`TP must be below entry`),
+	getMessage: (ctx, translate) =>
+		ctx.side === "buy" ? translate(msg`TP must be above entry`) : translate(msg`TP must be below entry`),
 	validate: (ctx) => {
 		if (!ctx.tpSlEnabled || !ctx.canUseTpSl) return true;
 		const hasTp = isPositive(ctx.tpPriceNum);
@@ -65,7 +66,8 @@ export const slPriceValidator: Validator<TpSlContext> = createValidator({
 	code: "TPSL_003",
 	category: "tpsl",
 	priority: 202,
-	getMessage: (ctx) => (ctx.side === "buy" ? t`SL must be below entry` : t`SL must be above entry`),
+	getMessage: (ctx, translate) =>
+		ctx.side === "buy" ? translate(msg`SL must be below entry`) : translate(msg`SL must be above entry`),
 	validate: (ctx) => {
 		if (!ctx.tpSlEnabled || !ctx.canUseTpSl) return true;
 		const hasSl = isPositive(ctx.slPriceNum);

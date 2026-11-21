@@ -109,6 +109,32 @@ describe("AccountModeModal", () => {
 		expect(onOpenChange).not.toHaveBeenCalled();
 	});
 
+	it("keeps Connect usable in an open dialog while an earlier update is still pending", () => {
+		const onConnect = vi.fn();
+		act(() =>
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<AccountModeModal
+						open
+						onOpenChange={() => {}}
+						currentMode={null}
+						canChange={false}
+						isUpdating
+						onConnect={onConnect}
+						onApply={vi.fn()}
+					/>
+				</I18nProvider>,
+			),
+		);
+
+		const connect = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent === "Connect",
+		);
+		expect(connect?.disabled).toBe(false);
+		act(() => connect?.click());
+		expect(onConnect).toHaveBeenCalledOnce();
+	});
+
 	it("blocks account mode changes when the current mode is unavailable", () => {
 		act(() =>
 			root.render(

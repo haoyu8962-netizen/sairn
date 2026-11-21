@@ -7,7 +7,8 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const TERMINAL_SRC = resolve(TEST_DIR, "../..");
 const ALERT_PRIMITIVE = resolve(TERMINAL_SRC, "../../../packages/ui/src/alert.tsx");
 
-const NOTICE_BACKGROUND = /(?:^|\s)bg-(?:warning|error|success|info|signal)-soft(?:\s|$)/;
+const NOTICE_BACKGROUND =
+	/(?:^|\s)!?bg-(?:warning|error|success|info|signal)-soft(?:\/(?:\d+(?:\.\d+)?|\[[^\]\s]+\]|\([^)\s]+\)))?!?(?:\s|$)/;
 const PENDING_REASON = "trading dialog notice that predates the rule; waiting for a design decision";
 
 const PENDING_EXCEPTIONS = [
@@ -16,10 +17,19 @@ const PENDING_EXCEPTIONS = [
 		contains: "block rounded-8 bg-warning-soft px-3 py-2",
 		count: 1,
 	},
-	{ file: "components/trade/components/spot-swap-modal.tsx", contains: "border-stroke-warning-strong/20", count: 5 },
+	{
+		file: "components/trade/components/spot-swap-modal.tsx",
+		contains: "flex items-start gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5",
+		count: 3,
+	},
+	{
+		file: "components/trade/components/spot-swap-modal.tsx",
+		contains: "flex items-start gap-2 p-2.5 bg-warning-soft border border-stroke-warning-weak rounded-8",
+		count: 2,
+	},
 	{
 		file: "components/trade/positions/position-isolated-margin-modal.tsx",
-		contains: "rounded-xs border border-stroke-error-strong/20 bg-error-soft",
+		contains: "rounded-xs border border-stroke-error-weak bg-error-soft",
 		count: 1,
 	},
 	{
@@ -65,6 +75,7 @@ const DIALOG_ELEMENT = /<(?:AdaptiveModal|Modal|ModalPopup|Drawer|DrawerContent)
 const DIALOG_CONTENT_SOURCES = [
 	"components/trade/tradebox/deposit/deposit-method-chooser.tsx",
 	"components/trade/tradebox/deposit/deposit-form.tsx",
+	"components/trade/tradebox/bridge/confirmation-screen.tsx",
 ];
 const STRING_LITERAL = /"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g;
 

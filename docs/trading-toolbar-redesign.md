@@ -140,7 +140,7 @@ The share snapshot uses the exchange position's `unrealizedPnl` and `returnOnEqu
 
 ## Desktop grid behavior
 
-At the compact-desktop breakpoint the account table owns the fixed ten-column left region and can be resized vertically from its south edge, but not horizontally. Its default 26.4-row height provides an approximately 868px table viewport, so the full current position set uses the page's document scroll instead of introducing a nested table scrollbar. Trading remains at the upper right; market data and account information form the right-side stack. All seven keyed panels remain mounted and the 14-column geometry is unchanged. Storage key `v7` invalidates the former compact geometry, including `v6`, so stale saved dimensions cannot restore the double-scroll layout.
+Superseded (2026-11-20 note): this section described the storage-key `v7` compact geometry, in which the md account table had a default 26.4-row height and a south resize handle. That geometry no longer applies: [desktop grid layout](desktop-grid-layout.md) and `apps/terminal/src/config/desktop-grid-layout.ts` own the current spans, resize handles and storage key (`trade-desktop-grid-layout-v12` when this note was written, with the md account table at 14 rows and no resize handle). All seven keyed panels still remain mounted.
 
 ## Theme-token mapping
 

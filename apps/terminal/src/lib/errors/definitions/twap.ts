@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { TWAP_MIN_NOTIONAL_USD, TWAP_MINUTES_MAX, TWAP_MINUTES_MIN } from "@/config/trade";
 import { isPositive, toBig } from "@/lib/trade/numbers";
 import type { Side } from "@/lib/trade/types";
@@ -19,7 +19,7 @@ export const twapMinutesRangeValidator: Validator<TwapContext> = createValidator
 	code: "TWAP_001",
 	category: "twap",
 	priority: 50,
-	getMessage: () => t`TWAP minutes must be ${TWAP_MINUTES_MIN}-${TWAP_MINUTES_MAX}`,
+	getMessage: (_ctx, translate) => translate(msg`TWAP minutes must be ${TWAP_MINUTES_MIN}-${TWAP_MINUTES_MAX}`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder) return true;
 		const minutes = ctx.twapMinutesNum;
@@ -34,7 +34,7 @@ export const twapMinNotionalValidator: Validator<TwapContext> = createValidator(
 	code: "TWAP_002",
 	category: "twap",
 	priority: 51,
-	getMessage: () => t`TWAP order value must be at least $${TWAP_MIN_NOTIONAL_USD}.`,
+	getMessage: (_ctx, translate) => translate(msg`TWAP order value must be at least $${TWAP_MIN_NOTIONAL_USD}.`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder) return true;
 		const orderValue = toBig(ctx.orderValue);
@@ -48,7 +48,7 @@ export const twapTriggerPricePositiveValidator: Validator<TwapContext> = createV
 	code: "TWAP_003",
 	category: "twap",
 	priority: 52,
-	getMessage: () => t`Enter a valid trigger price`,
+	getMessage: (_ctx, translate) => translate(msg`Enter a valid trigger price`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder || ctx.twapTriggerPriceNum === null) return true;
 		return isPositive(ctx.twapTriggerPriceNum);
@@ -60,7 +60,8 @@ export const twapStopPricePositiveValidator: Validator<TwapContext> = createVali
 	code: "TWAP_004",
 	category: "twap",
 	priority: 53,
-	getMessage: (ctx) => (ctx.side === "buy" ? t`Enter a valid max price` : t`Enter a valid min price`),
+	getMessage: (ctx, translate) =>
+		ctx.side === "buy" ? translate(msg`Enter a valid max price`) : translate(msg`Enter a valid min price`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder || ctx.twapStopPriceNum === null) return true;
 		return isPositive(ctx.twapStopPriceNum);
@@ -72,7 +73,7 @@ export const twapTriggerDiffersFromMarkValidator: Validator<TwapContext> = creat
 	code: "TWAP_005",
 	category: "twap",
 	priority: 54,
-	getMessage: () => t`Trigger price must differ from mark`,
+	getMessage: (_ctx, translate) => translate(msg`Trigger price must differ from mark`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder || !isPositive(ctx.twapTriggerPriceNum) || ctx.markPx <= 0) return true;
 		return ctx.twapTriggerPriceNum !== ctx.markPx;
@@ -84,7 +85,8 @@ export const twapStopDirectionValidator: Validator<TwapContext> = createValidato
 	code: "TWAP_006",
 	category: "twap",
 	priority: 55,
-	getMessage: (ctx) => (ctx.side === "buy" ? t`Max price must be above mark` : t`Min price must be below mark`),
+	getMessage: (ctx, translate) =>
+		ctx.side === "buy" ? translate(msg`Max price must be above mark`) : translate(msg`Min price must be below mark`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder || !isPositive(ctx.twapStopPriceNum) || ctx.markPx <= 0) return true;
 		if (isPositive(ctx.twapTriggerPriceNum)) return true;
@@ -98,8 +100,10 @@ export const twapStopBeyondTriggerValidator: Validator<TwapContext> = createVali
 	code: "TWAP_007",
 	category: "twap",
 	priority: 56,
-	getMessage: (ctx) =>
-		ctx.side === "buy" ? t`Max price must be above trigger price` : t`Min price must be below trigger price`,
+	getMessage: (ctx, translate) =>
+		ctx.side === "buy"
+			? translate(msg`Max price must be above trigger price`)
+			: translate(msg`Min price must be below trigger price`),
 	validate: (ctx) => {
 		if (!ctx.twapOrder || !isPositive(ctx.twapTriggerPriceNum) || !isPositive(ctx.twapStopPriceNum)) return true;
 		if (ctx.side === "buy") return ctx.twapStopPriceNum > ctx.twapTriggerPriceNum;

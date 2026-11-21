@@ -20,6 +20,12 @@ describe("mobile order book header contract", () => {
 		expect(SOURCE).not.toContain("ArrowsLeftRightIcon");
 	});
 
+	it("offers the size unit only on the book view, since recent trades always show base sizes", () => {
+		expect(SOURCE).toMatch(
+			/\{view === "book" && \(\s*<Dropdown\s[^<]*?triggerAriaLabel=\{t\(ORDERBOOK_LABELS\.sizeUnit\)\}/,
+		);
+	});
+
 	it("keeps the split ladder headings aligned to their columns and names the current unit", () => {
 		const headings = SOURCE.slice(
 			SOURCE.indexOf('data-slot="split-orderbook-column-headings"'),

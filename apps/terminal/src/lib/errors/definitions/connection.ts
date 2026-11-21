@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { createValidator, type Validator } from "../types";
 
 interface HasConnection {
@@ -24,7 +24,7 @@ export const walletNotConnectedValidator: Validator<HasConnection> = createValid
 	code: "CONN_001",
 	category: "connection",
 	priority: 10,
-	getMessage: () => t`Not connected`,
+	getMessage: (_ctx, translate) => translate(msg`Not connected`),
 	validate: (ctx) => ctx.isConnected,
 });
 
@@ -33,7 +33,7 @@ export const walletLoadingValidator: Validator<HasWalletLoading> = createValidat
 	code: "CONN_002",
 	category: "connection",
 	priority: 11,
-	getMessage: () => t`Loading wallet...`,
+	getMessage: (_ctx, translate) => translate(msg`Loading wallet...`),
 	validate: (ctx) => !ctx.isWalletLoading,
 });
 
@@ -42,7 +42,7 @@ export const signerNotReadyValidator: Validator<HasReadyToTrade> = createValidat
 	code: "CONN_003",
 	category: "connection",
 	priority: 60,
-	getMessage: () => t`Signer not ready`,
+	getMessage: (_ctx, translate) => translate(msg`Signer not ready`),
 	validate: (ctx) => ctx.isReadyToTrade,
 });
 

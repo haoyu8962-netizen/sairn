@@ -41,7 +41,7 @@ export function SuccessScreen({
 	return (
 		<div className="flex flex-1 flex-col gap-4">
 			<div className="flex flex-col items-center gap-3 pt-6 pb-2">
-				<div className="flex size-12 items-center justify-center rounded-full bg-success-soft border border-stroke-success-strong/30">
+				<div className="flex size-12 items-center justify-center rounded-full bg-success-soft border border-stroke-success-weak">
 					<CheckCircleIcon className="size-6 text-success" weight="fill" />
 				</div>
 				<div className="text-center space-y-1">

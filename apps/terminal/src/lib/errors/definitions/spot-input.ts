@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { ORDER_MIN_NOTIONAL_USD } from "@/config/trade";
 import { createValidator, type Validator } from "../types";
 
@@ -14,7 +14,7 @@ export const spotEnterLimitPriceValidator: Validator<SpotInputContext> = createV
 	code: "SPOT_INP_001",
 	category: "input",
 	priority: 100,
-	getMessage: () => t`Enter limit price`,
+	getMessage: (_ctx, translate) => translate(msg`Enter limit price`),
 	validate: (ctx) => !ctx.usesLimitPrice || ctx.price > 0,
 });
 
@@ -23,7 +23,7 @@ export const spotEnterSizeValidator: Validator<SpotInputContext> = createValidat
 	code: "SPOT_INP_002",
 	category: "input",
 	priority: 101,
-	getMessage: () => t`Enter size`,
+	getMessage: (_ctx, translate) => translate(msg`Enter size`),
 	validate: (ctx) => ctx.sizeValue > 0,
 });
 
@@ -32,6 +32,6 @@ export const spotMinOrderNotionalValidator: Validator<SpotInputContext> = create
 	code: "SPOT_INP_003",
 	category: "input",
 	priority: 102,
-	getMessage: () => t`Min order $${ORDER_MIN_NOTIONAL_USD}`,
+	getMessage: (_ctx, translate) => translate(msg`Min order $${ORDER_MIN_NOTIONAL_USD}`),
 	validate: (ctx) => ctx.orderValue <= 0 || ctx.orderValue >= ORDER_MIN_NOTIONAL_USD,
 });

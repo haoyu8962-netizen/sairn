@@ -1,6 +1,7 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { getOffTickPriceExample } from "@/domain/trade/orders";
 import type { Side } from "@/lib/trade/types";
+import type { Translate } from "@/lib/translate";
 import { createValidator, type Validator } from "../types";
 
 export interface PriceTickContext {
@@ -23,9 +24,11 @@ function getExample(ctx: PriceTickContext, value: string, side?: Side): string |
 	return getOffTickPriceExample(value, { assetId: ctx.assetId, szDecimals: ctx.szDecimals }, side);
 }
 
-function getTickMessage(ctx: PriceTickContext, example: string | null): string {
+function getTickMessage(ctx: PriceTickContext, example: string | null, translate: Translate): string {
 	const validPrice = ctx.formatDecimalString(example ?? "");
-	return t`Price must be a multiple of the tick size, with at most 5 significant figures. E.g., ${validPrice}`;
+	return translate(
+		msg`Price must be a multiple of the tick size, with at most 5 significant figures. E.g., ${validPrice}`,
+	);
 }
 
 export const limitPriceTickValidator: Validator<PriceTickContext> = createValidator({
@@ -33,7 +36,7 @@ export const limitPriceTickValidator: Validator<PriceTickContext> = createValida
 	code: "INP_006",
 	category: "input",
 	priority: 105,
-	getMessage: (ctx) => getTickMessage(ctx, getExample(ctx, ctx.limitPriceInput, ctx.side)),
+	getMessage: (ctx, translate) => getTickMessage(ctx, getExample(ctx, ctx.limitPriceInput, ctx.side), translate),
 	validate: (ctx) => !ctx.usesLimitPrice || getExample(ctx, ctx.limitPriceInput, ctx.side) === null,
 });
 
@@ -42,7 +45,7 @@ export const triggerPriceTickValidator: Validator<PriceTickContext> = createVali
 	code: "INP_007",
 	category: "input",
 	priority: 106,
-	getMessage: (ctx) => getTickMessage(ctx, getExample(ctx, ctx.triggerPriceInput)),
+	getMessage: (ctx, translate) => getTickMessage(ctx, getExample(ctx, ctx.triggerPriceInput), translate),
 	validate: (ctx) => !ctx.usesTriggerPrice || getExample(ctx, ctx.triggerPriceInput) === null,
 });
 
@@ -55,7 +58,7 @@ export const twapTriggerPriceTickValidator: Validator<PriceTickContext> = create
 	code: "INP_008",
 	category: "input",
 	priority: 107,
-	getMessage: (ctx) => getTickMessage(ctx, getExample(ctx, ctx.twapTriggerPriceInput)),
+	getMessage: (ctx, translate) => getTickMessage(ctx, getExample(ctx, ctx.twapTriggerPriceInput), translate),
 	validate: (ctx) => !usesTwapPrices(ctx) || getExample(ctx, ctx.twapTriggerPriceInput) === null,
 });
 
@@ -64,6 +67,6 @@ export const twapStopPriceTickValidator: Validator<PriceTickContext> = createVal
 	code: "INP_009",
 	category: "input",
 	priority: 108,
-	getMessage: (ctx) => getTickMessage(ctx, getExample(ctx, ctx.twapStopPriceInput, ctx.side)),
+	getMessage: (ctx, translate) => getTickMessage(ctx, getExample(ctx, ctx.twapStopPriceInput, ctx.side), translate),
 	validate: (ctx) => !usesTwapPrices(ctx) || getExample(ctx, ctx.twapStopPriceInput, ctx.side) === null,
 });

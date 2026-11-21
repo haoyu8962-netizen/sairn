@@ -27,7 +27,7 @@ Never cause **literal doubling** of the Tailwind property prefix. If a token is 
 5. Update this doc.
 
 ### Surfaces — elevation (sunken → background → surface → overlay)
-- `bg-sunken` page/recessed background (light: `#f5f6fa`, dark: `#000000`)
+- `bg-sunken` page/recessed background (light: `#f5f6fa`, shared dark default: `#0a0a0a`, terminal dark: `#000000`)
 - `bg-background` default page background (light: `#ffffff`, shared dark default: `#12131a`)
 - `bg-grid-container` terminal desktop grid underlay visible through panel gutters (light: `#f1f3f6`, terminal dark: `#1b2429`)
 - `bg-dashboard-canvas` branded data-dashboard canvas behind raised page content (light: `#f1f3f6`, terminal dark: `#04251f`)
@@ -99,7 +99,7 @@ All the above also work as `ring-stroke-*`, `outline-stroke-*`, `divide-stroke-*
 ### Typography — families and scale
 - `font-sans` is Inter Variable and the default for every surface. `font-market-close` is IBM Plex Sans Variable for the redesigned trading surfaces (header, market overview, token selector, account tables, funds dialogs); the token name is historical and stays until a rename is scheduled. `font-mono` is the system monospace stack for addresses and keys. Do not add a third webfont or an arbitrary `font-[…]` family.
 - The terminal declares its webfonts in `apps/terminal/src/styles.css`; `.claude/rules/startup-rendering.md` owns their `font-display`, preload and startup-gate rules. Surfaces that cannot wait for a webfont stay on system fonts: the bootstrap error page, and the chart iframe, whose document cannot see the application `@font-face` rules (`docs/runtime-guardrails.md` §4).
-- The named size scale pairs each size with a line height: `text-3xs` 10/14, `text-2xs` 11/16, `text-xs` 12/16, `text-2sm` 13/18, `text-sm` 14/20, `text-base` 16/24, `text-lg` 20/28, `text-xl` 28/36, `text-2xl` 40/48, `text-3xl` 56/64. `packages/ui/src/globals.css` and the terminal `@theme` declare the same values and `typography-scale-contract` keeps them equal; the terminal alone shrinks `xl` / `2xl` / `3xl` at 1000px. Relative sizes such as `text-[0.9em]` are ratcheted separately from `text-[Npx]` and are only for text that must scale with its parent, like inline code.
+- The named size scale pairs each size with a line height: `text-3xs` 10/14, `text-2xs` 11/16, `text-xs` 12/16, `text-2sm` 13/18, `text-sm` 14/20, `text-base` 16/24, `text-lg` 20/28, `text-xl` 28/36, `text-2xl` 40/48, `text-3xl` 56/64. `packages/ui/src/globals.css` and the terminal `@theme` declare the same values and `typography-scale-contract` keeps them equal. Both shrink `xl` / `2xl` / `3xl` on small screens: the package at 767px (28/36, 36/44, 40/48) and the terminal at 1000px (24/32, 32/40, 36/44); the terminal's rule sits in the same `@layer base` after the package import, so in the terminal its 1000px values apply. Relative sizes such as `text-[0.9em]` are ratcheted separately from `text-[Npx]` and are only for text that must scale with its parent, like inline code.
 - Every `text-[Npx]` that carried its own `leading-*` in the same class string now uses the named size. What the ratchet still counts either inherits its line height, so the named size would change it and its children and needs a visual check, or has no named equivalent (7, 8, 9, 15, 17, 18, 32px) and needs a design decision. `text-[28px]`, `text-[40px]` and `text-[56px]` are not `text-xl` / `text-2xl` / `text-3xl`, because those three shrink at 1000px.
 - Write `leading-*` after the font size it belongs to. `cn()` treats a font size as replacing any earlier `leading-*` of the same variant, so `cn("leading-5 text-2sm")` renders `text-2sm` with its default 18px line height while `cn("text-2sm leading-5")` keeps 20px.
 
@@ -118,6 +118,6 @@ All the above also work as `ring-stroke-*`, `outline-stroke-*`, `divide-stroke-*
 - `bg-sel` selection highlight
 
 ### Border Radius
-- Use named radius utilities so `--radius-factor` can tune the product consistently; never use arbitrary pixel radii.
+- Use named radius utilities so `--radius-factor` can tune the product consistently; never use arbitrary pixel radii. A numeric `rounded-N` exists only for the `--radius-N` values in `packages/ui/src/globals.css` (4, 8, 12, 16, 20, 24, 32): Tailwind generates no rule for any other number, so `rounded-6` or `rounded-10` renders a square corner. `design-token-ratchet.test.ts` fails on such a class in the terminal or the UI package.
 - Shared controls default to the radius provided by `@sairn/ui` (currently `rounded-8`). Dashboard pages use `rounded-24` for page surfaces and `rounded-16` for the cards and notices inside them (`style-ui-guide.md`, Dashboard page gutters); dialogs keep `rounded-32` and menus `rounded-24`.
 - Use `rounded-full` only for pills, tags, and circular indicators. Document and test any design exception instead of embedding a raw pixel value.

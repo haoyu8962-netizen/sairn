@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { createValidator, type Validator } from "../types";
 
 export interface OpenInterestCapContext {
@@ -11,7 +11,9 @@ export const limitOrderOpenInterestCapValidator: Validator<OpenInterestCapContex
 	code: "OIC_001",
 	category: "restriction",
 	priority: 45,
-	getMessage: () =>
-		t`The limit order would be canceled after resting because open interest is capped. Use market orders to close positions.`,
+	getMessage: (_ctx, translate) =>
+		translate(
+			msg`The limit order would be canceled after resting because open interest is capped. Use market orders to close positions.`,
+		),
 	validate: (ctx) => !(ctx.openInterestCapped && ctx.usesLimitPrice),
 });

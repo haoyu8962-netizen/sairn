@@ -281,9 +281,24 @@ vi.mock("@/lib/hyperliquid", () => ({
 	useHyperliquid: () => ({ env: "Mainnet", info: { userFills: mocks.snapshotFills } }),
 	useMarkets: () => ({
 		getMarket: (coin: string) =>
-			coin === "xyz:TSLA"
-				? { kind: "builderPerp", shortName: "TSLA", szDecimals: 3, quoteToken: { name: "USDT0", displayName: "USDT" } }
-				: { kind: "perp", shortName: coin, szDecimals: coin === "BTC" ? 4 : 3 },
+			coin === "@107"
+				? {
+						kind: "spot",
+						pairName: "HYPE/USDC",
+						shortName: "HYPE",
+						szDecimals: 2,
+						tokensInfo: [{ name: "HYPE" }, { name: "USDC" }],
+					}
+				: coin === "xyz:TSLA"
+					? {
+							kind: "builderPerp",
+							dex: "xyz",
+							pairName: "TSLA-USDT",
+							shortName: "TSLA",
+							szDecimals: 3,
+							quoteToken: { name: "USDT0", displayName: "USDT" },
+						}
+					: { kind: "perp", pairName: `${coin}-USDC`, shortName: coin, szDecimals: coin === "BTC" ? 4 : 3 },
 		getSzDecimals: (coin: string) => (coin === "BTC" ? 4 : 3),
 		getTokenDisplayName: (name: string) => (name === "UBTC" ? "BTC" : name),
 	}),
@@ -578,6 +593,42 @@ describe("mobile history disclosure cards", () => {
 
 		expect(container.textContent).toContain("+$12.38");
 		expect(container.textContent).toContain("-$0.08");
+	});
+
+	it("names spot and HIP-3 markets as the official terminal does while navigating by the API coin", () => {
+		const [fill] = createFills();
+		mocks.fills = [{ ...fill, coin: "@107", sz: "1.5" }];
+		render(<MobileHistoryTab scrollMode="page" />);
+
+		expect(container.textContent).toContain("HYPE/USDC");
+		expect(container.textContent).toContain("1.50 HYPE");
+		expect(container.textContent).not.toContain("@107");
+		const marketButton = container.querySelector<HTMLButtonElement>('button[aria-label="Switch to HYPE/USDC market"]');
+		act(() => marketButton?.click());
+		expect(mocks.navigateToMarket).toHaveBeenCalledWith("@107", undefined, { displayedContent: "trade" });
+
+		const [order] = createOrders();
+		mocks.orders = [{ ...order, order: { ...order.order, coin: "@107" } }];
+		render(<MobileOrdersHistoryTab scrollMode="page" />);
+		expect(container.textContent).toContain("HYPE/USDC");
+		expect(container.textContent).not.toContain("@107");
+
+		mocks.fundings = [
+			{ ...mocks.fundings[0], coin: "xyz:TSLA" },
+			{ ...mocks.fundings[0], coin: "TSLA", time: 1_754_350_400_001 },
+		];
+		render(<MobileFundingTab scrollMode="page" />);
+		const deployerMarket = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Switch to TSLA (xyz) market"]',
+		);
+		const nativeMarket = container.querySelector<HTMLButtonElement>('button[aria-label="Switch to TSLA market"]');
+		expect(deployerMarket?.textContent).toContain("xyz");
+		expect(nativeMarket?.textContent).not.toContain("xyz");
+		expect(container.textContent).not.toContain("xyz:TSLA");
+		act(() => deployerMarket?.click());
+		expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("xyz:TSLA", undefined, { displayedContent: "trade" });
+		act(() => nativeMarket?.click());
+		expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("TSLA", undefined, { displayedContent: "trade" });
 	});
 
 	it("shows a fill's fee token by its display name", () => {

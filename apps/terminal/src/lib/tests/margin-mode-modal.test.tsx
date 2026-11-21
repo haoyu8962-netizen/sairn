@@ -487,6 +487,61 @@ describe("MarginModeModal", () => {
 		expect(onApply).not.toHaveBeenCalled();
 	});
 
+	it("keeps the mobile account type tab inert while the drawer plays its exit", async () => {
+		const accountApply = vi.fn().mockResolvedValue(undefined);
+		modalHarness.keepAdaptiveMounted = true;
+		renderModal({
+			open: false,
+			presentation: "drawer",
+			marketIdentity: "HYPE",
+			marketLabel: "HYPE-USDC",
+			settingsTab: "account",
+			onSettingsTabChange: vi.fn(),
+			accountModeForm: {
+				currentMode: "disabled",
+				canChange: true,
+				portfolioMarginActivationEnabled: true,
+				onApply: accountApply,
+			},
+		});
+
+		const unified = getButton(container, "Unified account");
+		expect(unified.disabled).toBe(true);
+		act(() => unified.click());
+		const confirmButton = getButton(container, "Confirm");
+		expect(confirmButton.disabled).toBe(true);
+		await act(async () => confirmButton.click());
+		expect(accountApply).not.toHaveBeenCalled();
+	});
+
+	it("neither connects a wallet nor switches tabs from a closing mobile drawer", async () => {
+		const onConnect = vi.fn();
+		const onSettingsTabChange = vi.fn();
+		modalHarness.keepAdaptiveMounted = true;
+		renderModal({
+			open: false,
+			presentation: "drawer",
+			marketIdentity: "HYPE",
+			marketLabel: "HYPE-USDC",
+			settingsTab: "account",
+			onSettingsTabChange,
+			accountModeForm: {
+				currentMode: null,
+				canChange: false,
+				portfolioMarginActivationEnabled: true,
+				onApply: vi.fn(),
+				onConnect,
+			},
+		});
+
+		const connect = getButton(container, "Connect");
+		expect(connect.disabled).toBe(true);
+		await act(async () => connect.click());
+		act(() => modalHarness.tabChange?.("margin"));
+		expect(onConnect).not.toHaveBeenCalled();
+		expect(onSettingsTabChange).not.toHaveBeenCalled();
+	});
+
 	it("keeps leverage out of the mobile margin view", async () => {
 		renderModal({
 			presentation: "drawer",
