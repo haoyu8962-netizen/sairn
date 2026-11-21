@@ -105,7 +105,8 @@ describe("API wallet verification after a real query failure", () => {
 			await submission;
 		});
 		expect(queryClient.getQueryCache().getAll()[0]?.state.status).toBe("error");
-		expect(current().pageState).toBe("error");
+		expect(current().pageState).toBe("retained");
+		expect(current().canGenerate).toBe(false);
 		expect(current().action).toMatchObject({ stage: "done", result: "unknown" });
 		expect(current().action?.privateKey).toBeUndefined();
 		expect(mocks.approve).toHaveBeenCalledOnce();

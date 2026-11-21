@@ -12,7 +12,7 @@ import { ApiWalletList } from "./api-wallet-list";
 const OFFICIAL_AGENT_WALLET_DOCS_URL =
 	"https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets";
 
-export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "disconnected" | "nonMaster";
+export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "retained" | "disconnected" | "nonMaster";
 
 export type ApiWalletValidityDays = 30 | 90 | 180;
 

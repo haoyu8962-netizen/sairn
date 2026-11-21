@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { type Address, formatUnits, parseUnits, zeroAddress } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { StatusGlyph } from "@/components/brand/status-glyph";
+import { PassiveDataPlaceholder } from "@/components/trade/positions/passive-data-placeholder";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
 import {
 	CCTP_MAX_DEPOSIT_USDC,
@@ -219,7 +220,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	const cctpExternalDepositEnabled = isCctpExternalDepositEnabled(isTestnet);
 	const cctpSponsoredDepositEnabled = isCctpSponsoredDepositEnabled(isTestnet);
 
-	const { walletAddress, hasWalletAccess, user, embeddedWalletAddress, walletIntent } = useWalletSession();
+	const { walletAddress, hasWalletAccess, user, embeddedWalletAddress, walletIntent, isResolving } = useWalletSession();
 	const { reconnectWallet, walletsReady, isReconnecting } = useReconnectWallet();
 	const {
 		emailAddress: emailWalletAddress,
@@ -1527,9 +1528,20 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			};
 		}
 
+		function renderWalletRequired() {
+			if (isResolving) {
+				return (
+					<div data-slot="funds-session-resolving" className="flex min-h-40 flex-col">
+						<PassiveDataPlaceholder busy />
+					</div>
+				);
+			}
+			return <WalletNotConnected onConnect={handleReconnectWallet} isConnecting={!walletsReady || isReconnecting} />;
+		}
+
 		function renderDepositContent() {
 			if (!canUseDeposit) {
-				return <WalletNotConnected onConnect={handleReconnectWallet} isConnecting={!walletsReady || isReconnecting} />;
+				return renderWalletRequired();
 			}
 			if (showsDepositMethods) {
 				return (
@@ -1613,7 +1625,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 
 					{visibleTab === "withdraw" &&
 						(!canUseFundsActions ? (
-							<WalletNotConnected onConnect={handleReconnectWallet} isConnecting={!walletsReady || isReconnecting} />
+							renderWalletRequired()
 						) : (
 							<WithdrawForm
 								amount={withdrawAmount}
@@ -1652,13 +1664,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 						))}
 
 					{visibleTab === "bridge" && showBridgeTab && (
-						<Suspense fallback={null}>
-							{canUseFundsActions ? (
-								<LazyBridgeTab />
-							) : (
-								<WalletNotConnected onConnect={handleReconnectWallet} isConnecting={!walletsReady || isReconnecting} />
-							)}
-						</Suspense>
+						<Suspense fallback={null}>{canUseFundsActions ? <LazyBridgeTab /> : renderWalletRequired()}</Suspense>
 					)}
 				</div>
 			),

@@ -1,12 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-	ArrowDownIcon,
-	ArrowUpIcon,
-	KeyIcon,
-	SpinnerGapIcon,
-	WalletIcon,
-	WarningCircleIcon,
-} from "@phosphor-icons/react";
+import { ArrowDownIcon, ArrowUpIcon, KeyIcon, WalletIcon } from "@phosphor-icons/react";
 import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@sairn/ui";
 import { useId, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -63,6 +56,21 @@ function AgentStatus({ agent }: { agent: ApiWalletAgentView }) {
 	);
 }
 
+function RetryRow({ onRetry, compact = false }: { onRetry: () => void; compact?: boolean }) {
+	return (
+		<div className={cn("flex justify-center", compact ? "py-3" : "py-10")}>
+			<Button
+				type="button"
+				size="sm"
+				className="mt-1 rounded-20 bg-api-wallet-control text-api-wallet-on-control active:scale-100"
+				onClick={onRetry}
+			>
+				<Trans>Retry</Trans>
+			</Button>
+		</div>
+	);
+}
+
 function ListMessage({ pageState, onRetry, isMobile }: Pick<Props, "pageState" | "onRetry"> & { isMobile: boolean }) {
 	const stateIconClass = isMobile
 		? "size-[var(--api-wallet-mobile-state-icon-size)]"
@@ -79,30 +87,7 @@ function ListMessage({ pageState, onRetry, isMobile }: Pick<Props, "pageState" |
 	}
 
 	if (pageState === "error") {
-		return (
-			<div role="alert" className="flex flex-col items-center gap-2 py-10 text-center">
-				<div className={cn("grid place-items-center rounded-full bg-error-soft text-error", stateIconClass)}>
-					<WarningCircleIcon className="size-5" weight="fill" />
-				</div>
-				<p className="text-sm font-bold text-api-wallet-fg">
-					<Trans>API wallet list is temporarily unavailable</Trans>
-				</p>
-				<p className="max-w-[var(--api-wallet-description-max)] px-4 text-xs leading-5 text-api-wallet-subtle">
-					<Trans>
-						The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled
-						until fresh data can be verified.
-					</Trans>
-				</p>
-				<Button
-					type="button"
-					size="sm"
-					className="mt-1 rounded-20 bg-api-wallet-control text-api-wallet-on-control active:scale-100"
-					onClick={onRetry}
-				>
-					<Trans>Retry</Trans>
-				</Button>
-			</div>
-		);
+		return <RetryRow onRetry={onRetry} />;
 	}
 
 	const disconnected = pageState === "disconnected";
@@ -314,10 +299,12 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 		return sortDirection === "ascending" ? comparison : -comparison;
 	});
 	const isLoading = pageState === "loading";
-	const isError = pageState === "error";
+	const isRetained = pageState === "retained";
+	const showsRetryOnly = pageState === "error" || (isRetained && agents.length === 0);
+	const showsCount = pageState === "normal" || pageState === "empty" || (isRetained && agents.length > 0);
 
 	return (
-		<section aria-labelledby={headingId}>
+		<section aria-labelledby={headingId} aria-busy={isLoading || isRefreshing}>
 			<div
 				className={cn(
 					"flex items-baseline justify-between gap-3 border-api-wallet-stroke-card py-2",
@@ -328,23 +315,12 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 					<Trans>Authorized API wallets</Trans>
 				</h2>
 				<p className="text-2xs text-api-wallet-subtle">
-					{isRefreshing ? (
-						<span className="inline-flex items-center gap-1">
-							<SpinnerGapIcon className="size-3 animate-spin motion-reduce:animate-none" />
-							<Trans>Refreshing…</Trans>
-						</span>
-					) : isLoading ? (
-						<Trans>Loading…</Trans>
-					) : isError ? (
-						<Trans>Unavailable</Trans>
-					) : (
-						<Trans>{agents.length} authorized</Trans>
-					)}
+					{showsCount ? <Trans>{agents.length} authorized</Trans> : null}
 				</p>
 			</div>
 
-			{isLoading || isError ? (
-				<ListMessage pageState={pageState} onRetry={onRetry} isMobile={isMobile} />
+			{isLoading || showsRetryOnly ? (
+				<ListMessage pageState={isLoading ? "loading" : "error"} onRetry={onRetry} isMobile={isMobile} />
 			) : isMobile ? (
 				<MobileAgentCards
 					pageState={pageState}
@@ -364,6 +340,7 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 					onSort={() => setSortDirection((current) => (current === "ascending" ? "descending" : "ascending"))}
 				/>
 			)}
+			{isRetained && agents.length > 0 ? <RetryRow onRetry={onRetry} compact /> : null}
 		</section>
 	);
 }

@@ -121,6 +121,14 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
+  moment: while the wallet session is being resolved the dialog stays mounted, and it starts over only
+  if the session settles on another account or is confirmed signed out. The Deposit dialog shows a
+  quiet busy area instead of "Wallet not connected" during that time.
+- The API wallet page no longer shows a red warning block or "Loading…", "Refreshing…" and
+  "Unavailable" for its list. A failed first read offers a neutral Retry; a failed refresh keeps the
+  list it already showed, with management disabled and a Retry below it.
+
 - Website Live market view: a one-sided best bid/offer keeps the quote withdrawn when an order-book
   snapshot from the same block arrives after it; only a newer snapshot or bbo restores it. The 02
   market section keeps its static content instead of failing when its inline market list is unreadable.

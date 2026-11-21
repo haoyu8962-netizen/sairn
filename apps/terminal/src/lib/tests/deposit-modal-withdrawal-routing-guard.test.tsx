@@ -188,6 +188,7 @@ const testState = vi.hoisted(() => ({
 	useDepositOptions: null as Record<string, unknown> | null,
 	walletIntentOverride: undefined as "ambiguous" | "embedded" | "external" | "unavailable" | undefined,
 	walletAddress: "0x1111111111111111111111111111111111111111",
+	walletSession: "connected" as "connected" | "resolving" | "signed-out",
 	walletProviderError: null as Error | null,
 	walletProviderStatus: "idle" as "idle" | "loading" | "ready" | "error",
 	withdrawable: "10",
@@ -398,9 +399,10 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 	}),
 	useWalletSession: () => ({
 		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
-		hasWalletAccess: true,
+		hasWalletAccess: testState.walletSession === "connected",
+		isResolving: testState.walletSession === "resolving",
 		user: testState.emailAddress ? {} : null,
-		walletAddress: testState.walletAddress,
+		walletAddress: testState.walletSession === "connected" ? testState.walletAddress : undefined,
 		walletIntent: testState.walletIntentOverride ?? (testState.emailAddress ? "embedded" : "external"),
 	}),
 }));
@@ -660,7 +662,7 @@ vi.mock("@/components/trade/tradebox/deposit/shared-ui", () => ({
 			createElement("p", { "data-testid": "status-description" }, description),
 			children,
 		),
-	WalletNotConnected: () => null,
+	WalletNotConnected: () => createElement("p", { "data-testid": "wallet-not-connected" }),
 }));
 
 vi.mock("@/components/trade/tradebox/deposit/withdraw-form", () => ({
@@ -845,6 +847,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		testState.useDepositOptions = null;
 		testState.walletIntentOverride = undefined;
 		testState.walletAddress = "0x1111111111111111111111111111111111111111";
+		testState.walletSession = "connected";
 		testState.walletProviderError = null;
 		testState.walletProviderStatus = "idle";
 		testState.withdrawable = "10";
@@ -986,6 +989,39 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		expect(testState.exchangeSdkCalls.get("sendToEvmWithData")).not.toHaveBeenCalled();
 		expect(testState.exchangeSdkCalls.get("withdraw3")).not.toHaveBeenCalled();
 	});
+
+	it.each(["withdraw", "deposit"] as const)(
+		"keeps the %s tab quiet and its draft while the wallet session resolves",
+		async (tab) => {
+			testState.modalOpen = true;
+			testState.activeTab = tab;
+			await rerender();
+			if (tab === "withdraw") act(() => getButton("Set amount").click());
+			const amountBefore = container
+				.querySelector('[data-testid="withdraw-routing-status"]')
+				?.getAttribute("data-amount");
+
+			testState.walletSession = "resolving";
+			await rerender();
+			expect(container.querySelector('[data-slot="funds-session-resolving"] [aria-busy="true"]')).not.toBeNull();
+			expect(container.querySelector('[data-testid="wallet-not-connected"]')).toBeNull();
+
+			testState.walletSession = "connected";
+			await rerender();
+			expect(container.querySelector('[data-slot="funds-session-resolving"]')).toBeNull();
+			if (tab === "withdraw") {
+				expect(container.querySelector('[data-testid="withdraw-routing-status"]')?.getAttribute("data-amount")).toBe(
+					amountBefore,
+				);
+				expect(amountBefore).toBe(testState.withdrawDraft);
+			}
+
+			testState.walletSession = "signed-out";
+			await rerender();
+			expect(container.querySelector('[data-testid="wallet-not-connected"]')).not.toBeNull();
+			expect(container.querySelector('[data-slot="funds-session-resolving"]')).toBeNull();
+		},
+	);
 
 	it("writes the CCTP minimum withdrawal with the number-format separators", async () => {
 		testState.modalOpen = true;

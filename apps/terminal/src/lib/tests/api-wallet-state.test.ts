@@ -33,6 +33,7 @@ const READY_INPUT: ApiWalletPageStateInput = {
 	isLoading: false,
 	isError: false,
 	agents: [AGENT],
+	receivedSinceMount: true,
 };
 
 describe("API wallet page state", () => {
@@ -41,6 +42,8 @@ describe("API wallet page state", () => {
 		["empty", { ...READY_INPUT, agents: [] }],
 		["loading", { ...READY_INPUT, isLoading: true, agents: undefined }],
 		["error", { ...READY_INPUT, isError: true, agents: undefined }],
+		["retained", { ...READY_INPUT, isError: true }],
+		["error", { ...READY_INPUT, isError: true, receivedSinceMount: false }],
 		["disconnected", { ...READY_INPUT, isConnected: false }],
 		["nonMaster", { ...READY_INPUT, signingAddress: "0xbb410000000000000000000000000000000077c2" }],
 	] as const)("derives the %s state", (expected, input) => {
@@ -51,6 +54,12 @@ describe("API wallet page state", () => {
 		expect(deriveApiWalletPageState({ ...READY_INPUT, accountAddress: undefined })).toBe("nonMaster");
 		expect(deriveApiWalletPageState({ ...READY_INPUT, signingAddress: undefined })).toBe("nonMaster");
 		expect(deriveApiWalletPageState({ ...READY_INPUT, agents: undefined })).toBe("error");
+	});
+
+	it("keeps no management action open on data it only retains", () => {
+		expect(isApiWalletPageOperable("retained")).toBe(false);
+		expect(isApiWalletPageOperable("error")).toBe(false);
+		expect(isApiWalletPageOperable("normal")).toBe(true);
 	});
 
 	it("treats only case as insignificant when matching the signer", () => {

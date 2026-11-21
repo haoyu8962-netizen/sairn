@@ -4,6 +4,7 @@ import { useActiveAgentOwner } from "@sairn/hl-react";
 import { startExchangeActionDeadline } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { useEffect, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
+import { useDataReceivedSinceMount } from "@/hooks/portfolio/use-data-received-since-mount";
 import { useMasterWalletActionReason } from "@/hooks/trade/use-master-wallet-action-reason";
 import { useExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
@@ -123,6 +124,10 @@ export function useApiWalletController({
 		credentialRef.current?.identityKey === identityKey ? credentialRef.current : undefined;
 	activeActionRef.current = identityBoundAction;
 	const validatedAgents = isApiWalletExtraAgentSnapshot(agentsQuery.data) ? agentsQuery.data : undefined;
+	const agentsReceivedSinceMount = useDataReceivedSinceMount(
+		`${env}:${accountAddress ?? ""}`,
+		agentsQuery.dataUpdatedAt,
+	);
 	const hasMalformedSnapshot = agentsQuery.data !== undefined && validatedAgents === undefined;
 
 	useEffect(() => {
@@ -151,6 +156,7 @@ export function useApiWalletController({
 		isLoading: agentsQuery.isLoading,
 		isError: agentsQuery.isError || hasMalformedSnapshot,
 		agents: validatedAgents,
+		receivedSinceMount: agentsReceivedSinceMount,
 	});
 	const agents = createAgentViews(validatedAgents ?? [], i18n.locale, Date.now(), translate);
 	const nameValidation = validateApiWalletName(name, validatedAgents);

@@ -2,6 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { Suspense, useEffect } from "react";
 import { DEFAULT_MARKET_NAME } from "@/config/app";
+import { useFundsSessionKey } from "@/hooks/trade/use-funds-session-key";
 import { type Hip3DisclaimerRequirement, useHip3DisclaimerRequirement } from "@/hooks/trade/use-hip3-disclaimer";
 import {
 	type Hip3DisclaimerExit,
@@ -11,8 +12,6 @@ import {
 import { useLegalGate } from "@/hooks/trade/use-legal-gate";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useLingeringValue } from "@/hooks/use-lingering-value";
-import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
-import { useHyperliquid } from "@/lib/hyperliquid";
 import {
 	discardIdlePositionMarketCloseModal,
 	useCommandMenuActions,
@@ -193,9 +192,7 @@ function SharedGlobalModals({
 	const sendModalAsset = useSendModalAsset();
 	const sendAccountType = useSendModalAccountType();
 	const { close: closeSendModal } = useSendModalActions();
-	const { clientKey, env, sessionMode } = useHyperliquid();
-	const { walletAddress, walletIntent } = useWalletSession();
-	const fundsSessionKey = `${env}:${clientKey.toLowerCase()}:${sessionMode}:${walletAddress?.toLowerCase() ?? "disconnected"}:${walletIntent}`;
+	const fundsSessionKey = useFundsSessionKey();
 	useIdleGlobalModalPreload(enablePositionMarketClose);
 
 	useEffect(() => {

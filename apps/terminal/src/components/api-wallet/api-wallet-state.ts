@@ -9,7 +9,7 @@ const API_WALLET_NAME_PATTERN = /^[A-Za-z0-9_-]{2,16}$/u;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export type ApiWalletExpiryDays = (typeof API_WALLET_EXPIRY_DAYS)[number];
-export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "disconnected" | "nonMaster";
+export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "retained" | "disconnected" | "nonMaster";
 export type ApiWalletAgentStatus = "active" | "expiring" | "today" | "expired" | "noExpiry";
 export type ApiWalletNameValidationError = "required" | "format" | "duplicate";
 
@@ -23,6 +23,11 @@ export interface ApiWalletPageStateInput {
 	isLoading: boolean;
 	isError: boolean;
 	agents: readonly ExtraAgent[] | undefined;
+	/**
+	 * The current agents were delivered after the page began reading them for this account. Only such
+	 * data is kept, silently and read-only, when a later refresh fails (docs/mobile-data-presentation.md).
+	 */
+	receivedSinceMount: boolean;
 }
 
 export type ApiWalletNameValidation =
@@ -62,7 +67,7 @@ export function hasMatchingApiWalletIdentity(
 export function deriveApiWalletPageState(input: ApiWalletPageStateInput): ApiWalletPageState {
 	if (!input.isConnected) return "disconnected";
 	if (!hasMatchingApiWalletIdentity(input.accountAddress, input.signingAddress)) return "nonMaster";
-	if (input.isError) return "error";
+	if (input.isError) return input.agents && input.receivedSinceMount ? "retained" : "error";
 	if (input.isLoading) return "loading";
 	if (!input.agents) return "error";
 	return input.agents.length === 0 ? "empty" : "normal";
