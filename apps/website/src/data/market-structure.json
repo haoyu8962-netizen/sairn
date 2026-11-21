@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"fetchedAt": "2026-11-13T07:25:16.480Z",
+	"fetchedAt": "2026-11-20T13:50:05.998Z",
 	"source": "POST https://api.hyperliquid.xyz/info: perpDexs, perpConciseAnnotations, metaAndAssetCtxs per dex",
 	"dexes": [
 		{
@@ -15,7 +15,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "5696418790"
+					"dayNtlVlm": "5346367900"
 				},
 				{
 					"coin": "ETH",
@@ -25,7 +25,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1904881862"
+					"dayNtlVlm": "997333923"
 				},
 				{
 					"coin": "ATOM",
@@ -35,7 +35,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "768245"
+					"dayNtlVlm": "575210"
 				},
 				{
 					"coin": "DYDX",
@@ -45,7 +45,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "166292"
+					"dayNtlVlm": "118687"
 				},
 				{
 					"coin": "SOL",
@@ -55,7 +55,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "299712868"
+					"dayNtlVlm": "197115831"
 				},
 				{
 					"coin": "AVAX",
@@ -65,7 +65,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "13261721"
+					"dayNtlVlm": "7672553"
 				},
 				{
 					"coin": "BNB",
@@ -75,7 +75,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "12551258"
+					"dayNtlVlm": "5692237"
 				},
 				{
 					"coin": "APE",
@@ -85,7 +85,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "333139"
+					"dayNtlVlm": "152383"
 				},
 				{
 					"coin": "OP",
@@ -95,7 +95,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "532569"
+					"dayNtlVlm": "377861"
 				},
 				{
 					"coin": "LTC",
@@ -105,7 +105,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4036943"
+					"dayNtlVlm": "4757868"
 				},
 				{
 					"coin": "ARB",
@@ -115,7 +115,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "9663486"
+					"dayNtlVlm": "3740497"
 				},
 				{
 					"coin": "DOGE",
@@ -125,7 +125,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "20952890"
+					"dayNtlVlm": "5450247"
 				},
 				{
 					"coin": "INJ",
@@ -135,7 +135,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "3404489"
+					"dayNtlVlm": "5773197"
 				},
 				{
 					"coin": "SUI",
@@ -145,7 +145,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "16646736"
+					"dayNtlVlm": "4740508"
 				},
 				{
 					"coin": "kPEPE",
@@ -155,7 +155,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "27998621"
+					"dayNtlVlm": "21267310"
 				},
 				{
 					"coin": "CRV",
@@ -165,7 +165,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4658024"
+					"dayNtlVlm": "2745313"
 				},
 				{
 					"coin": "LDO",
@@ -175,7 +175,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "983833"
+					"dayNtlVlm": "610505"
 				},
 				{
 					"coin": "LINK",
@@ -185,7 +185,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "14079452"
+					"dayNtlVlm": "7328367"
 				},
 				{
 					"coin": "STX",
@@ -195,7 +195,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "759498"
+					"dayNtlVlm": "261596"
 				},
 				{
 					"coin": "CFX",
@@ -205,7 +205,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "259716"
+					"dayNtlVlm": "72534"
 				},
 				{
 					"coin": "GMX",
@@ -215,7 +215,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "274391"
+					"dayNtlVlm": "160032"
 				},
 				{
 					"coin": "SNX",
@@ -225,7 +225,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "73265"
+					"dayNtlVlm": "384543"
 				},
 				{
 					"coin": "XRP",
@@ -235,7 +235,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "76403701"
+					"dayNtlVlm": "53512990"
 				},
 				{
 					"coin": "BCH",
@@ -245,7 +245,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1702058"
+					"dayNtlVlm": "1470679"
 				},
 				{
 					"coin": "APT",
@@ -255,7 +255,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2666958"
+					"dayNtlVlm": "1039732"
 				},
 				{
 					"coin": "AAVE",
@@ -265,7 +265,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "11133285"
+					"dayNtlVlm": "6582989"
 				},
 				{
 					"coin": "COMP",
@@ -275,7 +275,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "206572"
+					"dayNtlVlm": "89486"
 				},
 				{
 					"coin": "WLD",
@@ -285,7 +285,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "13038966"
+					"dayNtlVlm": "8077819"
 				},
 				{
 					"coin": "YGG",
@@ -295,7 +295,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "104414"
+					"dayNtlVlm": "93653"
 				},
 				{
 					"coin": "TRX",
@@ -305,7 +305,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1666277"
+					"dayNtlVlm": "1588199"
 				},
 				{
 					"coin": "kSHIB",
@@ -315,7 +315,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "912534"
+					"dayNtlVlm": "805398"
 				},
 				{
 					"coin": "UNI",
@@ -325,7 +325,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "21603584"
+					"dayNtlVlm": "12853867"
 				},
 				{
 					"coin": "SEI",
@@ -335,7 +335,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "483827"
+					"dayNtlVlm": "222293"
 				},
 				{
 					"coin": "RUNE",
@@ -345,7 +345,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "283066"
+					"dayNtlVlm": "206246"
 				},
 				{
 					"coin": "ZRO",
@@ -355,7 +355,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "6752161"
+					"dayNtlVlm": "5569950"
 				},
 				{
 					"coin": "DOT",
@@ -365,7 +365,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1835704"
+					"dayNtlVlm": "1966951"
 				},
 				{
 					"coin": "BANANA",
@@ -375,7 +375,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "63636"
+					"dayNtlVlm": "43958"
 				},
 				{
 					"coin": "TRB",
@@ -385,7 +385,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "73725"
+					"dayNtlVlm": "39246"
 				},
 				{
 					"coin": "BIGTIME",
@@ -395,7 +395,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "66114"
+					"dayNtlVlm": "72284"
 				},
 				{
 					"coin": "KAS",
@@ -405,7 +405,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "703176"
+					"dayNtlVlm": "158165"
 				},
 				{
 					"coin": "BLUR",
@@ -415,7 +415,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "75335"
+					"dayNtlVlm": "207400"
 				},
 				{
 					"coin": "TIA",
@@ -425,7 +425,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "3374778"
+					"dayNtlVlm": "390843"
 				},
 				{
 					"coin": "BSV",
@@ -435,7 +435,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "81870"
+					"dayNtlVlm": "45130"
 				},
 				{
 					"coin": "ADA",
@@ -445,7 +445,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "7718315"
+					"dayNtlVlm": "3361900"
 				},
 				{
 					"coin": "MINA",
@@ -455,7 +455,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "236895"
+					"dayNtlVlm": "211038"
 				},
 				{
 					"coin": "POLYX",
@@ -465,7 +465,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "45513"
+					"dayNtlVlm": "69216"
 				},
 				{
 					"coin": "GAS",
@@ -475,7 +475,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "64656"
+					"dayNtlVlm": "56400"
 				},
 				{
 					"coin": "PENDLE",
@@ -485,7 +485,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1036499"
+					"dayNtlVlm": "1752237"
 				},
 				{
 					"coin": "FET",
@@ -495,7 +495,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1009530"
+					"dayNtlVlm": "754158"
 				},
 				{
 					"coin": "NEAR",
@@ -505,7 +505,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "69184715"
+					"dayNtlVlm": "59933260"
 				},
 				{
 					"coin": "MEME",
@@ -515,7 +515,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "113898"
+					"dayNtlVlm": "118282"
 				},
 				{
 					"coin": "ORDI",
@@ -525,7 +525,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "91179"
+					"dayNtlVlm": "62717"
 				},
 				{
 					"coin": "NEO",
@@ -535,7 +535,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "66106"
+					"dayNtlVlm": "59452"
 				},
 				{
 					"coin": "ZEN",
@@ -545,7 +545,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "147573"
+					"dayNtlVlm": "73869"
 				},
 				{
 					"coin": "FIL",
@@ -555,7 +555,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "740413"
+					"dayNtlVlm": "553282"
 				},
 				{
 					"coin": "PYTH",
@@ -565,7 +565,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1477024"
+					"dayNtlVlm": "492894"
 				},
 				{
 					"coin": "SUSHI",
@@ -575,7 +575,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "71279"
+					"dayNtlVlm": "92716"
 				},
 				{
 					"coin": "IMX",
@@ -585,7 +585,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2200306"
+					"dayNtlVlm": "78860"
 				},
 				{
 					"coin": "kBONK",
@@ -595,7 +595,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "768584"
+					"dayNtlVlm": "529449"
 				},
 				{
 					"coin": "GMT",
@@ -605,7 +605,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "75347"
+					"dayNtlVlm": "76980"
 				},
 				{
 					"coin": "SUPER",
@@ -615,7 +615,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "814862"
+					"dayNtlVlm": "51853"
 				},
 				{
 					"coin": "JUP",
@@ -625,7 +625,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4588403"
+					"dayNtlVlm": "4409888"
 				},
 				{
 					"coin": "kLUNC",
@@ -635,7 +635,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "85246"
+					"dayNtlVlm": "2610374"
 				},
 				{
 					"coin": "RSR",
@@ -645,7 +645,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "132195"
+					"dayNtlVlm": "101552"
 				},
 				{
 					"coin": "GALA",
@@ -655,7 +655,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "420093"
+					"dayNtlVlm": "460700"
 				},
 				{
 					"coin": "JTO",
@@ -665,7 +665,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "402238"
+					"dayNtlVlm": "283173"
 				},
 				{
 					"coin": "ACE",
@@ -675,7 +675,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "394692"
+					"dayNtlVlm": "67217"
 				},
 				{
 					"coin": "WIF",
@@ -685,7 +685,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "725988"
+					"dayNtlVlm": "319779"
 				},
 				{
 					"coin": "CAKE",
@@ -695,7 +695,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "832676"
+					"dayNtlVlm": "187462"
 				},
 				{
 					"coin": "PEOPLE",
@@ -705,7 +705,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "126666"
+					"dayNtlVlm": "50011"
 				},
 				{
 					"coin": "ENS",
@@ -715,7 +715,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "233353"
+					"dayNtlVlm": "89182"
 				},
 				{
 					"coin": "ETC",
@@ -725,7 +725,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "353446"
+					"dayNtlVlm": "1013777"
 				},
 				{
 					"coin": "XAI",
@@ -735,7 +735,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "46059"
+					"dayNtlVlm": "405569"
 				},
 				{
 					"coin": "MANTA",
@@ -745,7 +745,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "69581"
+					"dayNtlVlm": "50685"
 				},
 				{
 					"coin": "UMA",
@@ -755,7 +755,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "55372"
+					"dayNtlVlm": "36842"
 				},
 				{
 					"coin": "ONDO",
@@ -765,7 +765,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "6477921"
+					"dayNtlVlm": "2222290"
 				},
 				{
 					"coin": "ALT",
@@ -775,7 +775,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "140219"
+					"dayNtlVlm": "79494"
 				},
 				{
 					"coin": "ZETA",
@@ -785,7 +785,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "85759"
+					"dayNtlVlm": "76311"
 				},
 				{
 					"coin": "DYM",
@@ -795,7 +795,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "391068"
+					"dayNtlVlm": "52122"
 				},
 				{
 					"coin": "W",
@@ -805,7 +805,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "430343"
+					"dayNtlVlm": "419931"
 				},
 				{
 					"coin": "STRK",
@@ -815,7 +815,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1885730"
+					"dayNtlVlm": "5758025"
 				},
 				{
 					"coin": "TAO",
@@ -825,7 +825,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "8417303"
+					"dayNtlVlm": "2836477"
 				},
 				{
 					"coin": "AR",
@@ -835,7 +835,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "473742"
+					"dayNtlVlm": "181550"
 				},
 				{
 					"coin": "kFLOKI",
@@ -845,7 +845,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "122761"
+					"dayNtlVlm": "74234"
 				},
 				{
 					"coin": "BOME",
@@ -855,7 +855,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "93250"
+					"dayNtlVlm": "36042"
 				},
 				{
 					"coin": "ETHFI",
@@ -865,7 +865,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "3136376"
+					"dayNtlVlm": "1601808"
 				},
 				{
 					"coin": "ENA",
@@ -875,7 +875,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "17537241"
+					"dayNtlVlm": "10801475"
 				},
 				{
 					"coin": "MNT",
@@ -885,7 +885,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "343628"
+					"dayNtlVlm": "222635"
 				},
 				{
 					"coin": "TNSR",
@@ -895,7 +895,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "20153"
+					"dayNtlVlm": "22237"
 				},
 				{
 					"coin": "SAGA",
@@ -905,7 +905,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "320910"
+					"dayNtlVlm": "106999"
 				},
 				{
 					"coin": "MERL",
@@ -915,7 +915,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "235411"
+					"dayNtlVlm": "123010"
 				},
 				{
 					"coin": "HBAR",
@@ -925,7 +925,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2436293"
+					"dayNtlVlm": "1585500"
 				},
 				{
 					"coin": "POPCAT",
@@ -935,7 +935,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "138260"
+					"dayNtlVlm": "290957"
 				},
 				{
 					"coin": "EIGEN",
@@ -945,7 +945,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "615737"
+					"dayNtlVlm": "637291"
 				},
 				{
 					"coin": "REZ",
@@ -955,7 +955,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "288521"
+					"dayNtlVlm": "67330"
 				},
 				{
 					"coin": "NOT",
@@ -965,7 +965,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "50404"
+					"dayNtlVlm": "108901"
 				},
 				{
 					"coin": "TURBO",
@@ -975,7 +975,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "220782"
+					"dayNtlVlm": "9842"
 				},
 				{
 					"coin": "BRETT",
@@ -985,7 +985,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "108452"
+					"dayNtlVlm": "70069"
 				},
 				{
 					"coin": "IO",
@@ -995,7 +995,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "228901"
+					"dayNtlVlm": "121873"
 				},
 				{
 					"coin": "ZK",
@@ -1005,7 +1005,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "299258"
+					"dayNtlVlm": "445058"
 				},
 				{
 					"coin": "RENDER",
@@ -1015,7 +1015,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "940321"
+					"dayNtlVlm": "366589"
 				},
 				{
 					"coin": "POL",
@@ -1025,7 +1025,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "972678"
+					"dayNtlVlm": "670508"
 				},
 				{
 					"coin": "CELO",
@@ -1035,7 +1035,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "83980"
+					"dayNtlVlm": "18406"
 				},
 				{
 					"coin": "HMSTR",
@@ -1045,7 +1045,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "66170"
+					"dayNtlVlm": "40234"
 				},
 				{
 					"coin": "kNEIRO",
@@ -1055,7 +1055,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "66566"
+					"dayNtlVlm": "52733"
 				},
 				{
 					"coin": "GOAT",
@@ -1065,7 +1065,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "169707"
+					"dayNtlVlm": "102372"
 				},
 				{
 					"coin": "MOODENG",
@@ -1075,7 +1075,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "107099"
+					"dayNtlVlm": "160986"
 				},
 				{
 					"coin": "GRASS",
@@ -1085,7 +1085,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1619246"
+					"dayNtlVlm": "875552"
 				},
 				{
 					"coin": "PURR",
@@ -1095,7 +1095,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "517044"
+					"dayNtlVlm": "772156"
 				},
 				{
 					"coin": "PNUT",
@@ -1105,7 +1105,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "121416"
+					"dayNtlVlm": "88301"
 				},
 				{
 					"coin": "XLM",
@@ -1115,7 +1115,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1923704"
+					"dayNtlVlm": "2142450"
 				},
 				{
 					"coin": "SAND",
@@ -1125,7 +1125,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "143974"
+					"dayNtlVlm": "95505"
 				},
 				{
 					"coin": "IOTA",
@@ -1135,7 +1135,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "107738"
+					"dayNtlVlm": "72535"
 				},
 				{
 					"coin": "ALGO",
@@ -1145,7 +1145,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "417603"
+					"dayNtlVlm": "441238"
 				},
 				{
 					"coin": "HYPE",
@@ -1155,7 +1155,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "524450065"
+					"dayNtlVlm": "796223026"
 				},
 				{
 					"coin": "ME",
@@ -1165,7 +1165,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "51974"
+					"dayNtlVlm": "43022"
 				},
 				{
 					"coin": "MOVE",
@@ -1175,7 +1175,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "64307"
+					"dayNtlVlm": "33894"
 				},
 				{
 					"coin": "VIRTUAL",
@@ -1185,7 +1185,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1001499"
+					"dayNtlVlm": "278358"
 				},
 				{
 					"coin": "PENGU",
@@ -1195,7 +1195,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1182987"
+					"dayNtlVlm": "887275"
 				},
 				{
 					"coin": "USUAL",
@@ -1205,7 +1205,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "443234"
+					"dayNtlVlm": "510375"
 				},
 				{
 					"coin": "FARTCOIN",
@@ -1215,7 +1215,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "5233571"
+					"dayNtlVlm": "5288311"
 				},
 				{
 					"coin": "AIXBT",
@@ -1225,7 +1225,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "89384"
+					"dayNtlVlm": "81413"
 				},
 				{
 					"coin": "BIO",
@@ -1235,7 +1235,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "106128"
+					"dayNtlVlm": "102250"
 				},
 				{
 					"coin": "GRIFFAIN",
@@ -1245,7 +1245,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "44008"
+					"dayNtlVlm": "43774"
 				},
 				{
 					"coin": "SPX",
@@ -1255,7 +1255,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1455543"
+					"dayNtlVlm": "1274700"
 				},
 				{
 					"coin": "S",
@@ -1265,7 +1265,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "428888"
+					"dayNtlVlm": "170622"
 				},
 				{
 					"coin": "MORPHO",
@@ -1275,7 +1275,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "875003"
+					"dayNtlVlm": "1293774"
 				},
 				{
 					"coin": "TRUMP",
@@ -1285,7 +1285,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4902785"
+					"dayNtlVlm": "6614386"
 				},
 				{
 					"coin": "MELANIA",
@@ -1295,7 +1295,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "173111"
+					"dayNtlVlm": "236417"
 				},
 				{
 					"coin": "ANIME",
@@ -1305,7 +1305,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "138223"
+					"dayNtlVlm": "267178"
 				},
 				{
 					"coin": "VVV",
@@ -1315,7 +1315,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "8350260"
+					"dayNtlVlm": "12624337"
 				},
 				{
 					"coin": "BERA",
@@ -1325,7 +1325,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "374356"
+					"dayNtlVlm": "815577"
 				},
 				{
 					"coin": "LAYER",
@@ -1335,7 +1335,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "50401"
+					"dayNtlVlm": "16765"
 				},
 				{
 					"coin": "KAITO",
@@ -1345,7 +1345,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "243651"
+					"dayNtlVlm": "169560"
 				},
 				{
 					"coin": "NIL",
@@ -1355,7 +1355,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "420034"
+					"dayNtlVlm": "172290"
 				},
 				{
 					"coin": "PAXG",
@@ -1365,7 +1365,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4582731"
+					"dayNtlVlm": "9827055"
 				},
 				{
 					"coin": "BABY",
@@ -1375,7 +1375,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "163140"
+					"dayNtlVlm": "269663"
 				},
 				{
 					"coin": "WCT",
@@ -1385,7 +1385,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "49324"
+					"dayNtlVlm": "60281"
 				},
 				{
 					"coin": "HYPER",
@@ -1395,7 +1395,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "99271"
+					"dayNtlVlm": "98259"
 				},
 				{
 					"coin": "ZORA",
@@ -1405,7 +1405,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "95961"
+					"dayNtlVlm": "247078"
 				},
 				{
 					"coin": "INIT",
@@ -1415,7 +1415,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "6186052"
+					"dayNtlVlm": "1366418"
 				},
 				{
 					"coin": "NXPC",
@@ -1425,7 +1425,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "204857"
+					"dayNtlVlm": "31334"
 				},
 				{
 					"coin": "SOPH",
@@ -1435,7 +1435,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "981461"
+					"dayNtlVlm": "1162461"
 				},
 				{
 					"coin": "RESOLV",
@@ -1445,7 +1445,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "121320"
+					"dayNtlVlm": "35551"
 				},
 				{
 					"coin": "SYRUP",
@@ -1455,7 +1455,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "342857"
+					"dayNtlVlm": "564806"
 				},
 				{
 					"coin": "PUMP",
@@ -1465,7 +1465,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "29024583"
+					"dayNtlVlm": "28446402"
 				},
 				{
 					"coin": "PROVE",
@@ -1475,7 +1475,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "61082"
+					"dayNtlVlm": "40866"
 				},
 				{
 					"coin": "XPL",
@@ -1485,7 +1485,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "8010334"
+					"dayNtlVlm": "6211711"
 				},
 				{
 					"coin": "WLFI",
@@ -1495,7 +1495,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2791718"
+					"dayNtlVlm": "955914"
 				},
 				{
 					"coin": "LINEA",
@@ -1505,7 +1505,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "82503"
+					"dayNtlVlm": "191443"
 				},
 				{
 					"coin": "SKY",
@@ -1515,7 +1515,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "401477"
+					"dayNtlVlm": "10692854"
 				},
 				{
 					"coin": "ASTER",
@@ -1525,7 +1525,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1758332"
+					"dayNtlVlm": "3715560"
 				},
 				{
 					"coin": "AVNT",
@@ -1535,7 +1535,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "181598"
+					"dayNtlVlm": "174371"
 				},
 				{
 					"coin": "STBL",
@@ -1545,7 +1545,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "86979"
+					"dayNtlVlm": "176387"
 				},
 				{
 					"coin": "0G",
@@ -1555,7 +1555,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "242915"
+					"dayNtlVlm": "168167"
 				},
 				{
 					"coin": "HEMI",
@@ -1565,7 +1565,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "89276"
+					"dayNtlVlm": "115840"
 				},
 				{
 					"coin": "APEX",
@@ -1575,7 +1575,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "158726"
+					"dayNtlVlm": "223683"
 				},
 				{
 					"coin": "2Z",
@@ -1585,7 +1585,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "807297"
+					"dayNtlVlm": "692517"
 				},
 				{
 					"coin": "ZEC",
@@ -1595,7 +1595,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "495059865"
+					"dayNtlVlm": "270628671"
 				},
 				{
 					"coin": "MON",
@@ -1605,7 +1605,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2622522"
+					"dayNtlVlm": "5974281"
 				},
 				{
 					"coin": "MET",
@@ -1615,7 +1615,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "527945"
+					"dayNtlVlm": "498958"
 				},
 				{
 					"coin": "MEGA",
@@ -1625,7 +1625,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1885307"
+					"dayNtlVlm": "1999967"
 				},
 				{
 					"coin": "CC",
@@ -1635,7 +1635,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1121246"
+					"dayNtlVlm": "361399"
 				},
 				{
 					"coin": "ICP",
@@ -1645,7 +1645,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2284117"
+					"dayNtlVlm": "1283819"
 				},
 				{
 					"coin": "AERO",
@@ -1655,7 +1655,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "5145886"
+					"dayNtlVlm": "2277671"
 				},
 				{
 					"coin": "STABLE",
@@ -1665,7 +1665,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "188877"
+					"dayNtlVlm": "201409"
 				},
 				{
 					"coin": "FOGO",
@@ -1675,7 +1675,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "60290"
+					"dayNtlVlm": "251501"
 				},
 				{
 					"coin": "LIT",
@@ -1685,7 +1685,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "25144732"
+					"dayNtlVlm": "18325531"
 				},
 				{
 					"coin": "XMR",
@@ -1695,7 +1695,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "92148908"
+					"dayNtlVlm": "50401287"
 				},
 				{
 					"coin": "AXS",
@@ -1705,7 +1705,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "156009"
+					"dayNtlVlm": "639067"
 				},
 				{
 					"coin": "DASH",
@@ -1715,7 +1715,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "955730"
+					"dayNtlVlm": "432936"
 				},
 				{
 					"coin": "SKR",
@@ -1725,7 +1725,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "1307414"
+					"dayNtlVlm": "333565"
 				},
 				{
 					"coin": "AZTEC",
@@ -1735,7 +1735,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "218330"
+					"dayNtlVlm": "106825"
 				},
 				{
 					"coin": "CHIP",
@@ -1745,7 +1745,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "420044"
+					"dayNtlVlm": "1168186"
 				},
 				{
 					"coin": "GRAM",
@@ -1755,7 +1755,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "16746930"
+					"dayNtlVlm": "2166235"
 				},
 				{
 					"coin": "CASHCAT",
@@ -1765,7 +1765,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "4013403"
+					"dayNtlVlm": "2531052"
 				},
 				{
 					"coin": "PONS",
@@ -1775,7 +1775,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "3090640"
+					"dayNtlVlm": "1749056"
 				},
 				{
 					"coin": "USELESS",
@@ -1785,7 +1785,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "2932492"
+					"dayNtlVlm": "5681004"
 				},
 				{
 					"coin": "XTEN",
@@ -1795,7 +1795,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": null,
-					"dayNtlVlm": "478853"
+					"dayNtlVlm": "1003628"
 				}
 			]
 		},
@@ -1811,7 +1811,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "492181160"
+					"dayNtlVlm": "832826127"
 				},
 				{
 					"coin": "xyz:TSLA",
@@ -1821,7 +1821,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "70225760"
+					"dayNtlVlm": "36724416"
 				},
 				{
 					"coin": "xyz:NVDA",
@@ -1831,7 +1831,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1970489770"
+					"dayNtlVlm": "428660718"
 				},
 				{
 					"coin": "xyz:GOLD",
@@ -1841,7 +1841,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "105746126"
+					"dayNtlVlm": "172834222"
 				},
 				{
 					"coin": "xyz:HOOD",
@@ -1851,7 +1851,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4711993"
+					"dayNtlVlm": "7410551"
 				},
 				{
 					"coin": "xyz:INTC",
@@ -1861,7 +1861,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "33652535"
+					"dayNtlVlm": "33863453"
 				},
 				{
 					"coin": "xyz:PLTR",
@@ -1871,7 +1871,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2975473"
+					"dayNtlVlm": "4742592"
 				},
 				{
 					"coin": "xyz:COIN",
@@ -1881,7 +1881,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "15193984"
+					"dayNtlVlm": "5546374"
 				},
 				{
 					"coin": "xyz:META",
@@ -1891,7 +1891,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "24256328"
+					"dayNtlVlm": "50813296"
 				},
 				{
 					"coin": "xyz:AAPL",
@@ -1901,7 +1901,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "23715141"
+					"dayNtlVlm": "32776801"
 				},
 				{
 					"coin": "xyz:MSFT",
@@ -1911,7 +1911,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "19864337"
+					"dayNtlVlm": "41085228"
 				},
 				{
 					"coin": "xyz:ORCL",
@@ -1921,7 +1921,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "9183395"
+					"dayNtlVlm": "6188491"
 				},
 				{
 					"coin": "xyz:GOOGL",
@@ -1931,7 +1931,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "78872514"
+					"dayNtlVlm": "117331775"
 				},
 				{
 					"coin": "xyz:AMZN",
@@ -1941,7 +1941,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "14873704"
+					"dayNtlVlm": "39861485"
 				},
 				{
 					"coin": "xyz:AMD",
@@ -1951,7 +1951,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "271383900"
+					"dayNtlVlm": "142502322"
 				},
 				{
 					"coin": "xyz:MU",
@@ -1961,7 +1961,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "117586646"
+					"dayNtlVlm": "158261300"
 				},
 				{
 					"coin": "xyz:SNDK",
@@ -1971,7 +1971,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "197366728"
+					"dayNtlVlm": "153376799"
 				},
 				{
 					"coin": "xyz:MSTR",
@@ -1981,7 +1981,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "26265248"
+					"dayNtlVlm": "17418119"
 				},
 				{
 					"coin": "xyz:CRCL",
@@ -1991,7 +1991,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "40148416"
+					"dayNtlVlm": "32616987"
 				},
 				{
 					"coin": "xyz:NFLX",
@@ -2001,7 +2001,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1302894"
+					"dayNtlVlm": "2007992"
 				},
 				{
 					"coin": "xyz:COST",
@@ -2011,7 +2011,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "255270"
+					"dayNtlVlm": "5836911"
 				},
 				{
 					"coin": "xyz:LLY",
@@ -2021,7 +2021,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2434524"
+					"dayNtlVlm": "1567070"
 				},
 				{
 					"coin": "xyz:SKHX",
@@ -2031,7 +2031,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "314373997"
+					"dayNtlVlm": "371821434"
 				},
 				{
 					"coin": "xyz:TSM",
@@ -2041,7 +2041,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "5007396"
+					"dayNtlVlm": "11051623"
 				},
 				{
 					"coin": "xyz:JPY",
@@ -2051,7 +2051,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4171218"
+					"dayNtlVlm": "1840363"
 				},
 				{
 					"coin": "xyz:EUR",
@@ -2061,7 +2061,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "13516735"
+					"dayNtlVlm": "10792678"
 				},
 				{
 					"coin": "xyz:SILVER",
@@ -2071,7 +2071,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "103858349"
+					"dayNtlVlm": "228557361"
 				},
 				{
 					"coin": "xyz:RIVN",
@@ -2081,7 +2081,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "142657"
+					"dayNtlVlm": "240174"
 				},
 				{
 					"coin": "xyz:BABA",
@@ -2091,7 +2091,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "6154996"
+					"dayNtlVlm": "6099176"
 				},
 				{
 					"coin": "xyz:CL",
@@ -2101,7 +2101,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "174868020"
+					"dayNtlVlm": "89550919"
 				},
 				{
 					"coin": "xyz:COPPER",
@@ -2111,7 +2111,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4565201"
+					"dayNtlVlm": "16454438"
 				},
 				{
 					"coin": "xyz:NATGAS",
@@ -2121,7 +2121,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "37483734"
+					"dayNtlVlm": "6430821"
 				},
 				{
 					"coin": "xyz:SMSN",
@@ -2131,7 +2131,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "50280309"
+					"dayNtlVlm": "59796978"
 				},
 				{
 					"coin": "xyz:PLATINUM",
@@ -2141,7 +2141,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1392639"
+					"dayNtlVlm": "3431752"
 				},
 				{
 					"coin": "xyz:USAR",
@@ -2151,7 +2151,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1987291"
+					"dayNtlVlm": "3672576"
 				},
 				{
 					"coin": "xyz:CRWV",
@@ -2161,7 +2161,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "45904116"
+					"dayNtlVlm": "10419876"
 				},
 				{
 					"coin": "xyz:URNM",
@@ -2171,7 +2171,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "447324"
+					"dayNtlVlm": "193245"
 				},
 				{
 					"coin": "xyz:PALLADIUM",
@@ -2181,7 +2181,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "541655"
+					"dayNtlVlm": "796798"
 				},
 				{
 					"coin": "xyz:GME",
@@ -2191,7 +2191,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "794680"
+					"dayNtlVlm": "9315999"
 				},
 				{
 					"coin": "xyz:KR200",
@@ -2201,7 +2201,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "403881"
+					"dayNtlVlm": "759474"
 				},
 				{
 					"coin": "xyz:SOFTBANK",
@@ -2211,7 +2211,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "821400"
+					"dayNtlVlm": "1294705"
 				},
 				{
 					"coin": "xyz:JP225",
@@ -2221,7 +2221,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2276248"
+					"dayNtlVlm": "3697207"
 				},
 				{
 					"coin": "xyz:HYUNDAI",
@@ -2231,7 +2231,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "653552"
+					"dayNtlVlm": "1083517"
 				},
 				{
 					"coin": "xyz:KIOXIA",
@@ -2241,7 +2241,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "15546107"
+					"dayNtlVlm": "16614296"
 				},
 				{
 					"coin": "xyz:EWY",
@@ -2251,7 +2251,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "23531717"
+					"dayNtlVlm": "25144329"
 				},
 				{
 					"coin": "xyz:EWJ",
@@ -2261,7 +2261,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "417563"
+					"dayNtlVlm": "822929"
 				},
 				{
 					"coin": "xyz:BRENTOIL",
@@ -2271,7 +2271,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "134953002"
+					"dayNtlVlm": "86878991"
 				},
 				{
 					"coin": "xyz:HIMS",
@@ -2281,7 +2281,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1224041"
+					"dayNtlVlm": "2246045"
 				},
 				{
 					"coin": "xyz:SP500",
@@ -2291,7 +2291,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "380681227"
+					"dayNtlVlm": "674811902"
 				},
 				{
 					"coin": "xyz:DKNG",
@@ -2301,7 +2301,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "448955"
+					"dayNtlVlm": "348926"
 				},
 				{
 					"coin": "xyz:LITE",
@@ -2311,7 +2311,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "7469564"
+					"dayNtlVlm": "8649583"
 				},
 				{
 					"coin": "xyz:XLE",
@@ -2321,7 +2321,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "97062"
+					"dayNtlVlm": "172211"
 				},
 				{
 					"coin": "xyz:BX",
@@ -2331,7 +2331,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "358875"
+					"dayNtlVlm": "496672"
 				},
 				{
 					"coin": "xyz:PURRDAT",
@@ -2341,7 +2341,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4261661"
+					"dayNtlVlm": "8421066"
 				},
 				{
 					"coin": "xyz:MRVL",
@@ -2351,7 +2351,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "16150108"
+					"dayNtlVlm": "21288506"
 				},
 				{
 					"coin": "xyz:RKLB",
@@ -2361,7 +2361,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "6236806"
+					"dayNtlVlm": "7277579"
 				},
 				{
 					"coin": "xyz:BIRD",
@@ -2371,7 +2371,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "39644"
+					"dayNtlVlm": "58105"
 				},
 				{
 					"coin": "xyz:DRAM",
@@ -2381,7 +2381,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "98817226"
+					"dayNtlVlm": "149410161"
 				},
 				{
 					"coin": "xyz:CBRS",
@@ -2391,7 +2391,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "41223145"
+					"dayNtlVlm": "10090772"
 				},
 				{
 					"coin": "xyz:EWZ",
@@ -2401,7 +2401,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "3343707"
+					"dayNtlVlm": "2176828"
 				},
 				{
 					"coin": "xyz:ZM",
@@ -2411,7 +2411,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "502691"
+					"dayNtlVlm": "859670"
 				},
 				{
 					"coin": "xyz:EBAY",
@@ -2421,7 +2421,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "56752"
+					"dayNtlVlm": "211174"
 				},
 				{
 					"coin": "xyz:NIFTY",
@@ -2431,7 +2431,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "107358"
+					"dayNtlVlm": "56623"
 				},
 				{
 					"coin": "xyz:ARM",
@@ -2441,7 +2441,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "5696875"
+					"dayNtlVlm": "6694592"
 				},
 				{
 					"coin": "xyz:EWT",
@@ -2451,7 +2451,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "190246"
+					"dayNtlVlm": "854165"
 				},
 				{
 					"coin": "xyz:GBP",
@@ -2461,7 +2461,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "48456"
+					"dayNtlVlm": "73265"
 				},
 				{
 					"coin": "xyz:SPCX",
@@ -2471,7 +2471,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "152446727"
+					"dayNtlVlm": "148468508"
 				},
 				{
 					"coin": "xyz:ASML",
@@ -2481,7 +2481,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "705343"
+					"dayNtlVlm": "775000"
 				},
 				{
 					"coin": "xyz:MINIMAX",
@@ -2491,7 +2491,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1883632"
+					"dayNtlVlm": "4366479"
 				},
 				{
 					"coin": "xyz:BB",
@@ -2501,7 +2501,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "713633"
+					"dayNtlVlm": "2348311"
 				},
 				{
 					"coin": "xyz:QNT",
@@ -2511,7 +2511,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "421069"
+					"dayNtlVlm": "447065"
 				},
 				{
 					"coin": "xyz:DELL",
@@ -2521,7 +2521,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "5393389"
+					"dayNtlVlm": "2291575"
 				},
 				{
 					"coin": "xyz:IBM",
@@ -2531,7 +2531,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2212451"
+					"dayNtlVlm": "643336"
 				},
 				{
 					"coin": "xyz:AVGO",
@@ -2541,7 +2541,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "8460153"
+					"dayNtlVlm": "4424270"
 				},
 				{
 					"coin": "xyz:NOW",
@@ -2551,7 +2551,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "315088"
+					"dayNtlVlm": "506634"
 				},
 				{
 					"coin": "xyz:NBIS",
@@ -2561,7 +2561,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "150853886"
+					"dayNtlVlm": "57918889"
 				},
 				{
 					"coin": "xyz:WDC",
@@ -2571,7 +2571,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1789182"
+					"dayNtlVlm": "2748563"
 				},
 				{
 					"coin": "xyz:NOK",
@@ -2581,7 +2581,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "309363"
+					"dayNtlVlm": "475456"
 				},
 				{
 					"coin": "xyz:SMH",
@@ -2591,7 +2591,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1245942"
+					"dayNtlVlm": "1621493"
 				},
 				{
 					"coin": "xyz:BE",
@@ -2601,7 +2601,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "6882548"
+					"dayNtlVlm": "5053513"
 				},
 				{
 					"coin": "xyz:ZHIPU",
@@ -2611,7 +2611,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "8008965"
+					"dayNtlVlm": "11970312"
 				},
 				{
 					"coin": "xyz:QCOM",
@@ -2621,7 +2621,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1280190"
+					"dayNtlVlm": "1028006"
 				},
 				{
 					"coin": "xyz:STRC",
@@ -2631,7 +2631,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2093062"
+					"dayNtlVlm": "4451746"
 				},
 				{
 					"coin": "xyz:BOT",
@@ -2641,7 +2641,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "820085"
+					"dayNtlVlm": "440860"
 				},
 				{
 					"coin": "xyz:AMAT",
@@ -2651,7 +2651,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4002281"
+					"dayNtlVlm": "878917"
 				},
 				{
 					"coin": "xyz:GIGADEV",
@@ -2661,7 +2661,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1192240"
+					"dayNtlVlm": "2254373"
 				},
 				{
 					"coin": "xyz:SHAZ",
@@ -2671,7 +2671,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1120161"
+					"dayNtlVlm": "1631339"
 				},
 				{
 					"coin": "xyz:SKHY",
@@ -2681,7 +2681,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "80011833"
+					"dayNtlVlm": "86068613"
 				},
 				{
 					"coin": "xyz:KSTR",
@@ -2691,7 +2691,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "93144"
+					"dayNtlVlm": "561870"
 				},
 				{
 					"coin": "xyz:CXMT",
@@ -2701,7 +2701,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "18483740"
+					"dayNtlVlm": "21519459"
 				},
 				{
 					"coin": "xyz:GEV",
@@ -2711,7 +2711,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "148681"
+					"dayNtlVlm": "681971"
 				},
 				{
 					"coin": "xyz:KORU",
@@ -2721,7 +2721,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "48350839"
+					"dayNtlVlm": "52740248"
 				},
 				{
 					"coin": "xyz:UNITREE",
@@ -2731,7 +2731,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "20220405"
+					"dayNtlVlm": "14505195"
 				},
 				{
 					"coin": "xyz:LYTE",
@@ -2741,7 +2741,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "207798"
+					"dayNtlVlm": "198687"
 				},
 				{
 					"coin": "xyz:NCLD",
@@ -2751,7 +2751,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "299805"
+					"dayNtlVlm": "198691"
 				},
 				{
 					"coin": "xyz:SOXL",
@@ -2761,7 +2761,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "308046372"
+					"dayNtlVlm": "376123843"
 				},
 				{
 					"coin": "xyz:MAGS",
@@ -2771,7 +2771,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "54003"
+					"dayNtlVlm": "99306"
 				},
 				{
 					"coin": "xyz:IREN",
@@ -2781,7 +2781,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4981387"
+					"dayNtlVlm": "28326102"
 				},
 				{
 					"coin": "xyz:NET",
@@ -2791,7 +2791,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "812763"
+					"dayNtlVlm": "2070505"
 				},
 				{
 					"coin": "xyz:CRWD",
@@ -2801,7 +2801,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "414081"
+					"dayNtlVlm": "1782996"
 				},
 				{
 					"coin": "xyz:RDDT",
@@ -2811,7 +2811,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "192805"
+					"dayNtlVlm": "346147"
 				},
 				{
 					"coin": "xyz:AAOI",
@@ -2821,7 +2821,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2877066"
+					"dayNtlVlm": "2824018"
 				},
 				{
 					"coin": "xyz:MRNA",
@@ -2831,7 +2831,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "10949010"
+					"dayNtlVlm": "7301911"
 				},
 				{
 					"coin": "xyz:XBI",
@@ -2841,7 +2841,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "15165"
+					"dayNtlVlm": "4442"
 				},
 				{
 					"coin": "xyz:SHEIN",
@@ -2851,7 +2851,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "190035"
+					"dayNtlVlm": "490146"
 				},
 				{
 					"coin": "xyz:BMNR",
@@ -2861,7 +2861,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "478411"
+					"dayNtlVlm": "323885"
 				},
 				{
 					"coin": "xyz:SNXX",
@@ -2871,7 +2871,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "14583565"
+					"dayNtlVlm": "9076921"
 				},
 				{
 					"coin": "xyz:CVX",
@@ -2881,7 +2881,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "247930"
+					"dayNtlVlm": "102253"
 				},
 				{
 					"coin": "xyz:TLT",
@@ -2891,7 +2891,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "755698"
+					"dayNtlVlm": "949266"
 				},
 				{
 					"coin": "xyz:HO",
@@ -2901,7 +2901,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "32614"
+					"dayNtlVlm": "78397"
 				},
 				{
 					"coin": "xyz:OURA",
@@ -2911,7 +2911,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "68044"
+					"dayNtlVlm": "4544"
 				},
 				{
 					"coin": "xyz:LRCX",
@@ -2921,7 +2921,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "109548"
+					"dayNtlVlm": "193572"
 				},
 				{
 					"coin": "xyz:UMC",
@@ -2931,7 +2931,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "133059"
+					"dayNtlVlm": "315945"
 				},
 				{
 					"coin": "xyz:CAMBRICON",
@@ -2941,7 +2941,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "116222"
+					"dayNtlVlm": "6123"
 				},
 				{
 					"coin": "xyz:TWST",
@@ -2951,7 +2951,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "865881"
+					"dayNtlVlm": "85712"
 				},
 				{
 					"coin": "xyz:GLW",
@@ -2961,7 +2961,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "88715"
+					"dayNtlVlm": "78385"
 				},
 				{
 					"coin": "xyz:RELIANCE",
@@ -2971,7 +2971,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "9708"
+					"dayNtlVlm": "5905"
 				},
 				{
 					"coin": "xyz:JIO",
@@ -2981,7 +2981,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "9751"
+					"dayNtlVlm": "20605"
 				},
 				{
 					"coin": "xyz:TTWO",
@@ -2991,7 +2991,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "585733"
+					"dayNtlVlm": "9862643"
 				},
 				{
 					"coin": "xyz:MUU",
@@ -3001,17 +3001,17 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "776577"
+					"dayNtlVlm": "1559074"
 				},
 				{
 					"coin": "xyz:ANT",
-					"category": "preipo",
+					"category": "stocks",
 					"displayName": "ANT",
 					"szDecimals": 2,
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "38775768"
+					"dayNtlVlm": "1787247498"
 				},
 				{
 					"coin": "xyz:ICE",
@@ -3021,7 +3021,17 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "25316"
+					"dayNtlVlm": "203219"
+				},
+				{
+					"coin": "xyz:PANW",
+					"category": "stocks",
+					"displayName": "PANW",
+					"szDecimals": 2,
+					"onlyIsolated": true,
+					"growthMode": true,
+					"deployerFeeScale": "1.0",
+					"dayNtlVlm": "1416285"
 				}
 			]
 		},
@@ -3037,7 +3047,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "287057"
+					"dayNtlVlm": "25719"
 				},
 				{
 					"coin": "para:OTHERS",
@@ -3047,7 +3057,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "44240"
+					"dayNtlVlm": "37830"
 				},
 				{
 					"coin": "para:BTCD",
@@ -3057,7 +3067,7 @@
 					"onlyIsolated": false,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "27082"
+					"dayNtlVlm": "14659"
 				},
 				{
 					"coin": "para:AVGO",
@@ -3067,7 +3077,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "116256"
+					"dayNtlVlm": "107069"
 				},
 				{
 					"coin": "para:COHR",
@@ -3077,7 +3087,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "435805"
+					"dayNtlVlm": "916041"
 				},
 				{
 					"coin": "para:GLW",
@@ -3087,7 +3097,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "31435"
+					"dayNtlVlm": "53038"
 				},
 				{
 					"coin": "para:CRDO",
@@ -3097,7 +3107,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "191245"
+					"dayNtlVlm": "102632"
 				},
 				{
 					"coin": "para:LRCX",
@@ -3107,7 +3117,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "52750"
+					"dayNtlVlm": "40706"
 				},
 				{
 					"coin": "para:NET",
@@ -3117,7 +3127,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "14376"
+					"dayNtlVlm": "10196"
 				},
 				{
 					"coin": "para:STX",
@@ -3127,7 +3137,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "663416"
+					"dayNtlVlm": "107567"
 				},
 				{
 					"coin": "para:IREN",
@@ -3137,7 +3147,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "37829"
+					"dayNtlVlm": "434043"
 				},
 				{
 					"coin": "para:VST",
@@ -3147,7 +3157,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "402676"
+					"dayNtlVlm": "23168"
 				},
 				{
 					"coin": "para:TER",
@@ -3157,7 +3167,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "13176"
+					"dayNtlVlm": "17777"
 				},
 				{
 					"coin": "para:AAOI",
@@ -3167,7 +3177,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "40701"
+					"dayNtlVlm": "85476"
 				},
 				{
 					"coin": "para:10Y",
@@ -3177,7 +3187,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "730776"
+					"dayNtlVlm": "368307"
 				},
 				{
 					"coin": "para:CIEN",
@@ -3187,7 +3197,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "3487"
+					"dayNtlVlm": "10459"
 				},
 				{
 					"coin": "para:RDDT",
@@ -3197,7 +3207,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2361"
+					"dayNtlVlm": "3365"
 				},
 				{
 					"coin": "para:UNITREE",
@@ -3207,7 +3217,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "852834"
+					"dayNtlVlm": "727266"
 				},
 				{
 					"coin": "para:CRWD",
@@ -3217,7 +3227,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2626"
+					"dayNtlVlm": "89568"
 				},
 				{
 					"coin": "para:MELI",
@@ -3227,7 +3237,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "9225"
+					"dayNtlVlm": "53744"
 				},
 				{
 					"coin": "para:SMCI",
@@ -3237,7 +3247,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "411720"
+					"dayNtlVlm": "44266"
 				},
 				{
 					"coin": "para:ANSEM",
@@ -3247,7 +3257,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "0.5",
-					"dayNtlVlm": "162838"
+					"dayNtlVlm": "78341"
 				},
 				{
 					"coin": "para:30Y",
@@ -3257,7 +3267,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "20222"
+					"dayNtlVlm": "33010"
 				},
 				{
 					"coin": "para:2Y",
@@ -3267,7 +3277,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "26421"
+					"dayNtlVlm": "138565"
 				},
 				{
 					"coin": "para:IGV",
@@ -3277,7 +3287,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "792"
+					"dayNtlVlm": "21451"
 				},
 				{
 					"coin": "para:SOFI",
@@ -3287,17 +3297,17 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "5079"
+					"dayNtlVlm": "16850"
 				},
 				{
 					"coin": "para:ANTH",
-					"category": "preipo",
+					"category": "stocks",
 					"displayName": "ANT",
 					"szDecimals": 3,
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "17574"
+					"dayNtlVlm": "1359326"
 				},
 				{
 					"coin": "para:TTWO",
@@ -3307,7 +3317,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "333949"
+					"dayNtlVlm": "433207"
 				},
 				{
 					"coin": "para:CIFR",
@@ -3317,7 +3327,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "211837"
+					"dayNtlVlm": "178785"
 				},
 				{
 					"coin": "para:TREAD",
@@ -3327,7 +3337,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "31931"
+					"dayNtlVlm": "107831"
 				},
 				{
 					"coin": "para:DRV",
@@ -3337,7 +3347,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "58559"
+					"dayNtlVlm": "30667"
 				},
 				{
 					"coin": "para:GDX",
@@ -3347,7 +3357,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "8043"
+					"dayNtlVlm": "93936"
 				},
 				{
 					"coin": "para:SMH",
@@ -3357,7 +3367,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "155232"
+					"dayNtlVlm": "75765"
 				}
 			]
 		},
@@ -3373,7 +3383,7 @@
 					"onlyIsolated": true,
 					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "243386"
+					"dayNtlVlm": "144002"
 				}
 			]
 		},
@@ -3389,7 +3399,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "1796929"
+					"dayNtlVlm": "2408193"
 				},
 				{
 					"coin": "io:ANTH",
@@ -3399,7 +3409,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "27759757"
+					"dayNtlVlm": "184056814"
 				},
 				{
 					"coin": "io:SNDK",
@@ -3409,7 +3419,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "18459780"
+					"dayNtlVlm": "25232954"
 				},
 				{
 					"coin": "io:IONQ",
@@ -3419,7 +3429,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "102745"
+					"dayNtlVlm": "100938"
 				},
 				{
 					"coin": "io:NBIS",
@@ -3429,7 +3439,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "5678211"
+					"dayNtlVlm": "3072664"
 				},
 				{
 					"coin": "io:EWY",
@@ -3439,7 +3449,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "215716"
+					"dayNtlVlm": "532622"
 				},
 				{
 					"coin": "io:GPRO",
@@ -3449,7 +3459,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "35778"
+					"dayNtlVlm": "32998"
 				},
 				{
 					"coin": "io:TCNT",
@@ -3459,7 +3469,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "16896"
+					"dayNtlVlm": "33419"
 				},
 				{
 					"coin": "io:DRAM",
@@ -3469,7 +3479,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "2978753"
+					"dayNtlVlm": "2231062"
 				},
 				{
 					"coin": "io:PRL",
@@ -3477,9 +3487,9 @@
 					"displayName": "PEARL",
 					"szDecimals": 1,
 					"onlyIsolated": true,
-					"growthMode": true,
+					"growthMode": false,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "4571151"
+					"dayNtlVlm": "7211342"
 				},
 				{
 					"coin": "io:XIAOMI",
@@ -3489,7 +3499,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "17094"
+					"dayNtlVlm": "45191"
 				},
 				{
 					"coin": "io:NVDA",
@@ -3499,7 +3509,7 @@
 					"onlyIsolated": false,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "44556056"
+					"dayNtlVlm": "28435171"
 				},
 				{
 					"coin": "io:SKHX",
@@ -3509,7 +3519,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "738226"
+					"dayNtlVlm": "2785567"
 				},
 				{
 					"coin": "io:AAPL",
@@ -3519,7 +3529,7 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "254088"
+					"dayNtlVlm": "1008005"
 				},
 				{
 					"coin": "io:CRCL",
@@ -3529,7 +3539,27 @@
 					"onlyIsolated": true,
 					"growthMode": true,
 					"deployerFeeScale": "1.0",
-					"dayNtlVlm": "417471"
+					"dayNtlVlm": "198692"
+				},
+				{
+					"coin": "io:META",
+					"category": "stocks",
+					"displayName": "META",
+					"szDecimals": 3,
+					"onlyIsolated": true,
+					"growthMode": true,
+					"deployerFeeScale": "1.0",
+					"dayNtlVlm": "249658"
+				},
+				{
+					"coin": "io:INTC",
+					"category": "stocks",
+					"displayName": "INTC",
+					"szDecimals": 2,
+					"onlyIsolated": true,
+					"growthMode": true,
+					"deployerFeeScale": "1.0",
+					"dayNtlVlm": "426358"
 				}
 			]
 		}
