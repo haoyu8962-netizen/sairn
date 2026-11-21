@@ -1324,6 +1324,12 @@ availability, catalogs and stylesheet; the wallet session, geo verdict, pairing 
 modals are stubs, and nothing signs. The shared config excludes `top-nav-connected.pw.ts`;
 the regression matrix runs in both CI browser shards.
 
+The phone history cards fixture uses the sibling cache `node_modules/.vite-mobile-history-cards`
+and port 4191; the shared config excludes its page and test file. It mounts the real phone trade,
+order and funding history tabs with stub data hooks, and runs the layout-integrity probe
+(`docs/layout-integrity.md`) with `pnpm --dir apps/terminal test:browser:mobile-history-cards`. It is
+not yet part of the CI browser shards.
+
 The brand surface fixture uses the sibling cache `node_modules/.vite-brand-surfaces` and also
 serves its page from memory (`/brand-surfaces.html`). Run it with
 `pnpm --dir apps/terminal test:browser:brand-surfaces`; `BRAND_SURFACES_ENGINES=webkit,firefox`

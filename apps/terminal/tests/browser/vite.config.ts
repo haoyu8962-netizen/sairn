@@ -20,6 +20,7 @@ export default defineConfig({
 			"!account-actions.html",
 			"!position-close-all.html",
 			"!notifications.html",
+			"!mobile-history-cards.html",
 		],
 	},
 	define: { "process.env.DRAGGABLE_DEBUG": "false" },

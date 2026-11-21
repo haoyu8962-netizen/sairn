@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { findLayoutIntegrityIssues } from "./layout-integrity";
 
 const LONG_NAME = "[ Systemic Strategies ] ♾️ HyperGrowth ♾️";
 const LARGE_EQUITY = "$12,345,678.90";
@@ -186,4 +187,21 @@ for (const viewport of [
 		for (const header of headers.slice(2)) expect(Math.abs(header.endGap), header.label).toBeLessThanOrEqual(1);
 		expect(errors).toEqual([]);
 	});
+}
+
+for (const locale of ["en", "zh"]) {
+	for (const view of ["list", "detail"]) {
+		for (const viewport of [
+			{ width: 320, height: 640 },
+			{ width: 375, height: 812 },
+			{ width: 1440, height: 900 },
+		]) {
+			test(`cuts off no Vault ${view} text at ${viewport.width}px in ${locale}`, async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.goto(`/vaults-list.html?locale=${locale}${view === "detail" ? "&view=detail" : ""}`);
+				await waitForFonts(page);
+				expect(await findLayoutIntegrityIssues(page, { root: "#root" })).toEqual([]);
+			});
+		}
+	}
 }
