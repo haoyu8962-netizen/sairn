@@ -210,6 +210,8 @@ interface DepositSessionGuard {
 	 * failure of a fresh check no longer has a dialog of its own to be shown in.
 	 */
 	isTailVoided(): boolean;
+	/** The click's attempt is void: its dialog closed, unmounted or was opened again, or the session settled elsewhere. */
+	isVoided(): boolean;
 }
 
 /**
@@ -321,6 +323,9 @@ function createDepositSessionGuard(check: DepositSessionCheck | undefined): Depo
 		},
 		isTailVoided() {
 			return interruptionsAtSettlement !== null && session.isVoided();
+		},
+		isVoided() {
+			return session.isVoided();
 		},
 	};
 }
@@ -1427,6 +1432,25 @@ export function useDeposit({
 				);
 				return;
 			}
+			/**
+			 * A send or broadcast that settles after the click's attempt was voided (another account, the dialog closed
+			 * or opened again) belongs to no dialog any more, so nothing visible is written for it: the execution state
+			 * returns to idle and the balance is not refreshed. What the deposit left behind stays for the owner of the
+			 * click, keyed by that owner: the tracking record, from which the page-level tracking reports the deposit to
+			 * that owner once it is the active one again, and the authorization intent, which blocks another deposit of
+			 * that owner until the tracking resolves it. Privy's sponsored send cannot be stopped once it was called
+			 * (ADR 0058, not covered), and this keeps its result out of any other account's view.
+			 */
+			const endVoidedAttemptQuietly = () =>
+				updateDepositExecutionState(executionKey, operationId, (previous) => ({
+					...previous,
+					status: "idle",
+					error: null,
+					hash: undefined,
+					submissionOutcomeUnknown: false,
+					walletResponseDelayed: false,
+					networkSwitchPending: false,
+				}));
 
 			try {
 				await assertFreshSelectedDepositRoute();
@@ -1658,6 +1682,13 @@ export function useDeposit({
 							amount: formatUnits(amountRaw, USDC_DECIMALS),
 							validBefore: sponsoredAuthorizationValidBefore,
 						});
+						// Known limit (ADR 0058, operator decision of 2026-11-23): the gate above is the last session check.
+						// Inside this call Privy prepares the UserOperation, signs it with the embedded wallet's own provider
+						// and sends it to the bundler, and an account switch during those seconds does not stop it. That is
+						// accepted because (1) the authorization was signed by the click's owner and only credits that owner's
+						// Hyperliquid account, so no other account's funds or identity are involved; (2) Privy's
+						// `sendTransaction` is kept for its `dataSuffix` and its supported path; (3) a hand-built UserOperation
+						// flow could not be verified here without a real Privy Smart Wallet.
 						sponsoredSubmissionStarted = true;
 						sourceHash = (await waitForWalletTransactionHash(
 							broadcastClient.sendTransaction(
@@ -1759,6 +1790,10 @@ export function useDeposit({
 					return sourceHash;
 				});
 
+				if (sessionGuard?.isVoided() && !cctpRecoveryUnavailable) {
+					endVoidedAttemptQuietly();
+					return;
+				}
 				if (
 					!updateDepositExecutionState(executionKey, operationId, {
 						status: "confirming",
@@ -1826,6 +1861,10 @@ export function useDeposit({
 					}
 				}
 
+				if (sessionGuard?.isVoided()) {
+					endVoidedAttemptQuietly();
+					return;
+				}
 				if (
 					!updateDepositExecutionState(executionKey, operationId, (previous) => ({
 						...previous,
@@ -1873,6 +1912,13 @@ export function useDeposit({
 					} catch {
 						// Diagnostics must never prevent settlement or replace the original deposit failure.
 					}
+				}
+				if (
+					(sponsoredSubmissionStarted || !!cctpTrackingRecord || forwardingLedger.hasUncertainSend()) &&
+					(sessionGuard?.isVoided() ?? false)
+				) {
+					endVoidedAttemptQuietly();
+					return;
 				}
 				if (cctpTrackingRecord && isDefinitiveDepositSourceFailure(error)) {
 					try {

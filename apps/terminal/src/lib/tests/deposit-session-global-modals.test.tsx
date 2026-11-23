@@ -7,9 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GlobalModals } from "@/components/trade/components/global-modals";
 import { DEPOSIT_SESSION_SETTLE_TIMEOUT_MS } from "@/config/time";
 import { getDepositExecutionState } from "@/lib/hyperliquid/deposit-execution-state";
-import { readCctpSponsoredAuthorizationIntent } from "@/lib/trade/cctp-deposit-tracking";
+import {
+	readCctpDepositTrackingRecords,
+	readCctpSponsoredAuthorizationIntent,
+} from "@/lib/trade/cctp-deposit-tracking";
 import { WALLET_SESSION_RESOLVING_MAX_MS } from "@/lib/wallet/session-resolving-clock";
-import { useDepositModalActions } from "@/stores/use-global-modal-store";
+import { getGlobalModalOpening, useDepositModalActions } from "@/stores/use-global-modal-store";
 import { createI18nRoot } from "./harness/react";
 import {
 	OTHER_OWNER,
@@ -27,6 +30,7 @@ import {
 const PERMIT_SIGNATURE = `0x${"0".repeat(128)}1b`;
 const DEPOSIT_AMOUNT = "5";
 const EXECUTION_KEY = `mainnet:manual:wallet:${SESSION_OWNER}`;
+const SOURCE_HASH = `0x${"7".repeat(64)}`;
 
 interface Deferred<T> {
 	promise: Promise<T>;
@@ -595,6 +599,56 @@ describe.each(PAGES)(
 			Object.defineProperty(window.navigator, "locks", { configurable: true, value: undefined });
 			vi.unstubAllGlobals();
 			expect(leftInFlight, "the deposit was still in flight when the case ended").toBe(false);
+		});
+
+		it("keeps the pending deposit in front while it is submitting: no close control, Escape and Cmd+K do nothing", async () => {
+			await startDepositUntilSignature();
+			const pendingDialog = dialog();
+			const opening = getGlobalModalOpening();
+			expect(opening).toMatch(/^deposit:/);
+			expect(pendingDialog?.querySelector("button[aria-label]")).toBeNull();
+			expect([...(pendingDialog?.querySelectorAll("button") ?? [])].map((control) => control.textContent)).toEqual([]);
+
+			act(() => {
+				document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+				window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+				window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+			});
+			await settle();
+
+			expect(getGlobalModalOpening()).toBe(opening);
+			expect(dialog()).toBe(pendingDialog);
+			expect(depositState().status).toBe("pending");
+		});
+
+		it("keeps a transaction the wallet sends after the session moved to another owner out of that owner's view", async () => {
+			await startDepositUntilSignature();
+			await act(async () => {
+				signature.resolve(PERMIT_SIGNATURE);
+			});
+			await waitUntil(() => requested("eth_sendTransaction").length > 0, "the wallet is asked to send");
+			const pendingDialog = dialog();
+
+			show("connected-other-owner");
+			await waitUntil(() => form() !== null, "the dialog starts over for the other owner");
+			expect(pendingDialog?.isConnected).toBe(false);
+			await act(async () => {
+				send.resolve(SOURCE_HASH);
+			});
+			await waitUntil(() => depositState().status !== "pending", "the first owner's deposit settles");
+			await settle();
+
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(depositState()).toMatchObject({ status: "idle", error: null, hash: undefined });
+			expect(sdk.publicClient.getTransactionReceipt).not.toHaveBeenCalled();
+			expect(readCctpDepositTrackingRecords("Mainnet", SESSION_OWNER)).toEqual([
+				expect.objectContaining({ sourceHash: SOURCE_HASH, mode: "direct" }),
+			]);
+			expect(readCctpDepositTrackingRecords("Mainnet", OTHER_OWNER)).toEqual([]);
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expectNoDepositFeedback();
+			expect(form()?.getAttribute("data-deposit-amount")).toBe("");
+			expect(document.body.textContent).not.toContain(SOURCE_HASH);
 		});
 
 		it("sends once when the session reconnects to the same owner after the signature", async () => {

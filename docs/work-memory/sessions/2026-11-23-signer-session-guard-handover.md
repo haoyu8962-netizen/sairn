@@ -7,11 +7,11 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["wallet-onboarding", "account-funding", "pr-review"],
-  "summary": "资金会话任务（2026-11-21 记录）在第八轮审查后由运营方拆成两条线。展示层与结果归属收窄后作为 PR 1 在分支 claude/funds-session-and-api-wallet-quiet 提交（fce35f78）。本分支 claude/signer-session-guard 在 fce35f78 之上取回拆分前快照（df2703fe）的纯执行层文件（e170258c），之后由接手会话按运营方 2026-11-23 的决定重写手动存款执行链：所有钱包请求经同一层受保护的 provider（不再调用 Privy 的 switchChain）；许可签名后只等一次会话回到点击账户，30 秒上限按墙钟与单调时钟中先到者计，早于全部新鲜复查；赞助路径选项 A（超时或换身份就停下，广播用等待后重新取得的智能钱包客户端）；之后只剩复查、同步闸门与发送或广播，短尾里再中断就静默停下，中断期间复查失败时只有尝试作废才静默；存款尝试绑定点击时的全局开窗标识并单向作废；外部存款结果只看转发台账，不明确的一次转发之后不再转发第二次；弹窗把会话检查接到 deposit()。另修显式 Agent 审批 beforeSign 的注册租约检查（与 beforeSubmit 同源，带取消信号与锁后时限复核）与 session provider 断线期间换网络退役最后确认身份。新增经过 GlobalModals、真实 DepositModal 与真实 useDeposit 的端到端用例。三轮 Codex 复查评分 5/4、7/6、8/7（本次/总体），第三轮之后的双时钟小修未再送审；赞助路径交给 Privy SDK 之后的内部窗口待运营方决定。全量终端 Vitest 通过。",
+  "summary": "资金会话任务（2026-11-21 记录）在第八轮审查后由运营方拆成两条线。展示层与结果归属收窄后作为 PR 1 在分支 claude/funds-session-and-api-wallet-quiet 提交（fce35f78）。本分支 claude/signer-session-guard 在 fce35f78 之上取回拆分前快照（df2703fe）的纯执行层文件（e170258c），之后由接手会话按运营方 2026-11-23 的决定重写手动存款执行链：所有钱包请求经同一层受保护的 provider（不再调用 Privy 的 switchChain）；许可签名后只等一次会话回到点击账户，30 秒上限按墙钟与单调时钟中先到者计，早于全部新鲜复查；赞助路径选项 A（超时或换身份就停下，广播用等待后重新取得的智能钱包客户端）；之后只剩复查、同步闸门与发送或广播，短尾里再中断就静默停下，中断期间复查失败时只有尝试作废才静默；存款尝试绑定点击时的全局开窗标识并单向作废；外部存款结果只看转发台账，不明确的一次转发之后不再转发第二次；弹窗把会话检查接到 deposit()。另修显式 Agent 审批 beforeSign 的注册租约检查（与 beforeSubmit 同源，带取消信号与锁后时限复核）与 session provider 断线期间换网络退役最后确认身份。新增经过 GlobalModals、真实 DepositModal 与真实 useDeposit 的端到端用例。三轮 Codex 复查评分 5/4、7/6、8/7（本次/总体），第三轮之后的双时钟小修未再送审。运营方把赞助路径交给 Privy SDK 之后的内部窗口记为已知限制，并要求三项加固：作废之后结束的发送不写任何可见结果、提交期间弹窗挡在前面（既有，以端到端用例钉住）、调用处注释与文档写明理由；这批加固未再送审。全量终端 Vitest 通过。",
 
   "thread": null,
   "baseCommit": "fce35f78",
-  "commits": ["e170258c"],
+  "commits": ["e170258c", "60adb067"],
   "sources": [
     { "path": "docs/adr/0058-signer-session-guard.md" },
     { "path": "docs/wallet-session-reconnect-practice.md" },
@@ -135,6 +135,18 @@
 
 按本会话对运营方的说明（存款这一块连续两轮没有完全过线，第三轮再出现新的 P2 就停下请运营方决定），第三轮之后只做了上面这一处小修，没有再开第四轮。
 
+### 运营方决定与加固（2026-11-23，第三轮之后）
+
+运营方对赞助存款交给 Privy 之后的 SDK 内部窗口选择「记为已知限制」，并给出三项低成本加固（原话在对话中，由本会话转述）：第 1 项必做，回调写状态前校验账户快照，账户已变时不把结果写进新账户的待处理状态、余额刷新或错误提示，要么静默丢弃，要么明确提示是原账户的存款；第 2 项推荐，提交期间禁用切账户入口或在切换时提示；第 3 项，在代码注释与已知限制文档里写明三点理由（只入原账户、无跨账户风险；保留 `sendTransaction` 是为了 Privy 的 `dataSuffix` 与官方路径；本地没有真实智能钱包验证环境）。
+
+| 项 | 处理 | 证据 |
+| --- | --- | --- |
+| 1 | 选「静默丢弃」：发送或广播结束时尝试已作废，执行状态回到空闲并清掉哈希，不刷新余额、不提示；追踪记录与授权意图留给点击 owner，由页面级追踪在该 owner 重新成为当前账户时报告。执行状态键本来就含钱包地址，另一账户读不到；这一条另外避免同一 owner 之后再开存款弹窗时冒出过期提示或被立即关窗。没有选「明确提示」，因为它要在另一账户的界面里显示原账户的地址与结果，还要为 7 种语言新增文案 | `use-deposit-routing-guard.test.tsx` 新增 5 项、改写 3 项（钱包回答不明确或被拒而尝试已被替换时，原先报「Deposit status unknown」，现在不写可见结果、按台账保留或释放意图）；`deposit-session-global-modals.test.tsx` 新增「keeps a transaction the wallet sends after the session moved to another owner out of that owner's view」；变异 4 项均有用例失败 |
+| 2 | 既有行为已满足：从点击到拿到哈希，存款弹窗是不可关闭的待确认屏，账户菜单、断开与网络切换都在遮罩后面，Cmd+K 只在没有可见弹窗时打开；同一标签页里切不了账户。剩下的只有另一个标签页、外部钱包扩展与 Privy 会话过期。没有加代码，只用端到端用例钉住 | `deposit-session-global-modals.test.tsx`「keeps the pending deposit in front while it is submitting…」；把待确认屏改为可关闭的变异让 2 例失败 |
+| 3 | `use-deposit.ts` 赞助发送调用处的注释写明三点理由；ADR 0058「未覆盖的范围」、决策 5、签名规范、展示规范与 CHANGELOG 同步 | — |
+
+这批改动没有再送 Codex 审查。
+
 ## 验证与限制
 
 - 本分支建立时（编排，2026-11-23）：在 `fce35f78` 之上取回 `df2703fe` 的执行层文件后，`pnpm typecheck` 通过；全量终端 Vitest（本机，`--maxWorkers=4`）768 个文件、11,619 个用例通过，1 个文件跳过；Biome 检查 24 个改动文件通过。注意：这时存款弹窗没有把 `session` 传给 `deposit()`，`use-deposit-routing-guard.test.tsx` 里的会话用例直接给钩子传桩会话，只证明钩子内部，不证明弹窗接线。新工作树的图表库从 PR 1 工作树本机复制（`apps/terminal/public/charting_library`，被 Git 忽略）。
@@ -143,11 +155,12 @@
 - 每轮修复之后 `pnpm typecheck`（hl-react、ui、terminal）退出码 0，改动文件的 Biome 无问题，`git diff --check` 干净，`pnpm memory:check` 通过。
 - 端到端用例 `deposit-session-global-modals.test.tsx` 由子代理按本会话的说明写成（8 例，3 项变异，恢复后逐字节核对），本会话复跑通过并读过场景断言；其余变异由本会话自己做。
 - 最终版本（第三轮之后的双时钟小修之后，沙箱外，`--maxWorkers=4`）：全量终端 Vitest 770 个文件通过、1 个跳过，11,667 个用例通过；`pnpm typecheck` 退出码 0；20 个改动的 TypeScript 文件 Biome 无问题；`pnpm memory:check` 通过，`pnpm memory:test` 12 项通过；`git diff --check` 干净。
+- 加固之后（运营方决定之后，沙箱外，`--maxWorkers=4`）：全量终端 Vitest 770 个文件通过、1 个跳过，11,676 个用例通过；`pnpm typecheck` 退出码 0；改动文件 Biome 无问题；`pnpm memory:check` 通过、`pnpm memory:test` 12 项通过；`git diff --check` 干净。
 - 均为本机 jsdom，事件由脚本触发；没有浏览器、真机或真实钱包验证，原生 Web Locks 的排队与取消顺序也没有在浏览器里验证。
 
 ## 后续与替代关系
 
-- 待运营方决定：赞助路径交给 Privy 智能钱包 `sendTransaction` 之后，SDK 内部的准备、签名与 bundler 发送不受会话检查（第一轮第 1 条，Codex 第二轮起改判 P2）。关闭它要弃用 Privy 的 `sendTransaction` 改为分步调用，需先确认能保留 Privy 的 `dataSuffix` 与界面状态，并能用真实 Privy 智能钱包验证。
+- 已决定（2026-11-23，记为已知限制）：赞助路径交给 Privy 智能钱包 `sendTransaction` 之后，SDK 内部的准备、签名与 bundler 发送不受会话检查。以后若要关闭，需先确认分步调用能保留 Privy 的 `dataSuffix`，并能用真实 Privy 智能钱包验证。
 - 结果归属（属于 PR 1 那条线）：已交给钱包的旧存款结果会关闭同账户之后新开的存款弹窗；普通失败后删意图失败只报原失败，下一次提交才被旧意图挡住（第一轮第 5 条后半、第 6 条）。
 - 显式 Agent 审批签名返回之后、发送之前的锁排队不接收取消信号（第三轮第 2 条，P3）。
 - E2（已登录却失去钱包）时 `GlobalModals` 立即重挂载存款弹窗、已签的许可不用；修 E2（PR 1 的后续）时，存款的等待会变成等到 30 秒上限，届时需要重看「Wallet not connected」的展示。

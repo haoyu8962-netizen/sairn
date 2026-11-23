@@ -3095,6 +3095,117 @@ describe("useDeposit fresh USDC route guard", () => {
 			},
 		);
 
+		describe("a send that settles after the attempt was voided (known limit of the sponsored path)", () => {
+			function expectNothingVisible() {
+				expect(capturedDeposit?.status).toBe("idle");
+				expect(capturedDeposit?.error).toBeNull();
+				expect(capturedDeposit?.hash).toBeUndefined();
+				expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			}
+
+			it("hands a sponsored deposit broadcast after the account changed to the click owner's tracking", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					state.current = false;
+					state.replaced = true;
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
+				expectNothingVisible();
+				expect(testState.publicClient.getTransactionReceipt).not.toHaveBeenCalled();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ owner: WALLET_ADDRESS.toLowerCase(), sourceHash: SOURCE_HASH, mode: "sponsored" }),
+				]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+			});
+
+			it("writes no error for a sponsored send that failed after the account changed, and keeps its authorization", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					state.current = false;
+					state.replaced = true;
+					throw new Error("bundler unreachable");
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toMatchObject({
+					status: "submission-unresolved",
+				});
+			});
+
+			it("keeps the tracking record of a broadcast that fails after the account changed, for its owner's tracking", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					testState.publicClient.getTransactionReceipt.mockImplementation(async () => {
+						state.current = false;
+						state.replaced = true;
+						return { logs: [], status: "reverted" } as unknown as TransactionReceipt;
+					});
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ sourceHash: SOURCE_HASH }),
+				]);
+			});
+
+			it("writes no success for a sponsored deposit confirmed after the account changed, and still clears its authorization", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async ({ data }: { data: Hex }) => {
+					const authNonce = decodeFunctionData({ abi: CCTP_EXTENSION_V2_ABI, data }).args[0][0].authNonce;
+					testState.publicClient.getTransactionReceipt.mockImplementation(async () => {
+						state.current = false;
+						state.replaced = true;
+						return createSponsoredCctpReceipt(authNonce);
+					});
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ sourceHash: SOURCE_HASH }),
+				]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+			});
+
+			it("still reports the outcome of a sponsored deposit whose attempt stayed current", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				testState.smartSendTransaction.mockImplementation(async () => {
+					testState.publicClient.getTransactionReceipt.mockResolvedValue({
+						logs: [],
+						status: "reverted",
+					} as unknown as TransactionReceipt);
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session({ current: true, replaced: false }) });
+
+				expect(capturedDeposit?.status).toBe("error");
+				expect(capturedDeposit?.error).toBeInstanceOf(DefinitiveDepositSourceFailureError);
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toHaveLength(0);
+			});
+		});
+
 		it("drops a sponsored signature when the session comes back on another account", async () => {
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
@@ -3313,7 +3424,7 @@ describe("useDeposit fresh USDC route guard", () => {
 			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
 		});
 
-		it("keeps the outcome unknown when the wallet answered the send unclearly and the fallback is then blocked", async () => {
+		it("keeps the authorization but writes nothing visible when the wallet answered unclearly after the session was replaced", async () => {
 			const state: SessionState = { current: true, replaced: false };
 			sendTransaction = async () => {
 				state.current = false;
@@ -3325,16 +3436,19 @@ describe("useDeposit fresh USDC route guard", () => {
 
 			expect(requested("eth_sendTransaction")).toHaveLength(1);
 			expect(requested("wallet_sendTransaction")).toHaveLength(0);
-			expect(capturedDeposit?.status).toBe("error");
-			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(true);
-			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toMatchObject({
+				status: "submission-unresolved",
+			});
 		});
 
 		it.each([
 			{
 				answer: "a refusal wrapped around an unclear wallet error",
 				cause: { code: -32603, message: "Internal error" },
-				quiet: false,
+				released: false,
 			},
 			{
 				answer: "a refusal whose causes carry only refusals",
@@ -3342,9 +3456,9 @@ describe("useDeposit fresh USDC route guard", () => {
 					code: -1,
 					cause: { code: 4001, message: "User rejected the request." },
 				}),
-				quiet: true,
+				released: true,
 			},
-		])("reads every code of $answer before releasing a blocked fallback", async ({ cause, quiet }) => {
+		])("reads every code of $answer before releasing a blocked fallback", async ({ cause, released }) => {
 			const state: SessionState = { current: true, replaced: false };
 			sendTransaction = async () => {
 				state.current = false;
@@ -3356,9 +3470,10 @@ describe("useDeposit fresh USDC route guard", () => {
 
 			expect(requested("eth_sendTransaction")).toHaveLength(1);
 			expect(requested("wallet_sendTransaction")).toHaveLength(0);
-			expect(capturedDeposit?.status).toBe(quiet ? "idle" : "error");
-			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(!quiet);
-			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS) === null).toBe(quiet);
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS) === null).toBe(released);
 		});
 
 		it.each([

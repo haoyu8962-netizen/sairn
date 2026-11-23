@@ -180,7 +180,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
   for the disconnected wallet first, and the deposit then stops without a message); if the wallet
   drops out again after that wait, the deposit stops without sending, and a check that failed
   meanwhile is shown as usual. Once the email wallet's sponsored sender has the deposit, switching
-  accounts no longer stops it; it deposits your own signed USDC into your own account. An
+  accounts no longer stops it; it deposits your own signed USDC into your own account, and its result
+  is shown only to that account, once it is the active one again, never in the other account's view. An
   external-wallet deposit whose wallet gave an unclear answer to the transaction is never sent a
   second time and keeps its unknown status, and one that never reached the wallet's transaction
   prompt is reported as a plain failure instead of an unknown status.
