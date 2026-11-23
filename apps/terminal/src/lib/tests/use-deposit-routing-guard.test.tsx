@@ -27,7 +27,14 @@ import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { getDepositExecutionState } from "@/lib/hyperliquid/deposit-execution-state";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
-import { type DepositReview, type UseDepositResult, useDeposit } from "@/lib/hyperliquid/use-deposit";
+import {
+	type DepositReview,
+	type DepositSessionCheck,
+	type DepositSessionSettlement,
+	type DepositSessionWaitResult,
+	type UseDepositResult,
+	useDeposit,
+} from "@/lib/hyperliquid/use-deposit";
 import {
 	addressToBytes32,
 	CCTP_EXTENSION_ABI,
@@ -144,6 +151,7 @@ const testState = vi.hoisted(() => {
 	const providerRequest = vi.fn();
 	return {
 		createWalletClient: vi.fn(),
+		custom: vi.fn<(...args: unknown[]) => unknown>(() => ({})),
 		fetchRouting: vi.fn(),
 		geoRefetch: vi.fn(),
 		getClientForChain: vi.fn(),
@@ -173,6 +181,7 @@ const testState = vi.hoisted(() => {
 			connectorType: "embedded",
 			getEthereumProvider: async () => ({ request: providerRequest }),
 			switchChain: vi.fn(),
+			walletClientType: "metamask",
 		},
 		walletWriteContract: vi.fn(),
 		verifyLegalAction: vi.fn(),
@@ -258,7 +267,7 @@ vi.mock("viem", async (importOriginal) => {
 	return {
 		...original,
 		createWalletClient: testState.createWalletClient,
-		custom: vi.fn(() => ({})),
+		custom: (...args: unknown[]) => testState.custom(...args),
 	};
 });
 
@@ -297,6 +306,7 @@ describe("useDeposit fresh USDC route guard", () => {
 		testState.wallet.address = WALLET_ADDRESS;
 		testState.wallet.connectorType = "embedded";
 		testState.wallet.chainId = "eip155:42161";
+		testState.wallet.walletClientType = "metamask";
 		testState.fetchRouting.mockImplementation(async () => {
 			if (testState.routingError) throw testState.routingError;
 			return testState.routingResponse;
@@ -325,6 +335,7 @@ describe("useDeposit fresh USDC route guard", () => {
 			signTypedData: testState.permitSign,
 			writeContract: testState.walletWriteContract,
 		});
+		testState.custom.mockImplementation(() => ({}));
 		testState.getClientForChain.mockImplementation(async ({ id }: { id: number }) => ({
 			chain: { id },
 			paymaster: {},
@@ -912,7 +923,7 @@ describe("useDeposit fresh USDC route guard", () => {
 			expect(listeners.size).toBe(0);
 		});
 
-		it("switches through Privy exactly once and waits for the wallet to report Arbitrum", async () => {
+		it("switches through the wallet's own provider exactly once and waits for it to report Arbitrum", async () => {
 			vi.useFakeTimers();
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
@@ -920,12 +931,14 @@ describe("useDeposit fresh USDC route guard", () => {
 			let chainId: unknown = "0x38";
 			let pendingDuringSwitch: boolean | undefined;
 			let pendingDuringSigning: boolean | undefined;
-			const { listeners, switchRequests } = providerOn(() => chainId);
-			testState.wallet.switchChain = vi.fn(async () => {
-				pendingDuringSwitch = networkSwitchPending();
-				setTimeout(() => {
-					chainId = 42161;
-				}, 9_000);
+			const { listeners, switchRequests } = providerOn(() => chainId, {
+				onSwitch: () => {
+					pendingDuringSwitch = networkSwitchPending();
+					setTimeout(() => {
+						chainId = 42161;
+					}, 9_000);
+					return null;
+				},
 			});
 			testState.permitSign.mockImplementation(async () => {
 				pendingDuringSigning = networkSwitchPending();
@@ -939,9 +952,8 @@ describe("useDeposit fresh USDC route guard", () => {
 				await request;
 			});
 
-			expect(testState.wallet.switchChain).toHaveBeenCalledTimes(1);
-			expect(testState.wallet.switchChain).toHaveBeenCalledWith(42161);
-			expect(switchRequests()).toHaveLength(0);
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(switchRequests()).toEqual([{ method: "wallet_switchEthereumChain", params: [{ chainId: "0xa4b1" }] }]);
 			expect(pendingDuringSwitch).toBe(true);
 			expect(pendingDuringSigning).toBe(false);
 			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
@@ -955,7 +967,6 @@ describe("useDeposit fresh USDC route guard", () => {
 			stubSuccessfulCctpCapacity();
 			testState.wallet.chainId = "eip155:56";
 			const { listeners, switchRequests } = providerOn(() => "0x38");
-			testState.wallet.switchChain = vi.fn(async () => undefined);
 			const depositHook = renderMode("wallet", "cctp");
 
 			await act(async () => {
@@ -967,8 +978,8 @@ describe("useDeposit fresh USDC route guard", () => {
 				await request;
 			});
 
-			expect(testState.wallet.switchChain).toHaveBeenCalledTimes(1);
-			expect(switchRequests()).toHaveLength(0);
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(switchRequests()).toHaveLength(1);
 			expect(testState.walletWriteContract).not.toHaveBeenCalled();
 			expect(listeners.size).toBe(0);
 			expect(capturedDeposit?.networkSwitchPending).toBe(false);
@@ -1016,15 +1027,14 @@ describe("useDeposit fresh USDC route guard", () => {
 			testState.wallet.chainId = "eip155:56";
 			let chainId: unknown = 56;
 			const switchAnswer = deferred<void>();
-			providerOn(() => chainId);
-			testState.wallet.switchChain = vi.fn(() => switchAnswer.promise);
+			const { switchRequests } = providerOn(() => chainId, { onSwitch: () => switchAnswer.promise });
 			const depositHook = renderMode("wallet", "cctp");
 			expect(depositHook.networkSwitchPending).toBe(false);
 
 			let request: Promise<void> | undefined;
 			await act(async () => {
 				request = depositHook.deposit("5");
-				await flushUntil(() => testState.wallet.switchChain.mock.calls.length === 1);
+				await flushUntil(() => switchRequests().length === 1);
 			});
 			expect(capturedDeposit?.networkSwitchPending).toBe(true);
 
@@ -1218,64 +1228,86 @@ describe("useDeposit fresh USDC route guard", () => {
 			expect(capturedDeposit?.networkSwitchPending).toBe(false);
 		});
 
-		it("falls back to the wallet provider when Privy itself reports an unknown chain", async () => {
+		it("lets Rabby settle before asking it to add a chain it reported unknown, as Privy does", async () => {
+			vi.useFakeTimers();
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
 			testState.wallet.chainId = "eip155:56";
+			testState.wallet.walletClientType = "rabby_wallet";
 			let chainId: unknown = 56;
 			let switchAttempts = 0;
 			const { requests } = providerOn(() => chainId, {
 				onSwitch: () => {
 					switchAttempts += 1;
-					if (switchAttempts === 1) throw Object.assign(new Error("Unrecognized chain ID"), { code: 4902 });
+					if (switchAttempts === 1) throw new Error("Unrecognized chain ID 0xa4b1");
 					chainId = 42161;
 					return null;
 				},
 			});
-			testState.wallet.switchChain = vi.fn(async () => {
-				throw Object.assign(new Error("Unknown chain"), { code: 4902 });
+			const depositHook = renderMode("wallet", "cctp");
+
+			await act(async () => {
+				const request = depositHook.deposit("5");
+				await flushUntil(() => switchAttempts === 1);
+				await vi.advanceTimersByTimeAsync(299);
+				expect(requests.map((entry) => entry.method)).toEqual(["wallet_switchEthereumChain"]);
+				await vi.advanceTimersByTimeAsync(1);
+				await request;
 			});
 
-			await submit("wallet", "cctp");
-
-			expect(testState.wallet.switchChain).toHaveBeenCalledTimes(1);
-			expect(requests.map((request) => request.method)).toEqual([
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(requests.map((entry) => entry.method)).toEqual([
 				"wallet_switchEthereumChain",
 				"wallet_addEthereumChain",
 				"wallet_switchEthereumChain",
 			]);
-			expect(testState.permitSign).toHaveBeenCalledOnce();
 			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
-			expect(capturedDeposit?.networkSwitchPending).toBe(false);
 		});
 
-		it("does not fall back to the wallet provider when Privy reports a rejected switch", async () => {
+		it.each([
+			{
+				wallet: "Coinbase",
+				answer: new Error("Unrecognized chain ID. Try adding the chain using addEthereumChain first."),
+			},
+			{ wallet: "a wallet that only names the code", answer: new Error("Error 4902: chain not added") },
+		])("adds Arbitrum when $wallet reports the chain unknown", async ({ answer }) => {
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
-			testState.wallet.chainId = "eip155:56";
-			const { requests } = providerOn(() => 56);
-			testState.wallet.switchChain = vi.fn(async () => {
-				throw Object.assign(new Error("User rejected the request."), { code: 4001 });
+			let chainId: unknown = 56;
+			let switchAttempts = 0;
+			const { requests } = providerOn(() => chainId, {
+				onSwitch: () => {
+					switchAttempts += 1;
+					if (switchAttempts === 1) throw answer;
+					chainId = 42161;
+					return null;
+				},
 			});
 
 			await submit("wallet", "cctp");
 
-			expect(requests).toHaveLength(0);
-			expect(testState.walletWriteContract).not.toHaveBeenCalled();
-			expect(capturedDeposit?.error?.message).toBe("Arbitrum network switch was rejected.");
+			expect(requests.map((entry) => entry.method)).toEqual([
+				"wallet_switchEthereumChain",
+				"wallet_addEthereumChain",
+				"wallet_switchEthereumChain",
+			]);
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
 		});
 
-		it("reports a rejected switch without broadcasting", async () => {
+		it("does not add the chain when the wallet rejected the switch", async () => {
 			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
 			stubSuccessfulCctpCapacity();
 			testState.wallet.chainId = "eip155:56";
-			const { listeners } = providerOn(() => 56);
-			testState.wallet.switchChain = vi.fn(async () => {
-				throw Object.assign(new Error("User rejected the request."), { code: 4001 });
+			const { requests, listeners } = providerOn(() => 56, {
+				onSwitch: () => {
+					throw Object.assign(new Error("User rejected the request."), { code: 4001 });
+				},
 			});
 
 			await submit("wallet", "cctp");
 
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(requests.map((entry) => entry.method)).toEqual(["wallet_switchEthereumChain"]);
 			expect(testState.walletWriteContract).not.toHaveBeenCalled();
 			expect(listeners.size).toBe(0);
 			expect(capturedDeposit?.networkSwitchPending).toBe(false);
@@ -1381,6 +1413,25 @@ describe("useDeposit fresh USDC route guard", () => {
 		function providerError(code: number, message: string) {
 			return Object.assign(new Error(message), { code });
 		}
+
+		beforeEach(() => {
+			testState.custom.mockImplementation((provider: unknown) => ({ provider }));
+			testState.createWalletClient.mockImplementation(
+				({ transport }: { transport: { provider: { request: (args: unknown) => Promise<unknown> } } }) => ({
+					signTypedData: testState.permitSign,
+					writeContract: (args: unknown) =>
+						transport.provider.request({ method: "eth_sendTransaction", params: [args] }),
+				}),
+			);
+			testState.providerRequest.mockImplementation(
+				async ({ method, params }: { method: string; params?: unknown[] }) => {
+					if (method === "eth_chainId") return "0xa4b1";
+					if (method === "eth_accounts" || method === "eth_requestAccounts") return [WALLET_ADDRESS];
+					if (method === "eth_sendTransaction") return testState.walletWriteContract(params?.[0]);
+					throw new Error(`Unexpected provider method: ${method}`);
+				},
+			);
+		});
 
 		async function submitAgainAfterReset() {
 			act(() => capturedDeposit?.reset());
@@ -2652,5 +2703,996 @@ describe("useDeposit fresh USDC route guard", () => {
 		await act(async () => balanceRequests[newest - 1]?.(7_000_000n));
 		expect(capturedDeposit?.balanceStatus).toBe("success");
 		expect(capturedDeposit?.maxDepositRaw).toBe(7_000_000n);
+	});
+
+	interface SessionState {
+		/** Before the wait: no reconnect since the click. */
+		current: boolean;
+		/** One-way: the attempt was voided. */
+		replaced: boolean;
+		/** Settled on the click's identity; follows `current` when not set. */
+		settled?: boolean;
+		/** Commits that saw the session away from the click's identity. */
+		interruptions?: number;
+		/** Answers a wait that cannot settle at once; without it the wait times out. */
+		waitForSettlement?: () => Promise<DepositSessionWaitResult>;
+		/** The limit of every wait the deposit started. */
+		waitLimits?: number[];
+	}
+
+	/** The session leaves the click's identity at a commit (a reconnect starts or the wallet drops out). */
+	function interrupt(state: SessionState) {
+		state.current = false;
+		state.settled = false;
+		state.interruptions = (state.interruptions ?? 0) + 1;
+	}
+
+	function session(state: SessionState): DepositSessionCheck {
+		const check: DepositSessionCheck = {
+			isCurrent: () => state.current && !state.replaced,
+			isSettledOnSubmitted: () => !state.replaced && (state.settled ?? state.current),
+			isVoided: () => state.replaced,
+			readInterruptions: () => state.interruptions ?? 0,
+			waitUntilSettled: async (timeoutMs) => {
+				state.waitLimits = [...(state.waitLimits ?? []), timeoutMs];
+				const interruptions = state.interruptions ?? 0;
+				if (state.replaced) return { settlement: "replaced", interruptions };
+				if (check.isSettledOnSubmitted()) return { settlement: "same", interruptions };
+				return state.waitForSettlement ? state.waitForSettlement() : { settlement: "timeout", interruptions };
+			},
+		};
+		return check;
+	}
+
+	/** A wait for the session that the test ends by changing the session and answering. */
+	function heldSettlement(state: SessionState) {
+		let answer!: (result: DepositSessionWaitResult) => void;
+		let reached!: () => void;
+		const waiting = new Promise<void>((resolve) => {
+			reached = resolve;
+		});
+		state.waitForSettlement = () =>
+			new Promise<DepositSessionWaitResult>((resolve) => {
+				answer = resolve;
+				reached();
+			});
+		return {
+			waiting,
+			settle: (settlement: DepositSessionSettlement) => answer({ settlement, interruptions: state.interruptions ?? 0 }),
+		};
+	}
+
+	/** A permit signature the wallet returns only when the test releases it. */
+	function heldSignature() {
+		let release!: () => void;
+		let reached!: () => void;
+		const reachedPromise = new Promise<void>((resolve) => {
+			reached = resolve;
+		});
+		return {
+			reached: reachedPromise,
+			held: () =>
+				new Promise<typeof PERMIT_SIGNATURE>((resolve) => {
+					release = () => resolve(PERMIT_SIGNATURE);
+					reached();
+				}),
+			release: () => release(),
+		};
+	}
+
+	function trackEnd(submission: Promise<void>) {
+		const ended = { value: false };
+		void submission.then(() => {
+			ended.value = true;
+		});
+		return ended;
+	}
+
+	function expectNotSentBecauseTheSessionDidNotSettle() {
+		expect(capturedDeposit?.status).toBe("error");
+		expect(capturedDeposit?.error).toBeInstanceOf(LocalizedActionError);
+		expect(capturedDeposit?.error?.message).toBe("Wallet not connected");
+		expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+		expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([]);
+	}
+
+	function startSubmission(mode: "smart" | "wallet", review: DepositReview) {
+		const depositHook = renderMode(mode, "cctp");
+		let submission!: Promise<void>;
+		act(() => {
+			submission = depositHook.deposit("5", review);
+		});
+		return submission;
+	}
+
+	function rerenderSubmission(mode: "smart" | "wallet") {
+		act(() => {
+			root.render(
+				createElement(QueryClientProvider, { client: queryClient }, createElement(Probe, { mode, route: "cctp" })),
+			);
+		});
+	}
+
+	describe("session of a manual deposit (ADR 0058)", () => {
+		function expectQuietlyNotSent() {
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		}
+
+		const SPONSORED_REVIEW = { expectedBalanceRaw: 5_000_000n, expectedCctpMaxFeeRaw: 200_000n };
+
+		it("asks the wallet nothing when the session is no longer the one the click came from", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+
+			await submit("wallet", "cctp", { session: session({ current: false, replaced: false }) });
+
+			expect(testState.providerRequest).not.toHaveBeenCalledWith(
+				expect.objectContaining({ method: "eth_requestAccounts" }),
+			);
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expect(testState.walletWriteContract).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it("does not ask the wallet to switch networks once the session became unresolved", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.wallet.chainId = "eip155:56";
+			const state = { current: true, replaced: false };
+			let depositStarted = false;
+			testState.fetchRouting.mockImplementation(async () => {
+				depositStarted = true;
+				return testState.routingResponse;
+			});
+			testState.providerRequest.mockImplementation(async ({ method }: { method: string }) => {
+				if (method === "eth_chainId") {
+					if (depositStarted) state.current = false;
+					return "0x38";
+				}
+				if (method === "eth_accounts" || method === "eth_requestAccounts") return [WALLET_ADDRESS];
+				throw new Error(`Unexpected provider method: ${method}`);
+			});
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(testState.providerRequest).not.toHaveBeenCalledWith(
+				expect.objectContaining({ method: "wallet_switchEthereumChain" }),
+			);
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it("does not ask the wallet to add the chain once the session became unresolved during the first switch", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			testState.wallet.chainId = "eip155:56";
+			const state = { current: true, replaced: false };
+			testState.providerRequest.mockImplementation(async ({ method }: { method: string }) => {
+				if (method === "eth_chainId") return "0x38";
+				if (method === "eth_accounts" || method === "eth_requestAccounts") return [WALLET_ADDRESS];
+				if (method === "wallet_switchEthereumChain") {
+					state.current = false;
+					throw Object.assign(new Error("Unrecognized chain ID"), { code: 4902 });
+				}
+				if (method === "wallet_addEthereumChain") return null;
+				throw new Error(`Unexpected provider method: ${method}`);
+			});
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(testState.wallet.switchChain).not.toHaveBeenCalled();
+			expect(testState.providerRequest).toHaveBeenCalledWith(
+				expect.objectContaining({ method: "wallet_switchEthereumChain" }),
+			);
+			expect(testState.providerRequest).not.toHaveBeenCalledWith(
+				expect.objectContaining({ method: "wallet_addEthereumChain" }),
+			);
+			expect(
+				testState.providerRequest.mock.calls.filter(([request]) => request.method === "wallet_switchEthereumChain"),
+			).toHaveLength(1);
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it("does not ask for the signature when the session became unresolved after the last check", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			const state = { current: true, replaced: false };
+			let routingChecks = 0;
+			testState.fetchRouting.mockImplementation(async () => {
+				routingChecks += 1;
+				if (routingChecks === 2) state.current = false;
+				return testState.routingResponse;
+			});
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(routingChecks).toBeGreaterThanOrEqual(2);
+			expect(testState.permitSign).not.toHaveBeenCalled();
+			expect(testState.walletWriteContract).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it.each(["wallet", "smart"] as const)(
+			"waits once, with the independent 30-second limit, when a %s deposit's session is still settled",
+			async (mode) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+
+				await submit(mode, "cctp", { ...(mode === "smart" ? SPONSORED_REVIEW : {}), session: session(state) });
+
+				expect(state.waitLimits).toEqual([30_000]);
+				expect(testState.verifyLegalAction).toHaveBeenCalledOnce();
+				if (mode === "smart") expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
+				else expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+			},
+		);
+
+		it.each(["wallet", "smart"] as const)(
+			"does not send a %s deposit and says so when the session does not settle after the signature",
+			async (mode) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.permitSign.mockImplementation(async () => {
+					interrupt(state);
+					return PERMIT_SIGNATURE;
+				});
+
+				await submit(mode, "cctp", { ...(mode === "smart" ? SPONSORED_REVIEW : {}), session: session(state) });
+
+				expect(state.waitLimits).toEqual([30_000]);
+				expect(testState.permitSign).toHaveBeenCalledOnce();
+				expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+				expect(testState.walletWriteContract).not.toHaveBeenCalled();
+				expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+				expectNotSentBecauseTheSessionDidNotSettle();
+			},
+		);
+
+		it("runs no fresh check while it waits and broadcasts a sponsored deposit once its session is back on the same account", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			let routingChecksAtSignature = 0;
+			let userRoleReadsAtSignature = 0;
+			testState.permitSign.mockImplementation(async () => {
+				routingChecksAtSignature = testState.fetchRouting.mock.calls.length;
+				userRoleReadsAtSignature = testState.getUserRole.mock.calls.length;
+				interrupt(state);
+				return PERMIT_SIGNATURE;
+			});
+
+			const submission = startSubmission("smart", { ...SPONSORED_REVIEW, session: session(state) });
+			await act(async () => settlement.waiting);
+			expect(testState.fetchRouting).toHaveBeenCalledTimes(routingChecksAtSignature);
+			expect(testState.getUserRole).toHaveBeenCalledTimes(userRoleReadsAtSignature);
+			expect(testState.getClientForChain).toHaveBeenCalledOnce();
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+			expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+
+			state.settled = true;
+			await act(async () => {
+				settlement.settle("same");
+				await submission;
+			});
+
+			expect(state.waitLimits).toEqual([30_000]);
+			expect(testState.fetchRouting.mock.calls.length).toBeGreaterThan(routingChecksAtSignature);
+			expect(testState.getClientForChain).toHaveBeenCalledTimes(2);
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(testState.verifyLegalAction).toHaveBeenCalledOnce();
+			expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
+		});
+
+		it.each([
+			{ step: "the route recheck", back: false },
+			{ step: "the route recheck", back: true },
+			{ step: "the legal recheck", back: false },
+			{ step: "the legal recheck", back: true },
+		])(
+			"stops a sponsored deposit quietly when its session is interrupted during $step after the wait (back: $back)",
+			async ({ step, back }) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				let signed = false;
+				let interrupted = false;
+				function interruptOnce() {
+					if (!signed || interrupted) return;
+					interrupted = true;
+					interrupt(state);
+					if (back) state.settled = true;
+				}
+				testState.permitSign.mockImplementation(async () => {
+					signed = true;
+					return PERMIT_SIGNATURE;
+				});
+				testState.fetchRouting.mockImplementation(async () => {
+					if (step === "the route recheck") interruptOnce();
+					return testState.routingResponse;
+				});
+				testState.verifyLegalAction.mockImplementation(async () => {
+					if (step === "the legal recheck") interruptOnce();
+					return { canPerformActions: true };
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expect(interrupted).toBe(true);
+				expect(state.waitLimits).toEqual([30_000]);
+				expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+				expectQuietlyNotSent();
+			},
+		);
+
+		it.each([
+			{ session: "back on the same account", voided: false },
+			{ session: "replaced", voided: true },
+		])(
+			"reports a fresh check that fails after an interruption unless the attempt was voided ($session)",
+			async ({ voided }) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.verifyLegalAction.mockImplementation(async () => {
+					interrupt(state);
+					if (voided) state.replaced = true;
+					else state.settled = true;
+					throw new LocalizedActionError({ id: "legal", message: "Deposits are not available in your region." });
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+				if (voided) {
+					expectQuietlyNotSent();
+				} else {
+					expect(capturedDeposit?.status).toBe("error");
+					expect(capturedDeposit?.error?.message).toBe("Deposits are not available in your region.");
+					expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+					expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+				}
+			},
+		);
+
+		it.each(["wallet", "smart"] as const)(
+			"stops a %s deposit quietly when the session is interrupted between the end of the wait and the deposit resuming",
+			async (mode) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				const settlement = heldSettlement(state);
+				testState.permitSign.mockImplementation(async () => {
+					interrupt(state);
+					return PERMIT_SIGNATURE;
+				});
+
+				const submission = startSubmission(mode, {
+					...(mode === "smart" ? SPONSORED_REVIEW : {}),
+					session: session(state),
+				});
+				await act(async () => settlement.waiting);
+				state.settled = true;
+				await act(async () => {
+					settlement.settle("same");
+					interrupt(state);
+					state.settled = true;
+					await submission;
+				});
+
+				expect(testState.walletWriteContract).not.toHaveBeenCalled();
+				expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+				expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+				expectQuietlyNotSent();
+			},
+		);
+
+		describe("a send that settles after the attempt was voided (known limit of the sponsored path)", () => {
+			function expectNothingVisible() {
+				expect(capturedDeposit?.status).toBe("idle");
+				expect(capturedDeposit?.error).toBeNull();
+				expect(capturedDeposit?.hash).toBeUndefined();
+				expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			}
+
+			it("hands a sponsored deposit broadcast after the account changed to the click owner's tracking", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					state.current = false;
+					state.replaced = true;
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
+				expectNothingVisible();
+				expect(testState.publicClient.getTransactionReceipt).not.toHaveBeenCalled();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ owner: WALLET_ADDRESS.toLowerCase(), sourceHash: SOURCE_HASH, mode: "sponsored" }),
+				]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+			});
+
+			it("writes no error for a sponsored send that failed after the account changed, and keeps its authorization", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					state.current = false;
+					state.replaced = true;
+					throw new Error("bundler unreachable");
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toMatchObject({
+					status: "submission-unresolved",
+				});
+			});
+
+			it("keeps the tracking record of a broadcast that fails after the account changed, for its owner's tracking", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async () => {
+					testState.publicClient.getTransactionReceipt.mockImplementation(async () => {
+						state.current = false;
+						state.replaced = true;
+						return { logs: [], status: "reverted" } as unknown as TransactionReceipt;
+					});
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ sourceHash: SOURCE_HASH }),
+				]);
+			});
+
+			it("writes no success for a sponsored deposit confirmed after the account changed, and still clears its authorization", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state: SessionState = { current: true, replaced: false };
+				testState.smartSendTransaction.mockImplementation(async ({ data }: { data: Hex }) => {
+					const authNonce = decodeFunctionData({ abi: CCTP_EXTENSION_V2_ABI, data }).args[0][0].authNonce;
+					testState.publicClient.getTransactionReceipt.mockImplementation(async () => {
+						state.current = false;
+						state.replaced = true;
+						return createSponsoredCctpReceipt(authNonce);
+					});
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session(state) });
+
+				expectNothingVisible();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([
+					expect.objectContaining({ sourceHash: SOURCE_HASH }),
+				]);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+			});
+
+			it("still reports the outcome of a sponsored deposit whose attempt stayed current", async () => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				testState.smartSendTransaction.mockImplementation(async () => {
+					testState.publicClient.getTransactionReceipt.mockResolvedValue({
+						logs: [],
+						status: "reverted",
+					} as unknown as TransactionReceipt);
+					return SOURCE_HASH;
+				});
+
+				await submit("smart", "cctp", { ...SPONSORED_REVIEW, session: session({ current: true, replaced: false }) });
+
+				expect(capturedDeposit?.status).toBe("error");
+				expect(capturedDeposit?.error).toBeInstanceOf(DefinitiveDepositSourceFailureError);
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toHaveLength(0);
+			});
+		});
+
+		it("drops a sponsored signature when the session comes back on another account", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			testState.permitSign.mockImplementation(async () => {
+				interrupt(state);
+				return PERMIT_SIGNATURE;
+			});
+
+			const submission = startSubmission("smart", { ...SPONSORED_REVIEW, session: session(state) });
+			await act(async () => settlement.waiting);
+			state.replaced = true;
+			await act(async () => {
+				settlement.settle("replaced");
+				await submission;
+			});
+
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+			expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it("checks the legal status of a sponsored deposit only after the interrupted session came back", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			const signature = heldSignature();
+			testState.permitSign.mockImplementation(() => {
+				interrupt(state);
+				return signature.held();
+			});
+
+			const submission = startSubmission("smart", { ...SPONSORED_REVIEW, session: session(state) });
+			const ended = trackEnd(submission);
+			await act(async () => signature.reached);
+			testState.selectedOwner = "disconnected";
+			rerenderSubmission("smart");
+			await act(async () => {
+				signature.release();
+				await Promise.race([settlement.waiting, submission]);
+			});
+			expect(ended.value).toBe(false);
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+
+			testState.selectedOwner = WALLET_ADDRESS;
+			rerenderSubmission("smart");
+			state.settled = true;
+			await act(async () => {
+				settlement.settle("same");
+				await submission;
+			});
+
+			expect(testState.verifyLegalAction).toHaveBeenCalledOnce();
+			expect(testState.smartSendTransaction).toHaveBeenCalledOnce();
+		});
+
+		it.each(["wallet", "smart"] as const)(
+			"drops a %s signature once the session settled on another account",
+			async (mode) => {
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+				stubSuccessfulCctpCapacity();
+				const state = { current: true, replaced: false };
+				testState.permitSign.mockImplementation(async () => {
+					state.current = false;
+					state.replaced = true;
+					return PERMIT_SIGNATURE;
+				});
+
+				await submit(mode, "cctp", { ...(mode === "smart" ? SPONSORED_REVIEW : {}), session: session(state) });
+
+				expect(testState.permitSign).toHaveBeenCalledOnce();
+				expect(testState.walletWriteContract).not.toHaveBeenCalled();
+				expect(testState.smartSendTransaction).not.toHaveBeenCalled();
+				expectQuietlyNotSent();
+			},
+		);
+
+		it("ignores the session of an automatic deposit, which has no click to belong to", async () => {
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+
+			await submit("wallet", "cctp", { session: session({ current: false, replaced: true }) }, "automatic");
+
+			expect(testState.permitSign).toHaveBeenCalledOnce();
+			expect(testState.walletWriteContract).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe("session of a manual external deposit through the real viem wallet client (ADR 0058)", () => {
+		const requests: Array<{ method: string; params?: unknown }> = [];
+		let onRequest: (method: string) => void = () => {};
+		let signTypedData: () => Promise<unknown> = async () => PERMIT_SIGNATURE;
+		let sendTransaction: () => Promise<unknown> = async () => {
+			throw Object.assign(new Error("User rejected the request."), { code: 4001 });
+		};
+		let walletSendTransaction: () => Promise<unknown> = async () => {
+			throw Object.assign(new Error("Unsupported provider method: wallet_sendTransaction"), { code: 4200 });
+		};
+
+		beforeEach(async () => {
+			const actual = await vi.importActual<typeof import("viem")>("viem");
+			testState.createWalletClient.mockImplementation(actual.createWalletClient);
+			testState.custom.mockImplementation((...args: unknown[]) =>
+				actual.custom(...(args as Parameters<typeof actual.custom>)),
+			);
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			stubSuccessfulCctpCapacity();
+			requests.length = 0;
+			onRequest = () => {};
+			signTypedData = async () => PERMIT_SIGNATURE;
+			sendTransaction = async () => {
+				throw Object.assign(new Error("User rejected the request."), { code: 4001 });
+			};
+			walletSendTransaction = async () => {
+				throw Object.assign(new Error("Unsupported provider method: wallet_sendTransaction"), { code: 4200 });
+			};
+			testState.providerRequest.mockImplementation(async ({ method, params }: { method: string; params?: unknown }) => {
+				requests.push({ method, params });
+				onRequest(method);
+				if (method === "eth_chainId") return "0xa4b1";
+				if (method === "eth_accounts" || method === "eth_requestAccounts") return [WALLET_ADDRESS];
+				if (method === "eth_signTypedData_v4") return signTypedData();
+				if (method === "eth_sendTransaction") return sendTransaction();
+				if (method === "wallet_sendTransaction") return walletSendTransaction();
+				throw Object.assign(new Error(`Unsupported provider method: ${method}`), { code: 4200 });
+			});
+		});
+
+		function requested(method: string) {
+			return requests.filter((request) => request.method === method);
+		}
+
+		function intentSaved() {
+			return readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS) !== null;
+		}
+
+		function expectQuietlyNotSent() {
+			expect(requested("eth_sendTransaction")).toHaveLength(0);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		}
+
+		it("does not prompt the wallet to send when the session drops while viem reads the chain at the send step", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			onRequest = (method) => {
+				if (method === "eth_chainId" && intentSaved()) interrupt(state);
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(state.current).toBe(false);
+			expectQuietlyNotSent();
+		});
+
+		it("sends once the session recovered on the same account before the send step", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			onRequest = (method) => {
+				if (method === "eth_signTypedData_v4") {
+					state.current = false;
+					state.settled = true;
+				}
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			const [sent] = requested("eth_sendTransaction");
+			expect(sent?.params).toEqual([
+				expect.objectContaining({
+					from: WALLET_ADDRESS,
+					to: CCTP_DEPOSIT_NETWORKS.mainnet.cctpExtension,
+				}),
+			]);
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(capturedDeposit?.status).toBe("error");
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+		});
+
+		it("stops quietly and releases the authorization when the session is replaced after it was saved", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			onRequest = (method) => {
+				if (method === "eth_chainId" && intentSaved()) {
+					state.current = false;
+					state.replaced = true;
+				}
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(state.replaced).toBe(true);
+			expectQuietlyNotSent();
+		});
+
+		it("stops quietly when the wallet refused the send and the fallback is then blocked", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			sendTransaction = async () => {
+				state.current = false;
+				state.replaced = true;
+				throw Object.assign(new Error("The method eth_sendTransaction does not exist."), { code: -32601 });
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		});
+
+		it("keeps the authorization but writes nothing visible when the wallet answered unclearly after the session was replaced", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			sendTransaction = async () => {
+				state.current = false;
+				state.replaced = true;
+				throw Object.assign(new Error("Internal error"), { code: -32000 });
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toMatchObject({
+				status: "submission-unresolved",
+			});
+		});
+
+		it.each([
+			{
+				answer: "a refusal wrapped around an unclear wallet error",
+				cause: { code: -32603, message: "Internal error" },
+				released: false,
+			},
+			{
+				answer: "a refusal whose causes carry only refusals",
+				cause: Object.assign(new Error("An unknown RPC error occurred."), {
+					code: -1,
+					cause: { code: 4001, message: "User rejected the request." },
+				}),
+				released: true,
+			},
+		])("reads every code of $answer before releasing a blocked fallback", async ({ cause, released }) => {
+			const state: SessionState = { current: true, replaced: false };
+			sendTransaction = async () => {
+				state.current = false;
+				state.replaced = true;
+				throw Object.assign(new Error("The method eth_sendTransaction does not exist."), { code: -32601, cause });
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("idle");
+			expect(capturedDeposit?.error).toBeNull();
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS) === null).toBe(released);
+		});
+
+		it.each([
+			{
+				fallback: "refuses",
+				answer: () => Promise.reject(Object.assign(new Error("User rejected the request."), { code: 4001 })),
+			},
+			{ fallback: "would broadcast a second transaction", answer: async () => `0x${"2".repeat(64)}` },
+		])(
+			"does not send again after an unclear send, and keeps the authorization and the unknown outcome (the fallback $fallback)",
+			async ({ answer }) => {
+				sendTransaction = async () => {
+					throw Object.assign(new Error("Internal error"), { code: -32000 });
+				};
+				walletSendTransaction = answer;
+
+				await submit("wallet", "cctp", { session: session({ current: true, replaced: false }) });
+
+				expect(requested("eth_sendTransaction")).toHaveLength(1);
+				expect(requested("wallet_sendTransaction")).toHaveLength(0);
+				expect(capturedDeposit?.status).toBe("error");
+				expect(capturedDeposit?.hash).toBeUndefined();
+				expect(capturedDeposit?.submissionOutcomeUnknown).toBe(true);
+				expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+				expect(readCctpDepositTrackingRecords("Mainnet", WALLET_ADDRESS)).toEqual([]);
+			},
+		);
+
+		it("reports an ordinary failure and releases the authorization when nothing reached the wallet's send", async () => {
+			onRequest = (method) => {
+				if (method === "eth_chainId" && intentSaved()) throw new Error("Request failed");
+			};
+
+			await submit("wallet", "cctp", { session: session({ current: true, replaced: false }) });
+
+			expect(requested("eth_sendTransaction")).toHaveLength(0);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("error");
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
+		});
+
+		it("stops quietly when a voided attempt's chain read fails inside writeContract before anything was sent", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			onRequest = (method) => {
+				if (method === "eth_chainId" && intentSaved()) {
+					state.current = false;
+					state.replaced = true;
+					throw new Error("Request failed");
+				}
+			};
+
+			await submit("wallet", "cctp", { session: session(state) });
+
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expectQuietlyNotSent();
+		});
+
+		it("reports a stop before sending whose authorization could not be released", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			onRequest = (method) => {
+				if (method === "eth_chainId" && intentSaved()) {
+					state.current = false;
+					state.replaced = true;
+				}
+			};
+			const intentKey = getCctpSponsoredAuthorizationIntentStorageKey("Mainnet", WALLET_ADDRESS);
+			const originalRemoveItem = Storage.prototype.removeItem;
+			const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+				if (key === intentKey) throw new Error("storage unavailable");
+				originalRemoveItem.call(this, key);
+			});
+
+			try {
+				await submit("wallet", "cctp", { session: session(state) });
+			} finally {
+				removeItem.mockRestore();
+			}
+
+			expect(requested("eth_sendTransaction")).toHaveLength(0);
+			expect(capturedDeposit?.status).toBe("error");
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(true);
+			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).not.toBeNull();
+		});
+
+		it("waits after the signature, runs no fresh check meanwhile, and sends once the session is back on the same account", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			onRequest = (method) => {
+				if (method === "eth_signTypedData_v4") interrupt(state);
+			};
+
+			const submission = startSubmission("wallet", { session: session(state) });
+			await act(async () => settlement.waiting);
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(requested("eth_sendTransaction")).toHaveLength(0);
+			expect(testState.publicClient.estimateContractGas).not.toHaveBeenCalled();
+			expect(testState.publicClient.getBalance).not.toHaveBeenCalled();
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+			expect(intentSaved()).toBe(false);
+
+			state.settled = true;
+			await act(async () => {
+				settlement.settle("same");
+				await submission;
+			});
+
+			expect(state.waitLimits).toEqual([30_000]);
+			expect(testState.publicClient.estimateContractGas).toHaveBeenCalledOnce();
+			expect(testState.verifyLegalAction).toHaveBeenCalledOnce();
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(capturedDeposit?.status).toBe("error");
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+		});
+
+		it("stops quietly after the signature when the session comes back on another account", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			onRequest = (method) => {
+				if (method === "eth_signTypedData_v4") interrupt(state);
+			};
+
+			const submission = startSubmission("wallet", { session: session(state) });
+			await act(async () => settlement.waiting);
+			state.replaced = true;
+			await act(async () => {
+				settlement.settle("replaced");
+				await submission;
+			});
+
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+			expectQuietlyNotSent();
+		});
+
+		it("does not send after the signature when the session wait times out", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			onRequest = (method) => {
+				if (method === "eth_signTypedData_v4") interrupt(state);
+			};
+
+			const submission = startSubmission("wallet", { session: session(state) });
+			await act(async () => settlement.waiting);
+			await act(async () => {
+				settlement.settle("timeout");
+				await submission;
+			});
+
+			expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+			expect(requested("eth_sendTransaction")).toHaveLength(0);
+			expect(requested("wallet_sendTransaction")).toHaveLength(0);
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+			expectNotSentBecauseTheSessionDidNotSettle();
+		});
+
+		it.each([
+			{ step: "the gas checks", back: false },
+			{ step: "the gas checks", back: true },
+			{ step: "the legal recheck", back: false },
+			{ step: "the legal recheck", back: true },
+		])(
+			"stops quietly when the session is interrupted again during $step after the wait (back: $back)",
+			async ({ step, back }) => {
+				const state: SessionState = { current: true, replaced: false };
+				function interruptAgain() {
+					interrupt(state);
+					if (back) state.settled = true;
+				}
+				testState.publicClient.getBlockNumber.mockImplementation(async () => {
+					if (step === "the gas checks") interruptAgain();
+					return 400_000_000n;
+				});
+				testState.verifyLegalAction.mockImplementation(async () => {
+					if (step === "the legal recheck") interruptAgain();
+					return { canPerformActions: true };
+				});
+
+				await submit("wallet", "cctp", { session: session(state) });
+
+				expect(state.waitLimits).toEqual([30_000]);
+				expect(requested("eth_signTypedData_v4")).toHaveLength(1);
+				expectQuietlyNotSent();
+			},
+		);
+
+		it("checks the legal status only after the interrupted session came back", async () => {
+			const state: SessionState = { current: true, replaced: false };
+			const settlement = heldSettlement(state);
+			const signature = heldSignature();
+			signTypedData = () => {
+				interrupt(state);
+				return signature.held();
+			};
+
+			const submission = startSubmission("wallet", { session: session(state) });
+			const ended = trackEnd(submission);
+			await act(async () => signature.reached);
+			testState.selectedOwner = "disconnected";
+			rerenderSubmission("wallet");
+			await act(async () => {
+				signature.release();
+				await Promise.race([settlement.waiting, submission]);
+			});
+			expect(ended.value).toBe(false);
+			expect(testState.verifyLegalAction).not.toHaveBeenCalled();
+
+			testState.selectedOwner = WALLET_ADDRESS;
+			rerenderSubmission("wallet");
+			state.settled = true;
+			await act(async () => {
+				settlement.settle("same");
+				await submission;
+			});
+
+			expect(testState.verifyLegalAction).toHaveBeenCalledOnce();
+			expect(requested("eth_sendTransaction")).toHaveLength(1);
+			expect(capturedDeposit?.submissionOutcomeUnknown).toBe(false);
+		});
 	});
 });

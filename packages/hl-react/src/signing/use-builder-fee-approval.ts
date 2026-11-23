@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { useExchange } from "../hooks/useExchange";
 import {
 	assertExchangeSigningDeadline,
+	ExchangeRequestInvalidatedError,
 	type ExchangeSigningDeadlineSlot,
 	startExchangeActionDeadline,
 } from "../internal/exchange/request-scheduler";
@@ -13,6 +14,8 @@ import { useHyperliquidOwnerSigner } from "./owner-signer-provider";
 import type { RegistrationStatus } from "./types";
 import { useTradingStatus } from "./use-trading-status";
 import { withWalletApprovalTimeout } from "./wallet-approval-timeout";
+
+const WALLET_CHANGED_MESSAGE = "Wallet changed during builder fee approval";
 
 export interface UseBuilderFeeApprovalResult {
 	/** `deadline` is the explicit authorization's (ADR 0053); without it the approval starts its own. */
@@ -47,7 +50,28 @@ export function useBuilderFeeApproval(): UseBuilderFeeApprovalResult {
 	function assertSameWallet(startAddress: Address) {
 		ownerSigner?.assertCurrent();
 		if (addressRef.current?.toLowerCase() !== startAddress.toLowerCase()) {
-			throw new Error("Wallet changed during builder fee approval");
+			throw new Error(WALLET_CHANGED_MESSAGE);
+		}
+	}
+
+	function walletChangedAfterSubmission(error: unknown): unknown {
+		if (error instanceof ExchangeRequestInvalidatedError) return new Error(WALLET_CHANGED_MESSAGE, { cause: error });
+		return error;
+	}
+
+	function assertSameWalletAfterSubmission(startAddress: Address) {
+		try {
+			assertSameWallet(startAddress);
+		} catch (error) {
+			throw walletChangedAfterSubmission(error);
+		}
+	}
+
+	async function confirmAfterSubmission() {
+		try {
+			return await agentStatus.refetchBuilderFee();
+		} catch (error) {
+			throw walletChangedAfterSubmission(error);
 		}
 	}
 
@@ -85,9 +109,9 @@ export function useBuilderFeeApproval(): UseBuilderFeeApprovalResult {
 				setAwaitingWallet(false);
 			}
 
-			assertSameWallet(startAddress);
-			const confirmed = await agentStatus.refetchBuilderFee();
-			assertSameWallet(startAddress);
+			assertSameWalletAfterSubmission(startAddress);
+			const confirmed = await confirmAfterSubmission();
+			assertSameWalletAfterSubmission(startAddress);
 			if (confirmed.needsBuilderFee) throw new Error("Builder fee approval could not be confirmed");
 		},
 	});

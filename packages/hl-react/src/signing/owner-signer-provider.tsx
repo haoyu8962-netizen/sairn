@@ -63,14 +63,19 @@ export function HyperliquidOwnerSignerProvider({ children, value }: Props) {
 		active.current = true;
 		return () => {
 			active.current = false;
-			invalidateExchangeRequestIdentity(env, clientKey, sessionMode);
 		};
-	}, [clientKey, env, sessionMode]);
+	}, []);
 
 	useLayoutEffect(() => {
 		const prior = previous.current;
-		if (prior && prior.binding !== binding) {
-			invalidateExchangeRequestIdentity(prior.env, prior.clientKey, prior.sessionMode);
+		if (
+			prior?.binding?.wallet &&
+			prior.binding !== binding &&
+			prior.env === env &&
+			prior.clientKey.toLowerCase() === clientKey.toLowerCase() &&
+			prior.sessionMode === sessionMode
+		) {
+			invalidateExchangeRequestIdentity(prior.env, prior.clientKey, prior.sessionMode, "user", "replaced");
 		}
 		previous.current = { binding, clientKey, env, sessionMode };
 	}, [binding, clientKey, env, sessionMode]);

@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { useConnectWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
+import { markExchangeIdentityReplaced } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { type Address, isAddress, zeroAddress } from "viem";
@@ -327,6 +328,7 @@ export function useDisconnectWallet() {
 			}
 			const ownerToClose = ownerAddress ?? resolveHiddenAgentOnlyOwner(env);
 			if (ownerToClose && !(await removeOwnerTradingSession(env, ownerToClose))) return;
+			if (ownerToClose) markExchangeIdentityReplaced(env, ownerToClose);
 			if (hasNoTradingOwner && resolveHiddenAgentOnlyOwner(env)) {
 				toast.error(t`Disconnect failed: the active trading account could not be verified. Please retry.`);
 				return;

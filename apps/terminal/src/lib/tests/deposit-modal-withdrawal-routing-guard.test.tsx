@@ -17,13 +17,14 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { DepositModalHost } from "@/components/trade/components/deposit-modal-host";
 import { renderFundsModalBackButton } from "@/components/trade/components/funds-modal-back-button";
 import { CctpDepositTrackingNotifier } from "@/components/trade/tradebox/cctp-deposit-tracking-notifier";
+import { DEPOSIT_SESSION_SETTLE_TIMEOUT_MS } from "@/config/time";
 import { AccountAbstractionExecutionError } from "@/hooks/trade/use-account-abstraction-guard";
 import { CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { FundsActionGeoExecutionError } from "@/hooks/trade/use-funds-action-availability";
 import { UsdcDepositRouteError } from "@/hooks/trade/use-usdc-routing";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
-import type { DepositReview } from "@/lib/hyperliquid/use-deposit";
+import type { DepositReview, DepositSessionCheck, DepositSessionSettlement } from "@/lib/hyperliquid/use-deposit";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import {
 	readCctpDepositTrackingRecords,
@@ -2276,6 +2277,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 				expectedBalanceRaw: undefined,
 				expectedCctpMaxFeeRaw: 200_000n,
 				deadline: expect.any(Object),
+				session: expect.any(Object),
 			});
 			const retriedDeadline = submittedDepositDeadline();
 			expect(hasExchangeActionDeadlinePassed(retriedDeadline)).toBe(false);
@@ -2294,6 +2296,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 				expectedBalanceRaw: undefined,
 				expectedCctpMaxFeeRaw: 200_000n,
 				deadline: expect.any(Object),
+				session: expect.any(Object),
 			});
 			const clickDeadline = submittedDepositDeadline();
 			expect(hasExchangeActionDeadlinePassed(clickDeadline)).toBe(false);
@@ -2304,6 +2307,222 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			expect(container.querySelector('[data-testid="deposit-routing-preflight-error"]')).toBeNull();
 			expect(depositForm()?.getAttribute("data-status")).toBe("ready");
 			expect(depositForm()?.getAttribute("data-is-pending")).toBe("false");
+		});
+
+		describe("the session of a started deposit (ADR 0058)", () => {
+			const OTHER_ACCOUNT = "0x3333333333333333333333333333333333333333";
+
+			async function startedDepositSession(): Promise<DepositSessionCheck> {
+				readRealDepositModalActions().open("deposit");
+				const held = await submitDepositAndHoldRouteCheck();
+				await act(async () => held.release());
+				const session = (testState.deposit.mock.calls[0]?.[1] as DepositReview | undefined)?.session;
+				if (!session) throw new Error("The deposit was started without its session");
+				return session;
+			}
+
+			function trackSettlement(session: DepositSessionCheck) {
+				const tracked: { settlement: DepositSessionSettlement | null } = { settlement: null };
+				const done = session.waitUntilSettled(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS).then(({ settlement }) => {
+					tracked.settlement = settlement;
+				});
+				return { tracked, done };
+			}
+
+			async function flushSettlement() {
+				await act(async () => {
+					for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+				});
+			}
+
+			it("binds a started deposit to the session of the click", async () => {
+				const session = await startedDepositSession();
+				expect(session.isCurrent()).toBe(true);
+				expect(session.isSettledOnSubmitted()).toBe(true);
+				const interruptionsAtStart = session.readInterruptions();
+
+				testState.walletSession = "resolving";
+				await rerender();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				expect(session.readInterruptions()).toBeGreaterThan(interruptionsAtStart);
+				expect(testState.useDepositOptions?.walletAddress).toBe(testState.walletAddress);
+
+				testState.walletSession = "connected";
+				await rerender();
+				const interruptionsWhenBack = session.readInterruptions();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(true);
+				await rerender();
+				expect(session.readInterruptions()).toBe(interruptionsWhenBack);
+
+				const submittedWallet = testState.walletAddress;
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+
+				testState.walletAddress = submittedWallet;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				expect(session.isCurrent()).toBe(false);
+			});
+
+			it("stays void when the session visits another account and comes back before anything reads it", async () => {
+				const session = await startedDepositSession();
+				const submittedWallet = testState.walletAddress;
+
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				testState.walletAddress = submittedWallet;
+				await rerender();
+
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("treats a session settled on another client key as replaced", async () => {
+				const session = await startedDepositSession();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+
+				testState.hyperliquidClientKey = OTHER_ACCOUNT;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const later = trackSettlement(session);
+				await flushSettlement();
+				expect(later.tracked.settlement).toBe("replaced");
+			});
+
+			it("voids a started deposit's session when its dialog unmounts", async () => {
+				const session = await startedDepositSession();
+
+				act(() => root.render(null));
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("keeps a started deposit's session void after its dialog is closed and reopened", async () => {
+				const session = await startedDepositSession();
+				const depositModal = readRealDepositModalActions();
+
+				depositModal.close();
+				testState.modalOpen = false;
+				await rerender();
+				depositModal.open("deposit");
+				testState.modalOpen = true;
+				await rerender();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+			});
+
+			it("voids a started deposit's session when its dialog is closed and opened again within one commit", async () => {
+				const session = await startedDepositSession();
+				const depositModal = readRealDepositModalActions();
+
+				act(() => {
+					depositModal.close();
+					depositModal.open("deposit");
+				});
+				expect(testState.modalOpen).toBe(true);
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait at once while the session is settled on the click's account", async () => {
+				const session = await startedDepositSession();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("waits for the session to come back on the click's account", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("keeps waiting while the signed-in session is without its wallet and ends once it is back", async () => {
+				const session = await startedDepositSession();
+				const clickedAccount = testState.hyperliquidClientKey;
+				testState.walletSession = "away";
+				testState.hyperliquidClientKey = "disconnected";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				testState.hyperliquidClientKey = clickedAccount;
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("ends the wait as replaced when the session comes back on another account", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait as replaced when the dialog unmounts", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				act(() => root.render(null));
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait with a timeout at the independent 30-second limit", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
+				const { tracked, done } = trackSettlement(session);
+				await act(async () => {
+					vi.advanceTimersByTime(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS - 1);
+				});
+				expect(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS).toBe(30_000);
+				expect(tracked.settlement).toBeNull();
+
+				await act(async () => {
+					vi.advanceTimersByTime(1);
+					await done;
+				});
+				expect(tracked.settlement).toBe("timeout");
+			});
 		});
 	});
 

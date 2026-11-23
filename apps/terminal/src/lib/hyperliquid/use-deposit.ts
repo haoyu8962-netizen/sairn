@@ -40,6 +40,7 @@ import {
 	DEPOSIT_CONFIRMATION_TIMEOUT_MS,
 	DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS,
 	DEPOSIT_POLL_INTERVAL_MS,
+	DEPOSIT_SESSION_SETTLE_TIMEOUT_MS,
 	DEPOSIT_WALLET_RESPONSE_TIMEOUT_MS,
 } from "@/config/time";
 import { assertFreshFundsActionGeo } from "@/domain/trade/funds-action-availability";
@@ -130,6 +131,237 @@ export interface DepositReview {
 	 * without a prompt while an external wallet asks the user again before anything is signed.
 	 */
 	deadline?: ExchangeSigningDeadlineSlot;
+	/**
+	 * The session a manual deposit was submitted from (ADR 0058). Every wallet request of the attempt goes through
+	 * one guarded EIP-1193 provider. Before the permit signature, a request that prompts the wallet (account
+	 * request, network switch, signature) needs the click's session to still be live (`isCurrent`). Once the permit
+	 * is signed the deposit waits once, at most `DEPOSIT_SESSION_SETTLE_TIMEOUT_MS`, for the session to settle on
+	 * the click's wallet and client key, before any fresh check runs. On another identity, or with the dialog
+	 * closed or opened again, it stops quietly; when the wait times out it stops with "Wallet not connected", on
+	 * both paths (operator decisions of 2026-11-23). After the wait only the fresh checks, a synchronous gate and the
+	 * send or broadcast remain: a session that leaves the click's identity during them stops the deposit at the gate
+	 * without a second wait and without its earlier check results, quietly; a fresh check that fails meanwhile is
+	 * reported as it is unless the attempt was voided. Without it no session check runs (automatic scope).
+	 */
+	session?: DepositSessionCheck;
+}
+
+/** How the wait for the session of a manual deposit ended. */
+export type DepositSessionSettlement = "same" | "replaced" | "timeout";
+
+export interface DepositSessionWaitResult {
+	settlement: DepositSessionSettlement;
+	/** `readInterruptions()` at the moment the wait was decided, before its caller resumes. */
+	interruptions: number;
+}
+
+export interface DepositSessionCheck {
+	/** No reconnect since the click (the live session token is the click's) and the click's dialog opening is shown. */
+	isCurrent(): boolean;
+	/** The session is settled, not resolving, on the exact wallet and client key of the click, and not voided. */
+	isSettledOnSubmitted(): boolean;
+	/**
+	 * One-way: the dialog closed, unmounted or was opened again, or the session settled on another wallet or client
+	 * key, since the click. Feedback for this attempt then has no dialog of its own left to show it.
+	 */
+	isVoided(): boolean;
+	/**
+	 * How many commits since the click saw the session anywhere other than settled on the click's identity. It only
+	 * grows, so a reading taken after the wait reveals any interruption since then.
+	 */
+	readInterruptions(): number;
+	/**
+	 * Resolves `"same"` once the session is settled on the click's identity, `"replaced"` once the attempt is voided
+	 * (the dialog closed, unmounted or opened again, or the session settled on another identity), and `"timeout"`
+	 * when neither happened within `timeoutMs`; at once when one of the first two already holds. It also gives the
+	 * interruption count of that moment, so a commit between the decision and its caller resuming still counts.
+	 */
+	waitUntilSettled(timeoutMs: number): Promise<DepositSessionWaitResult>;
+}
+
+export type DepositSessionStage = "before-wallet-request" | "after-signature";
+
+/** The deposit stopped because its session changed before anything reached the source chain (ADR 0058). */
+export class DepositSessionInvalidatedError extends Error {
+	readonly stage: DepositSessionStage;
+
+	constructor(stage: DepositSessionStage) {
+		super("The deposit was cancelled because the active wallet session changed.");
+		this.name = "DepositSessionInvalidatedError";
+		this.stage = stage;
+	}
+}
+
+interface DepositSessionGuard {
+	/**
+	 * Before a wallet prompt. Before the wait the click's session must still be live; after it, the session must
+	 * not have left the click's identity since the wait.
+	 */
+	beforeWalletRequest(): void;
+	/**
+	 * The one wait after the permit signature, before any fresh check. Stops quietly when the attempt was replaced
+	 * and with "Wallet not connected" when the session did not settle on the click's identity in time.
+	 */
+	awaitSettledSession(): Promise<void>;
+	/** The synchronous gate right before a send prompt or a broadcast: the session stayed on the click's identity. */
+	assertSettledTail(): void;
+	/**
+	 * After the wait: the session left the click's identity at some commit since then and the attempt is void, so a
+	 * failure of a fresh check no longer has a dialog of its own to be shown in.
+	 */
+	isTailVoided(): boolean;
+	/** The click's attempt is void: its dialog closed, unmounted or was opened again, or the session settled elsewhere. */
+	isVoided(): boolean;
+}
+
+/**
+ * Every send or broadcast request this attempt handed to the wallet, and how it ended. It decides the outcome of an
+ * external-wallet deposit that returned no hash (ADR 0058), whatever the final error says.
+ */
+interface DepositForwardingLedger {
+	/**
+	 * Hands one send or broadcast to the wallet. Once a forward may have gone out (`hasUncertainSend()`), no further
+	 * one is handed over, so viem's fallback to `wallet_sendTransaction` after an unclear `eth_sendTransaction` answer
+	 * cannot broadcast a second transaction next to one that may already be on chain.
+	 */
+	forward(send: () => Promise<unknown>): Promise<unknown>;
+	/**
+	 * Monotonic: some forwarded request was answered, or failed with anything other than a refusal that means
+	 * nothing was broadcast. False when nothing was forwarded or every forward was refused so. viem awaits each
+	 * forward before the deposit can fail, so no forward is still unanswered when this is read.
+	 */
+	hasUncertainSend(): boolean;
+}
+
+const DEPOSIT_PROMPTING_METHODS = new Set([
+	"eth_requestAccounts",
+	"wallet_switchEthereumChain",
+	"wallet_addEthereumChain",
+	"eth_signTypedData_v4",
+	"eth_signTypedData",
+	"personal_sign",
+	"eth_sign",
+]);
+const DEPOSIT_SEND_METHODS = new Set([
+	"eth_sendTransaction",
+	"wallet_sendTransaction",
+	"wallet_sendCalls",
+	"eth_sendRawTransaction",
+]);
+/** viem's `UnknownRpcError` wraps an error without a provider code in -1; it says nothing about the wallet. */
+const VIEM_UNKNOWN_RPC_ERROR_CODE = -1;
+const MAX_WALLET_ERROR_CAUSE_DEPTH = 6;
+/** Privy waits this long before it asks Rabby to add a chain Rabby reported unknown; kept for the same wallet. */
+const RABBY_ADD_CHAIN_DELAY_MS = 300;
+
+/**
+ * The whole cause chain carries only provider codes that mean nothing was broadcast, and at least one.
+ * A message without a code, or any other code (-32000, -32603, a disconnect), keeps the send unclear.
+ */
+function isDefinitiveWalletRefusal(error: unknown): boolean {
+	let refused = false;
+	let current: unknown = error;
+	for (let depth = 0; depth < MAX_WALLET_ERROR_CAUSE_DEPTH && current && typeof current === "object"; depth += 1) {
+		const code = (current as { code?: unknown }).code;
+		if (typeof code === "number" && Number.isInteger(code) && code !== VIEM_UNKNOWN_RPC_ERROR_CODE) {
+			if (!isDefinitiveWalletSubmissionFailure({ code }, false)) return false;
+			refused = true;
+		}
+		current = (current as { cause?: unknown }).cause;
+	}
+	return refused;
+}
+
+function createDepositForwardingLedger(): DepositForwardingLedger {
+	let uncertain = false;
+	return {
+		async forward(send) {
+			if (uncertain) throw new Error("An earlier send of this deposit may already have been broadcast.");
+			try {
+				const result = await send();
+				uncertain = true;
+				return result;
+			} catch (error) {
+				if (!isDefinitiveWalletRefusal(error)) uncertain = true;
+				throw error;
+			}
+		},
+		hasUncertainSend() {
+			return uncertain;
+		},
+	};
+}
+
+function createDepositSessionGuard(check: DepositSessionCheck | undefined): DepositSessionGuard | undefined {
+	if (!check) return undefined;
+	const session = check;
+	let interruptionsAtSettlement: number | null = null;
+	function isTailIntact(): boolean {
+		return (
+			interruptionsAtSettlement !== null &&
+			session.readInterruptions() === interruptionsAtSettlement &&
+			session.isSettledOnSubmitted()
+		);
+	}
+	return {
+		beforeWalletRequest() {
+			if (interruptionsAtSettlement === null) {
+				if (!session.isCurrent()) throw new DepositSessionInvalidatedError("before-wallet-request");
+			} else if (!isTailIntact()) {
+				throw new DepositSessionInvalidatedError("after-signature");
+			}
+		},
+		async awaitSettledSession() {
+			const { settlement, interruptions } = await session.waitUntilSettled(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS);
+			if (settlement === "replaced") throw new DepositSessionInvalidatedError("after-signature");
+			if (settlement === "timeout") throw new LocalizedActionError(msg`Wallet not connected`);
+			interruptionsAtSettlement = interruptions;
+			if (!isTailIntact()) throw new DepositSessionInvalidatedError("after-signature");
+		},
+		assertSettledTail() {
+			if (!isTailIntact()) throw new DepositSessionInvalidatedError("after-signature");
+		},
+		isTailVoided() {
+			return interruptionsAtSettlement !== null && session.isVoided();
+		},
+		isVoided() {
+			return session.isVoided();
+		},
+	};
+}
+
+/**
+ * The one provider every wallet request of a deposit goes through: prompts are checked against the session of a
+ * manual deposit, and sends and broadcasts are checked and recorded in the attempt's forwarding ledger.
+ */
+function guardDepositProvider(
+	provider: Eip1193Provider,
+	guard: DepositSessionGuard | undefined,
+	ledger: DepositForwardingLedger,
+): Eip1193Provider {
+	return new Proxy(provider, {
+		get(target, key) {
+			const value = Reflect.get(target, key);
+			if (key !== "request" || typeof value !== "function") return value;
+			return (args: { method: string }) => {
+				if (DEPOSIT_SEND_METHODS.has(args.method)) {
+					guard?.assertSettledTail();
+					return ledger.forward(() => value.call(target, args));
+				}
+				if (DEPOSIT_PROMPTING_METHODS.has(args.method)) guard?.beforeWalletRequest();
+				return value.call(target, args);
+			};
+		},
+	});
+}
+
+function findDepositSessionError(error: unknown): DepositSessionInvalidatedError | null {
+	let current: unknown = error;
+	for (let depth = 0; depth < 6 && current; depth += 1) {
+		if (current instanceof DepositSessionInvalidatedError) return current;
+		current = current instanceof Error ? current.cause : undefined;
+	}
+	return null;
 }
 
 export interface UseDepositResult {
@@ -298,9 +530,12 @@ function isUserRejectedRequest(error: unknown) {
 	);
 }
 
+/** The answers Privy 3.46 treats as an unknown chain for its own switch (4902, Rabby, Coinbase), and plain wording. */
 function isUnknownChainError(error: unknown) {
 	const { code } = getProviderRpcError(error);
-	return code === 4902 || /unrecognized chain|unknown chain|add ethereum chain/i.test(getProviderErrorMessage(error));
+	return (
+		code === 4902 || /unrecognized chain|unknown chain|add ?ethereum ?chain|4902/i.test(getProviderErrorMessage(error))
+	);
 }
 
 function isNetworkRequestError(error: unknown) {
@@ -414,13 +649,6 @@ async function readDepositUsdcBalance(
 	return BigInt(payload.result);
 }
 
-function getWalletChainId(wallet: ConnectedWallet): number | null {
-	const rawChainId = wallet.chainId.split(":").pop();
-	if (!rawChainId) return null;
-	const chainId = Number(rawChainId);
-	return Number.isFinite(chainId) ? chainId : null;
-}
-
 function selectDepositWallet(
 	wallets: ConnectedWallet[],
 	address: `0x${string}` | undefined,
@@ -466,6 +694,7 @@ async function ensureProviderAccount(provider: Eip1193Provider, address: `0x${st
 	try {
 		accounts = await provider.request({ method: "eth_requestAccounts" });
 	} catch (error) {
+		if (findDepositSessionError(error)) throw error;
 		throw createWalletConnectionError(error);
 	}
 
@@ -551,7 +780,16 @@ function getAddChainParams(config: DepositChainConfig) {
 	} as const;
 }
 
-async function requestDepositChainSwitch(provider: Eip1193Provider, config: DepositChainConfig) {
+/**
+ * Switches through the deposit's own guarded provider, never Privy's `wallet.switchChain`, which sends its
+ * add-chain and second switch through Privy's provider (ADR 0058). Like Privy, Rabby gets a short pause before
+ * it is asked to add a chain it just reported unknown.
+ */
+async function requestDepositChainSwitch(
+	provider: Eip1193Provider,
+	config: DepositChainConfig,
+	walletClientType: string | undefined,
+) {
 	const chainId = toChainHex(config.chainId);
 	try {
 		await provider.request({
@@ -559,7 +797,9 @@ async function requestDepositChainSwitch(provider: Eip1193Provider, config: Depo
 			params: [{ chainId }],
 		});
 	} catch (error) {
+		if (findDepositSessionError(error)) throw error;
 		if (!isUnknownChainError(error)) throw createChainSwitchError(config, error);
+		if (walletClientType === "rabby_wallet") await sleep(RABBY_ADD_CHAIN_DELAY_MS);
 
 		try {
 			await provider.request({
@@ -567,6 +807,7 @@ async function requestDepositChainSwitch(provider: Eip1193Provider, config: Depo
 				params: [getAddChainParams(config)],
 			});
 		} catch (addError) {
+			if (findDepositSessionError(addError)) throw addError;
 			throw createChainSwitchError(config, addError);
 		}
 
@@ -576,6 +817,7 @@ async function requestDepositChainSwitch(provider: Eip1193Provider, config: Depo
 				params: [{ chainId }],
 			});
 		} catch (switchError) {
+			if (findDepositSessionError(switchError)) throw switchError;
 			throw createChainSwitchError(config, switchError);
 		}
 	}
@@ -585,36 +827,20 @@ async function assertDepositChainStillActive(provider: Eip1193Provider, config: 
 	if ((await getProviderChainId(provider)) !== config.chainId) throw createDepositChainMismatchError(config);
 }
 
-async function switchDepositWalletChain(
-	wallet: ConnectedWallet,
-	provider: Eip1193Provider,
-	config: DepositChainConfig,
-) {
-	if (getWalletChainId(wallet) === config.chainId) {
-		await requestDepositChainSwitch(provider, config);
-		return;
-	}
-
-	try {
-		await wallet.switchChain(config.chainId);
-	} catch (error) {
-		if (!isUnknownChainError(error)) throw createChainSwitchError(config, error);
-		await requestDepositChainSwitch(provider, config);
-	}
-}
-
 async function getDepositProviderForChain(
 	wallet: ConnectedWallet,
 	config: DepositChainConfig,
+	guard: DepositSessionGuard | undefined,
+	ledger: DepositForwardingLedger,
 	onNetworkSwitch?: (pending: boolean) => void,
 ) {
-	const provider = await getDepositProvider(wallet);
+	const provider = guardDepositProvider(await getDepositProvider(wallet), guard, ledger);
 	if ((await getProviderChainId(provider)) === config.chainId) return provider;
 
 	onNetworkSwitch?.(true);
 	try {
-		await switchDepositWalletChain(wallet, provider, config);
-		const nextProvider = await getDepositProvider(wallet);
+		await requestDepositChainSwitch(provider, config, wallet.walletClientType);
+		const nextProvider = guardDepositProvider(await getDepositProvider(wallet), guard, ledger);
 		if (!(await waitForDepositChain(nextProvider, config))) throw createDepositChainMismatchError(config);
 		return nextProvider;
 	} finally {
@@ -667,6 +893,8 @@ async function getReadyWalletDepositContext({
 	address,
 	chain,
 	config,
+	guard,
+	ledger,
 	onNetworkSwitch,
 	publicClient,
 	wallet,
@@ -674,6 +902,8 @@ async function getReadyWalletDepositContext({
 	address: `0x${string}` | undefined;
 	chain: Chain;
 	config: DepositChainConfig;
+	guard: DepositSessionGuard | undefined;
+	ledger: DepositForwardingLedger;
 	onNetworkSwitch?: (pending: boolean) => void;
 	publicClient: PublicClient | undefined;
 	wallet: ConnectedWallet | undefined;
@@ -683,7 +913,7 @@ async function getReadyWalletDepositContext({
 	if (!wallet) throw new LocalizedActionError(msg`Wallet client not ready`);
 	if (!hasSameWalletAddress(wallet.address, address)) throw createActionError("wallet-mismatch");
 
-	const provider = await getDepositProviderForChain(wallet, config, onNetworkSwitch);
+	const provider = await getDepositProviderForChain(wallet, config, guard, ledger, onNetworkSwitch);
 	await ensureProviderAccount(provider, address);
 
 	const walletClient = createWalletClient({
@@ -698,11 +928,15 @@ async function getReadyWalletDepositContext({
 async function getReadyPermitSignerContext({
 	address,
 	chain,
+	guard,
+	ledger,
 	publicClient,
 	wallet,
 }: {
 	address: `0x${string}` | undefined;
 	chain: Chain;
+	guard: DepositSessionGuard | undefined;
+	ledger: DepositForwardingLedger;
 	publicClient: PublicClient | undefined;
 	wallet: ConnectedWallet | undefined;
 }): Promise<ReadyDepositContext> {
@@ -711,7 +945,7 @@ async function getReadyPermitSignerContext({
 	if (!wallet) throw new LocalizedActionError(msg`Wallet client not ready`);
 	if (!hasSameWalletAddress(wallet.address, address)) throw createActionError("wallet-mismatch");
 
-	const provider = await getDepositProvider(wallet);
+	const provider = guardDepositProvider(await getDepositProvider(wallet), guard, ledger);
 	await ensureProviderAccount(provider, address);
 
 	const walletClient = createWalletClient({
@@ -1185,6 +1419,9 @@ export function useDeposit({
 			let cctpRecoveryUnavailable = false;
 			let sponsoredSubmissionStarted = false;
 			let directSubmissionStarted = false;
+			let intentRemovalFailed = false;
+			const sessionGuard = createDepositSessionGuard(executionScope === "manual" ? review?.session : undefined);
+			const forwardingLedger = createDepositForwardingLedger();
 			const operationId = startDepositExecution(executionKey, executionLockKey, amount, depositRoute);
 			if (operationId === null) {
 				setBlockedDepositExecution(
@@ -1195,6 +1432,25 @@ export function useDeposit({
 				);
 				return;
 			}
+			/**
+			 * A send or broadcast that settles after the click's attempt was voided (another account, the dialog closed
+			 * or opened again) belongs to no dialog any more, so nothing visible is written for it: the execution state
+			 * returns to idle and the balance is not refreshed. What the deposit left behind stays for the owner of the
+			 * click, keyed by that owner: the tracking record, from which the page-level tracking reports the deposit to
+			 * that owner once it is the active one again, and the authorization intent, which blocks another deposit of
+			 * that owner until the tracking resolves it. Privy's sponsored send cannot be stopped once it was called
+			 * (ADR 0058, not covered), and this keeps its result out of any other account's view.
+			 */
+			const endVoidedAttemptQuietly = () =>
+				updateDepositExecutionState(executionKey, operationId, (previous) => ({
+					...previous,
+					status: "idle",
+					error: null,
+					hash: undefined,
+					submissionOutcomeUnknown: false,
+					walletResponseDelayed: false,
+					networkSwitchPending: false,
+				}));
 
 			try {
 				await assertFreshSelectedDepositRoute();
@@ -1223,11 +1479,14 @@ export function useDeposit({
 					);
 				};
 
+				sessionGuard?.beforeWalletRequest();
 				const ready =
 					mode === "smart"
 						? await getReadyPermitSignerContext({
 								address: walletAddress,
 								chain: depositChain,
+								guard: sessionGuard,
+								ledger: forwardingLedger,
 								publicClient,
 								wallet: depositWallet,
 							})
@@ -1235,6 +1494,8 @@ export function useDeposit({
 								address: walletAddress,
 								chain: depositChain,
 								config: cctpDepositConfig,
+								guard: sessionGuard,
+								ledger: forwardingLedger,
 								onNetworkSwitch: markNetworkSwitch,
 								publicClient,
 								wallet: depositWallet,
@@ -1371,10 +1632,12 @@ export function useDeposit({
 					if (mode === "smart" && review?.deadline && hasExchangeActionDeadlinePassed(review.deadline)) {
 						throw new ExchangeActionDeadlineError();
 					}
+					sessionGuard?.beforeWalletRequest();
 					const authorizationSignature = await ready.walletClient.signTypedData({
 						account: ready.address,
 						...parameters.typedData,
 					});
+					await sessionGuard?.awaitSettledSession();
 					await assertFreshSelectedDepositRoute();
 					const [freshFeeQuote, freshFastAllowanceRaw] = await fetchCctpDepositTerms(cctpDepositConfig);
 					if (freshFastAllowanceRaw < amountRaw) {
@@ -1397,14 +1660,21 @@ export function useDeposit({
 							functionName: "batchSponsorDepositForBurn",
 							args: buildCctpSponsoredDepositContractArgs(sponsoredParameters, authorizationSignature),
 						});
-						if (!smartClient) throw new LocalizedActionError(msg`Smart wallet client not ready`);
 						await assertFreshSelectedDepositRoute();
 						await assertReviewedBalanceUnchanged();
 						await verifyFreshLegalAction({ env: cctpTrackingEnv, owner: ready.address });
 						await assertProviderAccountStillActive(ready.provider, ready.address);
-						if (getClientChainId(smartClient) !== cctpDepositConfig.chainId || !smartClient.paymaster) {
+						const broadcastClient = sessionGuard
+							? await getClientForChain({ id: cctpDepositConfig.chainId })
+							: smartClient;
+						if (
+							!broadcastClient ||
+							getClientChainId(broadcastClient) !== cctpDepositConfig.chainId ||
+							!broadcastClient.paymaster
+						) {
 							throw new LocalizedActionError(msg`Smart wallet client not ready`);
 						}
+						sessionGuard?.assertSettledTail();
 						saveCctpSponsoredAuthorizationIntent({
 							env: cctpTrackingEnv,
 							owner: ready.address,
@@ -1412,9 +1682,16 @@ export function useDeposit({
 							amount: formatUnits(amountRaw, USDC_DECIMALS),
 							validBefore: sponsoredAuthorizationValidBefore,
 						});
+						// Known limit (ADR 0058, operator decision of 2026-11-23): the gate above is the last session check.
+						// Inside this call Privy prepares the UserOperation, signs it with the embedded wallet's own provider
+						// and sends it to the bundler, and an account switch during those seconds does not stop it. That is
+						// accepted because (1) the authorization was signed by the click's owner and only credits that owner's
+						// Hyperliquid account, so no other account's funds or identity are involved; (2) Privy's
+						// `sendTransaction` is kept for its `dataSuffix` and its supported path; (3) a hand-built UserOperation
+						// flow could not be verified here without a real Privy Smart Wallet.
 						sponsoredSubmissionStarted = true;
 						sourceHash = (await waitForWalletTransactionHash(
-							smartClient.sendTransaction(
+							broadcastClient.sendTransaction(
 								{ to: cctpDepositConfig.cctpExtensionV2, data, value: 0n },
 								{ uiOptions: { showWalletUIs: false } },
 							),
@@ -1451,6 +1728,7 @@ export function useDeposit({
 						await verifyFreshLegalAction({ env: cctpTrackingEnv, owner: ready.address });
 						await assertProviderAccountStillActive(ready.provider, ready.address);
 						await assertDepositChainStillActive(ready.provider, cctpDepositConfig);
+						sessionGuard?.assertSettledTail();
 						saveCctpSponsoredAuthorizationIntent({
 							env: cctpTrackingEnv,
 							owner: ready.address,
@@ -1473,11 +1751,12 @@ export function useDeposit({
 								markWalletResponseDelayed,
 							);
 						} catch (error) {
-							if (isDefinitiveWalletSubmissionFailure(error, isUserRejectedRequest(error))) {
+							if (!forwardingLedger.hasUncertainSend()) {
 								try {
 									removeCctpSponsoredAuthorizationIntent(cctpTrackingEnv, ready.address, directAuthorization.authNonce);
 								} catch {
-									// The authorization then stays blocked until it expires.
+									// The authorization then stays blocked until it expires, so a stop is reported, not hidden.
+									intentRemovalFailed = true;
 								}
 							}
 							throw error;
@@ -1511,6 +1790,10 @@ export function useDeposit({
 					return sourceHash;
 				});
 
+				if (sessionGuard?.isVoided() && !cctpRecoveryUnavailable) {
+					endVoidedAttemptQuietly();
+					return;
+				}
 				if (
 					!updateDepositExecutionState(executionKey, operationId, {
 						status: "confirming",
@@ -1578,6 +1861,10 @@ export function useDeposit({
 					}
 				}
 
+				if (sessionGuard?.isVoided()) {
+					endVoidedAttemptQuietly();
+					return;
+				}
 				if (
 					!updateDepositExecutionState(executionKey, operationId, (previous) => ({
 						...previous,
@@ -1595,6 +1882,27 @@ export function useDeposit({
 				}
 				refetch();
 			} catch (error) {
+				const stoppedBySession =
+					!!findDepositSessionError(error) ||
+					(!sponsoredSubmissionStarted &&
+						!forwardingLedger.hasUncertainSend() &&
+						(sessionGuard?.isTailVoided() ?? false));
+				if (
+					stoppedBySession &&
+					!sponsoredSubmissionStarted &&
+					!cctpTrackingRecord &&
+					!forwardingLedger.hasUncertainSend() &&
+					!intentRemovalFailed
+				) {
+					updateDepositExecutionState(executionKey, operationId, (previous) => ({
+						...previous,
+						status: "idle",
+						error: null,
+						walletResponseDelayed: false,
+						networkSwitchPending: false,
+					}));
+					return;
+				}
 				if (sponsoredSubmissionStarted || directSubmissionStarted || cctpTrackingRecord) {
 					try {
 						reportClientError(error, {
@@ -1604,6 +1912,13 @@ export function useDeposit({
 					} catch {
 						// Diagnostics must never prevent settlement or replace the original deposit failure.
 					}
+				}
+				if (
+					(sponsoredSubmissionStarted || !!cctpTrackingRecord || forwardingLedger.hasUncertainSend()) &&
+					(sessionGuard?.isVoided() ?? false)
+				) {
+					endVoidedAttemptQuietly();
+					return;
 				}
 				if (cctpTrackingRecord && isDefinitiveDepositSourceFailure(error)) {
 					try {
@@ -1622,10 +1937,10 @@ export function useDeposit({
 					error: toError(error),
 					submissionOutcomeUnknown: isDepositSubmissionOutcomeUnknown({
 						sponsoredSubmissionStarted,
-						directSubmissionStarted,
+						directSubmissionUncertain:
+							directSubmissionStarted &&
+							(forwardingLedger.hasUncertainSend() || (stoppedBySession && intentRemovalFailed)),
 						hash: previous.hash,
-						error,
-						userRejected: isUserRejectedRequest(error),
 					}),
 					walletResponseDelayed: false,
 					networkSwitchPending: false,

@@ -138,7 +138,11 @@ const budgets = {
 	// session resolves, outcome attribution across a reconnect, per-owner send drafts, the API wallet list states).
 	// Fixed-identity Node 22.15.0 pairing-off builds without .env.local: 3,405,263 for fce35f78 minus 3,400,743 for
 	// main f0f789bc; pairing on measures +4,477 (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_399_849,
+	// Raised 2026-11-23 by +2,592 for the signer session guard (PR 2, ADR 0058: session generations in hl-react, the
+	// guarded deposit provider, the single post-signature wait, the forwarding ledger and the deposit dialog's session
+	// attempt). Fixed-identity Node 22.15.0 pairing-on builds without .env.local: 3,410,986 for 2d30f86d minus 3,408,394
+	// for main fa82e486; pairing off measures +2,038 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_402_441,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -178,7 +182,12 @@ const budgets = {
 		// minus main f0f789bc's 1,671,602 (pairing on measures +1,339). The growth is the funds-session hold and the held
 		// identities in the global modals host, which load at startup. Before the raise the pairing-off build exceeded
 		// the allowance by 74 and the pairing-on build by 1,249; after it pairing on keeps 156 bytes, as main kept 90.
-		baselineGzipBytes: 1_664_338,
+		// Raised 2026-11-23 by +1,753 for the signer session guard (see the total above): pairing on 1,675,936 minus
+		// main fa82e486's 1,674,183 (pairing off measures +1,629). The growth is the hl-react session generations in
+		// vendor-router (+856 total) and the deposit session guard in the shared useDeposit chunk that the automatic
+		// deposit host loads at startup (+792 total). Before the raise pairing off exceeded the allowance by 336 and
+		// pairing on by 1,598; after it pairing on keeps 155 bytes, as main fa82e486 keeps 155.
+		baselineGzipBytes: 1_666_091,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {

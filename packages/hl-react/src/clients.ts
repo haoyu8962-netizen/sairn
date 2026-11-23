@@ -13,6 +13,8 @@ import type { PrivateKeyAccount } from "viem/accounts";
 import { createCrossTabNonceManager } from "./internal/exchange/cross-tab-nonce-manager";
 import {
 	assertExchangeSigningDeadline,
+	assertExchangeSlotReadyToSend,
+	assertExchangeSlotReadyToSign,
 	type ExchangeSigningDeadlineSlot,
 	invalidateExchangeClientRequests,
 	registerExchangeSigningDeadline,
@@ -183,9 +185,11 @@ function getActionExpiry(isTestnet: boolean): () => Promise<number> {
 }
 
 /**
- * Checks the scheduled action's deadline (ADR 0053) right before the wallet is asked to sign, the last
- * asynchronous point before a signature exists. A wallet's own confirmation prompt happens inside the
- * call and is not limited. With no scheduled action in the slot, the wallet behaves exactly as before.
+ * Checks the scheduled action right before the wallet is asked to sign, the last asynchronous point before
+ * a signature exists: its session generation must still be current (ADR 0058) and its deadline must not have
+ * passed (ADR 0053). Both checks are synchronous and run in the same task as the wallet call. A wallet's own
+ * confirmation prompt happens inside the call and is not limited. With no scheduled action in the slot, the
+ * wallet behaves exactly as before.
  */
 function guardSigning<W extends object>(wallet: W, slot: ExchangeSigningDeadlineSlot): W {
 	return new Proxy(wallet, {
@@ -193,10 +197,28 @@ function guardSigning<W extends object>(wallet: W, slot: ExchangeSigningDeadline
 			const value = Reflect.get(target, key);
 			if ((key !== "signTypedData" && key !== "_signTypedData") || typeof value !== "function") return value;
 			const guarded = (...args: unknown[]) => {
+				assertExchangeSlotReadyToSign(slot);
 				assertExchangeSigningDeadline(slot);
 				return value.apply(target, args);
 			};
 			return Object.defineProperty(guarded, "length", { value: value.length });
+		},
+	});
+}
+
+/**
+ * Checks, right before a signed action is sent to the exchange, that its session was not replaced by another
+ * identity (ADR 0058). Identity only: ADR 0053 keeps time limits off the transport.
+ */
+function guardSending(transport: IRequestTransport, slot: ExchangeSigningDeadlineSlot): IRequestTransport {
+	return new Proxy(transport, {
+		get(target, key) {
+			const value = Reflect.get(target, key);
+			if (key !== "request" || typeof value !== "function") return value;
+			return (endpoint: string, ...rest: unknown[]) => {
+				if (endpoint === "exchange") assertExchangeSlotReadyToSend(slot);
+				return value.apply(target, [endpoint, ...rest]);
+			};
 		},
 	});
 }
@@ -209,13 +231,14 @@ function newExchangeClient(
 ): ExchangeClient {
 	const expiry = getActionExpiry(isTestnet);
 	const client = new ExchangeClient({
-		transport,
+		transport: guardSending(transport, slot),
 		wallet: guardSigning(wallet, slot),
 		nonceManager: createCrossTabNonceManager(isTestnet ? "Testnet" : "Mainnet", {
 			readExchangeNow: () => getServerClock(isTestnet).estimateNow(),
 		}),
 		defaultExpiresAfter: async () => {
 			const expiresAfter = await expiry();
+			assertExchangeSlotReadyToSign(slot);
 			assertExchangeSigningDeadline(slot);
 			return expiresAfter;
 		},

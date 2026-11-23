@@ -194,6 +194,83 @@ describe("createPrivyAgentSigner", () => {
 		expect(request).not.toHaveBeenCalled();
 	});
 
+	it("checks the session before Privy is asked to sign and never opens it for a stale owner", async () => {
+		const signTypedData = vi.fn(signAsOwner);
+		const beforeSubmit = vi.fn();
+		const beforeSign = vi.fn(() => {
+			throw new Error("Approval owner changed before signing");
+		});
+		const signer = createPrivyAgentSigner({
+			expectedAddress: EXPECTED_ADDRESS,
+			activeAddress: EXPECTED_ADDRESS,
+			embeddedWalletAddress: EXPECTED_ADDRESS,
+			chainId: 42161,
+			signTypedData,
+			beforeSign,
+			beforeSubmit,
+			reviewCopy: REVIEW_COPY,
+		});
+		const request = vi.fn().mockResolvedValue({ status: "ok", response: { type: "default" } });
+		const client = new ExchangeClient({
+			transport: { isTestnet: false, request } as IRequestTransport,
+			wallet: signer,
+			nonceManager: () => 1_722_000_000_002,
+		});
+
+		await expect(client.approveAgent({ agentAddress: OTHER_ADDRESS, agentName: "Mobile" })).rejects.toMatchObject({
+			cause: expect.objectContaining({ message: "Approval owner changed before signing" }),
+		});
+		expect(beforeSign).toHaveBeenCalledOnce();
+		expect(signTypedData).not.toHaveBeenCalled();
+		expect(beforeSubmit).not.toHaveBeenCalled();
+		expect(request).not.toHaveBeenCalled();
+	});
+
+	it("waits for an asynchronous session check and never opens Privy when it fails", async () => {
+		const signTypedData = vi.fn(signAsOwner);
+		const check = createDeferred<void>();
+		const beforeSign = vi.fn(() => check.promise.then(() => Promise.reject(new Error("Registration session ended"))));
+		const signer = createPrivyAgentSigner({
+			expectedAddress: EXPECTED_ADDRESS,
+			activeAddress: EXPECTED_ADDRESS,
+			embeddedWalletAddress: EXPECTED_ADDRESS,
+			chainId: 42161,
+			signTypedData,
+			beforeSign,
+			beforeSubmit: vi.fn(),
+			reviewCopy: REVIEW_COPY,
+		});
+
+		const signing = signer.signTypedData(typedData);
+		await Promise.resolve();
+		expect(beforeSign).toHaveBeenCalledOnce();
+		expect(signTypedData).not.toHaveBeenCalled();
+		check.resolve();
+
+		await expect(signing).rejects.toThrow("Registration session ended");
+		expect(signTypedData).not.toHaveBeenCalled();
+	});
+
+	it("checks the session right before Privy signs a current approval", async () => {
+		const signTypedData = vi.fn(signAsOwner);
+		const beforeSign = vi.fn();
+		const signer = createPrivyAgentSigner({
+			expectedAddress: EXPECTED_ADDRESS,
+			activeAddress: EXPECTED_ADDRESS,
+			embeddedWalletAddress: EXPECTED_ADDRESS,
+			chainId: 42161,
+			signTypedData,
+			beforeSign,
+			beforeSubmit: vi.fn(),
+			reviewCopy: REVIEW_COPY,
+		});
+
+		await signer.signTypedData(typedData);
+
+		expect(beforeSign).toHaveBeenCalledOnce();
+		expect(beforeSign.mock.invocationCallOrder[0]).toBeLessThan(signTypedData.mock.invocationCallOrder[0] ?? 0);
+	});
+
 	it("prevents the real SDK transport when the post-signature legal check fails", async () => {
 		const signTypedData = vi.fn(signAsOwner);
 		const beforeSubmit = vi.fn().mockRejectedValue(new Error("Legal access changed after signing"));

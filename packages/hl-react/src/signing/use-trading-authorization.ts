@@ -1,22 +1,55 @@
 import { useMutation } from "@tanstack/react-query";
 import type { Address } from "viem";
 import { zeroAddress } from "viem";
-import { ExchangeActionDeadlineError, startExchangeActionDeadline } from "../internal/exchange/request-scheduler";
+import {
+	ExchangeActionDeadlineError,
+	ExchangeRequestInvalidatedError,
+	startExchangeActionDeadline,
+} from "../internal/exchange/request-scheduler";
 import { readPersistTradingConnection } from "./agent-storage";
-import { useHyperliquidOwnerSigner } from "./owner-signer-provider";
+import { type HyperliquidOwnerSigner, useHyperliquidOwnerSigner } from "./owner-signer-provider";
 import type { RegistrationStatus } from "./types";
 import { useAgentRegistration } from "./use-agent-registration";
 import { useBuilderFeeApproval } from "./use-builder-fee-approval";
-import { useTradingStatus } from "./use-trading-status";
+import { type TradingRequirements, useTradingStatus } from "./use-trading-status";
 
 /**
- * The Agent approval of this authorization went through and the builder-fee step after it was not signed in time.
- * It is not reported as the deadline error, whose text says that nothing was signed or sent.
+ * The Agent approval of this authorization went through and the builder-fee step after it was not sent: it was
+ * not signed in time, or the scheduler dropped it because the session changed. It is not reported as the
+ * deadline or identity-change error, whose texts say that nothing was signed or sent.
  */
 export class TradingAuthorizationIncompleteError extends Error {
 	constructor(options?: ErrorOptions) {
 		super("The Agent was approved, but the builder fee approval was not signed in time", options);
 		this.name = "TradingAuthorizationIncompleteError";
+	}
+}
+
+/**
+ * After an approval was submitted, an owner that is no longer current must not be reported as "not sent"
+ * (ADR 0058): the approval may already be on the exchange.
+ */
+function changedAfterSubmission(error: unknown): unknown {
+	if (error instanceof ExchangeRequestInvalidatedError) {
+		return new Error("The wallet or network changed during trading authorization", { cause: error });
+	}
+	return error;
+}
+
+function assertOwnerAfterSubmission(ownerSigner: HyperliquidOwnerSigner | null): void {
+	try {
+		ownerSigner?.assertCurrent();
+	} catch (error) {
+		throw changedAfterSubmission(error);
+	}
+}
+
+/** A status query after a submission: the owner checks inside it must not turn into "not sent" either. */
+async function queryAfterSubmission<T>(query: () => Promise<T>): Promise<T> {
+	try {
+		return await query();
+	} catch (error) {
+		throw changedAfterSubmission(error);
 	}
 }
 
@@ -54,6 +87,7 @@ export function useTradingAuthorization(options: UseTradingAuthorizationOptions 
 			let registeredAddress = tradingStatus.signerAddress;
 			let newlyVerifiedAgentAddress: Address | undefined;
 			let builderFeeDeadline = deadline;
+			let submitted = false;
 			let requirements = await refetchRequirements();
 			ownerSigner?.assertCurrent();
 
@@ -65,26 +99,37 @@ export function useTradingAuthorization(options: UseTradingAuthorizationOptions 
 				// The user has just confirmed the Agent approval in the wallet, which can take longer than the limit:
 				// the builder-fee step, itself a wallet prompt on this path, counts from here (ADR 0053 decision 8).
 				builderFeeDeadline = startExchangeActionDeadline();
-				ownerSigner?.assertCurrent();
+				submitted = true;
+				assertOwnerAfterSubmission(ownerSigner);
 				newlyVerifiedAgentAddress = registeredAddress;
-				requirements = await refetchRequirements(newlyVerifiedAgentAddress);
-				ownerSigner?.assertCurrent();
+				requirements = await queryAfterSubmission(() => refetchRequirements(newlyVerifiedAgentAddress));
+				assertOwnerAfterSubmission(ownerSigner);
 			}
 
 			if (requiresBuilderFee && requirements.needsBuilderFee) {
+				submitted = true;
 				try {
 					await builderFeeApproval.approve(builderFeeDeadline);
 				} catch (error) {
-					if (newlyVerifiedAgentAddress && error instanceof ExchangeActionDeadlineError) {
+					if (
+						newlyVerifiedAgentAddress &&
+						(error instanceof ExchangeActionDeadlineError || error instanceof ExchangeRequestInvalidatedError)
+					) {
 						throw new TradingAuthorizationIncompleteError({ cause: error });
 					}
 					throw error;
 				}
-				ownerSigner?.assertCurrent();
+				assertOwnerAfterSubmission(ownerSigner);
 			}
 
-			const confirmed = await refetchRequirements(newlyVerifiedAgentAddress);
-			ownerSigner?.assertCurrent();
+			let confirmed: TradingRequirements;
+			if (submitted) {
+				confirmed = await queryAfterSubmission(() => refetchRequirements(newlyVerifiedAgentAddress));
+				assertOwnerAfterSubmission(ownerSigner);
+			} else {
+				confirmed = await refetchRequirements(newlyVerifiedAgentAddress);
+				ownerSigner?.assertCurrent();
+			}
 			if (!confirmed.isSignerReady || (requiresBuilderFee && !confirmed.isBuilderFeeReady)) {
 				throw new Error("Trading authorization could not be confirmed");
 			}

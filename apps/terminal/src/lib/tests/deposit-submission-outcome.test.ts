@@ -38,45 +38,26 @@ describe("deposit submission outcome", () => {
 		expect(isDefinitiveWalletSubmissionFailure(nested(4001, 1), true)).toBe(true);
 	});
 
-	it("reports an external-wallet broadcast without a hash as unknown unless the wallet refused", () => {
-		const base = { sponsoredSubmissionStarted: false, hash: undefined, userRejected: false };
+	it("reports an external-wallet broadcast without a hash as the forwarding ledger says", () => {
+		const base = { sponsoredSubmissionStarted: false, hash: undefined };
 
-		expect(
-			isDepositSubmissionOutcomeUnknown({ ...base, directSubmissionStarted: true, error: new Error("timeout") }),
-		).toBe(true);
-		expect(isDepositSubmissionOutcomeUnknown({ ...base, directSubmissionStarted: true, error: nested(4001, 2) })).toBe(
-			false,
-		);
-		expect(
-			isDepositSubmissionOutcomeUnknown({
-				...base,
-				directSubmissionStarted: true,
-				error: new Error("denied"),
-				userRejected: true,
-			}),
-		).toBe(false);
-		expect(
-			isDepositSubmissionOutcomeUnknown({ ...base, directSubmissionStarted: false, error: new Error("gas") }),
-		).toBe(false);
+		expect(isDepositSubmissionOutcomeUnknown({ ...base, directSubmissionUncertain: true })).toBe(true);
+		expect(isDepositSubmissionOutcomeUnknown({ ...base, directSubmissionUncertain: false })).toBe(false);
 	});
 
 	it("keeps the sponsored and hashed rules", () => {
 		expect(
 			isDepositSubmissionOutcomeUnknown({
 				sponsoredSubmissionStarted: true,
-				directSubmissionStarted: false,
+				directSubmissionUncertain: false,
 				hash: undefined,
-				error: nested(4001, 1),
-				userRejected: true,
 			}),
 		).toBe(true);
 		expect(
 			isDepositSubmissionOutcomeUnknown({
 				sponsoredSubmissionStarted: true,
-				directSubmissionStarted: true,
+				directSubmissionUncertain: true,
 				hash: HASH,
-				error: new Error("rpc"),
-				userRejected: false,
 			}),
 		).toBe(false);
 	});
