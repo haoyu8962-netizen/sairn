@@ -571,8 +571,9 @@ four builds, each build run on its own. Logs and state files are in the Git-igno
 
 The three baselines PR #15 had raised were set to `main`'s values plus the larger increment, replacing the earlier
 raises: static startup 1,666,091 + 631 = 1,666,722, total 3,402,441 + 1,798 = 3,404,239, `trade-terminal-page`
-125,144 + 511 = 125,655. Every surface therefore keeps the room `main` itself has: 274 bytes of static startup with
-pairing on, 2,085 of the total and 249 of `trade-terminal-page` with pairing off. The runtime increments are within
+125,144 + 511 = 125,655. In its tighter configuration each of the three keeps the room `main` itself has: 274 bytes
+of static startup and 2,085 of the total with pairing on, 249 of `trade-terminal-page` with pairing off. In the other
+configuration they keep 37, 204 and 10 bytes more than `main` does there. The runtime increments are within
 their allowances and were not raised; mobile runtime keeps 734 bytes with pairing on, against `main`'s 757. Every
 other named surface differs from `main` by at most 60 bytes. The release configuration was not built.
 

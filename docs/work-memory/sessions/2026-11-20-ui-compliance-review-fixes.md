@@ -105,7 +105,7 @@
 
 ### 合并 main 后重新测量包体（2026-11-23）
 
-PR #15 与 main 冲突：合并期间 main 先后合入 PR #17（资金弹窗在钱包会话解析期间保留）与 PR #18（ADR 0058 签名会话守卫），都改了 `CHANGELOG.md`、`docs/terminal-performance-baseline.md` 和包体预算脚本的同几项基线。前两个文件保留两边内容，按时间排列。预算基线不能把本分支对旧 main `ba78481a` 量出的增量直接叠到新 main 上，所以把 main `ebdc7413` 合进分支后重新成对构建：基线侧为 `ebdc7413` 的干净分离工作树，头侧为已解决冲突、尚未提交的合并树；Node 22.15.0、无 `.env.local`、`NITRO_PRESET=node-server`、四次构建同一固定构建身份、逐个单独构建。增量为总量 +1,798（配对开）、静态交易启动 +631（配对开）、`trade-terminal-page` +511（配对关），三项基线改为 main 的值加较大增量，替换了原来的三次上调，各项余量与 main 自身相同（静态启动配对开 274 字节）。手机与桌面运行时启动只增加 23 与 364 字节，在允许范围内，没有上调。读数表在 `docs/terminal-performance-baseline.md` 的同名小节，日志在 Git 忽略的 `.worklog/2026-11-23/pr15-merge-rebaseline/`。没有构建发布配置。
+PR #15 与 main 冲突：合并期间 main 先后合入 PR #17（资金弹窗在钱包会话解析期间保留）与 PR #18（ADR 0058 签名会话守卫），都改了 `CHANGELOG.md`、`docs/terminal-performance-baseline.md` 和包体预算脚本的同几项基线。前两个文件保留两边内容，按时间排列。预算基线不能把本分支对旧 main `ba78481a` 量出的增量直接叠到新 main 上，所以把 main `ebdc7413` 合进分支后重新成对构建：基线侧为 `ebdc7413` 的干净分离工作树，头侧为已解决冲突、尚未提交的合并树；Node 22.15.0、无 `.env.local`、`NITRO_PRESET=node-server`、四次构建同一固定构建身份、逐个单独构建。增量为总量 +1,798（配对开）、静态交易启动 +631（配对开）、`trade-terminal-page` +511（配对关），三项基线改为 main 的值加较大增量，替换了原来的三次上调，三项在较紧的那种配置下余量与 main 自身相同（静态启动配对开 274 字节），另一种配置下静态启动、总量与 `trade-terminal-page` 分别比 main 多留 37、204、10 字节。手机与桌面运行时启动只增加 23 与 364 字节，在允许范围内，没有上调。读数表在 `docs/terminal-performance-baseline.md` 的同名小节，日志在 Git 忽略的 `.worklog/2026-11-23/pr15-merge-rebaseline/`。没有构建发布配置。
 
 ## 后续与替代关系
 
