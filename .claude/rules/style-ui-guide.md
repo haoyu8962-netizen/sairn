@@ -15,6 +15,12 @@
 - Use the `stroke-*` tokens for all of `border-*`, `ring-*`, `outline-*`, and `divide-*` utilities — they share the alpha-tuned values.
 - Avoid opacity modifiers on `border-stroke-weak` for hover emphasis — switch to `border-stroke-strong` instead.
 
+### Account tab second row
+
+- On the phone Trade page every account tab that has a second row (Positions, Orders, TWAP, Trade History, Funding Payments, Order History) gives it the same frame: `h-9 shrink-0 border-b border-market-close-stroke-card px-3.5`. Filter chips start on that 14px edge and their text 10px further in, on the same line as the text of the account tabs above (`px-3.5` list, `px-2.5` tab).
+- The TWAP sub-tabs stay underlined tabs, not chips, as on the official terminal, because they switch a view rather than filter one. They start on the text edge of the account tabs (phone: row `px-3.5`, tab `px-2.5`; desktop: row `px-5`, tab `px-3`, like the account header), use the account tabs' `font-medium`, and draw the underline under the label only. A sub-tab row never takes its own side padding or a bolder weight.
+- An unfiltered filter shows the name of what it filters (`Type`, `Direction`, `Status`), on desktop and on phones alike, never `All …` on one layout only. `account-tab-subrow-contract.test.ts` pins these as source strings; it does not measure a browser. The alignment holds in left-to-right layouts: the phone account tab strip reserves its fade with a physical `pr-7`, so in a right-to-left language its first tab starts 14px further in than the second row; making that strip direction-aware is an open follow-up.
+
 ### Touch feedback
 
 - Every tappable surface that is reachable on the mobile terminal must show press feedback, not only hover: use `TOUCH_PRESS_CLASS` (`active:bg-fill-weak`) or `TOUCH_PRESS_FADE_CLASS` (`active:opacity-60`) from `@/components/ui/touch-press`. Hover-only styling (`hover:*`, `min-[1001px]:hover:*`) is invisible on touch screens.
