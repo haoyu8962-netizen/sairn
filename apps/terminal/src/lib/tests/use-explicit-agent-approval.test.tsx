@@ -554,6 +554,69 @@ describe("useExplicitAgentApproval", () => {
 		}
 	});
 
+	it("does not open the external wallet prompt when the identity changes while the real SDK reads the chain", async () => {
+		const account = privateKeyToAccount(generatePrivateKey());
+		testState.walletIntent = "external";
+		testState.walletAddress = testState.connectedWalletAddress = account.address;
+		testState.embeddedWalletAddress = OTHER_OWNER;
+		const chainId = createDeferred<number>();
+		const walletGetChainId = vi.fn(() => chainId.promise);
+		const walletSignTypedData = vi.fn((data: Parameters<typeof account.signTypedData>[0]) =>
+			account.signTypedData(data),
+		);
+		testState.walletClient = {
+			account: { address: account.address },
+			getChainId: walletGetChainId,
+			signTypedData: walletSignTypedData,
+		} as unknown as { account: { address: string } };
+		const signer = await vi.importActual<typeof import("@/lib/wallet/external-agent-signer")>(
+			"@/lib/wallet/external-agent-signer",
+		);
+		testState.createExternalAgentSigner.mockImplementation(signer.createExternalAgentSigner);
+		testState.createExchangeClient.mockImplementation(createExchangeClient);
+		testState.captureRegistrationLease.mockImplementation(session.captureAgentRegistrationExecutionLease);
+		testState.startRegistrationExecution.mockImplementation(session.startAgentRegistrationExecution);
+		testState.isRegistrationLeaseCurrent.mockImplementation(session.isAgentRegistrationExecutionLeaseCurrent);
+		const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+		Object.defineProperty(navigator, "locks", {
+			configurable: true,
+			value: {
+				request: async (_name: string, _options: LockOptions, callback: () => unknown) => callback(),
+			},
+		});
+		try {
+			expect(await session.activateAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			const hook = await renderApprovalHook();
+			let request: Promise<unknown> | undefined;
+			await act(async () => {
+				request = hook
+					.mutateAsync({ agentAddress: AGENT, agentName: "Mobile" }, { applicationReview: "confirmed" })
+					.catch((error: unknown) => error);
+				await vi.waitFor(() => expect(walletGetChainId).toHaveBeenCalled());
+			});
+			if (!request) throw new Error("External Agent approval did not start");
+
+			testState.walletAddress = OTHER_OWNER;
+			testState.connectedWalletAddress = OTHER_OWNER;
+			await renderApprovalHook();
+			chainId.resolve(42161);
+
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await request;
+			});
+			expect(rejection).toBeInstanceOf(Error);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(walletSignTypedData).not.toHaveBeenCalled();
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		} finally {
+			if (previous) Object.defineProperty(navigator, "locks", previous);
+			else Reflect.deleteProperty(navigator, "locks");
+			localStorage.removeItem(`hyperliquid_exchange_nonce_Mainnet_${account.address.toLowerCase()}`);
+			localStorage.removeItem(`hyperliquid_agent_registration_session_Mainnet_${account.address.toLowerCase()}`);
+		}
+	});
+
 	it("revalidates the exact pending Agent at the signed transport submission boundary", async () => {
 		testState.createExchangeClient.mockImplementation(
 			(_signer: unknown, _isTestnet: boolean, _cacheKey: undefined, transport: TestTransport) => ({

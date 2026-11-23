@@ -12,7 +12,7 @@ import {
 	getExchangeRequestPriority,
 	getExchangeStartDeadlineMs,
 	scheduleExchangeRequest,
-	unwrapExchangeSigningDeadline,
+	unwrapExchangeSignerGuardError,
 } from "../internal/exchange/request-scheduler";
 import { type HyperliquidExchangeSessionLease, useHyperliquid } from "../provider";
 import { getExchangeMethodConfig } from "../registries/exchange";
@@ -107,6 +107,19 @@ function requiresExecutionGuard(method: ExchangeMethod): method is IsolatedManag
 	return method === "topUpIsolatedOnlyMargin" || method === "updateIsolatedMargin" || method === "updateLeverage";
 }
 
+/**
+ * Before a request starts, an owner signer that is no longer current means the request was never sent:
+ * the app's own error becomes the quiet "not sent" error that funds dialogs handle (ADR 0058).
+ */
+function assertOwnerSignerBeforeStart(ownerSigner: HyperliquidOwnerSigner | null): void {
+	try {
+		ownerSigner?.assertCurrent();
+	} catch (error) {
+		if (error instanceof ExchangeRequestInvalidatedError) throw error;
+		throw new ExchangeRequestInvalidatedError("before-start", { cause: error });
+	}
+}
+
 function assertExecutionAllowed<M extends ExchangeMethod>(
 	method: M,
 	params: ExchangeParams<M>,
@@ -174,7 +187,7 @@ export function useExchange<M extends ExchangeMethod>(
 	}
 
 	const mutationFn = (params: ExchangeParams<M>): Promise<ExchangeResponse<M>> => {
-		ownerSigner?.assertCurrent();
+		assertOwnerSignerBeforeStart(ownerSigner);
 		if (preExecutionGuard && config.client !== "user" && !supportsTradingPreExecutionGuard(method)) {
 			throw new Error(PRE_EXECUTION_GUARD_USER_CLIENT_MESSAGE);
 		}
@@ -221,7 +234,7 @@ export function useExchange<M extends ExchangeMethod>(
 			const guarded = await startAgentRegistrationExecution(
 				registrationLease,
 				() => {
-					ownerSigner?.assertCurrent();
+					assertOwnerSignerBeforeStart(ownerSigner);
 					return exchangeLifecycle.active;
 				},
 				() => Promise.resolve(start()),
@@ -258,13 +271,13 @@ export function useExchange<M extends ExchangeMethod>(
 			exchange,
 			priority,
 			() => {
-				ownerSigner?.assertCurrent();
+				assertOwnerSignerBeforeStart(ownerSigner);
 				assertExchangeMutationAllowed(method, requestParams, portfolioMarginActivationEnabled);
 				assertExecutionAllowed(method, requestParams as ExchangeParams<M>, executionGuard);
 				return (requestParams !== undefined ? fn.call(exchange, requestParams) : fn.call(exchange)).then((response) => {
 					assertExchangeActionAcknowledged(method, response);
 					return response;
-				}, unwrapExchangeSigningDeadline);
+				}, unwrapExchangeSignerGuardError);
 			},
 			requestGeneration,
 			startWithLegalGate,

@@ -35,7 +35,12 @@ import { useLingeringValue } from "@/hooks/use-lingering-value";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
-import { type ActionFailure, type ExchangeActionFailure, exchangeActionFailure } from "@/lib/errors/action-error";
+import {
+	type ActionFailure,
+	type ExchangeActionFailure,
+	exchangeActionFailure,
+	isExchangeRequestNotSentError,
+} from "@/lib/errors/action-error";
 import type { ExchangeErrorEntry } from "@/lib/errors/exchange-error-text";
 import { szDecimalsToPriceDecimals, useNumberFormat } from "@/lib/format";
 import {
@@ -187,10 +192,6 @@ class PositionTpSlReplacementDeadlineError extends Error {
 		super();
 		this.name = "PositionTpSlReplacementDeadlineError";
 	}
-}
-
-function isExchangeActionDeadlineError(error: unknown): boolean {
-	return error instanceof Error && error.name === "ExchangeActionDeadlineError";
 }
 
 function applyCompletedTpSlCancels(
@@ -1186,7 +1187,7 @@ function PositionTpSlForm({
 					return { state: "confirmed" } as const;
 				} catch (caught) {
 					const error =
-						completedMutation && activeStep === "place" && isExchangeActionDeadlineError(caught)
+						completedMutation && activeStep === "place" && isExchangeRequestNotSentError(caught)
 							? new PositionTpSlReplacementDeadlineError()
 							: caught;
 					const apiResolution =

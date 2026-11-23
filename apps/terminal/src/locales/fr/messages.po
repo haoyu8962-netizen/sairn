@@ -11331,6 +11331,7 @@ msgstr "Le portefeuille n'est pas prêt à mettre à jour le mode de compte"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Wallet not connected"
 msgstr "Portefeuille non connecté"
 

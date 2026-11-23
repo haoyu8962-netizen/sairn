@@ -11331,6 +11331,7 @@ msgstr "المحفظة غير جاهزة لتحديث وضع الحساب"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Wallet not connected"
 msgstr "المحفظة غير متصلة"
 

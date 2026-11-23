@@ -32,6 +32,8 @@ interface CreatePrivyAgentSignerOptions extends AgentApprovalOptions {
 	embeddedWalletAddress: `0x${string}` | undefined;
 	chainId: number;
 	signTypedData: PrivySignTypedData;
+	/** Runs synchronously right before Privy is asked to sign, after the SDK's own awaits. */
+	beforeSign?: () => void;
 	beforeSubmit: () => void | Promise<void>;
 	reviewCopy: PrivyApprovalReviewCopy;
 }
@@ -60,6 +62,7 @@ export function createPrivyAgentSigner({
 	embeddedWalletAddress,
 	chainId,
 	signTypedData,
+	beforeSign,
 	beforeSubmit,
 	reviewCopy,
 }: CreatePrivyAgentSignerOptions) {
@@ -75,6 +78,7 @@ export function createPrivyAgentSigner({
 
 	return {
 		async signTypedData(typedData: HyperliquidTypedData): Promise<`0x${string}`> {
+			beforeSign?.();
 			const result = await signTypedData(typedData as SignTypedDataParams, {
 				address: expectedAddress,
 				uiOptions:

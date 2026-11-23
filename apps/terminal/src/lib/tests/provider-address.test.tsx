@@ -15,6 +15,7 @@ const sessionMocks = vi.hoisted(() => ({
 const schedulerMocks = vi.hoisted(() => ({
 	invalidateIdentity: vi.fn(),
 	invalidateLifecycle: vi.fn(),
+	markReplaced: vi.fn(),
 }));
 const storeMocks = vi.hoisted(() => ({
 	create: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@sairn/hl-react/internal/websocket/debug", () => ({
 vi.mock("@sairn/hl-react/internal/exchange/request-scheduler", () => ({
 	invalidateExchangeProviderLifecycle: schedulerMocks.invalidateLifecycle,
 	invalidateExchangeRequestIdentity: schedulerMocks.invalidateIdentity,
+	markExchangeIdentityReplaced: schedulerMocks.markReplaced,
 }));
 vi.mock("@sairn/hl-react/clients", () => ({
 	createWsReconnectTrigger: () => () => {},
@@ -63,6 +65,7 @@ vi.mock("@sairn/hl-react/signing/agent-registration-session", () => ({
 describe("HyperliquidProvider userAddress prop", () => {
 	beforeEach(() => {
 		schedulerMocks.invalidateIdentity.mockReset();
+		schedulerMocks.markReplaced.mockReset();
 		schedulerMocks.invalidateLifecycle.mockReset();
 		sessionMocks.activate.mockReset();
 		sessionMocks.activate.mockResolvedValue(true);
@@ -333,7 +336,14 @@ describe("HyperliquidProvider userAddress prop", () => {
 		});
 
 		expect(sessionMocks.closeAndRemove).not.toHaveBeenCalled();
-		expect(schedulerMocks.invalidateIdentity).toHaveBeenCalledWith("Testnet", ADDRESS_A, "wallet");
+		expect(schedulerMocks.invalidateIdentity).toHaveBeenCalledWith(
+			"Testnet",
+			ADDRESS_A,
+			"wallet",
+			undefined,
+			"unresolved",
+		);
+		expect(schedulerMocks.markReplaced).not.toHaveBeenCalled();
 		await act(async () => {
 			root.unmount();
 			await Promise.resolve();
@@ -439,7 +449,14 @@ describe("HyperliquidProvider userAddress prop", () => {
 			restoreOnFailure: false,
 		});
 		expect(sessionMocks.activate).toHaveBeenLastCalledWith("Testnet", ADDRESS_B);
-		expect(schedulerMocks.invalidateIdentity).toHaveBeenCalledWith("Testnet", ADDRESS_A, "wallet");
+		expect(schedulerMocks.invalidateIdentity).toHaveBeenCalledWith(
+			"Testnet",
+			ADDRESS_A,
+			"wallet",
+			undefined,
+			"replaced",
+		);
+		expect(schedulerMocks.markReplaced).toHaveBeenCalledWith("Testnet", ADDRESS_A);
 		await act(async () => {
 			root.unmount();
 			await Promise.resolve();

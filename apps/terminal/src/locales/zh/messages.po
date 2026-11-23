@@ -11331,6 +11331,7 @@ msgstr "钱包尚未就绪，无法更新账户模式"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Wallet not connected"
 msgstr "钱包未连接"
 

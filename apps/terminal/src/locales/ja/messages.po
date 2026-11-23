@@ -10079,6 +10079,7 @@ msgstr "アカウントモードを更新するためのウォレットの準備
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Wallet not connected"
 msgstr "ウォレット未接続"
 

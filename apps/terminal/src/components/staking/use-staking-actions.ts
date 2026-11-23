@@ -8,7 +8,12 @@ import Big from "big.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isAddress, zeroAddress } from "viem";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
-import { type ActionFailure, classifyActionErrorOr, isWalletRejectionError } from "@/lib/errors/action-error";
+import {
+	type ActionFailure,
+	classifyActionErrorOr,
+	isExchangeRequestNotSentError,
+	isWalletRejectionError,
+} from "@/lib/errors/action-error";
 import { getReferralActionGeo, type ReferralActionGeoDecision } from "@/lib/geo/get-referral-action-geo";
 import { useExchange, useHyperliquid, useLegalStatus } from "@/lib/hyperliquid";
 import { hasSameWalletAddress } from "@/lib/wallet/privy-wagmi";
@@ -124,8 +129,8 @@ export interface StakingActionErrorDecision {
 
 export function classifyStakingActionError(error: unknown, sdkBoundaryPassed: boolean): StakingActionErrorKind {
 	if (error instanceof StakingActionPreflightError) return "preflight";
-	// Raised before the wallet signs, also after the SDK boundary (ADR 0053): nothing was sent.
-	if (error instanceof Error && error.name === "ExchangeActionDeadlineError") return "preflight";
+	// Raised before the request reached the exchange, also after the SDK boundary (ADR 0053, 0058): nothing was sent.
+	if (isExchangeRequestNotSentError(error)) return "preflight";
 	if (!sdkBoundaryPassed) return "preflight";
 	if (error instanceof Error && (error.name === "ApiRequestError" || error.name === "ValidationError")) {
 		return "apiError";

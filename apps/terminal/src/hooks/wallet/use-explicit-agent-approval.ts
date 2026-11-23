@@ -5,7 +5,7 @@ import { useSignTypedData } from "@privy-io/react-auth";
 import { useConnectionWalletClient } from "@sairn/hl-react";
 import {
 	assertExchangeSigningDeadline,
-	unwrapExchangeSigningDeadline,
+	unwrapExchangeSignerGuardError,
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -223,6 +223,10 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 					assertApprovalSessionCurrent();
 					assertGrantRegionAllowed();
 				};
+				const beforeSign = () => {
+					assertApprovalSessionCurrent();
+					assertGrantRegionAllowed();
+				};
 				let signer: AbstractWallet;
 				if (approvalWalletIntent === "embedded") {
 					signer = createPrivyAgentSigner({
@@ -232,6 +236,7 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 						embeddedWalletAddress,
 						chainId: env === "Testnet" ? arbitrumSepolia.id : arbitrum.id,
 						signTypedData,
+						beforeSign,
 						beforeSubmit,
 						reviewCopy: {
 							title: i18n._(msg`Approve mobile trading access`),
@@ -244,6 +249,7 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 					signer = createExternalAgentSigner({
 						expectedAddress: walletAddress,
 						walletClient,
+						beforeSign,
 						beforeSubmit,
 					});
 				}
@@ -270,7 +276,7 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 					.catch((error: unknown) => {
 						const regionError = findTradingRegionBlockedError(error);
 						if (regionError) throw regionError;
-						return unwrapExchangeSigningDeadline(error);
+						return unwrapExchangeSignerGuardError(error);
 					});
 			});
 			if (guarded.status === "invalidated") {

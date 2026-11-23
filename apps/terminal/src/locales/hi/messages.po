@@ -11331,6 +11331,7 @@ msgstr "खाता मोड अपडेट करने के लिए व
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
+#: src/lib/hyperliquid/use-deposit.ts
 msgid "Wallet not connected"
 msgstr "वॉलेट कनेक्ट नहीं है"
 
