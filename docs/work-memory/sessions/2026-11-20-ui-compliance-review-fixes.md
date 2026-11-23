@@ -103,10 +103,15 @@
 - 浏览器回归（两片，共 6 个用例）：`top-nav-connected.pw.ts` 的 `deposit-unavailable` 场景期望顶栏 Deposit 收成图标。夹具用的是「地区检查未完成」，H-11 的修复让这种被动状态保留 `Deposit` 名称。这暴露了规范冲突：`docs/runtime-guardrails.md` 写明无论受限还是仍在解析都收成图标，`docs/mobile-data-presentation.md` 禁止在未就绪时改名为「不可用」。运营方 2026-11-20 决定：保持 `Deposit` 名称并禁用，只有已确认限制收成图标。已改 `runtime-guardrails.md` 的规则，夹具的 `deposit=unavailable` 改为已确认的地区受限（被动状态的布局与可用时相同，可用场景已覆盖）；本机跑这个 Playwright 配置 13 项通过。
 - 两个终端构建：包体预算超限。运营方决定按复现规则重定基线。固定构建身份、Node 22.15.0、无 `.env.local` 的成对构建（main `ba78481a` 对本分支）读数与新基线写在 `docs/terminal-performance-baseline.md`「UI compliance fixes re-baseline (2026-11-20)」：`trade-terminal-page` +493、静态交易启动 +524、总量 +1,501（各取两种配对开关中较大的增量）；用本分支配对开的产物重跑预算脚本通过。配对开的静态启动余量 191 字节，main 自身只有 117，仍低于发布预检要求的 200 字节。
 
+### 合并 main 后重新测量包体（2026-11-23）
+
+PR #15 与 main 冲突：合并期间 main 先后合入 PR #17（资金弹窗在钱包会话解析期间保留）与 PR #18（ADR 0058 签名会话守卫），都改了 `CHANGELOG.md`、`docs/terminal-performance-baseline.md` 和包体预算脚本的同几项基线。前两个文件保留两边内容，按时间排列。预算基线不能把本分支对旧 main `ba78481a` 量出的增量直接叠到新 main 上，所以把 main `ebdc7413` 合进分支后重新成对构建：基线侧为 `ebdc7413` 的干净分离工作树，头侧为已解决冲突、尚未提交的合并树；Node 22.15.0、无 `.env.local`、`NITRO_PRESET=node-server`、四次构建同一固定构建身份、逐个单独构建。增量为总量 +1,798（配对开）、静态交易启动 +631（配对开）、`trade-terminal-page` +511（配对关），三项基线改为 main 的值加较大增量，替换了原来的三次上调，各项余量与 main 自身相同（静态启动配对开 274 字节）。手机与桌面运行时启动只增加 23 与 364 字节，在允许范围内，没有上调。读数表在 `docs/terminal-performance-baseline.md` 的同名小节，日志在 Git 忽略的 `.worklog/2026-11-23/pr15-merge-rebaseline/`。没有构建发布配置。
+
 ## 后续与替代关系
 
 - 未处理的中低项（未逐条核实）：报告 2.1 第 2–6 项、2.2 表、2.3 其余项、3.1 按钮状态（`hover:opacity-*`、原语缺 `not-data-disabled`、WalletModal 静息与悬停同值）、3.2.1 四个仪表盘弹窗的退场过渡、3.2.3 静态内容用 `bg-fill-weak`、3.3 触控按压反馈、4.2 仪表盘与弹窗的 `isResolving`、4.3 发送弹窗对新账号的模式提示、4.4 API 钱包被动横幅、4.5 硬编码千分位与英文 `aria-label`、6.3 成交历史 Type 列、6.5 Scale 订单数清空回弹（需要把草稿字段改成可空）、6.7、6.8，以及第七节官网两项。
 - 桌面历史表格与交易、资金费历史页的切换按钮 `aria-label` 仍用协议 coin（`Switch to @107 market`）；手机历史卡片已改用显示名。
 - Earn 行内 Withdraw 在没有存入时不给原因。
 - 第三轮 Codex 审查留下的三项 P3（见上节）。
-- 发布预检前，配对开的静态交易启动余量（本分支 191 字节，main 117 字节）需要真实削减或运营方对上限的决定。
+- 配对开的静态交易启动余量在合并 main `ebdc7413` 后为 274 字节（与 main 相同），只比发布预检要求的 200 字节多 74；`trade-terminal-page` 配对关余 249 字节。下一次让它们增长的改动需要真实削减或运营方对上限的决定。
+- 报告 4.4（API 钱包被动横幅）已由 PR #17 处理，不再属于本记录的后续。

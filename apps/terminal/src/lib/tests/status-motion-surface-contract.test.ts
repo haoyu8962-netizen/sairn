@@ -29,7 +29,6 @@ const ALLOWED_SPINNERS: Record<string, SpinnerReview> = {
 		glyph: 1,
 		reason: "passive fresh-data preflight before signing",
 	},
-	"components/api-wallet/api-wallet-list.tsx": { spin: 1, glyph: 1, reason: "passive list refresh" },
 	"components/funding-history/funding-history-page.tsx": { spin: 1, reason: "refresh button while refetching" },
 	"components/historical-orders/historical-orders-page.tsx": { spin: 1, reason: "refresh button while refetching" },
 	"components/leaderboard/leaderboard-view.tsx": { spin: 1, reason: "refresh button while refetching" },

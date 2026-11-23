@@ -28,6 +28,11 @@ export const DEPOSIT_POLL_INTERVAL_MS = 2_000;
 export const DEPOSIT_BALANCE_REFRESH_MS = 5_000;
 export const DEPOSIT_CHAIN_SWITCH_SETTLE_MS = 10_000;
 export const DEPOSIT_CHAIN_SWITCH_POLL_INTERVAL_MS = 250;
+/**
+ * The one wait of a manual deposit after its permit signature for the session to settle again on the click's
+ * account (ADR 0058). Independent of the funds dialogs' presentation hold, as the operator decided on 2026-11-23.
+ */
+export const DEPOSIT_SESSION_SETTLE_TIMEOUT_MS = 30_000;
 
 export const MS_PER_DAY = 86_400_000;
 export const TAB_RESTORE_THRESHOLD_MS = 30_000;

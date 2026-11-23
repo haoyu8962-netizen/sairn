@@ -4,6 +4,7 @@ import {
 	type ExchangeProviderLifecycleLease,
 	invalidateExchangeProviderLifecycle,
 	invalidateExchangeRequestIdentity,
+	markExchangeIdentityReplaced,
 } from "./internal/exchange/request-scheduler";
 import { type HyperliquidExchangeSessionLease, HyperliquidSessionContext } from "./provider-context";
 import {
@@ -28,6 +29,20 @@ export interface HyperliquidSessionProviderProps {
 	builderConfig: BuilderConfig;
 	enforceLegalActions?: boolean;
 	onAgentCleanupFailure?: (failure: { env: HyperliquidEnv; owner: `0x${string}`; reason: string }) => void;
+}
+
+interface ExchangeIdentity {
+	env: HyperliquidEnv;
+	clientKey: string;
+	sessionMode: SessionMode;
+}
+
+function isSameExchangeIdentity(left: ExchangeIdentity | null, right: ExchangeIdentity | null): boolean {
+	return (
+		left?.env === right?.env &&
+		left?.clientKey.toLowerCase() === right?.clientKey.toLowerCase() &&
+		left?.sessionMode === right?.sessionMode
+	);
 }
 
 export function HyperliquidSessionProvider({
@@ -67,11 +82,8 @@ export function HyperliquidSessionProvider({
 			active: false,
 		});
 	}
-	const previousExchangeIdentityRef = useRef<{
-		env: HyperliquidEnv;
-		clientKey: string;
-		sessionMode: SessionMode;
-	} | null>(null);
+	const previousExchangeIdentityRef = useRef<ExchangeIdentity | null>(null);
+	const lastConfirmedExchangeIdentityRef = useRef<ExchangeIdentity | null>(null);
 	const previousRegistrationIdentityRef = useRef<{ env: HyperliquidEnv; owner: `0x${string}` } | null>(null);
 	const onAgentCleanupFailureRef = useRef(onAgentCleanupFailure);
 	onAgentCleanupFailureRef.current = onAgentCleanupFailure;
@@ -96,14 +108,25 @@ export function HyperliquidSessionProvider({
 	useLayoutEffect(() => {
 		const previous = previousExchangeIdentityRef.current;
 		const next = clientKey === "disconnected" ? null : { env, clientKey, sessionMode };
-		const changed =
-			previous?.env !== next?.env ||
-			previous?.clientKey.toLowerCase() !== next?.clientKey.toLowerCase() ||
-			previous?.sessionMode !== next?.sessionMode;
+		const changed = !isSameExchangeIdentity(previous, next);
 
 		if (changed && previous) {
-			invalidateExchangeRequestIdentity(previous.env, previous.clientKey, previous.sessionMode);
+			invalidateExchangeRequestIdentity(
+				previous.env,
+				previous.clientKey,
+				previous.sessionMode,
+				undefined,
+				next === null ? "unresolved" : "replaced",
+			);
 		}
+		const confirmed = lastConfirmedExchangeIdentityRef.current;
+		const networkLeftConfirmed = confirmed !== null && confirmed.env !== env;
+		const replacesConfirmed = next ? !isSameExchangeIdentity(confirmed, next) : networkLeftConfirmed;
+		if (confirmed && replacesConfirmed) {
+			markExchangeIdentityReplaced(confirmed.env, confirmed.clientKey);
+		}
+		if (next) lastConfirmedExchangeIdentityRef.current = next;
+		else if (networkLeftConfirmed) lastConfirmedExchangeIdentityRef.current = null;
 		previousExchangeIdentityRef.current = next;
 	}, [clientKey, env, sessionMode]);
 

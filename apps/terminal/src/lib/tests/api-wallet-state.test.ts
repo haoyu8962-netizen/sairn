@@ -6,6 +6,7 @@ import {
 	createApiWalletApproval,
 	createApiWalletRemoval,
 	deriveApiWalletAgentStatus,
+	deriveApiWalletListState,
 	deriveApiWalletPageState,
 	type ExtraAgent,
 	hasMatchingApiWalletIdentity,
@@ -30,27 +31,64 @@ const READY_INPUT: ApiWalletPageStateInput = {
 	isConnected: true,
 	accountAddress: ACCOUNT,
 	signingAddress: ACCOUNT.toLowerCase(),
-	isLoading: false,
 	isError: false,
 	agents: [AGENT],
+	receivedSinceMount: true,
 };
 
 describe("API wallet page state", () => {
 	it.each([
 		["normal", READY_INPUT],
 		["empty", { ...READY_INPUT, agents: [] }],
-		["loading", { ...READY_INPUT, isLoading: true, agents: undefined }],
+		["loading", { ...READY_INPUT, agents: undefined }],
 		["error", { ...READY_INPUT, isError: true, agents: undefined }],
+		["retained", { ...READY_INPUT, isError: true }],
+		["error", { ...READY_INPUT, isError: true, receivedSinceMount: false }],
 		["disconnected", { ...READY_INPUT, isConnected: false }],
 		["nonMaster", { ...READY_INPUT, signingAddress: "0xbb410000000000000000000000000000000077c2" }],
 	] as const)("derives the %s state", (expected, input) => {
 		expect(deriveApiWalletPageState(input)).toBe(expected);
 	});
 
+	it.each([
+		["loading", { agents: undefined }],
+		["loading", { agents: undefined, receivedSinceMount: false }],
+		["error", { isError: true, agents: undefined }],
+		["error", { isError: true, receivedSinceMount: false }],
+		["retained", { isError: true }],
+		["empty", { agents: [] }],
+		["normal", {}],
+	] as const)("presents the list as %s without the master wallet as with it", (expected, overrides) => {
+		const nonMaster = { ...READY_INPUT, signingAddress: "0xbb410000000000000000000000000000000077c2", ...overrides };
+		expect(deriveApiWalletPageState(nonMaster)).toBe("nonMaster");
+		expect(deriveApiWalletListState(nonMaster)).toBe(expected);
+		expect(deriveApiWalletListState({ ...READY_INPUT, ...overrides })).toBe(expected);
+	});
+
+	it("presents a disconnected list as disconnected", () => {
+		expect(deriveApiWalletListState({ ...READY_INPUT, isConnected: false })).toBe("disconnected");
+	});
+
 	it("fails closed when identity or a settled snapshot is missing", () => {
 		expect(deriveApiWalletPageState({ ...READY_INPUT, accountAddress: undefined })).toBe("nonMaster");
 		expect(deriveApiWalletPageState({ ...READY_INPUT, signingAddress: undefined })).toBe("nonMaster");
-		expect(deriveApiWalletPageState({ ...READY_INPUT, agents: undefined })).toBe("error");
+		expect(deriveApiWalletPageState({ ...READY_INPUT, isError: true, agents: undefined })).toBe("error");
+		expect(isApiWalletPageOperable(deriveApiWalletPageState({ ...READY_INPUT, agents: undefined }))).toBe(false);
+	});
+
+	it("keeps a first read that has neither data nor a failure busy, never offering Retry", () => {
+		const pausedFirstRead = { ...READY_INPUT, isError: false, agents: undefined, receivedSinceMount: false };
+		expect(deriveApiWalletPageState(pausedFirstRead)).toBe("loading");
+		expect(deriveApiWalletListState(pausedFirstRead)).toBe("loading");
+		const nonMaster = { ...pausedFirstRead, signingAddress: "0xbb410000000000000000000000000000000077c2" };
+		expect(deriveApiWalletPageState(nonMaster)).toBe("nonMaster");
+		expect(deriveApiWalletListState(nonMaster)).toBe("loading");
+	});
+
+	it("keeps no management action open on data it only retains", () => {
+		expect(isApiWalletPageOperable("retained")).toBe(false);
+		expect(isApiWalletPageOperable("error")).toBe(false);
+		expect(isApiWalletPageOperable("normal")).toBe(true);
 	});
 
 	it("treats only case as insignificant when matching the signer", () => {

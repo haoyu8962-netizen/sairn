@@ -4,6 +4,7 @@ import { useActiveAgentOwner } from "@sairn/hl-react";
 import { startExchangeActionDeadline } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { useEffect, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
+import { useDataReceivedSinceMount } from "@/hooks/portfolio/use-data-received-since-mount";
 import { useMasterWalletActionReason } from "@/hooks/trade/use-master-wallet-action-reason";
 import { useExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
@@ -36,6 +37,7 @@ import {
 	createApiWalletApproval,
 	createApiWalletRemoval,
 	deriveApiWalletAgentStatus,
+	deriveApiWalletListState,
 	deriveApiWalletPageState,
 	isApiWalletExtraAgentSnapshot,
 	isApiWalletPageOperable,
@@ -69,6 +71,11 @@ interface ExecutionLease {
 	abortController: AbortController;
 	identityKey: string;
 	token: symbol;
+}
+
+interface LastValidAgents {
+	sourceKey: string;
+	agents: ExtraAgentsResponse | undefined;
 }
 
 interface BoundCredential extends ApiWalletCredential {
@@ -123,7 +130,21 @@ export function useApiWalletController({
 		credentialRef.current?.identityKey === identityKey ? credentialRef.current : undefined;
 	activeActionRef.current = identityBoundAction;
 	const validatedAgents = isApiWalletExtraAgentSnapshot(agentsQuery.data) ? agentsQuery.data : undefined;
+	const agentsSourceKey = `${env}:${accountAddress ?? ""}`;
+	const agentsReceivedSinceMount = useDataReceivedSinceMount(agentsSourceKey, agentsQuery.dataUpdatedAt);
 	const hasMalformedSnapshot = agentsQuery.data !== undefined && validatedAgents === undefined;
+	const [lastValidAgents, setLastValidAgents] = useState<LastValidAgents>({
+		sourceKey: agentsSourceKey,
+		agents: undefined,
+	});
+	if (lastValidAgents.sourceKey !== agentsSourceKey) {
+		setLastValidAgents({ sourceKey: agentsSourceKey, agents: undefined });
+	} else if (validatedAgents && agentsReceivedSinceMount && lastValidAgents.agents !== validatedAgents) {
+		setLastValidAgents({ sourceKey: agentsSourceKey, agents: validatedAgents });
+	}
+	const retainedAgents =
+		hasMalformedSnapshot && lastValidAgents.sourceKey === agentsSourceKey ? lastValidAgents.agents : undefined;
+	const presentedAgents = validatedAgents ?? retainedAgents;
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -144,16 +165,18 @@ export function useApiWalletController({
 		setActiveAction(undefined);
 	}, [identityKey]);
 
-	const pageState = deriveApiWalletPageState({
+	const pageStateInput = {
 		isConnected: wallet.isConnected,
 		accountAddress,
 		signingAddress,
-		isLoading: agentsQuery.isLoading,
 		isError: agentsQuery.isError || hasMalformedSnapshot,
-		agents: validatedAgents,
-	});
-	const agents = createAgentViews(validatedAgents ?? [], i18n.locale, Date.now(), translate);
-	const nameValidation = validateApiWalletName(name, validatedAgents);
+		agents: presentedAgents,
+		receivedSinceMount: validatedAgents ? agentsReceivedSinceMount : retainedAgents !== undefined,
+	};
+	const pageState = deriveApiWalletPageState(pageStateInput);
+	const listState = deriveApiWalletListState(pageStateInput);
+	const agents = createAgentViews(presentedAgents ?? [], i18n.locale, Date.now(), translate);
+	const nameValidation = validateApiWalletName(name, presentedAgents);
 	const nameError = getNameError(name, nameValidation.error, translate);
 	const canOperate = isApiWalletPageOperable(pageState) && !identityBoundAction && !approvalMutation.isPending;
 	const canGenerate = canOperate;
@@ -473,6 +496,7 @@ export function useApiWalletController({
 
 	return {
 		pageState,
+		listState,
 		masterWalletReason,
 		accountAddress,
 		accountLabel: env === "Testnet" ? t`Hyperliquid testnet account` : t`Hyperliquid account`,

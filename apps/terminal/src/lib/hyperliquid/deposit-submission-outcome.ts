@@ -32,28 +32,30 @@ export function isDefinitiveWalletSubmissionFailure(error: unknown, userRejected
 }
 
 interface DepositSubmissionOutcomeInput {
-	/** The sponsored flow handed its authorization to the bundler; no wallet rejection is possible there. */
+	/**
+	 * The sponsored flow called Privy's Smart Wallet `sendTransaction` with its authorization: Privy prepares, signs
+	 * and sends the UserOperation to the bundler inside the SDK, so no failure there proves nothing was broadcast.
+	 */
 	sponsoredSubmissionStarted: boolean;
-	/** The external wallet was asked to broadcast the deposit transaction. */
-	directSubmissionStarted: boolean;
+	/**
+	 * The external wallet was asked to broadcast the deposit transaction and the attempt's forwarding ledger cannot
+	 * rule out that it did: some send it was handed was answered, or failed with anything other than a refusal
+	 * that means nothing was broadcast (ADR 0058). The final error does not decide this, because viem
+	 * may fall back to a second send after an unclear first answer.
+	 */
+	directSubmissionUncertain: boolean;
 	hash: Hash | undefined;
-	error: unknown;
-	userRejected: boolean;
 }
 
 /**
- * Whether a failed deposit attempt may still have reached the chain. A hash answers the question
- * on its own; without one, any submission the wallet was asked to broadcast counts as unknown
- * unless the wallet refused before broadcasting.
+ * Whether a failed deposit attempt may still have reached the chain. A hash answers the question on its own;
+ * without one, a sponsored submission counts as unknown, and an external-wallet one as the ledger says.
  */
 export function isDepositSubmissionOutcomeUnknown({
 	sponsoredSubmissionStarted,
-	directSubmissionStarted,
+	directSubmissionUncertain,
 	hash,
-	error,
-	userRejected,
 }: DepositSubmissionOutcomeInput): boolean {
 	if (hash) return false;
-	if (sponsoredSubmissionStarted) return true;
-	return directSubmissionStarted && !isDefinitiveWalletSubmissionFailure(error, userRejected);
+	return sponsoredSubmissionStarted || directSubmissionUncertain;
 }

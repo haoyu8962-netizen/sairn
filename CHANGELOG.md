@@ -66,6 +66,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- The TWAP sub-tabs (Current, History, Fill History) now start on the same edge and use the same
+  weight as the account tabs above them and line up with the filter rows of the other account tabs,
+  on phones and on desktop. The desktop Order History filters read `Type` and `Status` when nothing
+  is filtered, like the phone layout and the other account tabs.
 - Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
   official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
   rest of the position.
@@ -121,6 +125,79 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
+  moment, on every page including those that check the terms of use (Trade, Portfolio, Vaults and the
+  history pages): while the wallet session is being resolved (at most 10 seconds) the dialog stays
+  mounted, and it starts over if the session settles on another account, session mode or wallet
+  kind, settles without its wallet, is confirmed signed out or is still unresolved after 10 seconds,
+  if the wallet is seen connected to another address (also while the session is still being
+  resolved, once it had settled on an account), or if the network is switched. A wallet that reports
+  a disconnect while you stay signed in is not a reconnect: the dialog still starts over then, as
+  before. The Deposit dialog shows a quiet busy area instead of "Wallet not connected" while the
+  session is being resolved; the Bridge tab's own selections are still lost then.
+- A transfer, send or withdrawal that was already on its way when the wallet reconnected to the same
+  account now reports its result and closes the dialog, instead of leaving the form open and ready to
+  be sent again, also when the withdrawal route changes while it is on its way; if the account mode
+  changes after it was sent, its result may still go unreported, as before. A deposit you have just
+  submitted keeps its progress screen while the wallet reconnects; the forwarding screen of an
+  earlier deposit, reopened from its saved record, can still disappear meanwhile. When Deposit, Send
+  or Transfer is opened again while a withdrawal, send or transfer is on its way, that result is still
+  notified and also closes the dialog opened again, so what you typed there is lost. A
+  withdrawal's result is notified only while the Deposit dialog that sent it stays mounted: if Deposit
+  is opened again while a reconnect is holding the terms-of-use check, the earlier dialog can be
+  unmounted and that result then goes unnotified (a known gap). A withdrawal whose route was refreshed
+  while it waited, and that was then stopped before it was sent (the terms-of-use recheck refused or
+  could not verify the account, the funds lock was unavailable or not acquired in time, a check before
+  sending failed or timed out, or the request was dropped or too late to start), no longer shows an
+  error or closes the dialog: what you typed stays; without such a refresh it still reports the
+  failure and closes, as before. A swap submitted just before a
+  reconnect no longer leaves an invisible dialog that blocked opening Swap and the command menu, and
+  opening Swap again while an earlier swap is still being sent shows the new form once that swap has
+  finished. A swap that was still waiting its turn when the wallet reconnected to the same account is
+  not sent; its notification reports it as failed and you can swap again. A check that was still running before a send, deposit or withdrawal is
+  cancelled when the wallet starts reconnecting, without asking the wallet to sign; what you typed
+  stays, and you can submit again once the wallet is back. The same holds for a request that was
+  still waiting its turn when the reconnect cancelled it, and for a withdrawal that a reconnect held
+  up until it was too late to start. On pages that check the terms of use, when
+  the reconnect interrupts the terms-of-use check, only the dialog that was already open stays on
+  screen; a dialog opened meanwhile appears once the reconnect is over, unless the command menu is
+  opened in its place. A
+  transfer or send that was stopped before it was sent because the account mode or the session
+  changed after you clicked no longer shows an error or closes the dialog when the dialog had already
+  seen the change, whichever of the dialog's own checks before sending stopped it, including the
+  send's last check of the destination (activation fee changed, sanctioned or unavailable); when
+  only the dialog's own check notices the new account mode, it may still show the error.
+- The wallet is no longer asked to sign a Hyperliquid request, a deposit or an Agent approval after
+  the wallet session changed since you clicked (ADR 0058). For Hyperliquid requests signed by an
+  external wallet or an Agent key, a signature that comes back while the wallet is only reconnecting
+  to the same account is still sent, as on the official terminal; one that comes back after the
+  session settled on another account is dropped and reported as not sent. Approving an API wallet or
+  linking a phone no longer opens the wallet prompt after another tab ended or replaced that pending
+  approval, or once its 15-second start limit has passed while it waited for that check. Every
+  wallet request of a manual deposit, including the switch to Arbitrum and adding the network, goes
+  through the same check. After you sign the deposit authorization, the deposit waits once, up to 30
+  seconds, for the wallet to be back on the same account, then checks the route, Circle fee, balances
+  and terms of use again before it asks for the transaction (external wallet) or hands it to the email
+  wallet's sponsored sender. If the wallet comes back on another account or the dialog is closed, the
+  deposit stops without a message; if the dialog stays open and the wallet is not back within 30
+  seconds, it shows "Wallet not connected" and nothing is sent (on most pages the dialog starts over
+  for the disconnected wallet first, and the deposit then stops without a message); if the wallet
+  drops out again after that wait, the deposit stops without sending, and a check that failed
+  meanwhile is shown as usual. Once the email wallet's sponsored sender has the deposit, switching
+  accounts no longer stops it; it deposits your own signed USDC into your own account, and its result
+  is shown only to that account, once it is the active one again, never in the other account's view. An
+  external-wallet deposit whose wallet gave an unclear answer to the transaction is never sent a
+  second time and keeps its unknown status, and one that never reached the wallet's transaction
+  prompt is reported as a plain failure instead of an unknown status.
+- A late result of a send from one account no longer clears or replaces the retry draft saved by
+  another account: each network and account keeps its own retry draft until the page reloads.
+- The API wallet page no longer shows a red warning block or "Loading…", "Refreshing…" and
+  "Unavailable" for its list. A first read that is still waiting, also while offline, shows a blank
+  busy area; a failed first read offers a neutral Retry; a failed refresh, including one that answers
+  malformed data, keeps the last valid list received since the page started reading, for the same
+  network and account, with management disabled and a Retry below it. A wallet that is not the
+  account's master wallet sees the list the same way and is no longer told "No API wallets
+  authorized" before the list has loaded.
 - Transfer, Send and the phone's Account type tab no longer submit from a dialog that is closing:
   during the exit animation their confirm controls are disabled and their handlers do nothing.
 - Phone trade, order and funding history cards name spot and HIP-3 markets as the official terminal

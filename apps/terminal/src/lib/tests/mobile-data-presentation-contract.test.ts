@@ -123,9 +123,9 @@ describe("mobile passive data presentation contract", () => {
 		expect(readFileSync(resolve(root, "AGENTS.md"), "utf8")).toContain("docs/mobile-data-presentation.md");
 	});
 
-	describe("staking, referral and Vault pages (desktop and phone)", () => {
+	describe("staking, referral, Vault and API wallet pages (desktop and phone)", () => {
 		const components = resolve(root, "apps/terminal/src/components");
-		const directories = ["staking", "referrals", "vaults"];
+		const directories = ["staking", "referrals", "vaults", "api-wallet"];
 		const sources = directories.flatMap((directory) =>
 			readdirSync(resolve(components, directory))
 				.filter((file) => file.endsWith(".tsx") || file.endsWith(".ts"))
@@ -171,6 +171,8 @@ describe("mobile passive data presentation contract", () => {
 				"Checking regional availability",
 				"Unable to verify regional availability",
 				"Verified Vault details are unavailable",
+				"API wallet list is temporarily unavailable",
+				"The extraAgents request failed",
 				'"0 HYPE"',
 			];
 			for (const { file, source } of sources) {
@@ -187,6 +189,18 @@ describe("mobile passive data presentation contract", () => {
 						count: 2,
 						reason: "failure and unknown outcome of a requested Vault transfer (action feedback)",
 					},
+					"api-wallet/api-wallet-action-modal.tsx": {
+						count: 2,
+						reason: "failure of a requested approval and the removal consequence in the action dialog",
+					},
+					"api-wallet/api-wallet-credential-box.tsx": {
+						count: 1,
+						reason: "one-time private key download warning after a verified approval",
+					},
+					"api-wallet/api-wallet-view.tsx": {
+						count: 1,
+						reason: "confirmed signer mismatch: the active wallet is not the account's master wallet",
+					},
 				},
 				WarningCircleIcon: {
 					"vaults/vaults-page.tsx": { count: 2, reason: "import and the confirmed Vault not found answer" },
@@ -197,6 +211,11 @@ describe("mobile passive data presentation contract", () => {
 						count: 2,
 						reason: "import and the signing notice in the action dialog",
 					},
+					"api-wallet/api-wallet-credential-box.tsx": {
+						count: 2,
+						reason: "import and the one-time private key download warning",
+					},
+					"api-wallet/api-wallet-view.tsx": { count: 2, reason: "import and the confirmed signer mismatch" },
 				},
 			};
 			for (const [marker, allowed] of Object.entries(reviewed)) {

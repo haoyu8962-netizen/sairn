@@ -46,15 +46,19 @@ export type ExchangeRequestStartGate = (
 	signal: AbortSignal,
 ) => Promise<ExchangeRequestStartResult>;
 
-interface SigningDeadline {
+interface ExchangeSigningSlotEntry {
 	queuedAt: number;
 	queuedAtMonotonic: number;
 	deadlineMs?: number;
+	readonly generation?: ExchangeRequestGeneration;
 }
 
-/** The action a client is executing; its wallet checks the deadline before every signature (ADR 0053). */
+/**
+ * The action a client is executing. Its wallet checks the deadline (ADR 0053) and the session generation
+ * before every signature, and its transport checks that the session was not replaced before sending (ADR 0058).
+ */
 export interface ExchangeSigningDeadlineSlot {
-	current?: SigningDeadline;
+	current?: ExchangeSigningSlotEntry;
 }
 
 type QueueEntry<T> = {
@@ -74,6 +78,57 @@ type QueueEntry<T> = {
 
 const identityGenerations = new Map<string, ExchangeRequestGeneration>();
 const activeSchedulers = new Set<ExchangeRequestScheduler>();
+
+/**
+ * Why a generation stopped being current (ADR 0058). `unresolved`: the session became unknown (a reconnect,
+ * the wallet directory initialising) and may come back as the same identity. `replaced`: another identity,
+ * network or session mode took over, the provider ended, or the signer itself changed. A request that already
+ * has its signature is sent unless its generation was replaced.
+ */
+export type ExchangeIdentityRetirement = "unresolved" | "replaced";
+
+const retiredGenerations = new WeakMap<ExchangeRequestGeneration, ExchangeIdentityRetirement>();
+const unresolvedGenerations = new Map<string, Set<ExchangeRequestGeneration>>();
+
+function getOwnerKey(env: HyperliquidEnv, clientKey: string): string {
+	return `${env}:${clientKey.toLowerCase()}`;
+}
+
+function retireGeneration(generation: ExchangeRequestGeneration, reason: ExchangeIdentityRetirement): void {
+	if (retiredGenerations.get(generation) === "replaced") return;
+	retiredGenerations.set(generation, reason);
+	if (reason !== "unresolved") return;
+	const ownerKey = getOwnerKey(generation.env, generation.clientKey);
+	const pending = unresolvedGenerations.get(ownerKey) ?? new Set<ExchangeRequestGeneration>();
+	pending.add(generation);
+	unresolvedGenerations.set(ownerKey, pending);
+}
+
+/**
+ * Upgrades the unresolved generations of one owner that match `matches` to `replaced`, and forgets them.
+ * Unresolved generations that come back as the same identity with the same proof stay in the set until their
+ * owner is replaced; that is one small entry per reconnect.
+ */
+function replaceUnresolvedGenerations(
+	env: HyperliquidEnv,
+	clientKey: string,
+	matches: (generation: ExchangeRequestGeneration) => boolean,
+): void {
+	const ownerKey = getOwnerKey(env, clientKey);
+	const pending = unresolvedGenerations.get(ownerKey);
+	if (!pending) return;
+	for (const generation of pending) {
+		if (!matches(generation)) continue;
+		retiredGenerations.set(generation, "replaced");
+		pending.delete(generation);
+	}
+	if (pending.size === 0) unresolvedGenerations.delete(ownerKey);
+}
+
+function isGenerationSuperseded(generation: ExchangeRequestGeneration | undefined): boolean {
+	if (!generation) return false;
+	return generation.lifecycle?.active === false || retiredGenerations.get(generation) === "replaced";
+}
 
 function getIdentityKey(
 	env: HyperliquidEnv,
@@ -107,10 +162,21 @@ function invalidateStaleSchedulerEntries(): void {
 	for (const scheduler of activeSchedulers) scheduler.invalidateStaleRequests();
 }
 
+/**
+ * Where a request was dropped. `before-start`: it never reached the SDK. `before-signature`: the SDK was
+ * running, but the wallet was never asked to sign. `after-signature`: a signature may exist, but the request
+ * was stopped before the HTTP request. None of them reached the exchange; the error is never thrown after the
+ * transport was called (ADR 0058).
+ */
+export type ExchangeRequestInvalidationPhase = "before-start" | "before-signature" | "after-signature";
+
 export class ExchangeRequestInvalidatedError extends Error {
-	constructor() {
-		super("Exchange request was cancelled because the active signing identity changed.");
+	readonly phase: ExchangeRequestInvalidationPhase;
+
+	constructor(phase: ExchangeRequestInvalidationPhase = "before-start", options?: ErrorOptions) {
+		super("Exchange request was cancelled because the active signing identity changed.", options);
 		this.name = "ExchangeRequestInvalidatedError";
+		this.phase = phase;
 	}
 }
 
@@ -133,7 +199,7 @@ export function getExchangeStartDeadlineMs(method: ExchangeMethod): number | und
 	return method === "cancel" || method === "cancelByCloid" ? undefined : EXCHANGE_ACTION_START_DEADLINE_MS;
 }
 
-function hasPassedDeadline(entry: SigningDeadline): boolean {
+function hasPassedDeadline(entry: ExchangeSigningSlotEntry): boolean {
 	return entry.deadlineMs !== undefined && getReceiptAgeMs(entry.queuedAt, entry.queuedAtMonotonic) >= entry.deadlineMs;
 }
 
@@ -156,9 +222,32 @@ export function assertExchangeSigningDeadline(slot: ExchangeSigningDeadlineSlot)
 	if (hasExchangeActionDeadlinePassed(slot)) throw new ExchangeActionDeadlineError();
 }
 
-/** The SDK wraps a wallet error in `AbstractWalletError`; a deadline error is surfaced as itself. */
-export function unwrapExchangeSigningDeadline(error: unknown): never {
-	throw error instanceof Error && error.cause instanceof ExchangeActionDeadlineError ? error.cause : error;
+/**
+ * Before a user-signed request asks its wallet to sign: the session it was queued for must still be current.
+ * Agent signatures need no prompt and are held only by the send check below, so an order or a cancel is not
+ * dropped by a reconnect that settles back on the same owner.
+ */
+export function assertExchangeSlotReadyToSign(slot: ExchangeSigningDeadlineSlot): void {
+	const generation = slot.current?.generation;
+	if (generation?.signer !== "agent" && !isGenerationCurrent(generation)) {
+		throw new ExchangeRequestInvalidatedError("before-signature");
+	}
+}
+
+/**
+ * Before a signed request is sent: it is dropped only when its session was replaced. A session that is still
+ * unresolved, or came back as the same identity, sends what its own signer approved (ADR 0058).
+ */
+export function assertExchangeSlotReadyToSend(slot: ExchangeSigningDeadlineSlot): void {
+	if (isGenerationSuperseded(slot.current?.generation)) throw new ExchangeRequestInvalidatedError("after-signature");
+}
+
+/** The SDK wraps a wallet error in `AbstractWalletError`; a signer guard error is surfaced as itself. */
+export function unwrapExchangeSignerGuardError(error: unknown): never {
+	throw error instanceof Error &&
+		(error.cause instanceof ExchangeActionDeadlineError || error.cause instanceof ExchangeRequestInvalidatedError)
+		? error.cause
+		: error;
 }
 
 const signingDeadlineSlots = new WeakMap<ExchangeClient, ExchangeSigningDeadlineSlot>();
@@ -282,6 +371,7 @@ export class ExchangeRequestScheduler {
 
 		this.running = true;
 		this.current = entry;
+		let startedExecution: Promise<unknown> | undefined;
 		void Promise.resolve()
 			.then(async () => {
 				if (entry.settled) return;
@@ -303,6 +393,7 @@ export class ExchangeRequestScheduler {
 						} catch (error) {
 							execution = Promise.reject(error);
 						}
+						startedExecution = execution;
 						return { status: "started", execution };
 					};
 					const result = entry.startGate ? await entry.startGate(start, entry.controller.signal) : start();
@@ -314,6 +405,7 @@ export class ExchangeRequestScheduler {
 				} catch (error) {
 					this.rejectEntry(entry, error);
 				}
+				if (startedExecution) await startedExecution.catch(() => undefined);
 			})
 			.finally(() => {
 				if (this.slot.current === entry) this.slot.current = undefined;
@@ -347,20 +439,31 @@ export function captureExchangeRequestGeneration(
 		generation: Symbol(identityKey),
 	} satisfies ExchangeRequestGeneration;
 	identityGenerations.set(identityKey, generation);
-	if (current) invalidateStaleSchedulerEntries();
+	replaceUnresolvedGenerations(
+		env,
+		clientKey,
+		(pending) =>
+			pending.sessionMode === sessionMode && pending.signer === signer && !hasSameGenerationProof(pending, proof),
+	);
+	if (current) {
+		retireGeneration(current, "replaced");
+		invalidateStaleSchedulerEntries();
+	}
 	return generation;
 }
 
 /**
  * Retires the generations of one owner. Without `signer` every signer of that owner is retired
  * (the session itself ended); with `"agent"` only Agent-signed requests are retired, which is what
- * an Agent key replacement or removal means for a wallet session whose owner keeps signing.
+ * an Agent key replacement or removal means for a wallet session whose owner keeps signing. A `replaced`
+ * retirement also upgrades the matching generations that an earlier reconnect left unresolved.
  */
 export function invalidateExchangeRequestIdentity(
 	env: HyperliquidEnv,
 	clientKey: string,
 	sessionMode?: SessionMode,
 	signer?: ExchangeRequestSigner,
+	reason: ExchangeIdentityRetirement = "replaced",
 ): void {
 	const normalizedClientKey = clientKey.toLowerCase();
 	for (const [identityKey, generation] of identityGenerations) {
@@ -371,19 +474,48 @@ export function invalidateExchangeRequestIdentity(
 			(signer === undefined || generation.signer === signer)
 		) {
 			identityGenerations.delete(identityKey);
+			retireGeneration(generation, reason);
 		}
+	}
+	if (reason === "replaced") {
+		replaceUnresolvedGenerations(
+			env,
+			clientKey,
+			(generation) =>
+				(sessionMode === undefined || generation.sessionMode === sessionMode) &&
+				(signer === undefined || generation.signer === signer),
+		);
 	}
 	invalidateStaleSchedulerEntries();
 }
 
+/**
+ * The session that became unresolved settled on another identity, or was ended on purpose (logout): requests
+ * of that owner that already hold a signature are no longer sent.
+ */
+export function markExchangeIdentityReplaced(env: HyperliquidEnv, clientKey: string): void {
+	const ownerKey = getOwnerKey(env, clientKey);
+	const pending = unresolvedGenerations.get(ownerKey);
+	unresolvedGenerations.delete(ownerKey);
+	for (const generation of pending ?? []) retiredGenerations.set(generation, "replaced");
+	invalidateExchangeRequestIdentity(env, clientKey);
+}
+
 export function invalidateAllExchangeRequestIdentities(): void {
+	for (const generation of identityGenerations.values()) retireGeneration(generation, "replaced");
+	for (const pending of unresolvedGenerations.values()) {
+		for (const generation of pending) retiredGenerations.set(generation, "replaced");
+	}
+	unresolvedGenerations.clear();
 	identityGenerations.clear();
 	invalidateStaleSchedulerEntries();
 }
 
 export function invalidateExchangeProviderLifecycle(lifecycle: ExchangeProviderLifecycleLease): void {
 	for (const [identityKey, generation] of identityGenerations) {
-		if (generation.lifecycle === lifecycle) identityGenerations.delete(identityKey);
+		if (generation.lifecycle !== lifecycle) continue;
+		identityGenerations.delete(identityKey);
+		retireGeneration(generation, "replaced");
 	}
 	invalidateStaleSchedulerEntries();
 }

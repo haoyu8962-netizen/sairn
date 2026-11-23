@@ -134,10 +134,20 @@ const budgets = {
 	// Raised 2026-11-20 by +2,478 for the integration's second review round (deposit recovery log scan and settlement,
 	// trading-protection fallbacks, favourites merge, history and liquidation fixes): 3,399,732 minus the first
 	// round's 3,397,254, same fixed-identity pairing-off builds (docs/terminal-performance-baseline.md).
-	// Raised 2026-11-20 by +1,501 for the UI compliance fixes (PR #15: validators that take an explicit translator,
-	// funds-entry presentation, phone history names, trade-history cards): 3,401,914 minus main ba78481a's 3,400,413,
-	// fixed-identity pairing-off builds; pairing on measures +624 (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_396_830,
+	// Raised 2026-11-23 by +4,520 for the funds session presentation (PR #17: funds dialogs kept while the wallet
+	// session resolves, outcome attribution across a reconnect, per-owner send drafts, the API wallet list states).
+	// Fixed-identity Node 22.15.0 pairing-off builds without .env.local: 3,405,263 for fce35f78 minus 3,400,743 for
+	// main f0f789bc; pairing on measures +4,477 (docs/terminal-performance-baseline.md).
+	// Raised 2026-11-23 by +2,592 for the signer session guard (PR 2, ADR 0058: session generations in hl-react, the
+	// guarded deposit provider, the single post-signature wait, the forwarding ledger and the deposit dialog's session
+	// attempt). Fixed-identity Node 22.15.0 pairing-on builds without .env.local: 3,410,986 for 2d30f86d minus 3,408,394
+	// for main fa82e486; pairing off measures +2,038 (docs/terminal-performance-baseline.md).
+	// Raised 2026-11-23 by +1,798 for the UI compliance fixes (PR #15: validators that take an explicit translator,
+	// funds-entry presentation, phone history names, trade-history cards), measured again after main ebdc7413 was
+	// merged into the branch: pairing on 3,412,154 minus main's 3,410,356 (pairing off measures +1,594: 3,409,015 minus
+	// 3,407,421), fixed-identity Node 22.15.0 builds without .env.local. The branch had first been measured against
+	// main ba78481a at +1,501 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_404_239,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -173,10 +183,20 @@ const budgets = {
 		// Raised 2026-11-20 by +336 for the third review round (deposit outcome kept until the user dismisses it):
 		// pairing on 1,672,795 minus 1,672,459 (pairing off measures +196: 1,671,517 minus 1,671,321). The pairing-on
 		// increment is used because the pairing-off one would leave pairing on 2 bytes over; pairing on keeps 138 bytes.
-		// Raised 2026-11-20 by +524 for the UI compliance fixes (PR #15, see the total above): pairing off 1,672,121 minus
-		// main ba78481a's 1,671,597 (pairing on measures +450: 1,673,266 minus 1,672,816). The larger increment is used;
-		// pairing on keeps 191 bytes, against main's own 117 (docs/terminal-performance-baseline.md).
-		baselineGzipBytes: 1_663_457,
+		// Raised 2026-11-23 by +1,405 for the funds session presentation (see the total above): pairing off 1,673,007
+		// minus main f0f789bc's 1,671,602 (pairing on measures +1,339). The growth is the funds-session hold and the held
+		// identities in the global modals host, which load at startup. Before the raise the pairing-off build exceeded
+		// the allowance by 74 and the pairing-on build by 1,249; after it pairing on keeps 156 bytes, as main kept 90.
+		// Raised 2026-11-23 by +1,753 for the signer session guard (see the total above): pairing on 1,675,936 minus
+		// main fa82e486's 1,674,183 (pairing off measures +1,629). The growth is the hl-react session generations in
+		// vendor-router (+856 total) and the deposit session guard in the shared useDeposit chunk that the automatic
+		// deposit host loads at startup (+792 total). Before the raise pairing off exceeded the allowance by 336 and
+		// pairing on by 1,598; after it pairing on keeps 155 bytes, as main fa82e486 keeps 155.
+		// Raised 2026-11-23 by +631 for the UI compliance fixes (PR #15, see the total above), measured after main
+		// ebdc7413 was merged into the branch: pairing on 1,676,448 minus main's 1,675,817 (pairing off measures +594:
+		// 1,675,271 minus 1,674,677). The larger increment is used, so pairing on keeps main's 274 bytes. The branch had
+		// first been measured against main ba78481a at +524 (docs/terminal-performance-baseline.md).
+		baselineGzipBytes: 1_666_722,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
@@ -189,7 +209,15 @@ const budgets = {
 			"apps/terminal/src/components/trade/chart/token-selector-popup.tsx",
 		],
 		profiles: [
-			{ name: "mobile", moduleIds: [], baselineGzipBytes: 110_580, allowedIncreaseBytes: 10_000 },
+			{
+				name: "mobile",
+				moduleIds: [],
+				// Raised 2026-11-23 by +519 for the funds session presentation (see the total above): pairing off 120,353
+				// minus main f0f789bc's 119,834 (pairing on +507). It passed without the raise with 223 bytes left pairing on;
+				// the raise keeps main's room (730).
+				baselineGzipBytes: 111_099,
+				allowedIncreaseBytes: 10_000,
+			},
 			{
 				name: "desktop",
 				moduleIds: TRADE_DESKTOP_RUNTIME_MODULE_IDS,
@@ -226,9 +254,10 @@ const budgets = {
 		// Raised 2026-11-19 by +196 for the 2026-11-19 fix integration (phone order form a11y text, order-book probe
 		// gating): 128,819 minus main 79b268ea's 128,623, so the room stays at main's 292.
 		// Raised 2026-11-20 by +33 for the second review round: 128,852 minus 128,819, so the room stays at 292.
-		// Raised 2026-11-20 by +493 for the UI compliance fixes (PR #15): pairing on 129,354 minus main ba78481a's
-		// 128,861 (pairing off measures +485: 129,334 minus 128,849), so pairing on keeps main's 283 bytes.
-		{ name: "trade-terminal-page", baselineGzipBytes: 125_637, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-23 by +511 for the UI compliance fixes (PR #15), measured after main ebdc7413 was merged into
+		// the branch: pairing off 129,406 minus main's 128,895 (pairing on measures +501: 129,402 minus 128,901), so
+		// pairing off keeps main's 249 bytes. The branch had first been measured against main ba78481a at +493.
+		{ name: "trade-terminal-page", baselineGzipBytes: 125_655, allowedIncreaseBytes: 4_000 },
 		{ name: "token-selector-popup", baselineGzipBytes: 14_355, allowedIncreaseBytes: 1_500 },
 		{ name: "api-wallet", baselineGzipBytes: 17_967, allowedIncreaseBytes: 2_000 },
 		{ name: "fundingHistory._address", baselineGzipBytes: 6_820, allowedIncreaseBytes: 1_500 },

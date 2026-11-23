@@ -264,6 +264,61 @@ export function isSmartWalletNonceConflict(error: Error | null): boolean {
 	return !!error && SMART_WALLET_NONCE_CONFLICT_PATTERN.test(error.message);
 }
 
+function hasErrorName(error: unknown, name: string): boolean {
+	if (!isRecord(error)) return false;
+	if (error.name === name) return true;
+	return error.name === "AbstractWalletError" && isRecord(error.cause) && error.cause.name === name;
+}
+
+/**
+ * The request was dropped before it reached the exchange, so nothing was executed. Its sources: the request
+ * scheduler, when the request's identity generation was invalidated before it started
+ * (`packages/hl-react/src/internal/exchange/request-scheduler.ts`); `useExchange`, when no registration lease
+ * can be captured for the current session; and the email owner signer's `verifyOwner`, before the wallet is
+ * asked to sign, after it signed and before the transport sends the HTTP request
+ * (`packages/hl-react/src/signing/owner-signer-client.ts`). External wallets have no signer-side check: for them
+ * only the scheduler and the registration lease raise it. The SDK wraps an error thrown by the signer in an
+ * `AbstractWalletError` and keeps it as `cause`, so that one wrapper is read.
+ */
+export function isExchangeRequestInvalidatedError(error: unknown): boolean {
+	return hasErrorName(error, "ExchangeRequestInvalidatedError");
+}
+
+/**
+ * Dropped before it reached the exchange: by an identity change (`isExchangeRequestInvalidatedError`) or because
+ * it did not start before its deadline (`ExchangeActionDeadlineError`, ADR 0053), directly or as the `cause` of an
+ * `AbstractWalletError`.
+ */
+export function isExchangeRequestNotSentError(error: unknown): boolean {
+	return isExchangeRequestInvalidatedError(error) || hasErrorName(error, "ExchangeActionDeadlineError");
+}
+
+/**
+ * Errors that `useExchange` and the guards it runs raise before the SDK call, so nothing was signed or sent:
+ * the scheduler's identity drop and start deadline (`request-scheduler.ts`), the cross-tab funds lock that could
+ * not be used or was not acquired in time (`funds-action-lock.ts`), the pre-execution guard that did not finish in
+ * time (`agent-registration-session.ts`), the legal recheck that refused or could not verify the owner
+ * (`legal-execution.ts`), and the application guards' own `FundsActionFeedbackCause`.
+ */
+const STOPPED_BEFORE_SENDING_ERROR_NAMES = [
+	"AgentRegistrationPreExecutionGuardTimeoutError",
+	"ExchangeActionDeadlineError",
+	"ExchangeRequestInvalidatedError",
+	"FundsActionFeedbackCause",
+	"FundsActionLockTimeoutError",
+	"FundsActionLockUnavailableError",
+	"LegalActionNotAllowedError",
+] as const;
+
+/**
+ * Stopped before the SDK call by one of the errors in `STOPPED_BEFORE_SENDING_ERROR_NAMES`, matched by name,
+ * directly or as the `cause` of an `AbstractWalletError`. Anything else, including an ambiguous transport
+ * failure or an exchange rejection, may have been sent.
+ */
+export function isExchangeRequestStoppedBeforeSending(error: unknown): boolean {
+	return STOPPED_BEFORE_SENDING_ERROR_NAMES.some((name) => hasErrorName(error, name));
+}
+
 /** True when a signed exchange request may or may not have been executed. */
 export function isAmbiguousExchangeActionError(error: unknown): boolean {
 	if (isRecord(error) && error.name === "ExchangeResponseUnverifiedError") return true;

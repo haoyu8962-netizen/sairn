@@ -32,6 +32,7 @@ export function ApiWalletFixture({ fixture }: Props) {
 	const noop = () => undefined;
 	const props: ApiWalletViewProps = {
 		pageState,
+		listState: pageState === "nonMaster" ? "normal" : pageState,
 		accountAddress: fixture === "disconnected" ? undefined : ACCOUNT_ADDRESS,
 		accountLabel: t`Mock account`,
 		name: "",
