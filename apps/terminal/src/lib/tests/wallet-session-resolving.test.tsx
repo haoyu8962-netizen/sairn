@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
+import { resolveSession } from "@sairn/hl-react/signing/agent-session";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useFundsSessionHold } from "@/hooks/trade/use-funds-session-hold";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { WALLET_SESSION_RESOLVING_MAX_MS } from "@/lib/wallet/session-resolving-clock";
 import {
+	OTHER_OWNER,
 	resetWalletSessionStage,
+	SESSION_OWNER,
 	setWalletSessionStage,
 	type WalletSessionStage,
 } from "./harness/wallet-session-stage";
@@ -19,11 +23,15 @@ vi.mock("@privy-io/wagmi", async () => (await import("./harness/wallet-session-s
 vi.mock("@/lib/hyperliquid", async () => (await import("./harness/wallet-session-stage")).hyperliquidSessionMock);
 
 function Probe() {
-	const { address, hasWalletAccess, isConnected, isResolving, sessionMode } = useWalletSession();
+	const { address, connectedWalletAddress, hasWalletAccess, isConnected, isResolving, sessionMode } =
+		useWalletSession();
+	const fundsHeld = useFundsSessionHold();
 	return (
 		<output
 			data-address={address ?? ""}
 			data-connected={String(isConnected)}
+			data-connected-wallet={connectedWalletAddress ?? ""}
+			data-funds-held={String(fundsHeld)}
 			data-resolving={String(isResolving)}
 			data-session-mode={sessionMode}
 			data-wallet-access={String(hasWalletAccess)}
@@ -48,6 +56,10 @@ describe("useWalletSession().isResolving", () => {
 			walletAccess: output.dataset.walletAccess === "true",
 			sessionMode: output.dataset.sessionMode,
 		};
+	}
+
+	function readAddress() {
+		return container.querySelector("output")?.dataset.address || undefined;
 	}
 
 	beforeEach(() => {
@@ -213,5 +225,133 @@ describe("useWalletSession().isResolving", () => {
 	it("reports a real owner change as a session, not as resolving", () => {
 		show("connected-other-owner");
 		expect(read()).toEqual({ connected: true, resolving: false, walletAccess: true, sessionMode: "wallet" });
+	});
+
+	describe("what it lets funds dialogs hold", () => {
+		function held() {
+			return container.querySelector("output")?.dataset.fundsHeld === "true";
+		}
+
+		function connectedWallet() {
+			return container.querySelector("output")?.dataset.connectedWallet || undefined;
+		}
+
+		it("does not hold a signed-in session whose wallet left the directory and is not resolving (E2)", () => {
+			show("wallet-missing");
+			expect(connectedWallet()).toBeUndefined();
+			expect(read().resolving).toBe(false);
+			expect(held()).toBe(false);
+		});
+
+		it("holds only while the session resolves, and no longer once the resolving window ends", () => {
+			show("reconnecting");
+			expect(held()).toBe(true);
+			act(() => vi.advanceTimersByTime(WALLET_SESSION_RESOLVING_MAX_MS + 1));
+			expect(read().resolving).toBe(false);
+			expect(held()).toBe(false);
+		});
+
+		it("does not hold a session that already shows another active account", () => {
+			show("connected-other-account");
+			expect(connectedWallet()).toBe(OTHER_OWNER);
+			expect(held()).toBe(false);
+		});
+
+		it.each(["reconnecting-other-account", "directory-initialising-other-account"] as const)(
+			"ends the hold at once when the wallet reports another account while the session is still resolving (%s)",
+			(stage) => {
+				show(stage);
+				expect(read().resolving).toBe(true);
+				expect(connectedWallet()).toBe(OTHER_OWNER);
+				expect(held()).toBe(false);
+			},
+		);
+
+		it("keeps holding a reconnect that still reports the settled account", () => {
+			show("reconnecting");
+			expect(read().resolving).toBe(true);
+			expect(connectedWallet()).toBe(SESSION_OWNER);
+			expect(held()).toBe(true);
+		});
+
+		it("ends a resolving hold as soon as the reconnecting wallet reports another account", () => {
+			show("reconnecting");
+			expect(held()).toBe(true);
+			show("reconnecting-other-account");
+			expect(held()).toBe(false);
+		});
+
+		it("never holds while the wallet reports an account other than the session's, resolving or not", () => {
+			const checked: WalletSessionStage[] = [];
+			for (const stage of [
+				"connected",
+				"directory-initialising",
+				"connecting",
+				"reconnecting",
+				"activating",
+				"wallet-missing",
+				"connected-other-account",
+				"reconnecting-other-account",
+				"directory-initialising-other-account",
+				"connected-other-owner",
+				"signed-out",
+			] as const) {
+				act(() => resetWalletSessionStage("connected"));
+				show(stage);
+				const otherAccountActive = connectedWallet() !== undefined && connectedWallet() !== SESSION_OWNER;
+				if (otherAccountActive && readAddress() !== connectedWallet()) {
+					checked.push(stage);
+					expect({ stage, held: held() }).toEqual({ stage, held: false });
+				}
+			}
+			expect(checked).toEqual([
+				"connected-other-account",
+				"reconnecting-other-account",
+				"directory-initialising-other-account",
+			]);
+		});
+	});
+
+	describe("the address it gives the Hyperliquid provider", () => {
+		const STAGES: readonly WalletSessionStage[] = [
+			"connected",
+			"authentication-initialising",
+			"directory-initialising",
+			"connecting",
+			"reconnecting",
+			"activating",
+			"wallet-missing",
+			"connected-other-account",
+			"connected-other-owner",
+			"signed-out",
+		];
+
+		it("is never a wallet while the session is resolving, so the client key is disconnected", () => {
+			const resolvingStages: WalletSessionStage[] = [];
+			for (const from of STAGES) {
+				for (const to of STAGES) {
+					act(() => resetWalletSessionStage("connected"));
+					show(from);
+					show(to);
+					if (!read().resolving) continue;
+					resolvingStages.push(to);
+					expect({ stage: to, address: readAddress() }).toEqual({ stage: to, address: undefined });
+					expect(resolveSession(readAddress() as `0x${string}` | undefined, null, "Mainnet").clientKey).toBe(
+						"disconnected",
+					);
+				}
+			}
+			expect(new Set(resolvingStages)).toEqual(
+				new Set(["authentication-initialising", "directory-initialising", "connecting", "reconnecting", "activating"]),
+			);
+		});
+
+		it("is the wallet once the session settles on it", () => {
+			show("reconnecting");
+			expect(readAddress()).toBeUndefined();
+			show("connected");
+			expect(readAddress()).toBe(SESSION_OWNER);
+			expect(resolveSession(SESSION_OWNER, null, "Mainnet").clientKey).toBe(SESSION_OWNER);
+		});
 	});
 });

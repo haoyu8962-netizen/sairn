@@ -12,7 +12,9 @@ import { ApiWalletList } from "./api-wallet-list";
 const OFFICIAL_AGENT_WALLET_DOCS_URL =
 	"https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets";
 
-export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "disconnected" | "nonMaster";
+export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "retained" | "disconnected" | "nonMaster";
+
+export type ApiWalletListState = Exclude<ApiWalletPageState, "nonMaster">;
 
 export type ApiWalletValidityDays = 30 | 90 | 180;
 
@@ -55,6 +57,7 @@ export interface ApiWalletActionView {
 
 export interface ApiWalletViewProps {
 	pageState: ApiWalletPageState;
+	listState: ApiWalletListState;
 	masterWalletReason?: string | null;
 	accountAddress?: string;
 	accountLabel?: string;
@@ -85,6 +88,7 @@ export interface ApiWalletViewProps {
 
 export function ApiWalletView({
 	pageState,
+	listState,
 	masterWalletReason = null,
 	accountAddress,
 	accountLabel,
@@ -232,7 +236,8 @@ export function ApiWalletView({
 			/>
 
 			<ApiWalletList
-				pageState={pageState}
+				listState={listState}
+				canRemove={pageState === "normal"}
 				agents={agents}
 				isRefreshing={isRefreshing}
 				onRemove={onRemove}

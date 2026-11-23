@@ -1,4 +1,5 @@
 import { type ExtraAgent, isApiWalletExtraAgentSnapshot } from "@/lib/hyperliquid/extra-agent-snapshot";
+import { getPassiveQueryState } from "@/lib/passive-query-state";
 
 export { type ExtraAgent, isApiWalletExtraAgentSnapshot };
 
@@ -9,7 +10,8 @@ const API_WALLET_NAME_PATTERN = /^[A-Za-z0-9_-]{2,16}$/u;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export type ApiWalletExpiryDays = (typeof API_WALLET_EXPIRY_DAYS)[number];
-export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "disconnected" | "nonMaster";
+export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "retained" | "disconnected" | "nonMaster";
+export type ApiWalletListState = Exclude<ApiWalletPageState, "nonMaster">;
 export type ApiWalletAgentStatus = "active" | "expiring" | "today" | "expired" | "noExpiry";
 export type ApiWalletNameValidationError = "required" | "format" | "duplicate";
 
@@ -20,9 +22,15 @@ export interface ApiWalletPageStateInput {
 	isConnected: boolean;
 	accountAddress: string | null | undefined;
 	signingAddress: string | null | undefined;
-	isLoading: boolean;
+	/** The latest read failed or answered a malformed snapshot. */
 	isError: boolean;
+	/** The valid agents to present: the current snapshot, or the last valid one kept after a malformed refresh. */
 	agents: readonly ExtraAgent[] | undefined;
+	/**
+	 * The agents were delivered after the page began reading them for this network and account. Only such
+	 * data is kept, silently and read-only, when a later refresh fails (docs/mobile-data-presentation.md).
+	 */
+	receivedSinceMount: boolean;
 }
 
 export type ApiWalletNameValidation =
@@ -60,12 +68,31 @@ export function hasMatchingApiWalletIdentity(
 }
 
 export function deriveApiWalletPageState(input: ApiWalletPageStateInput): ApiWalletPageState {
+	if (input.isConnected && !hasMatchingApiWalletIdentity(input.accountAddress, input.signingAddress)) {
+		return "nonMaster";
+	}
+	return deriveApiWalletListState(input);
+}
+
+/**
+ * How the authorized-agent list presents its data, whatever the signer: a session without the
+ * matching master wallet still reads the list and gets the same quiet loading, retry and retained
+ * forms of `getPassiveQueryState`, never an empty conclusion drawn from data that has not arrived. A
+ * first read that is pending or paused (offline without a cache) has not failed, so it stays blank and
+ * busy instead of offering Retry (docs/mobile-data-presentation.md).
+ */
+export function deriveApiWalletListState(input: ApiWalletPageStateInput): ApiWalletListState {
 	if (!input.isConnected) return "disconnected";
-	if (!hasMatchingApiWalletIdentity(input.accountAddress, input.signingAddress)) return "nonMaster";
-	if (input.isError) return "error";
-	if (input.isLoading) return "loading";
-	if (!input.agents) return "error";
-	return input.agents.length === 0 ? "empty" : "normal";
+	const { agents } = input;
+	const passiveState = getPassiveQueryState({
+		hasData: agents !== undefined,
+		failed: input.isError,
+		receivedSinceMount: input.receivedSinceMount,
+	});
+	if (passiveState === "loading") return "loading";
+	if (passiveState === "failed") return "error";
+	if (passiveState === "retained") return "retained";
+	return agents && agents.length > 0 ? "normal" : "empty";
 }
 
 export function isApiWalletPageOperable(state: ApiWalletPageState): boolean {

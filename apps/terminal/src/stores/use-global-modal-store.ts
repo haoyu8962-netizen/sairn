@@ -106,6 +106,8 @@ export interface PositionMarketCloseActions extends Omit<PositionMarketCloseStor
 
 interface GlobalModalState {
 	modal: GlobalModal;
+	/** Counts every open, so two openings of the same modal type are told apart; a tab change is not an open. */
+	openSequence: number;
 	depositActions: DepositActions;
 	establishConnectionActions: EstablishConnectionActions;
 	transferActions: TransferActions;
@@ -136,10 +138,11 @@ const useGlobalModalStore = create<GlobalModalState>((set) => {
 	const close = (type: OrdinaryGlobalModalType) =>
 		set((state) => (state.modal?.type === type ? { modal: null } : state));
 	const open = (modal: OrdinaryGlobalModal) =>
-		set((state) => (isPositionMarketCloseModal(state.modal) ? state : { modal }));
+		set((state) => (isPositionMarketCloseModal(state.modal) ? state : { modal, openSequence: state.openSequence + 1 }));
 
 	return {
 		modal: null,
+		openSequence: 0,
 		depositActions: {
 			open: (tab = "deposit") => open({ type: "deposit", tab }),
 			setTab: (tab) => set((state) => (state.modal?.type === "deposit" ? { modal: { type: "deposit", tab } } : state)),
@@ -184,6 +187,7 @@ const useGlobalModalStore = create<GlobalModalState>((set) => {
 					if (isPositionMarketCloseModal(state.modal)) return state;
 					didOpen = true;
 					return {
+						openSequence: state.openSequence + 1,
 						modal: {
 							type: "positionMarketClose",
 							session: {
@@ -255,6 +259,20 @@ const useGlobalModalStore = create<GlobalModalState>((set) => {
 
 export function useGlobalModalType() {
 	return useGlobalModalStore((s) => s.modal?.type ?? null);
+}
+
+function getOpening(state: Pick<GlobalModalState, "modal" | "openSequence">): string | null {
+	return state.modal ? `${state.modal.type}:${state.openSequence}` : null;
+}
+
+/** One opening of a global modal: its type and open sequence, or `null` when none is open. */
+export function useGlobalModalOpening(): string | null {
+	return useGlobalModalStore(getOpening);
+}
+
+/** The opening shown now, read outside render (a settled request checks it is still closing its own). */
+export function getGlobalModalOpening(): string | null {
+	return getOpening(useGlobalModalStore.getState());
 }
 
 export function useDepositModalOpen() {

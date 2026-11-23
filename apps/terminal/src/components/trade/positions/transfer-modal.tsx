@@ -17,10 +17,17 @@ import {
 } from "@/hooks/trade/use-account-abstraction-guard";
 import { isSupportedAccountAbstraction, useDefaultDexBalances } from "@/hooks/trade/use-account-balances";
 import { FundsActionGeoExecutionError, useFundsActionAvailability } from "@/hooks/trade/use-funds-action-availability";
+import { useFundsSessionHold } from "@/hooks/trade/use-funds-session-hold";
+import { useHeldWhileResolving } from "@/hooks/wallet/use-held-while-resolving";
+import { useLiveSessionToken } from "@/hooks/wallet/use-live-session-token";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { STATUS_GLYPH_UNKNOWN } from "@/lib/brand/status-glyph.gen";
 import { cn } from "@/lib/cn";
-import { formatExchangeActionError, isAmbiguousExchangeActionError } from "@/lib/errors/format";
+import {
+	formatExchangeActionError,
+	isAmbiguousExchangeActionError,
+	isExchangeRequestNotSentError,
+} from "@/lib/errors/format";
 import { useNumberFormat } from "@/lib/format";
 import { type ExchangeParams, useExchange, useHyperliquid } from "@/lib/hyperliquid";
 import {
@@ -71,6 +78,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<TransferSubmission | null>(null);
 	const requestSubmissionsRef = useRef(new WeakMap<object, TransferSubmission>());
+	const unsentFailuresRef = useRef(new WeakSet<object>());
 	const [direction, setDirection] = useState<TransferDirection>(initialDirection);
 	const [amount, setAmount] = useState("");
 
@@ -97,7 +105,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		spotStateStatus === "success" && perpStateStatus === "success" && !isDataStale && !hasBalanceError;
 	const accountModeReady = isSupportedAccountAbstraction(accountAbstraction);
 	const { clientKey, env, exchangeLifecycle, sessionMode: exchangeSessionMode } = useHyperliquid();
-	const submissionIdentityKey = [
+	const liveSubmissionIdentityKey = [
 		env,
 		clientKey.toLowerCase(),
 		exchangeSessionMode,
@@ -106,6 +114,9 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		walletSessionMode,
 		accountAbstraction,
 	].join(":");
+	const fundsSessionHeld = useFundsSessionHold();
+	const submissionIdentityKey = useHeldWhileResolving(liveSubmissionIdentityKey, fundsSessionHeld);
+	const liveSessionTokenRef = useLiveSessionToken(liveSubmissionIdentityKey, isResolving);
 	useLayoutEffect(() => {
 		const identity = { exchangeLifecycle, key: submissionIdentityKey };
 		submissionIdentityRef.current = identity;
@@ -182,16 +193,34 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		}
 		requestSubmissionsRef.current.set(params, submission);
 	}
+	function rejectUnsent(error: unknown): never {
+		if (typeof error === "object" && error !== null) unsentFailuresRef.current.add(error);
+		throw error;
+	}
+	function isUnsentFailure(error: unknown): boolean {
+		return (
+			isExchangeRequestNotSentError(error) ||
+			(typeof error === "object" && error !== null && unsentFailuresRef.current.has(error))
+		);
+	}
 	const { mutateAsync: usdClassTransfer, isPending } = useExchange("usdClassTransfer", {
 		executionGuard: (params) => {
-			assertCurrentTransferSubmission(params);
-			assertCurrentTransferBalance(params);
+			try {
+				assertCurrentTransferSubmission(params);
+				assertCurrentTransferBalance(params);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 		preExecutionGuard: async (params, signal) => {
-			assertCurrentTransferBalance(params);
-			await Promise.all([assertCurrentAccountAbstraction(signal), assertCurrentGeo(signal)]);
-			signal.throwIfAborted();
-			assertCurrentTransferBalance(params);
+			try {
+				assertCurrentTransferBalance(params);
+				await Promise.all([assertCurrentAccountAbstraction(signal), assertCurrentGeo(signal)]);
+				signal.throwIfAborted();
+				assertCurrentTransferBalance(params);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 	});
 
@@ -247,7 +276,8 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 		if (!isValidAmount || !accountDataReady || isPending || !walletAddress || internalTransfersDisabled) return;
 
 		const submissionIdentity = submissionIdentityRef.current;
-		if (!submissionIdentity || submissionRef.current) return;
+		const submissionSession = liveSessionTokenRef.current;
+		if (!submissionIdentity || !submissionSession || submissionRef.current) return;
 		const submissionSequence = ++submissionSequenceRef.current;
 		const submission: TransferSubmission = {
 			identity: submissionIdentity,
@@ -266,14 +296,16 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 				· {fromLabel} → {toLabel}
 			</span>
 		);
+		let cancelledBeforeSending = false;
 		try {
 			await usdClassTransfer({ amount, toPerp: direction === "toPerp" });
 			if (isCurrentSubmission()) toast.success(t`Transfer confirmed`, { description: transferSummary });
 		} catch (err) {
-			if (isCurrentSubmission()) notifyTransferFailure(err);
+			cancelledBeforeSending = isUnsentFailure(err) && liveSessionTokenRef.current !== submissionSession;
+			if (isCurrentSubmission() && !cancelledBeforeSending) notifyTransferFailure(err);
 		} finally {
 			if (submissionRef.current === submission) submissionRef.current = null;
-			if (isCurrentSubmission()) onOpenChange(false);
+			if (isCurrentSubmission() && !cancelledBeforeSending) onOpenChange(false);
 		}
 	}
 

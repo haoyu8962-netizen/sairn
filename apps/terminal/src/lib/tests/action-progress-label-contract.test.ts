@@ -20,7 +20,6 @@ const REVIEWED_PROGRESS_LABELS: Record<string, { labels: string[]; reason: strin
 		labels: ["Checking fresh API wallet data…"],
 		reason: "passive fresh-data preflight before signing",
 	},
-	"components/api-wallet/api-wallet-list.tsx": { labels: ["Loading…", "Refreshing…"], reason: "passive list loading" },
 	"components/leaderboard/leaderboard-view.tsx": {
 		labels: ["Refreshing…"],
 		reason: "refresh button while refetching public data",

@@ -904,8 +904,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "تغيّرت بيانات محفظة API قبل التوقيع. أغلق هذا الطلب وراجع القائمة المحدّثة."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "قائمة محافظ API غير متاحة مؤقتًا"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "قائمة محافظ API غير متاحة مؤقتًا"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4808,8 +4808,8 @@ msgid "Loading..."
 msgstr "جارٍ التحميل..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "جارٍ التحميل…"
+#~ msgid "Loading…"
+#~ msgstr "جارٍ التحميل…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -7172,7 +7172,6 @@ msgstr "حدّث بيانات الإحالة قبل إرسال طلب موقّع
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "جارٍ تحديث بيانات الخزنة. الإجراءات غير متاحة مؤقتًا."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "جارٍ التحديث…"
@@ -9166,8 +9165,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "تم إلغاء TP/SL الحالي، لكن لم يتم وضع TP/SL الجديد."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "فشل طلب extraAgents. تواصل محافظ API الحالية العمل، لكن تظل الإدارة معطلة حتى يمكن التحقق من بيانات جديدة."
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "فشل طلب extraAgents. تواصل محافظ API الحالية العمل، لكن تظل الإدارة معطلة حتى يمكن التحقق من بيانات جديدة."
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -10712,7 +10711,6 @@ msgstr "تعذّر التحقق من مسار السحب الحالي في Hyper
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "تعذر التحقق من أهلية السحب. لم يتم إرسال الطلب."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx

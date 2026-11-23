@@ -904,8 +904,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "Los datos del monedero API cambiaron antes de la firma. Cierra esta solicitud y revisa la lista actualizada."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "La lista de monederos API no está disponible temporalmente"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "La lista de monederos API no está disponible temporalmente"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4808,8 +4808,8 @@ msgid "Loading..."
 msgstr "Cargando..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "Cargando…"
+#~ msgid "Loading…"
+#~ msgstr "Cargando…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -7172,7 +7172,6 @@ msgstr "Actualiza los datos de referidos antes de enviar otra solicitud firmada.
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "Actualizando los datos de las bóvedas. Las acciones no están disponibles temporalmente."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "Actualizando…"
@@ -9166,8 +9165,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "El TP/SL existente se canceló, pero el nuevo TP/SL no se colocó."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "La solicitud de extraAgents falló. Los monederos API existentes siguen funcionando, pero su gestión permanecerá deshabilitada hasta que se puedan verificar datos actualizados."
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "La solicitud de extraAgents falló. Los monederos API existentes siguen funcionando, pero su gestión permanecerá deshabilitada hasta que se puedan verificar datos actualizados."
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -10712,7 +10711,6 @@ msgstr "No se puede verificar la ruta de retiro actual de Hyperliquid."
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "No se pudo verificar la elegibilidad para el retiro. La solicitud no se ha enviado."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx

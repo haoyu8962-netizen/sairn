@@ -34,6 +34,10 @@ export type WalletSessionStage =
 	| "connected-other-owner"
 	// The same user's wallet extension switched to another account: wagmi's account is not the expected wallet.
 	| "connected-other-account"
+	// The same switch to another account, observed while wagmi is still reconnecting: the session is resolving.
+	| "reconnecting-other-account"
+	// The same switch to another account, observed while Privy's wallet directory is still initialising.
+	| "directory-initialising-other-account"
 	// Signed in, but the expected wallet is not in the directory and wagmi is idle.
 	| "wallet-missing"
 	// Privy is ready and nobody is signed in.
@@ -93,6 +97,18 @@ const STAGES: Record<WalletSessionStage, StageInputs> = {
 		connectedAddress: OTHER_OWNER,
 	},
 	"connected-other-account": { ...BASE, directory: [SESSION_OWNER, OTHER_OWNER], connectedAddress: OTHER_OWNER },
+	"reconnecting-other-account": {
+		...BASE,
+		directory: [SESSION_OWNER, OTHER_OWNER],
+		connectedAddress: OTHER_OWNER,
+		isReconnecting: true,
+	},
+	"directory-initialising-other-account": {
+		...BASE,
+		walletsReady: false,
+		directory: [],
+		connectedAddress: OTHER_OWNER,
+	},
 	"wallet-missing": { ...BASE, directory: [] },
 	"signed-out": { ...BASE, storedSession: false, authenticated: false, directory: [] },
 	"agent-only": { ...BASE, authenticated: false, directory: [], agentOnly: true },

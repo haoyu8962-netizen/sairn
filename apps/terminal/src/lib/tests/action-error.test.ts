@@ -5,6 +5,16 @@ import { SDKError, UnknownError } from "@lifi/sdk";
 import { i18n, type Messages } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { AbstractWalletError, ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import {
+	FundsActionLockTimeoutError,
+	FundsActionLockUnavailableError,
+} from "@sairn/hl-react/internal/exchange/funds-action-lock";
+import {
+	ExchangeActionDeadlineError,
+	ExchangeRequestInvalidatedError,
+} from "@sairn/hl-react/internal/exchange/request-scheduler";
+import { LegalActionNotAllowedError } from "@sairn/hl-react/legal";
+import { AgentRegistrationPreExecutionGuardTimeoutError } from "@sairn/hl-react/signing/agent-registration-session";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrderBatchResolutionError } from "@/domain/trade/order-tracking";
 import {
@@ -15,6 +25,9 @@ import {
 	describeActionFailure,
 	exchangeActionFailure,
 	formatActionFailure,
+	isExchangeRequestInvalidatedError,
+	isExchangeRequestNotSentError,
+	isExchangeRequestStoppedBeforeSending,
 } from "@/lib/errors/action-error";
 import {
 	describeExchangeErrorText,
@@ -23,6 +36,7 @@ import {
 	parseExchangeErrorText,
 } from "@/lib/errors/exchange-error-text";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { fundsActionFeedbackCause } from "@/lib/trade/funds-action-feedback";
 import { describeOrderStatusReason, formatOrderChildError } from "@/lib/trade/order-status-reasons";
 import type { Translate } from "@/lib/translate";
 
@@ -579,5 +593,142 @@ describe("order status reasons", () => {
 	it("falls back to exchange rejection texts", () => {
 		expect(formatOrderChildError("Invalid TP/SL price.", translate)).toBe("Invalid TP/SL price.");
 		expect(formatOrderChildError("Something new", translate)).toBe("Something new");
+	});
+});
+
+describe("isExchangeRequestInvalidatedError", () => {
+	function named(name: string, cause?: unknown): Error {
+		return Object.assign(new Error(name), { name, cause });
+	}
+
+	it("recognises a request dropped before it reached the exchange", () => {
+		expect(isExchangeRequestInvalidatedError(named("ExchangeRequestInvalidatedError"))).toBe(true);
+		expect(
+			isExchangeRequestInvalidatedError(
+				new AbstractWalletError("Failed to sign the typed data using the wallet", {
+					cause: named("ExchangeRequestInvalidatedError"),
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("does not read other wrappers or deeper causes", () => {
+		expect(isExchangeRequestInvalidatedError(named("AbstractWalletError", named("UserRejectedRequestError")))).toBe(
+			false,
+		);
+		expect(isExchangeRequestInvalidatedError(named("HttpRequestError", named("ExchangeRequestInvalidatedError")))).toBe(
+			false,
+		);
+		expect(
+			isExchangeRequestInvalidatedError(
+				named("AbstractWalletError", named("AbstractWalletError", named("ExchangeRequestInvalidatedError"))),
+			),
+		).toBe(false);
+		expect(isExchangeRequestInvalidatedError("ExchangeRequestInvalidatedError")).toBe(false);
+	});
+});
+
+describe("isExchangeRequestNotSentError", () => {
+	function signingFailure(cause: unknown) {
+		return new AbstractWalletError("Failed to sign the typed data using the wallet", { cause });
+	}
+
+	it("recognises a request that missed its start deadline, directly or as the cause of a signing failure", () => {
+		expect(isExchangeRequestNotSentError(new ExchangeActionDeadlineError())).toBe(true);
+		expect(isExchangeRequestNotSentError(signingFailure(new ExchangeActionDeadlineError()))).toBe(true);
+	});
+
+	it("recognises a request dropped by an identity change, directly or as the cause of a signing failure", () => {
+		expect(isExchangeRequestNotSentError(new ExchangeRequestInvalidatedError())).toBe(true);
+		expect(isExchangeRequestNotSentError(signingFailure(new ExchangeRequestInvalidatedError()))).toBe(true);
+	});
+
+	it("does not read a deadline behind any other wrapper or a deeper cause", () => {
+		const deadline = new ExchangeActionDeadlineError();
+		expect(
+			isExchangeRequestNotSentError(
+				Object.assign(new Error("request failed"), { name: "HttpRequestError", cause: deadline }),
+			),
+		).toBe(false);
+		expect(isExchangeRequestNotSentError(signingFailure(signingFailure(deadline)))).toBe(false);
+		expect(isExchangeRequestNotSentError(signingFailure(new Error("User rejected the request.")))).toBe(false);
+		expect(isExchangeRequestNotSentError("ExchangeActionDeadlineError")).toBe(false);
+	});
+});
+
+describe("isExchangeRequestStoppedBeforeSending", () => {
+	function signingFailure(cause: unknown) {
+		return new AbstractWalletError("Failed to sign the typed data using the wallet", { cause });
+	}
+
+	const STOPPED = [
+		{ name: "ExchangeRequestInvalidatedError", create: () => new ExchangeRequestInvalidatedError() },
+		{ name: "ExchangeActionDeadlineError", create: () => new ExchangeActionDeadlineError() },
+		{
+			name: "AgentRegistrationPreExecutionGuardTimeoutError",
+			create: () => new AgentRegistrationPreExecutionGuardTimeoutError(),
+		},
+		{ name: "FundsActionLockTimeoutError", create: () => new FundsActionLockTimeoutError() },
+		{ name: "FundsActionLockUnavailableError", create: () => new FundsActionLockUnavailableError() },
+		{ name: "LegalActionNotAllowedError (blocked)", create: () => new LegalActionNotAllowedError("blocked") },
+		{
+			name: "LegalActionNotAllowedError (timeout)",
+			create: () => new LegalActionNotAllowedError("status_unavailable", { statusReason: "timeout" }),
+		},
+		{
+			name: "LegalActionNotAllowedError (terms)",
+			create: () => new LegalActionNotAllowedError("terms_required"),
+		},
+		{
+			name: "FundsActionFeedbackCause",
+			create: () => fundsActionFeedbackCause("withdrawal-conditions-changed"),
+		},
+	] as const;
+
+	it.each(STOPPED)("recognises $name directly", ({ create }) => {
+		expect(isExchangeRequestStoppedBeforeSending(create())).toBe(true);
+	});
+
+	it.each(STOPPED)("recognises $name as the cause of a signing failure", ({ create }) => {
+		expect(isExchangeRequestStoppedBeforeSending(signingFailure(create()))).toBe(true);
+	});
+
+	it.each(STOPPED)("recognises $name by its name alone", ({ create }) => {
+		const { name, message } = create();
+		expect(isExchangeRequestStoppedBeforeSending(Object.assign(new Error(message), { name }))).toBe(true);
+	});
+
+	it("does not treat a result that may have been sent as stopped", () => {
+		expect(isExchangeRequestStoppedBeforeSending(undefined)).toBe(false);
+		expect(isExchangeRequestStoppedBeforeSending(new HttpRequestError({ detail: "Request timed out" }))).toBe(false);
+		expect(
+			isExchangeRequestStoppedBeforeSending(
+				new ApiRequestError(
+					{ status: "err", response: "Insufficient balance for withdrawal" },
+					"Insufficient balance for withdrawal",
+				),
+			),
+		).toBe(false);
+		expect(
+			isExchangeRequestStoppedBeforeSending(
+				Object.assign(new Error("unverified"), { name: "ExchangeResponseUnverifiedError" }),
+			),
+		).toBe(false);
+		expect(isExchangeRequestStoppedBeforeSending(signingFailure(new Error("User rejected the request.")))).toBe(false);
+		expect(isExchangeRequestStoppedBeforeSending(new Error("Withdrawal failed"))).toBe(false);
+		expect(isExchangeRequestStoppedBeforeSending("LegalActionNotAllowedError")).toBe(false);
+	});
+
+	it("does not read a stop behind any other wrapper or a deeper cause", () => {
+		const legal = new LegalActionNotAllowedError("blocked");
+		expect(
+			isExchangeRequestStoppedBeforeSending(
+				Object.assign(new Error("request failed"), { name: "HttpRequestError", cause: legal }),
+			),
+		).toBe(false);
+		expect(isExchangeRequestStoppedBeforeSending(signingFailure(signingFailure(legal)))).toBe(false);
+		expect(
+			isExchangeRequestStoppedBeforeSending(new Error("wrapped", { cause: new FundsActionLockTimeoutError() })),
+		).toBe(false);
 	});
 });

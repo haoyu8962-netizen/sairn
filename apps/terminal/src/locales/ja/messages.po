@@ -818,8 +818,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "署名前に API ウォレットのデータが変更されました。このリクエストを閉じ、更新された一覧を確認してください。"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "API ウォレット一覧を一時的に利用できません"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "API ウォレット一覧を一時的に利用できません"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4285,8 +4285,8 @@ msgid "Loading..."
 msgstr "読み込み中..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "読み込み中…"
+#~ msgid "Loading…"
+#~ msgstr "読み込み中…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -6455,7 +6455,6 @@ msgstr "別の署名付きリクエストを送信する前に、紹介データ
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "ボールトデータを更新中です。操作は一時的に利用できません。"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "更新中…"
@@ -8229,8 +8228,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "既存の TP/SL はキャンセルされましたが、新しい TP/SL は発注されませんでした。"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "extraAgents リクエストに失敗しました。既存の API ウォレットは動作を継続しますが、最新データを確認できるまで管理操作は無効です。"
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "extraAgents リクエストに失敗しました。既存の API ウォレットは動作を継続しますが、最新データを確認できるまで管理操作は無効です。"
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -9534,7 +9533,6 @@ msgstr "現在の Hyperliquid 出金経路を確認できません。"
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "出金資格を確認できません。リクエストは送信されていません。"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx

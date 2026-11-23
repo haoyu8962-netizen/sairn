@@ -4,9 +4,10 @@ import { i18n } from "@lingui/core";
 import { ApiRequestError } from "@nktkas/hyperliquid";
 import { act, createElement, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { OrderBatchResolutionError } from "@/domain/trade/order-tracking";
 import { createI18nRoot } from "./harness/react";
+import { resetWalletSessionStage, SESSION_OWNER, setWalletSessionStage } from "./harness/wallet-session-stage";
 
 const SPOT_BALANCE_REJECTION = "Order has insufficient spot balance to trade";
 
@@ -20,8 +21,12 @@ function spotBalanceRejection() {
 const mocks = vi.hoisted(() => ({
 	spotTotal: "1000",
 	closeSwap: vi.fn(),
+	opening: "swap:1" as string | null,
 	owner: "0x1111111111111111111111111111111111111111",
 	executionGuard: null as null | ((params: unknown) => void),
+	ownerFromStage: false,
+	realTrackedOrder: false,
+	sdkOrder: vi.fn(),
 	modalType: "swap" as string | null,
 	submitOrder: vi.fn(),
 	geo: { actionsBlocked: false, tradeRestricted: false },
@@ -102,30 +107,55 @@ vi.mock("@/hooks/trade/use-account-balances", () => ({
 
 vi.mock("@/hooks/trade/use-fee-rates", () => ({ useFeeRates: () => ({ takerRate: 0.0007 }) }));
 
-vi.mock("@/hooks/trade/use-tracked-order", () => ({
-	useTrackedOrder: ({ executionGuard }: { executionGuard: (params: unknown) => void }) => {
-		mocks.executionGuard = executionGuard;
-		return { submitOrder: mocks.submitOrder, isPending: false };
-	},
-}));
+function stubTrackedOrder(_options: unknown) {
+	return { submitOrder: mocks.submitOrder, isPending: false };
+}
 
-vi.mock("@/lib/hyperliquid", () => ({
-	useHyperliquid: () => ({
-		builderConfig: null,
-		clientKey: mocks.owner,
-		env: "Mainnet",
-		sessionMode: "owner",
-	}),
-	useSubscription: () => ({
-		data: {
-			coin: "@107",
-			levels: [[{ px: "24.9", sz: "500" }], [{ px: "25", sz: "500" }]],
+vi.mock("@/hooks/trade/use-tracked-order", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/hooks/trade/use-tracked-order")>();
+	return {
+		useTrackedOrder: (options: { executionGuard: (params: unknown) => void }) => {
+			mocks.executionGuard = options.executionGuard;
+			const trackedOrder = mocks.realTrackedOrder ? actual.useTrackedOrder : stubTrackedOrder;
+			return trackedOrder(options);
 		},
-		status: "active",
-		isStale: false,
-		lastMessageAt: Date.now(),
-	}),
-}));
+	};
+});
+
+vi.mock("@privy-io/react-auth", async () => (await import("./harness/wallet-session-stage")).privyMock);
+vi.mock("wagmi", async () => (await import("./harness/wallet-session-stage")).wagmiMock);
+vi.mock("@privy-io/wagmi", async () => (await import("./harness/wallet-session-stage")).privyWagmiMock);
+
+vi.mock("@/lib/hyperliquid", async () => {
+	const harness = await import("./harness/wallet-session-stage");
+	function useHyperliquid() {
+		const session = harness.useHyperliquidSession();
+		if (mocks.ownerFromStage) return { ...session, builderConfig: null };
+		return { builderConfig: null, clientKey: mocks.owner, env: "Mainnet", sessionMode: "owner" };
+	}
+	return {
+		...harness.hyperliquidSessionMock,
+		useHyperliquid,
+		useExchange: (_method: string, options?: { executionGuard?: (params: unknown) => void }) => ({
+			error: null,
+			isPending: false,
+			reset: () => {},
+			mutateAsync: async (params: unknown) => {
+				options?.executionGuard?.(params);
+				return mocks.sdkOrder(params);
+			},
+		}),
+		useSubscription: () => ({
+			data: {
+				coin: "@107",
+				levels: [[{ px: "24.9", sz: "500" }], [{ px: "25", sz: "500" }]],
+			},
+			status: "active",
+			isStale: false,
+			lastMessageAt: Date.now(),
+		}),
+	};
+});
 
 vi.mock("@/lib/hyperliquid/hooks/useMarketsInfo", () => ({
 	useMarketsInfo: () => ({
@@ -147,6 +177,8 @@ vi.mock("@/lib/hyperliquid/hooks/useMarketsInfo", () => ({
 
 vi.mock("@/stores/use-global-modal-store", () => ({
 	useGlobalModalType: () => mocks.modalType,
+	getGlobalModalOpening: () => mocks.opening,
+	useGlobalModalOpening: () => mocks.opening,
 	useSwapModalActions: () => ({ close: mocks.closeSwap }),
 	useSwapModalFromToken: () => "USDC",
 	useSwapModalMode: () => "spot",
@@ -158,7 +190,7 @@ import { SpotSwapModal } from "@/components/trade/components/spot-swap-modal";
 import { DEFAULT_SWAP_SLIPPAGE_BPS, getMaxSwapInput } from "@/domain/trade/swap";
 import { type ActionFailure, describeActionFailure } from "@/lib/errors/action-error";
 import { getSpotSwapFeedback } from "@/lib/trade/spot-swap-feedback";
-import { getOrderQueueItem, removeOrderQueueItem } from "@/stores/use-order-queue-store";
+import { getOrderQueueItem, getOrderQueueItems, removeOrderQueueItem } from "@/stores/use-order-queue-store";
 
 function setInputValue(input: HTMLInputElement, value: string) {
 	const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -171,6 +203,11 @@ describe("SpotSwapModal submission", () => {
 	let root: Root;
 
 	beforeEach(() => {
+		window.sessionStorage.clear();
+		resetWalletSessionStage("connected");
+		mocks.ownerFromStage = false;
+		mocks.realTrackedOrder = false;
+		mocks.opening = "swap:1";
 		mocks.geo = { actionsBlocked: false, tradeRestricted: false };
 		mocks.modalType = "swap";
 		mocks.owner = "0x1111111111111111111111111111111111111111";
@@ -323,6 +360,51 @@ describe("SpotSwapModal submission", () => {
 		},
 	);
 
+	it("closes its hidden dialog after a transient identity change that leaves it mounted", async () => {
+		let resolveSubmission: ((value: unknown) => void) | undefined;
+		mocks.submitOrder.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveSubmission = resolve;
+				}),
+		);
+		act(() => confirm().click());
+		const originalOwner = mocks.owner;
+		mocks.owner = "disconnected";
+		act(() => root.render(createElement(SpotSwapModal)));
+		mocks.owner = originalOwner;
+		act(() => root.render(createElement(SpotSwapModal)));
+		await act(async () => {
+			resolveSubmission?.(filledResponse());
+		});
+		expect(queuedItem()).toMatchObject({ owner: originalOwner, status: "success" });
+		expect(mocks.closeSwap).toHaveBeenCalledOnce();
+	});
+
+	it("shows a later opening of Swap once an earlier submission settles, without disturbing it", async () => {
+		let resolveSubmission: ((value: unknown) => void) | undefined;
+		mocks.submitOrder.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveSubmission = resolve;
+				}),
+		);
+		act(() => confirm().click());
+		expect(container.querySelector('[data-testid="swap-confirm"]')).toBeNull();
+		const firstQueueId = mocks.submitOrder.mock.calls[0]?.[1]?.queueId;
+
+		mocks.opening = "swap:2";
+		act(() => root.render(createElement(SpotSwapModal)));
+		expect(container.querySelector('[data-testid="swap-confirm"]')).toBeNull();
+		expect(() => mocks.executionGuard?.(mocks.submitOrder.mock.calls[0]?.[0])).not.toThrow();
+		await act(async () => {
+			resolveSubmission?.(filledResponse());
+		});
+		expect(getOrderQueueItem(firstQueueId)).toMatchObject({ status: "success" });
+		expect(mocks.closeSwap).not.toHaveBeenCalled();
+		expect(container.querySelector('[data-testid="swap-confirm"]')).not.toBeNull();
+	});
+
 	it.each([
 		["restricted", { actionsBlocked: true, tradeRestricted: true }, "Trading is not available in your region"],
 		[
@@ -360,6 +442,101 @@ describe("SpotSwapModal submission", () => {
 		).toBe(message);
 		await act(async () => {
 			resolveSubmission?.(filledResponse());
+		});
+	});
+
+	describe("with the real order coordination waiting for its asset lock", () => {
+		function holdAssetLock(): () => void {
+			let grant!: () => void;
+			const granted = new Promise<void>((resolve) => {
+				grant = resolve;
+			});
+			const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+			Object.defineProperty(navigator, "locks", {
+				configurable: true,
+				value: {
+					async request(name: string, _options: LockOptions, callback: (lock: Lock | null) => unknown) {
+						await granted;
+						return callback({ name, mode: "exclusive" } as Lock);
+					},
+				},
+			});
+			onTestFinished(() => {
+				if (previous) Object.defineProperty(navigator, "locks", previous);
+				else Reflect.deleteProperty(navigator, "locks");
+			});
+			return grant;
+		}
+
+		function show(stage: Parameters<typeof setWalletSessionStage>[0]) {
+			act(() => setWalletSessionStage(stage));
+		}
+
+		async function clickWhileTheLockWaits() {
+			act(() => root.unmount());
+			mocks.ownerFromStage = true;
+			mocks.realTrackedOrder = true;
+			mocks.owner = SESSION_OWNER;
+			mocks.sdkOrder.mockImplementation(async (params: { orders: Array<{ s: string }> }) => ({
+				status: "ok",
+				response: {
+					type: "order",
+					data: { statuses: [{ filled: { totalSz: params.orders[0]?.s, avgPx: "25", oid: 1 } }] },
+				},
+			}));
+			const grant = holdAssetLock();
+			root = createI18nRoot(container);
+			act(() => root.render(createElement(SpotSwapModal)));
+			const amount = container.querySelector<HTMLInputElement>('input[aria-label="Swap amount"]');
+			if (!amount) throw new Error("Expected the swap amount input");
+			act(() => setInputValue(amount, "100"));
+			const queuedBefore = new Set(getOrderQueueItems().map((item) => item.id));
+			await act(async () => {
+				confirm().click();
+			});
+			expect(container.querySelector('[role="dialog"]')).toBeNull();
+			const queued = getOrderQueueItems().filter((item) => !queuedBefore.has(item.id));
+			expect(queued).toHaveLength(1);
+			const queueId = queued[0]?.id ?? "";
+			onTestFinished(() => removeOrderQueueItem(queueId));
+			return { grant, queueId };
+		}
+
+		async function settle(grant: () => void) {
+			await act(async () => {
+				grant();
+				await vi.waitFor(() => expect(mocks.closeSwap).toHaveBeenCalledOnce());
+			});
+		}
+
+		it("does not submit a swap whose lock is granted after the wallet left and came back on the same account", async () => {
+			const { grant, queueId } = await clickWhileTheLockWaits();
+			show("wallet-missing");
+			show("connected");
+			await settle(grant);
+
+			expect(mocks.sdkOrder).not.toHaveBeenCalled();
+			expect(getOrderQueueItem(queueId)).toMatchObject({ owner: SESSION_OWNER, status: "failed" });
+			expect(getOrderQueueItem(queueId)?.error).toMatchObject({ code: "identity-changed" });
+		});
+
+		it("does not submit a swap whose lock is granted after a reconnect to the same account", async () => {
+			const { grant, queueId } = await clickWhileTheLockWaits();
+			show("reconnecting");
+			show("connected");
+			await settle(grant);
+
+			expect(mocks.sdkOrder).not.toHaveBeenCalled();
+			expect(getOrderQueueItem(queueId)).toMatchObject({ owner: SESSION_OWNER, status: "failed" });
+			expect(getOrderQueueItem(queueId)?.error).toMatchObject({ code: "identity-changed" });
+		});
+
+		it("submits a swap once its lock is granted when the session stayed connected", async () => {
+			const { grant, queueId } = await clickWhileTheLockWaits();
+			await settle(grant);
+
+			expect(mocks.sdkOrder).toHaveBeenCalledOnce();
+			expect(getOrderQueueItem(queueId)).toMatchObject({ owner: SESSION_OWNER, status: "success" });
 		});
 	});
 

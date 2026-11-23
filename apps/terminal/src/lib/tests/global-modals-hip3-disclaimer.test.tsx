@@ -142,6 +142,14 @@ vi.mock("@/stores/use-global-modal-store", () => ({
 			},
 			() => testState.activeModal,
 		),
+	useGlobalModalOpening: () =>
+		useSyncExternalStore(
+			(listener) => {
+				testState.activeModalListeners.add(listener);
+				return () => testState.activeModalListeners.delete(listener);
+			},
+			() => (testState.activeModal ? `${testState.activeModal}:1` : null),
+		),
 	useSendModalAccountType: () => "spot",
 	useSendModalActions: () => ({ close: testState.closeSendModal }),
 	useSendModalAsset: () => "USDC",
