@@ -66,6 +66,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- The TWAP sub-tabs (Current, History, Fill History) now start on the same edge and use the same
+  weight as the account tabs above them and line up with the filter rows of the other account tabs,
+  on phones and on desktop. The desktop Order History filters read `Type` and `Status` when nothing
+  is filtered, like the phone layout and the other account tabs.
 - Checking Reduce Only now clears an attached TP/SL and checking TP/SL clears Reduce Only, as on the
   official terminal, so a reduce-only order can no longer carry TP/SL orders that cannot protect the
   rest of the position.
