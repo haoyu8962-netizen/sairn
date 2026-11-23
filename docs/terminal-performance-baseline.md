@@ -433,6 +433,52 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Funds session presentation total, static-startup and mobile-runtime re-baseline (2026-11-23)
+
+PR #17 (`claude/funds-session-and-api-wallet-quiet`, head `fce35f78`) keeps funds dialogs and their outcomes across a
+resolving wallet session, keeps send retry drafts per owner and gives the API wallet list its passive states. Its CI
+builds failed the total and static-startup budgets: `main` itself had already used most of both allowances (static
+trade startup was 90 bytes from the limit with pairing on).
+
+Paired builds, each run on its own, in two clean worktrees on the same machine: `main` `f0f789bc` in a fresh worktree
+and the PR head in its own worktree, both with Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile
+--prefer-offline`, no `apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=fce35f78ab56455f504f9557e4b6f515d585b90d`, `SAIRN_RELEASE_ID=funds-session-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-23T00:00:00.000Z`). The worktree state, environment-file check, versions and every build log
+were saved when the builds ran, in the Git-ignored `.worklog/2026-11-23/funds-session-rebaseline/`.
+
+| Metric | `main` off | PR off | Change | `main` on | PR on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,400,743 | 3,405,263 | +4,520 | 3,403,996 | 3,408,473 | +4,477 |
+| Static trade startup | 1,671,602 | 1,673,007 | +1,405 | 1,672,843 | 1,674,182 | +1,339 |
+| Mobile runtime increment | 119,834 | 120,353 | +519 | 119,850 | 120,357 | +507 |
+| Desktop runtime increment | 205,946 | 207,146 | +1,200 | 205,909 | 207,183 | +1,274 |
+| `trade-terminal-page` | 128,845 | 128,895 | +50 | 128,846 | 128,902 | +56 |
+| `api-wallet` | 18,431 | 18,745 | +314 | 18,313 | 18,619 | +306 |
+
+The static closure gained two assets (101 to 103) and the desktop runtime one (30 to 31): the funds-session hold, the
+held identities and live session tokens of the funds dialogs, which the global modals host loads at startup. The
+other surfaces moved by less than 40 bytes.
+
+Change to the baselines, allowances unchanged, each by the larger of the two measured increments so the room left
+stays at what `main` had:
+
+- all client JS + CSS raised by +4,520 to 3,399,849 (before the raise pairing on exceeded the allowance by 3,144);
+- static trade startup raised by +1,405 to 1,664,338 (before the raise pairing off exceeded it by 74 and pairing on by
+  1,249); pairing on now keeps 156 bytes, as `main` kept 90;
+- mobile runtime increment raised by +519 to 111,099 (it passed without the raise with 223 bytes left pairing on; the
+  raise keeps `main`'s 730);
+- the desktop runtime increment, `trade-terminal-page`, `api-wallet` and the other surfaces are unchanged (each keeps
+  more than 240 bytes).
+
+Against the new baselines the pairing-on PR build reads total +8,624 (1,376 left), static startup +9,844 (156 left)
+and mobile runtime +9,258 (742 left). Limits: static trade startup with pairing on keeps 156 bytes, under the release
+precheck's 200, so a release preflight is likely to stop on this surface; that needs a real cut or an operator
+decision on the allowance. The release configuration (production `.env.local`, pairing on) was not built. CI-identity
+builds of the PR read 21 bytes less static startup pairing on than this protocol build. A confirming pairing-off
+build of the PR after the change, same identity, read the same bytes and passed every budget: total +5,414
+(4,586 left), static startup +8,669 (1,331 left), mobile runtime +9,254 (746 left).
+
 ## Fix integration third review round re-baseline (2026-11-20)
 
 The third review round (deposit dialog terminal states, the tracking notifier keeping an outcome until the user
