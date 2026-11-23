@@ -160,6 +160,7 @@
 
 ## 后续与替代关系
 
+- 开 PR 2 之前的合并与重定基线（2026-11-23，已做）：#17 合入 `main`（`fa82e486`）之后，本分支合并了 `origin/main`（`2d30f86d`，无冲突、无锁文件变化），合并后全量终端 Vitest 771 个文件、11,679 个用例通过，`pnpm typecheck` 通过。按规程成对构建（`main` `fa82e486` 与 PR 头，配对开关各一次）：PR 超出静态交易启动（配对关 336、开 1,598）与配对开时的总量（1,137），按两态中较大的增量上调总量 +2,592 到 3,402,441、静态交易启动 +1,753 到 1,666,091，配对开时静态启动仍只剩 155 字节（与 `main` 相同），低于发布预检的 200；数字与按块归因见 `docs/terminal-performance-baseline.md`「Signer session guard total and static-startup re-baseline (2026-11-23)」，构建日志在 Git 忽略的 `.worklog/2026-11-23/signer-session-rebaseline/`。`node --test scripts/*.test.mjs` 92 项通过（沙箱外，含本地端口）。
 - 开 PR 2 之前（编排 2026-11-23 通知）：PR 1（haoyu8962-netizen/sairn#17）在 `fce35f78` 之上加了包体重定基线提交 `2451e50c`（`scripts/check-client-bundle-budget.mjs` 的新基线：总量 3,399,849，静态交易启动 1,664,338，移动运行时增量 111,099；细节见 `docs/terminal-performance-baseline.md` 2026-11-23 一节）。#17 合入 `main` 之后，先把 `origin/main` 合并进本分支，再测包体或开 PR 2；配对开启时静态启动只剩 156 字节余量，PR 2 自己的启动增长要按同一规程成对测量并重定基线。本分支还没有测过包体。
 - 已决定（2026-11-23，记为已知限制）：赞助路径交给 Privy 智能钱包 `sendTransaction` 之后，SDK 内部的准备、签名与 bundler 发送不受会话检查。以后若要关闭，需先确认分步调用能保留 Privy 的 `dataSuffix`，并能用真实 Privy 智能钱包验证。
 - 结果归属（属于 PR 1 那条线）：已交给钱包的旧存款结果会关闭同账户之后新开的存款弹窗；普通失败后删意图失败只报原失败，下一次提交才被旧意图挡住（第一轮第 5 条后半、第 6 条）。

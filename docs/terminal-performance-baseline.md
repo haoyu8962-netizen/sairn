@@ -433,6 +433,54 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Signer session guard total and static-startup re-baseline (2026-11-23)
+
+PR 2 (`claude/signer-session-guard`, head `2d30f86d`, `main` `fa82e486` merged in) checks the wallet session before
+signing and sending (ADR 0058): session generations and their retirement reasons in hl-react, a guarded EIP-1193
+provider for every request a deposit makes, one wait after the deposit permit, the forwarding ledger and the deposit
+dialog's per-click session attempt. Its builds exceeded the static-startup budget in both pairing states and the total
+budget with pairing on.
+
+Paired builds, each run on its own, in two clean worktrees on the same machine: `main` `fa82e486` in a fresh worktree
+and the PR head in its own worktree, both with Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile
+--prefer-offline`, no `apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=2d30f86de1ff292e3eae7d9d10c2aa325df80454`, `SAIRN_RELEASE_ID=signer-session-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-23T00:00:00.000Z`). The worktree state, environment-file check, versions, the build script
+and every build log were saved when the builds ran, in the Git-ignored `.worklog/2026-11-23/signer-session-rebaseline/`.
+
+| Metric | `main` off | PR off | Change | `main` on | PR on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,405,604 | 3,407,642 | +2,038 | 3,408,394 | 3,410,986 | +2,592 |
+| Static trade startup | 1,673,045 | 1,674,674 | +1,629 | 1,674,183 | 1,675,936 | +1,753 |
+| Mobile runtime increment | 120,357 | 120,354 | -3 | 120,343 | 120,357 | +14 |
+| Desktop runtime increment | 207,193 | 207,180 | -13 | 207,080 | 207,158 | +78 |
+| `trade-terminal-page` | 128,901 | 128,905 | +4 | 128,884 | 128,902 | +18 |
+| `api-wallet` | 18,742 | 18,744 | +2 | 18,619 | 18,620 | +1 |
+
+The static closure and both runtime profiles keep their asset counts (103, 15, 31). By chunk, compared with Node's
+`gzipSync` on the pairing-on outputs with content hashes removed: `vendor-router` +856 (the hl-react session
+generations, the request scheduler and the session provider, which load at startup), the shared chunk that holds
+`useDeposit` (`use-cctp-deposit-fee`) +792 (the deposit session guard, the guarded provider and the forwarding ledger;
+the automatic email-wallet deposit host loads it at startup) and the lazy `deposit-modal` chunk +652 (the per-click
+session attempt); every other chunk moved by less than 40 bytes.
+
+Change to the baselines, allowances unchanged, each by the larger of the two measured increments so the room left
+stays at what `main` has:
+
+- all client JS + CSS raised by +2,592 to 3,402,441 (before the raise pairing on exceeded the allowance by 1,137);
+- static trade startup raised by +1,753 to 1,666,091 (before the raise pairing off exceeded it by 336 and pairing on
+  by 1,598); pairing on now keeps 155 bytes, as `main` `fa82e486` keeps 155;
+- the mobile and desktop runtime increments, `trade-terminal-page`, `api-wallet` and the other surfaces are
+  unchanged.
+
+Against the new baselines, with the checker run again on the same pairing-on output, the PR reads total +8,545
+(1,455 left), static startup +9,845 (155 left) and mobile runtime +9,258 (742 left); the pairing-off build reads
+total +5,201 (4,799 left), static startup +8,583 (1,417 left) and mobile runtime +9,255 (745 left), from the logged
+numbers (its output was not kept, and the checker is not part of the build). Limits: static trade startup with pairing
+on keeps 155 bytes, under the release precheck's 200, as on `main` after PR #17, so a release preflight is likely to
+stop on this surface; that needs a real cut or an operator decision on the allowance. The release configuration
+(production `.env.local`, pairing on) was not built, and CI-identity builds can differ from these by a few dozen bytes.
+
 ## Funds session presentation total, static-startup and mobile-runtime re-baseline (2026-11-23)
 
 PR #17 (`claude/funds-session-and-api-wallet-quiet`, head `fce35f78`) keeps funds dialogs and their outcomes across a
