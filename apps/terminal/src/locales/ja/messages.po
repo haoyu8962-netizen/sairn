@@ -648,7 +648,6 @@ msgid "All sides"
 msgstr "売買すべて"
 
 #: src/components/historical-orders/historical-orders-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All statuses"
 msgstr "すべての状態"
 
@@ -662,7 +661,6 @@ msgstr "全期間"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All types"
 msgstr "すべてのタイプ"
 
@@ -7649,6 +7647,7 @@ msgstr "統計"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Status"
 msgstr "状態"
@@ -9415,6 +9414,7 @@ msgstr "未決済建玉（両側合計）：このコントラクトのロング
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx

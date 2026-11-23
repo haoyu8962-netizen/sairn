@@ -722,7 +722,6 @@ msgid "All sides"
 msgstr "جميع الجوانب"
 
 #: src/components/historical-orders/historical-orders-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All statuses"
 msgstr "جميع الحالات"
 
@@ -736,7 +735,6 @@ msgstr "كل الوقت"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All types"
 msgstr "جميع الأنواع"
 
@@ -8505,6 +8503,7 @@ msgstr "الإحصاءات"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Status"
 msgstr "الحالة"
@@ -10585,6 +10584,7 @@ msgstr "الفائدة المفتوحة ثنائية الجانب: مجموع ا
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx

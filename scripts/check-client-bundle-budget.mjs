@@ -134,7 +134,11 @@ const budgets = {
 	// Raised 2026-11-20 by +2,478 for the integration's second review round (deposit recovery log scan and settlement,
 	// trading-protection fallbacks, favourites merge, history and liquidation fixes): 3,399,732 minus the first
 	// round's 3,397,254, same fixed-identity pairing-off builds (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_395_329,
+	// Raised 2026-11-23 by +4,520 for the funds session presentation (PR #17: funds dialogs kept while the wallet
+	// session resolves, outcome attribution across a reconnect, per-owner send drafts, the API wallet list states).
+	// Fixed-identity Node 22.15.0 pairing-off builds without .env.local: 3,405,263 for fce35f78 minus 3,400,743 for
+	// main f0f789bc; pairing on measures +4,477 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_399_849,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -170,7 +174,11 @@ const budgets = {
 		// Raised 2026-11-20 by +336 for the third review round (deposit outcome kept until the user dismisses it):
 		// pairing on 1,672,795 minus 1,672,459 (pairing off measures +196: 1,671,517 minus 1,671,321). The pairing-on
 		// increment is used because the pairing-off one would leave pairing on 2 bytes over; pairing on keeps 138 bytes.
-		baselineGzipBytes: 1_662_933,
+		// Raised 2026-11-23 by +1,405 for the funds session presentation (see the total above): pairing off 1,673,007
+		// minus main f0f789bc's 1,671,602 (pairing on measures +1,339). The growth is the funds-session hold and the held
+		// identities in the global modals host, which load at startup. Before the raise the pairing-off build exceeded
+		// the allowance by 74 and the pairing-on build by 1,249; after it pairing on keeps 156 bytes, as main kept 90.
+		baselineGzipBytes: 1_664_338,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
@@ -183,7 +191,15 @@ const budgets = {
 			"apps/terminal/src/components/trade/chart/token-selector-popup.tsx",
 		],
 		profiles: [
-			{ name: "mobile", moduleIds: [], baselineGzipBytes: 110_580, allowedIncreaseBytes: 10_000 },
+			{
+				name: "mobile",
+				moduleIds: [],
+				// Raised 2026-11-23 by +519 for the funds session presentation (see the total above): pairing off 120,353
+				// minus main f0f789bc's 119,834 (pairing on +507). It passed without the raise with 223 bytes left pairing on;
+				// the raise keeps main's room (730).
+				baselineGzipBytes: 111_099,
+				allowedIncreaseBytes: 10_000,
+			},
 			{
 				name: "desktop",
 				moduleIds: TRADE_DESKTOP_RUNTIME_MODULE_IDS,

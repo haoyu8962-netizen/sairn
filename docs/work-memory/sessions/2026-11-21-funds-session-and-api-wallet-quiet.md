@@ -364,6 +364,8 @@
 
 **撤回后复查补记（2026-11-23）**：复查代理确认撤回完整、不再有可再提交上一笔内容的窗口，并指出三处：文档把「以 `open("deposit")` 再开」写成与 `fc4377e6` 相同，实际 `fc4377e6` 的上下文标识含页签、旧提现既不通知也不关窗（已改正）；提现结果关窗时的 `resetDeposit` 可能清掉新开窗里刚开始的存款（编排已在 `handleDepositSubmit` 加 `isWithdrawPending` 检查，新用例「does not start a deposit in a dialog opened again while a withdrawal is pending」两条路由各一例，去掉检查时两例失败——测试替身的 `useExchange` 不跟踪 pending，用例里显式把提现标为 pending）；一个用例标题沿用旧说法（已改名）。
 
+**包体重定基线（2026-11-23）**：PR #17（haoyu8962-netizen/sairn）的两项构建检查因客户端包体预算失败，其余 5 项通过。`main` 自己已用掉大部分余量（配对开关开时静态启动只剩 90 字节）。运营方选择重定基线。按 `docs/terminal-performance-baseline.md` 的复现规则成对构建 `main` `f0f789bc` 与 `fce35f78`（Node 22.15.0，无 `.env.local`，固定构建身份，每次只跑一个构建，状态与日志存在 Git 忽略的 `.worklog/2026-11-23/funds-session-rebaseline/`）：总量 +4,520（开 +4,477）、静态启动 +1,405（开 +1,339）、手机运行时 +519（开 +507）。按较大的实测增量抬高这三项基线，允许增量不变；配对开关开时静态启动剩 156 字节，低于发布预检的 200，下次发布前要削减或由运营方决定。细节见性能基线文档同日一节。
+
 ## 验证与限制
 
 - 第一次提交的测试：`use-funds-session-key.test.tsx`（真实 `useWalletSession` 加会话阶段工具，8 项）、`deposit-modal-withdrawal-routing-guard.test.tsx` 新增 2 项、`api-wallet-list-passive.test.tsx`、`api-wallet-state.test.ts` 新增用例。变异：钩子不沿用身份时 8 项中 5 项失败；存款弹窗换回修改前时新增 2 项失败；列表换回修改前时 10 项全部失败。第一次提交时本机全量终端 Vitest（`--maxWorkers=4`）765 个文件、11,295 个用例通过，1 个文件跳过。
