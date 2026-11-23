@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
@@ -138,6 +138,12 @@ describe("useExplicitAgentApproval", () => {
 	let queryClient: QueryClient;
 	let approval: ExplicitAgentApproval | undefined;
 	let Probe: (() => null) | undefined;
+
+	// The first import of the hook transforms its whole module graph. On a loaded CI shard that took more than the
+	// 5-second test limit (2026-11-23), and the timed-out case then overlapped every later one, so it is paid once here.
+	beforeAll(async () => {
+		await import("@/hooks/wallet/use-explicit-agent-approval");
+	}, 60_000);
 
 	beforeEach(() => {
 		container = document.createElement("div");
