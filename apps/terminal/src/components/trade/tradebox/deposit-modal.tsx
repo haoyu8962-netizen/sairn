@@ -50,6 +50,7 @@ import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking"
 import { useCctpWithdrawalFee } from "@/hooks/trade/use-cctp-withdrawal-fee";
 import { useDepositAvailability } from "@/hooks/trade/use-deposit-availability";
 import { FundsActionGeoExecutionError, useFundsActionAvailability } from "@/hooks/trade/use-funds-action-availability";
+import { useFundsSessionHold } from "@/hooks/trade/use-funds-session-hold";
 import { usePrivyFiatFundingOffer } from "@/hooks/trade/use-privy-fiat-funding-offer";
 import {
 	executeWithFreshWithdrawalRoute,
@@ -59,9 +60,17 @@ import {
 } from "@/hooks/trade/use-usdc-routing";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEmailEmbeddedWallet } from "@/hooks/wallet/use-email-embedded-wallet";
+import { useHeldWhileResolving } from "@/hooks/wallet/use-held-while-resolving";
+import { useLiveSessionToken } from "@/hooks/wallet/use-live-session-token";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { STATUS_GLYPH_UNKNOWN } from "@/lib/brand/status-glyph.gen";
-import { formatExchangeActionError, formatTransferError, isAmbiguousExchangeActionError } from "@/lib/errors/format";
+import {
+	formatExchangeActionError,
+	formatTransferError,
+	isAmbiguousExchangeActionError,
+	isExchangeRequestNotSentError,
+	isExchangeRequestStoppedBeforeSending,
+} from "@/lib/errors/format";
 import { useNumberFormat } from "@/lib/format";
 import { infoQueryOptions, useExchange, useHyperliquid, useInfo } from "@/lib/hyperliquid";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
@@ -120,6 +129,8 @@ interface CctpPreTransferReview {
 interface WithdrawalPreflightAttempt {
 	controller: AbortController;
 	contextIdentity: string;
+	requestStarted: boolean;
+	sessionToken: object | null;
 }
 
 interface WithdrawalExecutionReview {
@@ -198,6 +209,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	const withdrawalRetryEpochRef = useRef(0);
 	const withdrawalExecutionReviewRef = useRef<WithdrawalExecutionReview | null>(null);
 	const withdrawalRequestReviewsRef = useRef(new WeakMap<object, WithdrawalExecutionReview>());
+	const withdrawalOutcomeOwnerRef = useRef<WithdrawalPreflightAttempt | null>(null);
 	const observedWithdrawalRouteRef = useRef<WithdrawalRoute | null>(null);
 	const queryClient = useQueryClient();
 	const { clientKey, env, info, sessionMode } = useHyperliquid();
@@ -235,7 +247,12 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	const depositEmbeddedWalletAddress = embeddedWalletAddress ?? ensuredEmbeddedWalletAddress;
 	const walletIdentityResolved = walletIntent === "embedded" || walletIntent === "external";
 	const isEmbeddedDeposit = !!emailAddress && walletIntent === "embedded" && shouldUseEmailEmbeddedWallet;
-	const depositMode = isEmbeddedDeposit ? "smart" : "wallet";
+	const fundsSessionHeld = useFundsSessionHold();
+	const depositMode = useHeldWhileResolving(isEmbeddedDeposit ? "smart" : "wallet", fundsSessionHeld);
+	const depositWalletAddress = useHeldWhileResolving(
+		isEmbeddedDeposit ? depositEmbeddedWalletAddress : walletAddress,
+		fundsSessionHeld,
+	);
 	let depositAmountRaw: bigint | undefined;
 	try {
 		depositAmountRaw = depositAmount.trim() ? parseUnits(depositAmount.trim(), 6) : undefined;
@@ -283,7 +300,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		mode: depositMode,
 		depositRoute: selectedDepositRoute,
 		expectedCctpMaxFeeRaw: cctpDepositFeeQuery.calculation?.maxFeeRaw,
-		walletAddress: isEmbeddedDeposit ? depositEmbeddedWalletAddress : undefined,
+		walletAddress: depositWalletAddress,
 		sponsoredReadinessEnabled:
 			open &&
 			depositAvailability.available &&
@@ -463,7 +480,9 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		createNewRoute: LIFI_BRIDGE_FEATURES.createNewRoute,
 	});
 	const visibleTab = showBridgeTab || activeTab !== "bridge" ? activeTab : "deposit";
-	const fundsModalContextIdentity = `${env}:${clientKey.toLowerCase()}:${sessionMode}:${walletAddress?.toLowerCase() ?? "disconnected"}:${depositEmbeddedWalletAddress?.toLowerCase() ?? "none"}:${walletIntent}:${accountAbstraction ?? "unavailable"}:${open ? "open" : "closed"}:${visibleTab}:${selectedDepositRoute}:${withdrawalRoute}`;
+	const liveFundsModalSessionIdentity = `${clientKey.toLowerCase()}:${sessionMode}:${walletAddress?.toLowerCase() ?? "disconnected"}:${depositEmbeddedWalletAddress?.toLowerCase() ?? "none"}:${walletIntent}:${accountAbstraction ?? "unavailable"}`;
+	const fundsModalSessionIdentity = useHeldWhileResolving(liveFundsModalSessionIdentity, fundsSessionHeld);
+	const fundsModalContextIdentity = `${env}:${fundsModalSessionIdentity}:${open ? "open" : "closed"}:${visibleTab}:${selectedDepositRoute}:${withdrawalRoute}`;
 	const fundsModalContextIdentityRef = useRef<string | null>(null);
 	const usesFundsRedesign = visibleTab !== "bridge";
 	const withdrawalQueriesEnabled =
@@ -529,6 +548,25 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			withdrawalExecutionReviewRef.current = null;
 		};
 	}, [fundsModalContextIdentity]);
+	const withdrawalOutcomeScope = open ? `${env}:${fundsModalSessionIdentity}` : null;
+	useLayoutEffect(() => {
+		if (withdrawalOutcomeScope === null) return;
+		return () => {
+			withdrawalOutcomeOwnerRef.current = null;
+		};
+	}, [withdrawalOutcomeScope]);
+	const liveSessionTokenRef = useLiveSessionToken(liveFundsModalSessionIdentity, isResolving, () => {
+		withdrawalRetryEpochRef.current += 1;
+		depositPreflightIdRef.current += 1;
+		setIsDepositPreflighting(false);
+		setIsDepositDataRetrying(false);
+		const attempt = withdrawalPreflightRef.current;
+		if (!attempt || attempt.requestStarted) return;
+		attempt.controller.abort();
+		withdrawalPreflightRef.current = null;
+		withdrawalExecutionReviewRef.current = null;
+		setIsWithdrawalPreflighting(false);
+	});
 	const isWithdrawPending = isWithdrawalPreflighting || cctpWithdrawal.isPending || legacyWithdrawal.isPending;
 	const cctpFee = cctpFeeQuery.data ?? null;
 	const withdrawalRouteFee = getWithdrawalRouteFee(withdrawalRoute, cctpFee);
@@ -790,7 +828,12 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		const contextIdentity = fundsModalContextIdentityRef.current;
 		if (contextIdentity !== fundsModalContextIdentity) return null;
 		withdrawalPreflightRef.current?.controller.abort();
-		const attempt = { contextIdentity, controller: new AbortController() };
+		const attempt = {
+			contextIdentity,
+			controller: new AbortController(),
+			requestStarted: false,
+			sessionToken: liveSessionTokenRef.current,
+		};
 		withdrawalPreflightRef.current = attempt;
 		withdrawalExecutionReviewRef.current = null;
 		return attempt;
@@ -807,6 +850,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	}
 
 	function invalidateWithdrawalPreflight(): void {
+		withdrawalOutcomeOwnerRef.current = null;
 		withdrawalRetryEpochRef.current += 1;
 		withdrawalPreflightRef.current?.controller.abort();
 		withdrawalPreflightRef.current = null;
@@ -868,12 +912,14 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			!depositValidation.valid ||
 			!canUseDeposit ||
 			isDepositPending ||
+			isWithdrawPending ||
 			isDepositDataRetrying ||
 			!depositRouteReady
 		) {
 			return;
 		}
 
+		if (!liveSessionTokenRef.current) return;
 		setDepositCctpPreflightErrorCode(null);
 		setDepositRoutingPreflightErrorCode(null);
 		const preflightId = depositPreflightIdRef.current + 1;
@@ -1086,6 +1132,8 @@ export function DepositModal({ onSurfaceChange }: Props) {
 						if (!cctpPreTransferReview) throw new PreTransferCheckExecutionError("unavailable");
 						assertSubmitDeadline();
 						mutationStarted = true;
+						attempt.requestStarted = true;
+						withdrawalOutcomeOwnerRef.current = attempt;
 						await cctpWithdrawal.mutateAsync(
 							buildCctpWithdrawalParameters({
 								amount: reviewedAmount,
@@ -1098,6 +1146,8 @@ export function DepositModal({ onSurfaceChange }: Props) {
 					}
 					assertSubmitDeadline();
 					mutationStarted = true;
+					attempt.requestStarted = true;
+					withdrawalOutcomeOwnerRef.current = attempt;
 					await legacyWithdrawal.mutateAsync({ destination, amount: reviewedAmount });
 					mutationSucceeded = true;
 				},
@@ -1130,7 +1180,17 @@ export function DepositModal({ onSurfaceChange }: Props) {
 				withdrawalExecutionReviewRef.current = null;
 				setIsWithdrawalPreflighting(false);
 			}
-			if (mutationStarted && attemptIsCurrent) {
+			const ownsAttempt = withdrawalOutcomeOwnerRef.current === attempt;
+			if (ownsAttempt) withdrawalOutcomeOwnerRef.current = null;
+			const cancelledByReconnect =
+				isExchangeRequestNotSentError(mutationError) && liveSessionTokenRef.current !== attempt.sessionToken;
+			const stoppedBeforeSending = isExchangeRequestStoppedBeforeSending(mutationError);
+			const reportsOutcome =
+				mutationStarted &&
+				ownsAttempt &&
+				!cancelledByReconnect &&
+				(attemptIsCurrent || mutationSucceeded || !stoppedBeforeSending);
+			if (reportsOutcome) {
 				if (mutationSucceeded) {
 					notifyWithdrawalSubmitted(reviewedAmount, submittedRouteFee, submittedActivationFee);
 				} else {
@@ -1540,7 +1600,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		}
 
 		function renderDepositContent() {
-			if (!canUseDeposit) {
+			if (!canUseDeposit || isResolving) {
 				return renderWalletRequired();
 			}
 			if (showsDepositMethods) {

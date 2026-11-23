@@ -6,10 +6,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/cn";
 import { shortenAddress } from "@/lib/format";
 import { ApiWalletCopyButton } from "./api-wallet-copy-button";
-import type { ApiWalletAgentStatus, ApiWalletAgentView, ApiWalletPageState } from "./api-wallet-view";
+import type { ApiWalletAgentStatus, ApiWalletAgentView, ApiWalletListState } from "./api-wallet-view";
 
 interface Props {
-	pageState: ApiWalletPageState;
+	listState: ApiWalletListState;
+	canRemove: boolean;
 	agents: ApiWalletAgentView[];
 	isRefreshing: boolean;
 	onRemove: (agent: ApiWalletAgentView) => void;
@@ -71,12 +72,12 @@ function RetryRow({ onRetry, compact = false }: { onRetry: () => void; compact?:
 	);
 }
 
-function ListMessage({ pageState, onRetry, isMobile }: Pick<Props, "pageState" | "onRetry"> & { isMobile: boolean }) {
+function ListMessage({ listState, onRetry, isMobile }: Pick<Props, "listState" | "onRetry"> & { isMobile: boolean }) {
 	const stateIconClass = isMobile
 		? "size-[var(--api-wallet-mobile-state-icon-size)]"
 		: "size-[var(--api-wallet-state-icon-size)]";
 
-	if (pageState === "loading") {
+	if (listState === "loading") {
 		return (
 			<output aria-busy="true" className="block min-h-40">
 				<span className="sr-only">
@@ -86,11 +87,11 @@ function ListMessage({ pageState, onRetry, isMobile }: Pick<Props, "pageState" |
 		);
 	}
 
-	if (pageState === "error") {
+	if (listState === "error") {
 		return <RetryRow onRetry={onRetry} />;
 	}
 
-	const disconnected = pageState === "disconnected";
+	const disconnected = listState === "disconnected";
 	return (
 		<div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
 			<div
@@ -121,14 +122,15 @@ function ListMessage({ pageState, onRetry, isMobile }: Pick<Props, "pageState" |
 
 function DesktopAgentTable({
 	agents,
-	pageState,
+	listState,
+	canRemove,
 	sortDirection,
 	onSort,
 	onRemove,
 	onRetry,
 }: Props & { sortDirection: "ascending" | "descending"; onSort: () => void }) {
 	const { t } = useLingui();
-	const showMessage = pageState === "empty" || pageState === "disconnected" || agents.length === 0;
+	const showMessage = listState === "empty" || listState === "disconnected" || agents.length === 0;
 
 	return (
 		<Table className="table-fixed" containerClassName="overflow-visible">
@@ -180,7 +182,7 @@ function DesktopAgentTable({
 					<TableRow>
 						<TableCell colSpan={5} className="p-0">
 							<ListMessage
-								pageState={pageState === "normal" ? "empty" : pageState}
+								listState={listState === "normal" ? "empty" : listState}
 								onRetry={onRetry}
 								isMobile={false}
 							/>
@@ -222,7 +224,7 @@ function DesktopAgentTable({
 									intent="error"
 									size="xs"
 									className="p-0 active:scale-100"
-									disabled={pageState !== "normal"}
+									disabled={!canRemove}
 									onClick={() => onRemove(agent)}
 								>
 									<Trans>Remove</Trans>
@@ -236,9 +238,9 @@ function DesktopAgentTable({
 	);
 }
 
-function MobileAgentCards({ agents, pageState, onRemove, onRetry }: Props) {
-	if (pageState === "empty" || pageState === "disconnected" || agents.length === 0) {
-		return <ListMessage pageState={pageState === "normal" ? "empty" : pageState} onRetry={onRetry} isMobile />;
+function MobileAgentCards({ agents, listState, canRemove, onRemove, onRetry }: Props) {
+	if (listState === "empty" || listState === "disconnected" || agents.length === 0) {
+		return <ListMessage listState={listState === "normal" ? "empty" : listState} onRetry={onRetry} isMobile />;
 	}
 
 	return (
@@ -278,7 +280,7 @@ function MobileAgentCards({ agents, pageState, onRemove, onRetry }: Props) {
 							intent="error"
 							size="md"
 							className="min-h-[var(--api-wallet-mobile-control-height)] shrink-0 rounded-20 active:scale-100"
-							disabled={pageState !== "normal"}
+							disabled={!canRemove}
 							onClick={() => onRemove(agent)}
 						>
 							<Trans>Remove</Trans>
@@ -290,7 +292,7 @@ function MobileAgentCards({ agents, pageState, onRemove, onRetry }: Props) {
 	);
 }
 
-export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRetry }: Props) {
+export function ApiWalletList({ listState, canRemove, agents, isRefreshing, onRemove, onRetry }: Props) {
 	const isMobile = useIsMobile();
 	const headingId = useId();
 	const [sortDirection, setSortDirection] = useState<"ascending" | "descending">("ascending");
@@ -298,10 +300,10 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 		const comparison = left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
 		return sortDirection === "ascending" ? comparison : -comparison;
 	});
-	const isLoading = pageState === "loading";
-	const isRetained = pageState === "retained";
-	const showsRetryOnly = pageState === "error" || (isRetained && agents.length === 0);
-	const showsCount = pageState === "normal" || pageState === "empty" || (isRetained && agents.length > 0);
+	const isLoading = listState === "loading";
+	const isRetained = listState === "retained";
+	const showsRetryOnly = listState === "error" || (isRetained && agents.length === 0);
+	const showsCount = listState === "normal" || listState === "empty" || (isRetained && agents.length > 0);
 
 	return (
 		<section aria-labelledby={headingId} aria-busy={isLoading || isRefreshing}>
@@ -320,10 +322,11 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 			</div>
 
 			{isLoading || showsRetryOnly ? (
-				<ListMessage pageState={isLoading ? "loading" : "error"} onRetry={onRetry} isMobile={isMobile} />
+				<ListMessage listState={isLoading ? "loading" : "error"} onRetry={onRetry} isMobile={isMobile} />
 			) : isMobile ? (
 				<MobileAgentCards
-					pageState={pageState}
+					listState={listState}
+					canRemove={canRemove}
 					agents={sortedAgents}
 					isRefreshing={isRefreshing}
 					onRemove={onRemove}
@@ -331,7 +334,8 @@ export function ApiWalletList({ pageState, agents, isRefreshing, onRemove, onRet
 				/>
 			) : (
 				<DesktopAgentTable
-					pageState={pageState}
+					listState={listState}
+					canRemove={canRemove}
 					agents={sortedAgents}
 					isRefreshing={isRefreshing}
 					onRemove={onRemove}

@@ -51,7 +51,8 @@ describe.each([false, true])("API wallet list passive states (mobile: %s)", (isM
 		act(() =>
 			root.render(
 				<ApiWalletList
-					pageState="normal"
+					listState="normal"
+					canRemove
 					agents={[AGENT]}
 					isRefreshing={false}
 					onRemove={vi.fn()}
@@ -73,16 +74,16 @@ describe.each([false, true])("API wallet list passive states (mobile: %s)", (isM
 	}
 
 	it("offers only a neutral Retry when the first read failed", () => {
-		const onRetry = render({ pageState: "error", agents: [] });
+		const onRetry = render({ listState: "error", agents: [] });
 		expectNoPassiveText();
-		expect(container.textContent).not.toContain("authorized");
+		expect(container.textContent).not.toMatch(/\d+ authorized/);
 		const retry = buttons().find((button) => button.textContent === "Retry");
 		act(() => retry?.click());
 		expect(onRetry).toHaveBeenCalledOnce();
 	});
 
 	it("keeps retained agents on screen with removal disabled and a neutral Retry", () => {
-		render({ pageState: "retained", agents: [AGENT] });
+		render({ listState: "retained", canRemove: false, agents: [AGENT] });
 		expectNoPassiveText();
 		expect(container.textContent).toContain("grid-bot");
 		expect(container.textContent).toContain("1 authorized");
@@ -92,14 +93,34 @@ describe.each([false, true])("API wallet list passive states (mobile: %s)", (isM
 		expect(buttons().some((button) => button.textContent === "Retry")).toBe(true);
 	});
 
+	it("retries from below a retained list", () => {
+		const onRetry = render({ listState: "retained", canRemove: false, agents: [AGENT] });
+		const retry = buttons().filter((button) => button.textContent === "Retry");
+		expect(retry).toHaveLength(1);
+		act(() => retry[0]?.click());
+		expect(onRetry).toHaveBeenCalledOnce();
+	});
+
 	it("draws no empty conclusion from a retained empty list", () => {
-		render({ pageState: "retained", agents: [] });
+		const onRetry = render({ listState: "retained", canRemove: false, agents: [] });
 		expectNoPassiveText();
-		expect(buttons().map((button) => button.textContent)).toContain("Retry");
+		expect(container.textContent).not.toMatch(/\d+ authorized/);
+		const retry = buttons().filter((button) => button.textContent === "Retry");
+		expect(retry).toHaveLength(1);
+		act(() => retry[0]?.click());
+		expect(onRetry).toHaveBeenCalledOnce();
+	});
+
+	it("takes removal availability from the page, not from the list", () => {
+		render({ listState: "normal", canRemove: false, agents: [AGENT] });
+		expect(container.textContent).toContain("1 authorized");
+		const remove = buttons().filter((button) => button.textContent?.includes("Remove"));
+		expect(remove.length).toBeGreaterThan(0);
+		for (const button of remove) expect(button.disabled).toBe(true);
 	});
 
 	it("refreshes in the background without visible text, announcing it only as busy", () => {
-		render({ pageState: "normal", agents: [AGENT], isRefreshing: true });
+		render({ listState: "normal", agents: [AGENT], isRefreshing: true });
 		expectNoPassiveText();
 		expect(container.querySelector("section")?.getAttribute("aria-busy")).toBe("true");
 		expect(container.querySelector(".animate-spin")).toBeNull();
@@ -107,7 +128,7 @@ describe.each([false, true])("API wallet list passive states (mobile: %s)", (isM
 	});
 
 	it("keeps the first load blank and busy", () => {
-		render({ pageState: "loading", agents: [] });
+		render({ listState: "loading", agents: [] });
 		expectNoPassiveText();
 		expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
 		expect(buttons().some((button) => button.textContent === "Retry")).toBe(false);

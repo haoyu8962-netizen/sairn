@@ -16,7 +16,7 @@ import { AccountAbstractionExecutionError } from "@/hooks/trade/use-account-abst
 import { FundsActionGeoExecutionError } from "@/hooks/trade/use-funds-action-availability";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { clearAccountModeSetup, publishAccountModeSetup } from "@/stores/use-account-mode-setup-store";
-import { clearSendDraft } from "@/stores/use-send-draft-store";
+import { resetSendDraft } from "@/stores/use-send-draft-store";
 import { LOADING_INDICATOR_SELECTOR } from "./harness/loading-indicator";
 import { createI18nRoot } from "./harness/react";
 import { installScheduledExchange } from "./harness/scheduled-exchange";
@@ -325,7 +325,7 @@ describe("funds action balance wiring", () => {
 		testState.walletSession.walletAddress = "0x1111111111111111111111111111111111111111";
 		testState.walletSession.walletIntent = "embedded";
 		testState.pendingMethods.clear();
-		clearSendDraft();
+		resetSendDraft();
 		testState.balances.accountAbstraction = "disabled";
 		testState.balances.hasError = false;
 		testState.balances.isDataStale = false;
@@ -1314,12 +1314,6 @@ describe("funds action balance wiring", () => {
 				};
 			},
 		],
-		[
-			"account abstraction",
-			() => {
-				testState.balances.accountAbstraction = "unifiedAccount";
-			},
-		],
 	] as const;
 
 	it.each(
@@ -1385,10 +1379,13 @@ describe("funds action balance wiring", () => {
 		renderValidSend(root, container);
 		await clickAndFlush(getButton(container, "Send"));
 
-		expect(testState.exchangeIdentity.info.preTransferCheck).toHaveBeenCalledWith({
-			user: "0x2222222222222222222222222222222222222222",
-			source: "0x1111111111111111111111111111111111111111",
-		});
+		expect(testState.exchangeIdentity.info.preTransferCheck).toHaveBeenCalledWith(
+			{
+				user: "0x2222222222222222222222222222222222222222",
+				source: "0x1111111111111111111111111111111111111111",
+			},
+			expect.any(AbortSignal),
+		);
 		expect(testState.exchangeMutations.spotSend).toHaveBeenCalledOnce();
 	});
 

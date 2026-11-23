@@ -3,7 +3,13 @@ import { SCALE_LEVELS_MAX, SCALE_LEVELS_MIN } from "@/config/trade";
 import type { Translate } from "@/lib/translate";
 import { describeActionError, isAmbiguousExchangeActionError } from "./action-error";
 
-export { isAmbiguousExchangeActionError, isSmartWalletNonceConflict } from "./action-error";
+export {
+	isAmbiguousExchangeActionError,
+	isExchangeRequestInvalidatedError,
+	isExchangeRequestNotSentError,
+	isExchangeRequestStoppedBeforeSending,
+	isSmartWalletNonceConflict,
+} from "./action-error";
 
 /**
  * Describes a failed funds or wallet operation in the active language. Pass the surface's own

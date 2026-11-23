@@ -2,6 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { Suspense, useEffect } from "react";
 import { DEFAULT_MARKET_NAME } from "@/config/app";
+import { useFundsSessionHold } from "@/hooks/trade/use-funds-session-hold";
 import { useFundsSessionKey } from "@/hooks/trade/use-funds-session-key";
 import { type Hip3DisclaimerRequirement, useHip3DisclaimerRequirement } from "@/hooks/trade/use-hip3-disclaimer";
 import {
@@ -12,9 +13,11 @@ import {
 import { useLegalGate } from "@/hooks/trade/use-legal-gate";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useLingeringValue } from "@/hooks/use-lingering-value";
+import { useHeldWhileResolving } from "@/hooks/wallet/use-held-while-resolving";
 import {
 	discardIdlePositionMarketCloseModal,
 	useCommandMenuActions,
+	useGlobalModalOpening,
 	useGlobalModalType,
 	usePositionMarketCloseSession,
 	useSendModalAccountType,
@@ -46,6 +49,7 @@ const NO_HIP3_DISCLAIMER: Hip3DisclaimerRequirement = {
 	documentationUrl: undefined,
 };
 type GlobalModalScope = "all" | "preferences";
+type GlobalModalType = ReturnType<typeof useGlobalModalType>;
 
 interface Hip3DisclaimerGate {
 	requirement: Hip3DisclaimerRequirement;
@@ -111,7 +115,22 @@ function LegalAwareGlobalModals({
 	enableTradingOnboarding: boolean;
 }) {
 	const legalGate = useLegalGate();
+	const holding = useFundsSessionHold();
+	const opensActions = legalGate.state === "inactive" || legalGate.state === "accepted";
+	const heldOpensActions = useHeldWhileResolving(opensActions, holding);
+	const heldModalOpening = useHeldWhileResolving(useGlobalModalOpening(), holding);
 
+	if (!opensActions && heldOpensActions && (heldModalOpening !== null || legalGate.state === "checking")) {
+		return (
+			<LegalAcceptedGlobalModals
+				enableHip3Disclaimer={enableHip3Disclaimer}
+				enablePositionMarketClose={enablePositionMarketClose}
+				enableSelectedMarketHip3Disclaimer={enableSelectedMarketHip3Disclaimer}
+				enableTradingOnboarding={enableTradingOnboarding}
+				retainedModalOpening={heldModalOpening}
+			/>
+		);
+	}
 	if (legalGate.state === "checking") {
 		return <SharedGlobalModals enablePositionMarketClose={false} scope="preferences" />;
 	}
@@ -129,13 +148,40 @@ function LegalAwareGlobalModals({
 		);
 	}
 
+	return (
+		<LegalAcceptedGlobalModals
+			enableHip3Disclaimer={enableHip3Disclaimer}
+			enablePositionMarketClose={enablePositionMarketClose}
+			enableSelectedMarketHip3Disclaimer={enableSelectedMarketHip3Disclaimer}
+			enableTradingOnboarding={enableTradingOnboarding}
+		/>
+	);
+}
+
+function LegalAcceptedGlobalModals({
+	enableHip3Disclaimer,
+	enablePositionMarketClose,
+	enableSelectedMarketHip3Disclaimer,
+	enableTradingOnboarding,
+	retainedModalOpening,
+}: {
+	enableHip3Disclaimer: boolean;
+	enablePositionMarketClose: boolean;
+	enableSelectedMarketHip3Disclaimer: boolean;
+	enableTradingOnboarding: boolean;
+	retainedModalOpening?: string | null;
+}) {
 	const content = enableHip3Disclaimer ? (
 		<Hip3AwareGlobalModals
 			enablePositionMarketClose={enablePositionMarketClose}
 			enableSelectedMarketHip3Disclaimer={enableSelectedMarketHip3Disclaimer}
+			retainedModalOpening={retainedModalOpening}
 		/>
 	) : (
-		<SharedGlobalModals enablePositionMarketClose={enablePositionMarketClose} />
+		<SharedGlobalModals
+			enablePositionMarketClose={enablePositionMarketClose}
+			retainedModalOpening={retainedModalOpening}
+		/>
 	);
 	return enableTradingOnboarding ? <TradingOnboardingGate>{content}</TradingOnboardingGate> : content;
 }
@@ -143,9 +189,11 @@ function LegalAwareGlobalModals({
 function Hip3AwareGlobalModals({
 	enablePositionMarketClose,
 	enableSelectedMarketHip3Disclaimer,
+	retainedModalOpening,
 }: {
 	enablePositionMarketClose: boolean;
 	enableSelectedMarketHip3Disclaimer: boolean;
+	retainedModalOpening?: string | null;
 }) {
 	const marketCloseSession = usePositionMarketCloseSession();
 	const targetMarketName = marketCloseSession
@@ -158,6 +206,7 @@ function Hip3AwareGlobalModals({
 		<SharedGlobalModals
 			hip3Disclaimer={{ requirement, exit: marketCloseSession ? "cancel" : "leave-market" }}
 			enablePositionMarketClose={enablePositionMarketClose}
+			retainedModalOpening={retainedModalOpening}
 		/>
 	);
 }
@@ -166,19 +215,20 @@ function SharedGlobalModals({
 	hip3Disclaimer,
 	enablePositionMarketClose,
 	scope = "all",
+	retainedModalOpening,
 }: {
 	hip3Disclaimer?: Hip3DisclaimerGate;
 	enablePositionMarketClose: boolean;
 	scope?: GlobalModalScope;
+	retainedModalOpening?: string | null;
 }) {
 	const activeModal = useGlobalModalType();
-	const visibleActiveModal =
-		scope === "preferences" && activeModal !== "settings" && activeModal !== "commandMenu" ? null : activeModal;
+	const activeModalOpening = useGlobalModalOpening();
+	const holdsAnotherOpening = isHeldBackOpening(activeModal, activeModalOpening, retainedModalOpening);
+	const visibleActiveModal = holdsAnotherOpening ? null : limitModalToScope(activeModal, scope);
 	const lingeringModal = useLingeringValue(visibleActiveModal, GLOBAL_MODAL_EXIT_MS);
 	const displayedModal =
-		scope === "preferences" && lingeringModal !== "settings" && lingeringModal !== "commandMenu"
-			? null
-			: lingeringModal;
+		holdsAnotherOpening && lingeringModal === activeModal ? null : limitModalToScope(lingeringModal, scope);
 	const marketCloseSession = usePositionMarketCloseSession();
 	const isHip3DisclaimerRequired = hip3Disclaimer?.requirement.isRequired === true;
 	const hip3Presentation = useHip3DisclaimerPresentation(
@@ -210,14 +260,14 @@ function SharedGlobalModals({
 			if (isHip3DisclaimerRequired || activeModal === "positionMarketClose") return;
 			if (activeModal === "commandMenu") {
 				closeCommandMenu();
-			} else if (activeModal === null) {
+			} else if (visibleActiveModal === null) {
 				openCommandMenu();
 			}
 		}
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [activeModal, closeCommandMenu, isHip3DisclaimerRequired, openCommandMenu]);
+	}, [activeModal, closeCommandMenu, isHip3DisclaimerRequired, openCommandMenu, visibleActiveModal]);
 
 	if (hip3Presentation) {
 		return hip3Presentation.exit === "leave-market" ? (
@@ -264,6 +314,37 @@ function SharedGlobalModals({
 				marketCloseSession.presentation !== "direct" && <PositionMarketCloseModal key={marketCloseSession.sessionId} />}
 		</Suspense>
 	);
+}
+
+function isPreferenceModal(modal: GlobalModalType): boolean {
+	return modal === "settings" || modal === "commandMenu";
+}
+
+/**
+ * Whether the active modal is a later opening held back by the funds-session hold. `retainedModalOpening` is
+ * passed only while `useFundsSessionHold()` is on, the live legal gate is neither `inactive` nor `accepted`,
+ * the decision held from before the interruption opened actions, and either a modal opening was held or the
+ * gate is `checking`; it is the opening that was on screen when the hold started (`null` when none was). That
+ * opening stays, so a reconnect keeps its draft; any other non-preference opening waits until the hold ends
+ * and the live legal gate decides, instead of appearing on an unsettled session.
+ */
+function isHeldBackOpening(
+	activeModal: GlobalModalType,
+	activeModalOpening: string | null,
+	retainedModalOpening: string | null | undefined,
+): boolean {
+	return (
+		retainedModalOpening !== undefined &&
+		activeModal !== null &&
+		!isPreferenceModal(activeModal) &&
+		activeModalOpening !== retainedModalOpening
+	);
+}
+
+/** Which global modal may show in `scope`: preferences (settings, command menu) always; nothing else while the legal gate is still checking. */
+function limitModalToScope(modal: GlobalModalType, scope: GlobalModalScope): GlobalModalType {
+	if (isPreferenceModal(modal)) return modal;
+	return scope === "preferences" ? null : modal;
 }
 
 function SelectedMarketHip3Disclaimer({ presentation }: { presentation: Hip3DisclaimerPresentation }) {

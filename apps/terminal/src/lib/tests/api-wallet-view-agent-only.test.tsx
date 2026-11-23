@@ -16,6 +16,7 @@ const OWNER = "0x1111111111111111111111111111111111111111";
 function props(overrides: Partial<ApiWalletViewProps> = {}): ApiWalletViewProps {
 	return {
 		pageState: "nonMaster",
+		listState: "normal",
 		accountAddress: OWNER,
 		name: "",
 		validityDays: 90,
@@ -84,6 +85,20 @@ describe("API wallet view in an Agent-only session", () => {
 		expect(removeButtons.length).toBeGreaterThan(0);
 		expect(removeButtons.every((button) => button.disabled)).toBe(true);
 	});
+
+	it.each(["loading", "error"] as const)(
+		"draws no empty conclusion while the list is %s without the master wallet",
+		(listState) => {
+			act(() => root.render(<ApiWalletView {...props({ listState, agents: [] })} />));
+
+			expect(container.textContent).not.toContain("No API wallets authorized");
+			expect(container.textContent).not.toMatch(/\d+ authorized/);
+			const retry = [...container.querySelectorAll<HTMLButtonElement>("button")].filter(
+				(button) => button.textContent === "Retry",
+			);
+			expect(retry).toHaveLength(listState === "error" ? 1 : 0);
+		},
+	);
 
 	it("keeps the switch-wallet alert for a different connected wallet", () => {
 		act(() => root.render(<ApiWalletView {...props()} />));

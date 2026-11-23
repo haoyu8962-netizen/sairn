@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsDownUpIcon, WarningIcon } from "@phosphor-icons/react";
+import { ExchangeRequestInvalidatedError } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { Button, Modal, ModalContent, ModalDescription, ModalHeader, ModalPopup, ModalTitle } from "@sairn/ui";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { labelTypographyClass } from "@/components/ui/field-label";
@@ -29,6 +30,8 @@ import { isSupportedAccountAbstraction, useDefaultDexBalances } from "@/hooks/tr
 import { useFeeRates } from "@/hooks/trade/use-fee-rates";
 import { useTrackedOrder } from "@/hooks/trade/use-tracked-order";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
+import { useLiveSessionToken } from "@/hooks/wallet/use-live-session-token";
+import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import { type ExchangeParams, useHyperliquid, useSubscription } from "@/lib/hyperliquid";
@@ -38,7 +41,9 @@ import { toBig } from "@/lib/trade/numbers";
 import { orderSubmissionFeedback } from "@/lib/trade/order-submission-feedback";
 import { getSpotSwapFeedback } from "@/lib/trade/spot-swap-feedback";
 import {
+	getGlobalModalOpening,
 	type SwapMode,
+	useGlobalModalOpening,
 	useGlobalModalType,
 	useSwapModalActions,
 	useSwapModalFromToken,
@@ -53,12 +58,24 @@ import { TradingActionButton } from "./trading-action-button";
 
 const DEFAULT_SWAP_SLIPPAGE_PERCENT = DEFAULT_SWAP_SLIPPAGE_BPS / 100;
 
+function isSubmissionSessionCurrent(
+	submission: { readonly current: object | null },
+	live: { readonly current: object | null },
+): boolean {
+	return submission.current !== null && submission.current === live.current;
+}
+
 export function SpotSwapModal() {
 	const isOpen = useSwapModalOpen();
 	const initialFromToken = useSwapModalFromToken() ?? DEFAULT_QUOTE_TOKEN;
 	const initialToToken = useSwapModalToToken();
 	const mode = useSwapModalMode();
 	const { close } = useSwapModalActions();
+	const opening = useGlobalModalOpening();
+
+	function closeThisOpening() {
+		if (getGlobalModalOpening() === opening) close();
+	}
 
 	if (!isOpen) return null;
 
@@ -67,7 +84,8 @@ export function SpotSwapModal() {
 			initialFromToken={initialFromToken}
 			initialToToken={initialToToken}
 			mode={mode}
-			onClose={close}
+			opening={opening}
+			onClose={closeThisOpening}
 		/>
 	);
 }
@@ -76,10 +94,11 @@ interface Props {
 	initialFromToken: string;
 	initialToToken?: string;
 	mode: SwapMode;
+	opening: string | null;
 	onClose: () => void;
 }
 
-function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose }: Props) {
+function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening, onClose }: Props) {
 	const { t } = useLingui();
 	const { actionsBlocked: tradingActionsBlocked, tradeRestricted } = useGeoRestriction();
 	const { formatToken } = useNumberFormat();
@@ -97,14 +116,27 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 	const accountDataReady = accountModeReady && spotStateStatus === "success" && !isDataStale && !hasBalanceError;
 	const { builderConfig, clientKey, env, sessionMode } = useHyperliquid();
 	const executionSessionIdentity = `${env}:${clientKey.toLowerCase()}:${sessionMode}:${accountAbstraction ?? "unavailable"}`;
+	const { isResolving, walletAddress } = useWalletSession();
+	const liveSessionTokenRef = useLiveSessionToken(
+		`${env}:${clientKey.toLowerCase()}:${sessionMode}:${walletAddress?.toLowerCase() ?? "no-wallet"}`,
+		isResolving,
+	);
+	const submissionSessionRef = useRef<object | null>(null);
 	const { takerRate } = useFeeRates("spot");
 	const isStablecoinSwap = mode === "stablecoin";
 
 	const [fromToken, setFromToken] = useState(initialFromToken);
 	const [selectedToToken, setSelectedToToken] = useState(initialToToken ?? "");
 	const [amount, setAmount] = useState("");
-	const submittedRef = useRef(false);
-	const [isSubmitted, setIsSubmitted] = useState(false);
+	const submittedOpeningRef = useRef<string | null>(null);
+	const [submittedOpening, setSubmittedOpening] = useState<string | null>(null);
+	const [formOpening, setFormOpening] = useState(opening);
+	if (formOpening !== opening && submittedOpening === null) {
+		setFormOpening(opening);
+		setFromToken(initialFromToken);
+		setSelectedToToken(initialToToken ?? "");
+		setAmount("");
+	}
 	const getToTokens = useCallback(
 		(token: string) =>
 			isStablecoinSwap ? getStablecoinSwapToTokens(token, spotMarkets) : getAvailablePairTokens(token, spotMarkets),
@@ -214,7 +246,6 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 		requiredInput,
 		expectedOrder,
 	});
-	const submissionSequenceRef = useRef(0);
 	const executionSessionIdentityRef = useRef<string | null>(null);
 	executionStateRef.current = {
 		active: true,
@@ -235,18 +266,28 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 	useLayoutEffect(() => {
 		executionSessionIdentityRef.current = executionSessionIdentity;
 		executionStateRef.current.active = true;
-		submissionSequenceRef.current += 1;
 		return () => {
 			if (executionSessionIdentityRef.current === executionSessionIdentity) {
 				executionSessionIdentityRef.current = null;
 			}
 			executionStateRef.current.active = false;
-			submissionSequenceRef.current += 1;
 		};
 	}, [executionSessionIdentity]);
+	const mountedRef = useRef(false);
+	useLayoutEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
 	const executionGuard = useCallback(
-		(params: ExchangeParams<"order">) => assertSpotSwapExecutionAllowed(params, executionStateRef.current),
-		[],
+		(params: ExchangeParams<"order">) => {
+			if (!isSubmissionSessionCurrent(submissionSessionRef, liveSessionTokenRef)) {
+				throw new ExchangeRequestInvalidatedError();
+			}
+			assertSpotSwapExecutionAllowed(params, executionStateRef.current);
+		},
+		[liveSessionTokenRef],
 	);
 	const { submitOrder, isPending: isSubmitting } = useTrackedOrder({ executionGuard });
 	const hasPositiveAmount = toBig(amount)?.gt(0) ?? false;
@@ -289,19 +330,15 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 	}
 
 	function handleOpenChange(open: boolean) {
-		if (!open && !submittedRef.current) onClose();
+		if (!open && submittedOpeningRef.current === null) onClose();
 	}
 
 	async function handleSubmit() {
 		if (tradingActionsBlocked || !isOpen || !accountDataReady || !spotMarket || !quote || !expectedOrder) return;
-		if (isSubmitting || submittedRef.current) return;
-		const submissionSequence = ++submissionSequenceRef.current;
+		if (isSubmitting || submittedOpeningRef.current !== null) return;
 		const submissionIdentity = executionSessionIdentityRef.current;
-		if (submissionIdentity !== executionSessionIdentity) return;
-		const isCurrentSubmission = () =>
-			executionStateRef.current.active &&
-			submissionSequenceRef.current === submissionSequence &&
-			executionSessionIdentityRef.current === submissionIdentity;
+		const submissionSession = liveSessionTokenRef.current;
+		if (submissionIdentity !== executionSessionIdentity || !submissionSession) return;
 		const queueId = addOrderQueueItem({
 			owner: clientKey,
 			env,
@@ -314,8 +351,9 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 			children: [{ assetId: expectedOrder.a, market: spotMarket.pairName, size: expectedOrder.s, status: "pending" }],
 		});
 
-		submittedRef.current = true;
-		setIsSubmitted(true);
+		submittedOpeningRef.current = opening;
+		submissionSessionRef.current = submissionSession;
+		setSubmittedOpening(opening);
 
 		try {
 			const submission = await submitOrder(
@@ -351,7 +389,12 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 		} catch (err) {
 			updateOrderQueueItem(queueId, { status: "failed", error: getSpotSwapFeedback(err) });
 		} finally {
-			if (isCurrentSubmission()) onClose();
+			if (submissionSessionRef.current === submissionSession) submissionSessionRef.current = null;
+			if (mountedRef.current) {
+				onClose();
+				submittedOpeningRef.current = null;
+				setSubmittedOpening(null);
+			}
 		}
 	}
 
@@ -368,11 +411,11 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 		!belowMinimumNotional &&
 		Boolean(spotMarket) &&
 		Boolean(quote);
-	const isDisabled = !accountDataReady || isSubmitting || isSubmitted;
+	const isDisabled = !accountDataReady || isSubmitting || submittedOpening !== null;
 	const isOpen = useGlobalModalType() === "swap";
 
 	return (
-		<Modal open={isOpen && !isSubmitted} onOpenChange={handleOpenChange}>
+		<Modal open={isOpen && submittedOpening === null} onOpenChange={handleOpenChange}>
 			<ModalPopup size={isStablecoinSwap ? "md" : "sm"} closeLabel={t`Close`}>
 				<ModalHeader
 					divider={!isStablecoinSwap}
@@ -568,7 +611,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, onClose 
 
 					<TradingActionButton
 						onClick={handleSubmit}
-						disabled={!isOpen || !canSubmit || isSubmitting || isSubmitted}
+						disabled={!isOpen || !canSubmit || isSubmitting || submittedOpening !== null}
 						className="w-full"
 					>
 						<Trans>Swap</Trans>
