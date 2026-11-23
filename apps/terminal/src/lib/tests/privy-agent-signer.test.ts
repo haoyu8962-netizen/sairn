@@ -226,6 +226,31 @@ describe("createPrivyAgentSigner", () => {
 		expect(request).not.toHaveBeenCalled();
 	});
 
+	it("waits for an asynchronous session check and never opens Privy when it fails", async () => {
+		const signTypedData = vi.fn(signAsOwner);
+		const check = createDeferred<void>();
+		const beforeSign = vi.fn(() => check.promise.then(() => Promise.reject(new Error("Registration session ended"))));
+		const signer = createPrivyAgentSigner({
+			expectedAddress: EXPECTED_ADDRESS,
+			activeAddress: EXPECTED_ADDRESS,
+			embeddedWalletAddress: EXPECTED_ADDRESS,
+			chainId: 42161,
+			signTypedData,
+			beforeSign,
+			beforeSubmit: vi.fn(),
+			reviewCopy: REVIEW_COPY,
+		});
+
+		const signing = signer.signTypedData(typedData);
+		await Promise.resolve();
+		expect(beforeSign).toHaveBeenCalledOnce();
+		expect(signTypedData).not.toHaveBeenCalled();
+		check.resolve();
+
+		await expect(signing).rejects.toThrow("Registration session ended");
+		expect(signTypedData).not.toHaveBeenCalled();
+	});
+
 	it("checks the session right before Privy signs a current approval", async () => {
 		const signTypedData = vi.fn(signAsOwner);
 		const beforeSign = vi.fn();

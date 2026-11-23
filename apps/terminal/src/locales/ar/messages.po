@@ -8256,7 +8256,6 @@ msgstr "حدّ تحمّل الانزلاق السعري"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "عميل المحفظة الذكية غير جاهز"
 

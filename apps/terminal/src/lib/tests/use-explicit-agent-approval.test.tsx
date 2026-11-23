@@ -554,6 +554,212 @@ describe("useExplicitAgentApproval", () => {
 		}
 	});
 
+	it("does not open the external wallet prompt when the registration session ends while the real SDK reads the chain", async () => {
+		const account = privateKeyToAccount(generatePrivateKey());
+		testState.walletIntent = "external";
+		testState.walletAddress = testState.connectedWalletAddress = account.address;
+		testState.embeddedWalletAddress = OTHER_OWNER;
+		const chainId = createDeferred<number>();
+		const walletGetChainId = vi.fn(() => chainId.promise);
+		const walletSignTypedData = vi.fn((data: Parameters<typeof account.signTypedData>[0]) =>
+			account.signTypedData(data),
+		);
+		testState.walletClient = {
+			account: { address: account.address },
+			getChainId: walletGetChainId,
+			signTypedData: walletSignTypedData,
+		} as unknown as { account: { address: string } };
+		const signer = await vi.importActual<typeof import("@/lib/wallet/external-agent-signer")>(
+			"@/lib/wallet/external-agent-signer",
+		);
+		testState.createExternalAgentSigner.mockImplementation(signer.createExternalAgentSigner);
+		testState.createExchangeClient.mockImplementation(createExchangeClient);
+		testState.captureRegistrationLease.mockImplementation(session.captureAgentRegistrationExecutionLease);
+		testState.startRegistrationExecution.mockImplementation(session.startAgentRegistrationExecution);
+		testState.isRegistrationLeaseCurrent.mockImplementation(session.isAgentRegistrationExecutionLeaseCurrent);
+		const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+		Object.defineProperty(navigator, "locks", {
+			configurable: true,
+			value: {
+				request: async (_name: string, _options: LockOptions, callback: () => unknown) => callback(),
+			},
+		});
+		try {
+			expect(await session.activateAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			const hook = await renderApprovalHook();
+			let request: Promise<unknown> | undefined;
+			await act(async () => {
+				request = hook
+					.mutateAsync({ agentAddress: AGENT, agentName: "Mobile" }, { applicationReview: "confirmed" })
+					.catch((error: unknown) => error);
+				await vi.waitFor(() => expect(walletGetChainId).toHaveBeenCalled());
+			});
+			if (!request) throw new Error("External Agent approval did not start");
+
+			expect(await session.closeAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			chainId.resolve(42161);
+
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await request;
+			});
+			expect(rejection).toBeInstanceOf(Error);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(walletSignTypedData).not.toHaveBeenCalled();
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		} finally {
+			if (previous) Object.defineProperty(navigator, "locks", previous);
+			else Reflect.deleteProperty(navigator, "locks");
+			localStorage.removeItem(`hyperliquid_exchange_nonce_Mainnet_${account.address.toLowerCase()}`);
+			localStorage.removeItem(`hyperliquid_agent_registration_session_Mainnet_${account.address.toLowerCase()}`);
+		}
+	});
+
+	it("does not open the external wallet prompt when its click deadline passes while its lease check is pending", async () => {
+		const account = privateKeyToAccount(generatePrivateKey());
+		testState.walletIntent = "external";
+		testState.walletAddress = testState.connectedWalletAddress = account.address;
+		testState.embeddedWalletAddress = OTHER_OWNER;
+		const walletSignTypedData = vi.fn((data: Parameters<typeof account.signTypedData>[0]) =>
+			account.signTypedData(data),
+		);
+		testState.walletClient = {
+			account: { address: account.address },
+			getChainId: vi.fn(async () => 42161),
+			signTypedData: walletSignTypedData,
+		} as unknown as { account: { address: string } };
+		const signer = await vi.importActual<typeof import("@/lib/wallet/external-agent-signer")>(
+			"@/lib/wallet/external-agent-signer",
+		);
+		testState.createExternalAgentSigner.mockImplementation(signer.createExternalAgentSigner);
+		testState.createExchangeClient.mockImplementation(createExchangeClient);
+		testState.captureRegistrationLease.mockImplementation(session.captureAgentRegistrationExecutionLease);
+		testState.startRegistrationExecution.mockImplementation(session.startAgentRegistrationExecution);
+		const heldLease = createDeferred<boolean>();
+		testState.isRegistrationLeaseCurrent.mockImplementationOnce(() => heldLease.promise);
+		testState.isRegistrationLeaseCurrent.mockImplementation(session.isAgentRegistrationExecutionLeaseCurrent);
+		const deadline = {
+			current: { queuedAt: Date.now(), queuedAtMonotonic: performance.now(), deadlineMs: 15_000 },
+		};
+		const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+		Object.defineProperty(navigator, "locks", {
+			configurable: true,
+			value: {
+				request: async (_name: string, _options: LockOptions, callback: () => unknown) => callback(),
+			},
+		});
+		try {
+			expect(await session.activateAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			const hook = await renderApprovalHook();
+			let request: Promise<unknown> | undefined;
+			await act(async () => {
+				request = hook
+					.mutateAsync({ agentAddress: AGENT, agentName: "Mobile" }, { applicationReview: "confirmed", deadline })
+					.catch((error: unknown) => error);
+				await vi.waitFor(() => expect(testState.isRegistrationLeaseCurrent).toHaveBeenCalledOnce());
+			});
+			if (!request) throw new Error("External Agent approval did not start");
+
+			deadline.current = {
+				queuedAt: Date.now() - 16_000,
+				queuedAtMonotonic: performance.now() - 16_000,
+				deadlineMs: 15_000,
+			};
+			heldLease.resolve(true);
+
+			let rejection: unknown;
+			await act(async () => {
+				rejection = await request;
+			});
+			expect(rejection).toBeInstanceOf(ExchangeActionDeadlineError);
+			expect(walletSignTypedData).not.toHaveBeenCalled();
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		} finally {
+			if (previous) Object.defineProperty(navigator, "locks", previous);
+			else Reflect.deleteProperty(navigator, "locks");
+			localStorage.removeItem(`hyperliquid_exchange_nonce_Mainnet_${account.address.toLowerCase()}`);
+			localStorage.removeItem(`hyperliquid_agent_registration_session_Mainnet_${account.address.toLowerCase()}`);
+		}
+	});
+
+	it("stops waiting for a registration lock held elsewhere once the approval is aborted, and opens no prompt", async () => {
+		const account = privateKeyToAccount(generatePrivateKey());
+		testState.walletIntent = "external";
+		testState.walletAddress = testState.connectedWalletAddress = account.address;
+		testState.embeddedWalletAddress = OTHER_OWNER;
+		const chainId = createDeferred<number>();
+		const walletGetChainId = vi.fn(() => chainId.promise);
+		const walletSignTypedData = vi.fn((data: Parameters<typeof account.signTypedData>[0]) =>
+			account.signTypedData(data),
+		);
+		testState.walletClient = {
+			account: { address: account.address },
+			getChainId: walletGetChainId,
+			signTypedData: walletSignTypedData,
+		} as unknown as { account: { address: string } };
+		const signer = await vi.importActual<typeof import("@/lib/wallet/external-agent-signer")>(
+			"@/lib/wallet/external-agent-signer",
+		);
+		testState.createExternalAgentSigner.mockImplementation(signer.createExternalAgentSigner);
+		testState.createExchangeClient.mockImplementation(createExchangeClient);
+		testState.captureRegistrationLease.mockImplementation(session.captureAgentRegistrationExecutionLease);
+		testState.startRegistrationExecution.mockImplementation(session.startAgentRegistrationExecution);
+		testState.isRegistrationLeaseCurrent.mockImplementation(session.isAgentRegistrationExecutionLeaseCurrent);
+		const heldElsewhere = { active: false, release: () => {} };
+		const lockRequest = vi.fn((_name: string, options: LockOptions, callback: () => unknown): Promise<unknown> => {
+			if (!heldElsewhere.active) return Promise.resolve(callback());
+			return new Promise((resolve, reject) => {
+				const signal = options.signal;
+				signal?.addEventListener(
+					"abort",
+					() => reject(Object.assign(new Error("The lock request was aborted."), { name: "AbortError" })),
+					{ once: true },
+				);
+				heldElsewhere.release = () => resolve(callback());
+			});
+		});
+		const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+		Object.defineProperty(navigator, "locks", { configurable: true, value: { request: lockRequest } });
+		const controller = new AbortController();
+		try {
+			expect(await session.activateAgentRegistrationSession("Mainnet", account.address)).toBe(true);
+			const hook = await renderApprovalHook();
+			let request: Promise<unknown> | undefined;
+			await act(async () => {
+				request = hook
+					.mutateAsync(
+						{ agentAddress: AGENT, agentName: "Mobile" },
+						{ applicationReview: "confirmed", signal: controller.signal },
+					)
+					.catch((error: unknown) => error);
+				await vi.waitFor(() => expect(walletGetChainId).toHaveBeenCalled());
+			});
+			if (!request) throw new Error("External Agent approval did not start");
+
+			heldElsewhere.active = true;
+			const locksBefore = lockRequest.mock.calls.length;
+			chainId.resolve(42161);
+			await act(async () => {
+				await vi.waitFor(() => expect(lockRequest.mock.calls.length).toBeGreaterThan(locksBefore));
+			});
+
+			let rejection: unknown;
+			await act(async () => {
+				controller.abort();
+				rejection = await request;
+			});
+			expect(rejection).toMatchObject({ cause: expect.objectContaining({ name: "AbortError" }) });
+			expect(walletSignTypedData).not.toHaveBeenCalled();
+			expect(testState.transportRequest).not.toHaveBeenCalled();
+		} finally {
+			heldElsewhere.release();
+			if (previous) Object.defineProperty(navigator, "locks", previous);
+			else Reflect.deleteProperty(navigator, "locks");
+			localStorage.removeItem(`hyperliquid_exchange_nonce_Mainnet_${account.address.toLowerCase()}`);
+			localStorage.removeItem(`hyperliquid_agent_registration_session_Mainnet_${account.address.toLowerCase()}`);
+		}
+	});
+
 	it("does not open the external wallet prompt when the identity changes while the real SDK reads the chain", async () => {
 		const account = privateKeyToAccount(generatePrivateKey());
 		testState.walletIntent = "external";

@@ -379,6 +379,58 @@ describe("HyperliquidProvider userAddress prop", () => {
 
 		expect(sessionMocks.closeAndRemove).not.toHaveBeenCalled();
 		expect(sessionMocks.activate).toHaveBeenLastCalledWith("Testnet", ADDRESS_A);
+		expect(schedulerMocks.markReplaced).not.toHaveBeenCalled();
+		await act(async () => {
+			root.unmount();
+			await Promise.resolve();
+		});
+	});
+
+	it("retires the last confirmed identity when the network changes while the session is still disconnected", async () => {
+		const { HyperliquidProvider } = await import("@sairn/hl-react/provider");
+		const container = document.createElement("div");
+		const root = createRoot(container);
+
+		await act(async () => {
+			root.render(
+				<HyperliquidProvider env="Testnet" userAddress={ADDRESS_A} builderConfig={TEST_BUILDER_CONFIG}>
+					<div />
+				</HyperliquidProvider>,
+			);
+		});
+		await act(async () => {
+			root.render(
+				<HyperliquidProvider env="Testnet" userAddress={undefined} builderConfig={TEST_BUILDER_CONFIG}>
+					<div />
+				</HyperliquidProvider>,
+			);
+		});
+		expect(schedulerMocks.markReplaced).not.toHaveBeenCalled();
+		await act(async () => {
+			root.render(
+				<HyperliquidProvider env="Mainnet" userAddress={undefined} builderConfig={TEST_BUILDER_CONFIG}>
+					<div />
+				</HyperliquidProvider>,
+			);
+		});
+
+		expect(schedulerMocks.markReplaced).toHaveBeenCalledOnce();
+		expect(schedulerMocks.markReplaced).toHaveBeenCalledWith("Testnet", ADDRESS_A);
+		await act(async () => {
+			root.render(
+				<HyperliquidProvider env="Testnet" userAddress={undefined} builderConfig={TEST_BUILDER_CONFIG}>
+					<div />
+				</HyperliquidProvider>,
+			);
+		});
+		await act(async () => {
+			root.render(
+				<HyperliquidProvider env="Testnet" userAddress={ADDRESS_A} builderConfig={TEST_BUILDER_CONFIG}>
+					<div />
+				</HyperliquidProvider>,
+			);
+		});
+		expect(schedulerMocks.markReplaced).toHaveBeenCalledOnce();
 		await act(async () => {
 			root.unmount();
 			await Promise.resolve();

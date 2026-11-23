@@ -108,6 +108,34 @@ describe("createExternalAgentSigner", () => {
 		expect(request).not.toHaveBeenCalled();
 	});
 
+	it("waits for an asynchronous session check and never opens the wallet when it fails", async () => {
+		const signTypedData = vi.fn(signAsOwner);
+		const check = createDeferred<void>();
+		const beforeSign = vi.fn(() => check.promise.then(() => Promise.reject(new Error("Registration session ended"))));
+		const request = vi.fn().mockResolvedValue({ status: "ok", response: { type: "default" } });
+		const client = new ExchangeClient({
+			transport: { isTestnet: false, request } as IRequestTransport,
+			wallet: createExternalAgentSigner({
+				expectedAddress: EXPECTED_ADDRESS,
+				walletClient: createWalletClient(signTypedData),
+				beforeSign,
+				beforeSubmit: vi.fn(),
+			}),
+			nonceManager: () => 1_722_000_000_000,
+		});
+
+		const approval = client.approveAgent({ agentAddress: OTHER_ADDRESS, agentName: "Mobile" });
+		await vi.waitFor(() => expect(beforeSign).toHaveBeenCalledOnce());
+		expect(signTypedData).not.toHaveBeenCalled();
+		check.resolve();
+
+		await expect(approval).rejects.toMatchObject({
+			cause: expect.objectContaining({ message: "Registration session ended" }),
+		});
+		expect(signTypedData).not.toHaveBeenCalled();
+		expect(request).not.toHaveBeenCalled();
+	});
+
 	it("checks the session after the real SDK reads the chain and before the wallet prompt opens", async () => {
 		const chainId = createDeferred<number>();
 		const signTypedData = vi.fn(signAsOwner);

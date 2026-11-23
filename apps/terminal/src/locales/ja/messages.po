@@ -7404,7 +7404,6 @@ msgstr "スリッページ許容幅"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "スマートウォレットクライアントの準備ができていません"
 

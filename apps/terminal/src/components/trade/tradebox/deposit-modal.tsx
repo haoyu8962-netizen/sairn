@@ -73,6 +73,11 @@ import {
 } from "@/lib/errors/format";
 import { useNumberFormat } from "@/lib/format";
 import { infoQueryOptions, useExchange, useHyperliquid, useInfo } from "@/lib/hyperliquid";
+import {
+	createDepositSessionAttempt,
+	type DepositSessionAttempt,
+	type DepositSessionSnapshot,
+} from "@/lib/hyperliquid/deposit-session-attempt";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
 import { useDeposit } from "@/lib/hyperliquid/use-deposit";
 import { createLazyComponent } from "@/lib/lazy";
@@ -103,6 +108,7 @@ import {
 } from "@/lib/trade/withdrawal";
 import { getPrivyEmailAddress } from "@/lib/wallet/privy-wagmi";
 import {
+	getGlobalModalOpening,
 	useDepositModalActions,
 	useDepositModalOpen,
 	useDepositModalTab,
@@ -482,6 +488,25 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	const visibleTab = showBridgeTab || activeTab !== "bridge" ? activeTab : "deposit";
 	const liveFundsModalSessionIdentity = `${clientKey.toLowerCase()}:${sessionMode}:${walletAddress?.toLowerCase() ?? "disconnected"}:${depositEmbeddedWalletAddress?.toLowerCase() ?? "none"}:${walletIntent}:${accountAbstraction ?? "unavailable"}`;
 	const fundsModalSessionIdentity = useHeldWhileResolving(liveFundsModalSessionIdentity, fundsSessionHeld);
+	const liveDepositWalletAddress = isEmbeddedDeposit ? depositEmbeddedWalletAddress : walletAddress;
+	const depositAttemptRef = useRef<DepositSessionAttempt | null>(null);
+	function readDepositSessionSnapshot(): DepositSessionSnapshot {
+		return {
+			opening: getGlobalModalOpening(),
+			resolving: isResolving,
+			clientKey,
+			wallet: liveDepositWalletAddress,
+		};
+	}
+	useLayoutEffect(() => {
+		depositAttemptRef.current?.observe(readDepositSessionSnapshot());
+	});
+	useLayoutEffect(
+		() => () => {
+			depositAttemptRef.current?.invalidate();
+		},
+		[],
+	);
 	const fundsModalContextIdentity = `${env}:${fundsModalSessionIdentity}:${open ? "open" : "closed"}:${visibleTab}:${selectedDepositRoute}:${withdrawalRoute}`;
 	const fundsModalContextIdentityRef = useRef<string | null>(null);
 	const usesFundsRedesign = visibleTab !== "bridge";
@@ -919,9 +944,17 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			return;
 		}
 
-		if (!liveSessionTokenRef.current) return;
+		const sessionToken = liveSessionTokenRef.current;
+		if (!sessionToken) return;
 		setDepositCctpPreflightErrorCode(null);
 		setDepositRoutingPreflightErrorCode(null);
+		depositAttemptRef.current?.invalidate();
+		const attempt = createDepositSessionAttempt({
+			clicked: readDepositSessionSnapshot(),
+			readOpening: getGlobalModalOpening,
+			isLiveSessionCurrent: () => liveSessionTokenRef.current === sessionToken,
+		});
+		depositAttemptRef.current = attempt;
 		const preflightId = depositPreflightIdRef.current + 1;
 		const preflightContextIdentity = fundsModalContextIdentityRef.current;
 		if (preflightContextIdentity !== fundsModalContextIdentity) return;
@@ -972,6 +1005,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 				expectedBalanceRaw: isEmbeddedDeposit ? reviewedDepositAmountRaw : undefined,
 				expectedCctpMaxFeeRaw: displayedCctpDepositFeeQuery.calculation?.maxFeeRaw,
 				deadline,
+				session: attempt.check,
 			});
 		} catch (error) {
 			if (!isCurrentPreflight()) return;

@@ -223,7 +223,13 @@ export function useExplicitAgentApproval(): ExplicitAgentApproval {
 					assertApprovalSessionCurrent();
 					assertGrantRegionAllowed();
 				};
-				const beforeSign = () => {
+				const beforeSign = async () => {
+					assertApprovalSessionCurrent();
+					assertGrantRegionAllowed();
+					const leaseCurrent = await isAgentRegistrationExecutionLeaseCurrent(registrationLease, options.signal);
+					throwIfApprovalAborted(options.signal);
+					if (!leaseCurrent) throw createActionError("identity-changed");
+					if (options.deadline) assertExchangeSigningDeadline(options.deadline);
 					assertApprovalSessionCurrent();
 					assertGrantRegionAllowed();
 				};

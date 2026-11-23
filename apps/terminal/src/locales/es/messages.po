@@ -8256,7 +8256,6 @@ msgstr "Tolerancia de slippage"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "El cliente de monedero inteligente no está listo"
 

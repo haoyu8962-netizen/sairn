@@ -163,6 +163,27 @@ changes, not evidence that a build has been deployed or accepted on real devices
   seen the change, whichever of the dialog's own checks before sending stopped it, including the
   send's last check of the destination (activation fee changed, sanctioned or unavailable); when
   only the dialog's own check notices the new account mode, it may still show the error.
+- The wallet is no longer asked to sign a Hyperliquid request, a deposit or an Agent approval after
+  the wallet session changed since you clicked (ADR 0058). For Hyperliquid requests signed by an
+  external wallet or an Agent key, a signature that comes back while the wallet is only reconnecting
+  to the same account is still sent, as on the official terminal; one that comes back after the
+  session settled on another account is dropped and reported as not sent. Approving an API wallet or
+  linking a phone no longer opens the wallet prompt after another tab ended or replaced that pending
+  approval, or once its 15-second start limit has passed while it waited for that check. Every
+  wallet request of a manual deposit, including the switch to Arbitrum and adding the network, goes
+  through the same check. After you sign the deposit authorization, the deposit waits once, up to 30
+  seconds, for the wallet to be back on the same account, then checks the route, Circle fee, balances
+  and terms of use again before it asks for the transaction (external wallet) or hands it to the email
+  wallet's sponsored sender. If the wallet comes back on another account or the dialog is closed, the
+  deposit stops without a message; if the dialog stays open and the wallet is not back within 30
+  seconds, it shows "Wallet not connected" and nothing is sent (on most pages the dialog starts over
+  for the disconnected wallet first, and the deposit then stops without a message); if the wallet
+  drops out again after that wait, the deposit stops without sending, and a check that failed
+  meanwhile is shown as usual. Once the email wallet's sponsored sender has the deposit, switching
+  accounts no longer stops it; it deposits your own signed USDC into your own account. An
+  external-wallet deposit whose wallet gave an unclear answer to the transaction is never sent a
+  second time and keeps its unknown status, and one that never reached the wallet's transaction
+  prompt is reported as a plain failure instead of an unknown status.
 - A late result of a send from one account no longer clears or replaces the retry draft saved by
   another account: each network and account keeps its own retry draft until the page reloads.
 - The API wallet page no longer shows a red warning block or "Loading…", "Refreshing…" and

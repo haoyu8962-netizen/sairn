@@ -120,10 +120,13 @@ export function HyperliquidSessionProvider({
 			);
 		}
 		const confirmed = lastConfirmedExchangeIdentityRef.current;
-		if (next && confirmed && !isSameExchangeIdentity(confirmed, next)) {
+		const networkLeftConfirmed = confirmed !== null && confirmed.env !== env;
+		const replacesConfirmed = next ? !isSameExchangeIdentity(confirmed, next) : networkLeftConfirmed;
+		if (confirmed && replacesConfirmed) {
 			markExchangeIdentityReplaced(confirmed.env, confirmed.clientKey);
 		}
 		if (next) lastConfirmedExchangeIdentityRef.current = next;
+		else if (networkLeftConfirmed) lastConfirmedExchangeIdentityRef.current = null;
 		previousExchangeIdentityRef.current = next;
 	}, [clientKey, env, sessionMode]);
 

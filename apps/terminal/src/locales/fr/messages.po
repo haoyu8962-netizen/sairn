@@ -8256,7 +8256,6 @@ msgstr "Tolérance au slippage"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "Le client du portefeuille intelligent n’est pas prêt"
 

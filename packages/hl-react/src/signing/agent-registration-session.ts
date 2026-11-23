@@ -462,14 +462,24 @@ export function captureAgentRegistrationExecutionLease(
 	return lease;
 }
 
+/**
+ * Whether the lease is still current, read under the registration session lock. An aborted `signal` stops waiting
+ * for that lock and answers false.
+ */
 export async function isAgentRegistrationExecutionLeaseCurrent(
 	lease: AgentRegistrationExecutionLease,
+	signal?: AbortSignal,
 ): Promise<boolean> {
-	const result = await withSessionLock(lease.epoch.env, lease.epoch.owner, async () => {
-		if (!matchesExecutionLease(lease)) return false;
-		if (!lease.activeOwner) return true;
-		return (await runWithActiveAgentOwnerExecutionLease(lease.activeOwner, () => true)) === true;
-	});
+	const result = await withSessionLock(
+		lease.epoch.env,
+		lease.epoch.owner,
+		async () => {
+			if (!matchesExecutionLease(lease)) return false;
+			if (!lease.activeOwner) return true;
+			return (await runWithActiveAgentOwnerExecutionLease(lease.activeOwner, () => true)) === true;
+		},
+		signal,
+	);
 	return result ?? false;
 }
 

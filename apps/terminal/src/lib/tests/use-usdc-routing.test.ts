@@ -73,7 +73,7 @@ describe("fresh USDC routing", () => {
 		const pendingDepositCheckIndex = cctpCriticalSection.indexOf("readCctpDepositTrackingRecords");
 		const cctpRoleIndex = cctpCriticalSection.indexOf("getSdkInfoClient(false).userRole");
 		const cctpSigningIndex = cctpCriticalSection.indexOf("ready.walletClient.signTypedData");
-		const sponsoredSendIndex = cctpCriticalSection.indexOf("smartClient.sendTransaction");
+		const sponsoredSendIndex = cctpCriticalSection.indexOf("broadcastClient.sendTransaction");
 		const directSendIndex = cctpCriticalSection.indexOf("ready.walletClient.writeContract");
 		const cctpTrackingSaveIndex = cctpCriticalSection.indexOf("saveCctpDepositTrackingRecord");
 
