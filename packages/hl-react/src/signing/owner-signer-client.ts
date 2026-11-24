@@ -1,7 +1,10 @@
 import type { ExchangeClient, IRequestTransport } from "@nktkas/hyperliquid";
 import type { AbstractViemJsonRpcAccount } from "@nktkas/hyperliquid/signing";
 import { createExchangeClient, getHttpTransport } from "../clients";
-import { ExchangeRequestInvalidatedError } from "../internal/exchange/request-scheduler";
+import {
+	ExchangeRequestInvalidatedError,
+	type ExchangeRequestInvalidationPhase,
+} from "../internal/exchange/request-scheduler";
 import { assertTypedDataSignedBy } from "../wallet";
 import type { HyperliquidOwnerSigner } from "./owner-signer-provider";
 
@@ -29,39 +32,75 @@ export function createOwnerSignerClient(
 	const signingWallet = wallet;
 	const signingAddress = address;
 
-	async function verifyOwner() {
-		owner.assertCurrent();
-		const addresses = await signingWallet.getAddresses();
-		owner.assertCurrent();
+	function toInvalidated(error: unknown, phase: ExchangeRequestInvalidationPhase): ExchangeRequestInvalidatedError {
+		if (error instanceof ExchangeRequestInvalidatedError && error.phase === phase) return error;
+		return new ExchangeRequestInvalidatedError(phase, { cause: error });
+	}
+
+	function assertOwnerCurrent(phase: ExchangeRequestInvalidationPhase) {
+		try {
+			owner.assertCurrent();
+		} catch (error) {
+			throw toInvalidated(error, phase);
+		}
+	}
+
+	/**
+	 * The embedded signer checks its own session around the silent signature and throws a plain error when the
+	 * binding changed meanwhile. That signature is dropped and never sent, so it is reported as "not sent".
+	 */
+	function assertOwnerCurrentAfterSignerFailure(signerError: unknown) {
+		try {
+			owner.assertCurrent();
+		} catch {
+			throw toInvalidated(signerError, "after-signature");
+		}
+	}
+
+	async function verifyOwner(phase: ExchangeRequestInvalidationPhase) {
+		assertOwnerCurrent(phase);
+		let addresses: readonly string[];
+		try {
+			addresses = await signingWallet.getAddresses();
+		} catch (error) {
+			throw toInvalidated(error, phase);
+		}
+		assertOwnerCurrent(phase);
 		if (addresses.length !== 1 || addresses[0]?.toLowerCase() !== signingAddress.toLowerCase()) {
-			throw new ExchangeRequestInvalidatedError();
+			throw new ExchangeRequestInvalidatedError(phase);
 		}
 	}
 
 	const guardedWallet: AbstractViemJsonRpcAccount = {
 		async getAddresses() {
-			await verifyOwner();
+			await verifyOwner("before-signature");
 			return [address];
 		},
 		async getChainId() {
-			await verifyOwner();
+			await verifyOwner("before-signature");
 			const chainId = await wallet.getChainId();
-			owner.assertCurrent();
+			assertOwnerCurrent("before-signature");
 			return chainId;
 		},
 		async signTypedData(typedData) {
-			await verifyOwner();
-			const signature = await wallet.signTypedData(typedData);
+			await verifyOwner("before-signature");
+			let signature: `0x${string}`;
+			try {
+				signature = await wallet.signTypedData(typedData);
+			} catch (error) {
+				assertOwnerCurrentAfterSignerFailure(error);
+				throw error;
+			}
 			await assertTypedDataSignedBy(typedData, signature, signingAddress);
-			await verifyOwner();
+			await verifyOwner("after-signature");
 			return signature;
 		},
 	};
 	const transport: IRequestTransport = {
 		isTestnet: baseTransport.isTestnet,
 		async request<T>(endpoint: "info" | "exchange", payload: unknown, signal?: AbortSignal): Promise<T> {
-			await verifyOwner();
-			owner.assertCurrent();
+			await verifyOwner("after-signature");
+			assertOwnerCurrent("after-signature");
 			return baseTransport.request<T>(endpoint, payload, signal);
 		},
 	};

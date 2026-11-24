@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { i18n, type Messages } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
 import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
+import { FUNDS_ACTION_LOCK_WAIT_TIMEOUT_MS } from "@sairn/hl-react/internal/exchange/funds-action-lock";
 import {
 	ExchangeActionDeadlineError,
 	type ExchangeSigningDeadlineSlot,
@@ -12,17 +13,18 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, type ButtonHTMLAttributes, createElement, type ReactNode, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { DepositModalHost } from "@/components/trade/components/deposit-modal-host";
 import { renderFundsModalBackButton } from "@/components/trade/components/funds-modal-back-button";
 import { CctpDepositTrackingNotifier } from "@/components/trade/tradebox/cctp-deposit-tracking-notifier";
+import { DEPOSIT_SESSION_SETTLE_TIMEOUT_MS } from "@/config/time";
 import { AccountAbstractionExecutionError } from "@/hooks/trade/use-account-abstraction-guard";
 import { CCTP_CONSUMER_NOT_FOUND_POLLS_BEFORE_UNKNOWN } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { FundsActionGeoExecutionError } from "@/hooks/trade/use-funds-action-availability";
 import { UsdcDepositRouteError } from "@/hooks/trade/use-usdc-routing";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
-import type { DepositReview } from "@/lib/hyperliquid/use-deposit";
+import type { DepositReview, DepositSessionCheck, DepositSessionSettlement } from "@/lib/hyperliquid/use-deposit";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import {
 	readCctpDepositTrackingRecords,
@@ -77,6 +79,8 @@ const toastMocks = vi.hoisted(() => ({
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 const closeDepositModal = vi.hoisted(() => vi.fn());
+type GlobalModalStoreModule = typeof import("@/stores/use-global-modal-store");
+const realGlobalModalStore = vi.hoisted(() => ({ module: null as GlobalModalStoreModule | null }));
 const resetDeposit = vi.hoisted(() => vi.fn());
 const warmPrivyFiatFundingHost = vi.hoisted(() => vi.fn());
 
@@ -98,7 +102,7 @@ const testState = vi.hoisted(() => ({
 	depositExecutionAmount: null as string | null,
 	accountGuard: vi.fn(),
 	accountAbstraction: "disabled" as string | null,
-	activeTab: "deposit" as "deposit" | "withdraw",
+	activeTab: "deposit" as "deposit" | "withdraw" | "bridge",
 	cctpDepositFeeCalculation: { maxFeeRaw: 200_000n, netAmountRaw: 4_800_000n } as {
 		maxFeeRaw: bigint;
 		netAmountRaw: bigint;
@@ -188,6 +192,9 @@ const testState = vi.hoisted(() => ({
 	useDepositOptions: null as Record<string, unknown> | null,
 	walletIntentOverride: undefined as "ambiguous" | "embedded" | "external" | "unavailable" | undefined,
 	walletAddress: "0x1111111111111111111111111111111111111111",
+	otherWalletAccount: "0x3333333333333333333333333333333333333333",
+	walletSession: "connected" as "connected" | "resolving" | "resolving-other-account" | "away" | "signed-out",
+	hasExistingBridgeExecution: false,
 	walletProviderError: null as Error | null,
 	walletProviderStatus: "idle" as "idle" | "loading" | "ready" | "error",
 	withdrawable: "10",
@@ -396,14 +403,35 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 		reconnectWallet: vi.fn(),
 		walletsReady: true,
 	}),
-	useWalletSession: () => ({
-		embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
-		hasWalletAccess: true,
-		user: testState.emailAddress ? {} : null,
-		walletAddress: testState.walletAddress,
-		walletIntent: testState.walletIntentOverride ?? (testState.emailAddress ? "embedded" : "external"),
-	}),
+	useWalletSession: () => {
+		const connectedWalletAddress = getConnectedWalletAddress();
+		return {
+			authenticated: testState.walletSession !== "signed-out",
+			connectedWalletAddress,
+			embeddedWalletAddress: testState.emailAddress ? testState.walletAddress : null,
+			hasWalletAccess: testState.walletSession === "connected",
+			isResolving: testState.walletSession === "resolving" || testState.walletSession === "resolving-other-account",
+			user: testState.emailAddress ? {} : null,
+			walletAddress: testState.walletSession === "connected" ? testState.walletAddress : undefined,
+			walletConnected: connectedWalletAddress !== undefined,
+			walletIntent: testState.walletIntentOverride ?? (testState.emailAddress ? "embedded" : "external"),
+		};
+	},
 }));
+
+// What wagmi reports for each session state: the settled account while connected or reconnecting it, another
+// account when the wallet switched while the session is still resolving, nothing while away or signed out.
+function getConnectedWalletAddress(): string | undefined {
+	if (testState.walletSession === "resolving-other-account") return testState.otherWalletAccount;
+	if (testState.walletSession === "connected" || testState.walletSession === "resolving") {
+		return testState.walletAddress;
+	}
+	return undefined;
+}
+
+function isWithoutClientKey(): boolean {
+	return testState.walletSession === "away" || testState.walletSession === "resolving-other-account";
+}
 
 vi.mock("@/lib/hyperliquid", () => ({
 	infoQueryOptions: (_info: unknown, method: string, params: unknown, env: string) => ({
@@ -449,10 +477,10 @@ vi.mock("@/lib/hyperliquid", () => ({
 		};
 	},
 	useHyperliquid: () => ({
-		clientKey: testState.hyperliquidClientKey,
+		clientKey: isWithoutClientKey() ? "disconnected" : testState.hyperliquidClientKey,
 		env: testState.hyperliquidEnv,
 		info: { preTransferCheck: testState.preTransferInfo },
-		sessionMode: testState.hyperliquidSessionMode,
+		sessionMode: isWithoutClientKey() ? "disconnected" : testState.hyperliquidSessionMode,
 	}),
 	useInfo: (method: string, params: unknown, options?: { enabled?: boolean }) => {
 		testState.infoQueryCalls.push({ enabled: options?.enabled !== false, method, params });
@@ -518,19 +546,39 @@ vi.mock("@/lib/lazy", () => ({
 }));
 
 vi.mock("@/lib/lifi/bridge-execution-state", () => ({
-	useHasExistingBridgeExecution: () => false,
+	useHasExistingBridgeExecution: () => testState.hasExistingBridgeExecution,
 }));
 
 vi.mock("@/lib/wallet/privy-wagmi", () => ({
 	getPrivyEmailAddress: () => testState.emailAddress,
 }));
 
-vi.mock("@/stores/use-global-modal-store", () => ({
-	useDepositModalActions: () => ({ close: closeDepositModal }),
-	useDepositModalOpen: () => testState.modalOpen,
-	useDepositModalTab: () => testState.activeTab,
-	useTransferModalActions: () => ({ open: vi.fn() }),
-}));
+vi.mock("@/stores/use-global-modal-store", async (importOriginal) => {
+	const actual = await importOriginal<GlobalModalStoreModule>();
+	realGlobalModalStore.module = actual;
+	return {
+		getGlobalModalOpening: actual.getGlobalModalOpening,
+		useDepositModalActions: () => ({ close: closeDepositModal }),
+		useDepositModalOpen: () => testState.modalOpen,
+		useDepositModalTab: () => testState.activeTab,
+		useTransferModalActions: () => ({ open: vi.fn() }),
+	};
+});
+
+function readRealDepositModalActions(): ReturnType<GlobalModalStoreModule["useDepositModalActions"]> {
+	const store = realGlobalModalStore.module;
+	if (!store) throw new Error("Missing the real global modal store");
+	let actions: ReturnType<GlobalModalStoreModule["useDepositModalActions"]> | null = null;
+	function CaptureDepositModalActions() {
+		actions = store?.useDepositModalActions() ?? null;
+		return null;
+	}
+	const captureRoot = createRoot(document.createElement("div"));
+	act(() => captureRoot.render(createElement(CaptureDepositModalActions)));
+	act(() => captureRoot.unmount());
+	if (!actions) throw new Error("Missing the real deposit modal actions");
+	return actions;
+}
 
 vi.mock("@/stores/use-global-settings-store", () => ({
 	getResolvedFormatLocale: () => testState.formatLocale,
@@ -577,6 +625,7 @@ vi.mock("@/components/trade/components/pending-action-modal", () => ({
 
 vi.mock("@/components/trade/tradebox/deposit/deposit-form", () => ({
 	DepositForm: ({
+		amount,
 		onAmountChange,
 		onRetryRouting,
 		onRetryData,
@@ -595,6 +644,7 @@ vi.mock("@/components/trade/tradebox/deposit/deposit-form", () => ({
 		belowMinimumDepositRaw,
 		validation,
 	}: {
+		amount: string;
 		onAmountChange: (amount: string) => void;
 		amountError?: string | null;
 		minimumDepositRaw: bigint | null;
@@ -617,6 +667,7 @@ vi.mock("@/components/trade/tradebox/deposit/deposit-form", () => ({
 			"div",
 			{
 				"data-cctp-fee": cctpFee,
+				"data-deposit-amount": amount,
 				"data-amount-error": amountError ?? undefined,
 				"data-minimum": minimumDepositRaw?.toString(),
 				"data-below-minimum": belowMinimumDepositRaw?.toString(),
@@ -660,7 +711,7 @@ vi.mock("@/components/trade/tradebox/deposit/shared-ui", () => ({
 			createElement("p", { "data-testid": "status-description" }, description),
 			children,
 		),
-	WalletNotConnected: () => null,
+	WalletNotConnected: () => createElement("p", { "data-testid": "wallet-not-connected" }),
 }));
 
 vi.mock("@/components/trade/tradebox/deposit/withdraw-form", () => ({
@@ -845,6 +896,8 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		testState.useDepositOptions = null;
 		testState.walletIntentOverride = undefined;
 		testState.walletAddress = "0x1111111111111111111111111111111111111111";
+		testState.walletSession = "connected";
+		testState.hasExistingBridgeExecution = false;
 		testState.walletProviderError = null;
 		testState.walletProviderStatus = "idle";
 		testState.withdrawable = "10";
@@ -873,6 +926,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+		readRealDepositModalActions().close();
 	});
 
 	function getGuard(method: "sendToEvmWithData" | "withdraw3") {
@@ -985,6 +1039,60 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		await act(async () => getButton("Submit withdrawal").click());
 		expect(testState.exchangeSdkCalls.get("sendToEvmWithData")).not.toHaveBeenCalled();
 		expect(testState.exchangeSdkCalls.get("withdraw3")).not.toHaveBeenCalled();
+	});
+
+	it.each(["withdraw", "deposit", "bridge"] as const)(
+		"keeps the %s tab quiet and its draft while the wallet session resolves",
+		async (tab) => {
+			testState.modalOpen = true;
+			testState.activeTab = tab;
+			testState.hasExistingBridgeExecution = tab === "bridge";
+			await rerender();
+			if (tab === "withdraw") act(() => getButton("Set amount").click());
+			if (tab === "deposit") act(() => getButton("Set deposit amount").click());
+			const amountBefore = container
+				.querySelector('[data-testid="withdraw-routing-status"]')
+				?.getAttribute("data-amount");
+			const depositAmount = () =>
+				container.querySelector('[data-testid="deposit-routing-status"]')?.getAttribute("data-deposit-amount");
+			if (tab === "deposit") expect(depositAmount()).toBe("0.4");
+
+			testState.walletSession = "resolving";
+			await rerender();
+			expect(container.querySelector('[data-slot="funds-session-resolving"] [aria-busy="true"]')).not.toBeNull();
+			expect(container.querySelector('[data-testid="wallet-not-connected"]')).toBeNull();
+
+			testState.walletSession = "connected";
+			await rerender();
+			expect(container.querySelector('[data-slot="funds-session-resolving"]')).toBeNull();
+			if (tab === "withdraw") {
+				expect(container.querySelector('[data-testid="withdraw-routing-status"]')?.getAttribute("data-amount")).toBe(
+					amountBefore,
+				);
+				expect(amountBefore).toBe(testState.withdrawDraft);
+			}
+			if (tab === "deposit") expect(depositAmount()).toBe("0.4");
+			expect(container.querySelector('[data-testid="wallet-not-connected"]')).toBeNull();
+
+			testState.walletSession = "signed-out";
+			await rerender();
+			expect(container.querySelector('[data-testid="wallet-not-connected"]')).not.toBeNull();
+			expect(container.querySelector('[data-slot="funds-session-resolving"]')).toBeNull();
+		},
+	);
+
+	describe("a pending external-wallet deposit while the signed-in session is without its wallet (E2)", () => {
+		it("releases the wallet at once when the session is not resolving", async () => {
+			testState.modalOpen = true;
+			testState.activeTab = "deposit";
+			testState.depositStatus = "pending";
+			await rerender();
+			expect(testState.useDepositOptions).toMatchObject({ mode: "wallet", walletAddress: testState.walletAddress });
+			testState.walletSession = "away";
+			await rerender();
+			expect(testState.useDepositOptions).toMatchObject({ mode: "wallet" });
+			expect(testState.useDepositOptions?.walletAddress).toBeUndefined();
+		});
 	});
 
 	it("writes the CCTP minimum withdrawal with the number-format separators", async () => {
@@ -1127,15 +1235,121 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			expect(exchange.request).not.toHaveBeenCalled();
 		});
 
+		describe("a withdrawal the real exchange path stops before sending", () => {
+			const STOPS = [
+				{
+					stop: "the locked legal recheck refuses the owner",
+					error: "LegalActionNotAllowedError",
+					message: "This account is not currently permitted to perform trading actions on Hyperliquid.",
+				},
+				{
+					stop: "the funds lock is not acquired in time",
+					error: "FundsActionLockTimeoutError",
+					message: "Another funds operation is still in progress for this account. Try again after it finishes.",
+				},
+			] as const;
+
+			async function holdRealWithdrawal(stop: (typeof STOPS)[number]["stop"]) {
+				act(() => root.render(null));
+				const exchange = await installScheduledExchange();
+				let waiting: ReturnType<typeof vi.fn>;
+				let releaseStop: () => Promise<void>;
+				if (stop === "the locked legal recheck refuses the owner") {
+					let refuse!: () => void;
+					exchange.legalCheck.mockReturnValueOnce(
+						new Promise((resolve) => {
+							refuse = () => resolve({ ...exchange.allowed, userAllowed: false });
+						}),
+					);
+					waiting = exchange.legalCheck;
+					releaseStop = () => act(async () => refuse());
+				} else {
+					const lockRequest = vi.fn();
+					Object.defineProperty(navigator, "locks", {
+						configurable: true,
+						value: {
+							request: (_name: string, options: LockOptions) => {
+								lockRequest();
+								return new Promise((_resolve, reject) => {
+									options.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+								});
+							},
+						},
+					});
+					vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+					onTestFinished(() => {
+						vi.useRealTimers();
+					});
+					waiting = lockRequest;
+					releaseStop = () =>
+						act(async () => {
+							await vi.advanceTimersByTimeAsync(FUNDS_ACTION_LOCK_WAIT_TIMEOUT_MS);
+						});
+				}
+				testState.modalOpen = true;
+				testState.activeTab = "withdraw";
+				testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: route };
+				testState.freshRoutingResponse = testState.routingResponse;
+				await submitWithdrawal();
+				await vi.waitFor(() => expect(waiting).toHaveBeenCalledOnce());
+				expect(queryClient.getMutationCache().getAll().at(-1)?.options.mutationKey).toContain(method);
+				async function stopAndSettle() {
+					await releaseStop();
+					await vi.waitFor(() => expect(queryClient.getMutationCache().getAll().at(-1)?.state.status).toBe("error"));
+					await rerender();
+					return queryClient.getMutationCache().getAll().at(-1)?.state.error;
+				}
+				return { exchange, stopAndSettle };
+			}
+
+			it.each(STOPS)(
+				"keeps the draft quietly when the route refreshes while it waits and then $stop",
+				async ({ stop, error }) => {
+					const { exchange, stopAndSettle } = await holdRealWithdrawal(stop);
+					testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: otherWithdrawalRoute() };
+					await rerender();
+					expect(await stopAndSettle()).toMatchObject({ name: error });
+
+					expect(exchange.signTypedData).not.toHaveBeenCalled();
+					expect(exchange.request).not.toHaveBeenCalled();
+					expect(toastMocks.error).not.toHaveBeenCalled();
+					expect(toastMocks.warning).not.toHaveBeenCalled();
+					expect(toastMocks.success).not.toHaveBeenCalled();
+					expect(closeDepositModal).not.toHaveBeenCalled();
+					const form = container.querySelector('[data-testid="withdraw-routing-status"]');
+					expect(form?.getAttribute("data-amount")).toBe(testState.withdrawDraft);
+					expect(form?.getAttribute("data-is-pending")).toBe("false");
+				},
+			);
+
+			it.each(STOPS)(
+				"reports the failure and closes when $stop without a route refresh",
+				async ({ stop, error, message }) => {
+					const { exchange, stopAndSettle } = await holdRealWithdrawal(stop);
+					await rerender();
+					expect(await stopAndSettle()).toMatchObject({ name: error });
+
+					expect(exchange.signTypedData).not.toHaveBeenCalled();
+					expect(exchange.request).not.toHaveBeenCalled();
+					expect(toastMocks.error).toHaveBeenCalledExactlyOnceWith(message);
+					expect(toastMocks.warning).not.toHaveBeenCalled();
+					expect(toastMocks.success).not.toHaveBeenCalled();
+					expect(closeDepositModal).toHaveBeenCalledOnce();
+				},
+			);
+		});
+
 		async function pauseAfterPreflight() {
 			testState.modalOpen = true;
 			testState.activeTab = "withdraw";
 			testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: route };
 			testState.freshRoutingResponse = testState.routingResponse;
 			let release!: () => void;
+			let fail!: (error: unknown) => void;
 			testState.exchangeFinalWait.mockReturnValueOnce(
-				new Promise<void>((resolve) => {
+				new Promise<void>((resolve, reject) => {
 					release = resolve;
+					fail = reject;
 				}),
 			);
 			await rerender();
@@ -1148,7 +1362,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			});
 			expect(testState.exchangeMutations.get(method)).toHaveBeenCalledOnce();
 			expect(testState.exchangeSdkCalls.get(method)).not.toHaveBeenCalled();
-			return { release, submission };
+			return { release, fail, submission };
 		}
 
 		it.each([
@@ -1241,6 +1455,364 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			expect(container.querySelector('[data-testid="status-screen"]')).toBeNull();
 			expect(closeDepositModal).toHaveBeenCalledOnce();
 		});
+
+		it("reports a withdrawal whose SDK call had started before a reconnect and closes the dialog", async () => {
+			let resolveSdk: (value: unknown) => void = () => {};
+			const { release, submission } = await pauseAfterPreflight();
+			const sdkCall = testState.exchangeSdkCalls.get(method);
+			if (!sdkCall) throw new Error(`Missing ${method} SDK call`);
+			sdkCall.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveSdk = resolve;
+					}),
+			);
+			await act(async () => {
+				release();
+				await vi.waitFor(() => expect(sdkCall).toHaveBeenCalledOnce());
+			});
+
+			testState.walletSession = "resolving";
+			await rerender();
+			testState.walletSession = "connected";
+			await rerender();
+			await act(async () => {
+				resolveSdk(undefined);
+				await submission;
+			});
+
+			expect(getToastText(toastMocks.success.mock.calls[0])).toBe(
+				"Withdrawal submitted You'll receive $1.00 on Arbitrum after confirmation.",
+			);
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(closeDepositModal).toHaveBeenCalledOnce();
+			expect(testState.exchangeMutations.get(method)).toHaveBeenCalledOnce();
+		});
+
+		async function startHeldWithdrawal() {
+			let resolveSdk: (value: unknown) => void = () => {};
+			const { release, submission } = await pauseAfterPreflight();
+			const sdkCall = testState.exchangeSdkCalls.get(method);
+			if (!sdkCall) throw new Error(`Missing ${method} SDK call`);
+			sdkCall.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveSdk = resolve;
+					}),
+			);
+			await act(async () => {
+				release();
+				await vi.waitFor(() => expect(sdkCall).toHaveBeenCalledOnce());
+			});
+			return { resolveSdk: (value: unknown) => resolveSdk(value), submission };
+		}
+
+		it("reports nothing for a withdrawal in flight when the wallet left without resolving and came back, as it did before the hold (E2)", async () => {
+			const { resolveSdk, submission } = await startHeldWithdrawal();
+			testState.walletSession = "away";
+			await rerender();
+			testState.walletSession = "connected";
+			await rerender();
+			await act(async () => {
+				resolveSdk(undefined);
+				await submission;
+			});
+
+			expect(testState.exchangeSdkCalls.get(method)).toHaveBeenCalledOnce();
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(closeDepositModal).not.toHaveBeenCalled();
+		});
+
+		function otherWithdrawalRoute() {
+			return route === "cctp" ? "bridge" : "cctp";
+		}
+
+		async function releaseHeldSdkAfter(change: () => Promise<void>, failure?: Error) {
+			let resolveSdk: (value: unknown) => void = () => {};
+			let rejectSdk: (error: unknown) => void = () => {};
+			const { release, submission } = await pauseAfterPreflight();
+			const sdkCall = testState.exchangeSdkCalls.get(method);
+			if (!sdkCall) throw new Error(`Missing ${method} SDK call`);
+			sdkCall.mockImplementation(
+				() =>
+					new Promise((resolve, reject) => {
+						resolveSdk = resolve;
+						rejectSdk = reject;
+					}),
+			);
+			await act(async () => {
+				release();
+				await vi.waitFor(() => expect(sdkCall).toHaveBeenCalledOnce());
+			});
+			await change();
+			await act(async () => {
+				if (failure) rejectSdk(failure);
+				else resolveSdk(undefined);
+				await submission;
+			});
+		}
+
+		it("reports a withdrawal whose SDK call had started before the route changed", async () => {
+			await releaseHeldSdkAfter(async () => {
+				testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: otherWithdrawalRoute() };
+				await rerender();
+			});
+
+			expect(getToastText(toastMocks.success.mock.calls[0])).toBe(
+				"Withdrawal submitted You'll receive $1.00 on Arbitrum after confirmation.",
+			);
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(closeDepositModal).toHaveBeenCalledOnce();
+		});
+
+		describe("a late result once the resolving wallet reports another account", () => {
+			const OUTCOMES = [
+				{ outcome: "success", failure: undefined },
+				{ outcome: "ambiguous failure", failure: new HttpRequestError({ detail: "Request timed out" }) },
+			] as const;
+
+			it.each(OUTCOMES)(
+				"reports nothing and keeps the dialog for a $outcome of the settled account",
+				async ({ failure }) => {
+					await releaseHeldSdkAfter(async () => {
+						testState.walletSession = "resolving-other-account";
+						await rerender();
+					}, failure);
+
+					expect(testState.exchangeSdkCalls.get(method)).toHaveBeenCalledOnce();
+					expect(toastMocks.success).not.toHaveBeenCalled();
+					expect(toastMocks.warning).not.toHaveBeenCalled();
+					expect(toastMocks.error).not.toHaveBeenCalled();
+					expect(closeDepositModal).not.toHaveBeenCalled();
+				},
+			);
+
+			it.each(OUTCOMES)(
+				"still reports a $outcome and closes while the resolving wallet reports the settled account",
+				async ({ failure }) => {
+					await releaseHeldSdkAfter(async () => {
+						testState.walletSession = "resolving";
+						await rerender();
+					}, failure);
+
+					expect(testState.exchangeSdkCalls.get(method)).toHaveBeenCalledOnce();
+					if (failure) {
+						expect(toastMocks.warning).toHaveBeenCalledExactlyOnceWith(
+							"Withdrawal status unknown",
+							expect.objectContaining({ duration: Number.POSITIVE_INFINITY }),
+						);
+						expect(toastMocks.success).not.toHaveBeenCalled();
+					} else {
+						expect(getToastText(toastMocks.success.mock.calls[0])).toBe(
+							"Withdrawal submitted You'll receive $1.00 on Arbitrum after confirmation.",
+						);
+						expect(toastMocks.warning).not.toHaveBeenCalled();
+					}
+					expect(toastMocks.error).not.toHaveBeenCalled();
+					expect(closeDepositModal).toHaveBeenCalledOnce();
+				},
+			);
+		});
+
+		it("reports nothing for a withdrawal whose dialog was closed while it was pending", async () => {
+			await releaseHeldSdkAfter(async () => {
+				testState.modalOpen = false;
+				await rerender();
+			});
+
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			{ outcome: "submitted", failure: undefined, reopen: "deposit" },
+			{ outcome: "timed out", failure: new HttpRequestError({ detail: "Request timed out" }), reopen: "deposit" },
+			{ outcome: "submitted", failure: undefined, reopen: "withdraw" },
+		] as const)(
+			"reports a $outcome withdrawal of the previous opening and closes the dialog opened again on $reopen",
+			async ({ outcome, failure, reopen }) => {
+				const depositModal = readRealDepositModalActions();
+				depositModal.open("withdraw");
+				let reopening: string | null = null;
+				await releaseHeldSdkAfter(async () => {
+					depositModal.open(reopen);
+					reopening = realGlobalModalStore.module?.getGlobalModalOpening() ?? null;
+					testState.activeTab = reopen;
+					await rerender();
+					if (reopen === "deposit") act(() => getButton("Set deposit amount").click());
+				}, failure);
+
+				expect(testState.exchangeSdkCalls.get(method)).toHaveBeenCalledOnce();
+				expect(reopening).toMatch(/^deposit:/);
+				expect(realGlobalModalStore.module?.getGlobalModalOpening()).toBe(reopening);
+				if (outcome === "submitted") {
+					expect(getToastText(toastMocks.success.mock.calls[0])).toBe(
+						"Withdrawal submitted You'll receive $1.00 on Arbitrum after confirmation.",
+					);
+					expect(toastMocks.warning).not.toHaveBeenCalled();
+				} else {
+					expect(toastMocks.warning).toHaveBeenCalledOnce();
+					expect(toastMocks.success).not.toHaveBeenCalled();
+				}
+				expect(toastMocks.error).not.toHaveBeenCalled();
+				expect(closeDepositModal).toHaveBeenCalledOnce();
+				expect(resetDeposit).toHaveBeenCalledOnce();
+			},
+		);
+
+		it("does not start a deposit in a dialog opened again while a withdrawal is pending", async () => {
+			const depositModal = readRealDepositModalActions();
+			depositModal.open("withdraw");
+			await releaseHeldSdkAfter(async () => {
+				testState.exchangePending.add(method);
+				depositModal.open("deposit");
+				testState.activeTab = "deposit";
+				testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: route };
+				testState.freshRoutingResponse = testState.routingResponse;
+				await rerender();
+				act(() => getButton("Set deposit amount").click());
+				const routeChecksBefore = testState.fetchFreshRouting.mock.calls.length;
+				await act(async () => getButton("Submit deposit").click());
+				expect(testState.fetchFreshRouting.mock.calls.length).toBe(routeChecksBefore);
+				expect(testState.deposit).not.toHaveBeenCalled();
+				testState.exchangePending.delete(method);
+			});
+
+			expect(testState.deposit).not.toHaveBeenCalled();
+			expect(closeDepositModal).toHaveBeenCalledOnce();
+		});
+
+		it.each(["same", "other"] as const)(
+			"reports a withdrawal and closes the dialog after a route refresh answers the %s route",
+			async (answer) => {
+				const depositModal = readRealDepositModalActions();
+				depositModal.open("withdraw");
+				const opening = realGlobalModalStore.module?.getGlobalModalOpening() ?? null;
+				await releaseHeldSdkAfter(async () => {
+					testState.routingResponse = {
+						depositRoute: "bridge",
+						withdrawalRoute: answer === "same" ? route : otherWithdrawalRoute(),
+					};
+					await rerender();
+				});
+
+				expect(opening).toMatch(/^deposit:/);
+				expect(realGlobalModalStore.module?.getGlobalModalOpening()).toBe(opening);
+				expect(getToastText(toastMocks.success.mock.calls[0])).toBe(
+					"Withdrawal submitted You'll receive $1.00 on Arbitrum after confirmation.",
+				);
+				expect(toastMocks.error).not.toHaveBeenCalled();
+				expect(closeDepositModal).toHaveBeenCalledOnce();
+			},
+		);
+
+		it.each([null, "unknown"])(
+			"reports nothing for a withdrawal whose SDK call had started before the account mode became %s (pre-existing behaviour)",
+			async (accountAbstraction) => {
+				await releaseHeldSdkAfter(async () => {
+					testState.accountAbstraction = accountAbstraction;
+					await rerender();
+				});
+
+				expect(toastMocks.success).not.toHaveBeenCalled();
+				expect(toastMocks.warning).not.toHaveBeenCalled();
+				expect(toastMocks.error).not.toHaveBeenCalled();
+				expect(closeDepositModal).not.toHaveBeenCalled();
+			},
+		);
+
+		it("reports nothing for a timed-out withdrawal after the account mode changed (pre-existing behaviour)", async () => {
+			await releaseHeldSdkAfter(
+				async () => {
+					testState.accountAbstraction = "unknown";
+					await rerender();
+				},
+				new HttpRequestError({ detail: "Request timed out" }),
+			);
+
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(closeDepositModal).not.toHaveBeenCalled();
+		});
+
+		it("keeps the draft quietly when an account mode change stops the withdrawal before it is sent", async () => {
+			const { release, submission } = await pauseAfterPreflight();
+			testState.accountAbstraction = "unifiedAccount";
+			await rerender();
+			await act(async () => {
+				release();
+				await submission;
+			});
+
+			expect(testState.exchangeSdkCalls.get(method)).not.toHaveBeenCalled();
+			expect(testState.exchangeErrors.get(method)).toMatchObject({ code: "withdrawal-conditions-changed" });
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(toastMocks.warning).not.toHaveBeenCalled();
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expect(closeDepositModal).not.toHaveBeenCalled();
+			expect(container.querySelector('[data-testid="withdraw-routing-status"]')?.getAttribute("data-amount")).toBe(
+				testState.withdrawDraft,
+			);
+		});
+
+		it("keeps the draft quietly when a route change stops the withdrawal before it is sent", async () => {
+			const { release, submission } = await pauseAfterPreflight();
+			testState.routingResponse = { depositRoute: "bridge", withdrawalRoute: otherWithdrawalRoute() };
+			await rerender();
+			await act(async () => {
+				release();
+				await submission;
+			});
+
+			expect(testState.exchangeSdkCalls.get(method)).not.toHaveBeenCalled();
+			expect(testState.exchangeErrors.get(method)).toMatchObject({ code: "withdrawal-conditions-changed" });
+			expect(toastMocks.error).not.toHaveBeenCalled();
+			expect(toastMocks.success).not.toHaveBeenCalled();
+			expect(closeDepositModal).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			{ stop: "the scheduler drops", reconnect: "resolving" },
+			{ stop: "the scheduler drops", reconnect: "away" },
+			{ stop: "the scheduler drops", reconnect: "none" },
+			{ stop: "its click deadline stops", reconnect: "resolving" },
+			{ stop: "its click deadline stops", reconnect: "away" },
+			{ stop: "its click deadline stops", reconnect: "none" },
+		] as const)(
+			"handles a withdrawal $stop before it is sent (reconnect in between: $reconnect)",
+			async ({ stop, reconnect }) => {
+				const reconnects = reconnect !== "none";
+				const { fail, submission } = await pauseAfterPreflight();
+				if (reconnect !== "none") {
+					testState.walletSession = reconnect;
+					await rerender();
+					testState.walletSession = "connected";
+					await rerender();
+				}
+				await act(async () => {
+					fail(
+						stop === "the scheduler drops"
+							? Object.assign(new Error("dropped before start"), { name: "ExchangeRequestInvalidatedError" })
+							: new ExchangeActionDeadlineError(),
+					);
+					await submission;
+				});
+
+				expect(testState.exchangeSdkCalls.get(method)).not.toHaveBeenCalled();
+				if (reconnects) {
+					expect(toastMocks.error).not.toHaveBeenCalled();
+					expect(closeDepositModal).not.toHaveBeenCalled();
+					const form = container.querySelector('[data-testid="withdraw-routing-status"]');
+					expect(form?.getAttribute("data-is-pending")).toBe("false");
+					expect(form?.getAttribute("data-amount")).toBe(testState.withdrawDraft);
+				} else {
+					expect(toastMocks.error).toHaveBeenCalledOnce();
+					expect(closeDepositModal).toHaveBeenCalledOnce();
+				}
+			},
+		);
 
 		it("keeps the amount to receive isolated inside the translated sentence", async () => {
 			const sentence = `You'll receive <0>\${netReceived}</0> on Arbitrum after confirmation.`;
@@ -1454,6 +2026,44 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		expect(testState.deposit).not.toHaveBeenCalled();
 	});
 
+	it.each(["settles back on the same owner", "is still resolving"] as const)(
+		"does not start a deposit when the session resolves during routing preflight and %s",
+		async (end) => {
+			testState.modalOpen = true;
+			testState.activeTab = "deposit";
+			testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+			let resolveRouting!: (value: { depositRoute: "cctp"; withdrawalRoute: "cctp" }) => void;
+			testState.fetchFreshRouting.mockReturnValueOnce(
+				new Promise((resolve) => {
+					resolveRouting = resolve;
+				}),
+			);
+
+			await rerender();
+			act(() => getButton("Set deposit amount").click());
+			act(() => getButton("Submit deposit").click());
+			await vi.waitFor(() => expect(testState.fetchFreshRouting).toHaveBeenCalledOnce());
+
+			testState.walletSession = "resolving";
+			await rerender();
+			if (end === "settles back on the same owner") {
+				testState.walletSession = "connected";
+				await rerender();
+			}
+			await act(async () => {
+				resolveRouting({ depositRoute: "cctp", withdrawalRoute: "cctp" });
+				await Promise.resolve();
+			});
+
+			expect(testState.deposit).not.toHaveBeenCalled();
+			if (end === "settles back on the same owner") {
+				const form = container.querySelector('[data-testid="deposit-routing-status"]');
+				expect(form?.getAttribute("data-is-pending")).toBe("false");
+				expect(form?.getAttribute("data-deposit-amount")).toBe("0.4");
+			}
+		},
+	);
+
 	describe("checks that answer long after the click", () => {
 		const WITHDRAWAL_NOT_SUBMITTED =
 			"Withdrawal conditions changed before signing. Review the withdrawal and submit it again.";
@@ -1526,6 +2136,28 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			return { release: held.release, submission };
 		}
 
+		it.each(WITHDRAWAL_WAITS)(
+			"does not sign a $method withdrawal whose $wait answers after a reconnect to the same owner",
+			async (wait) => {
+				const { release, submission } = await submitWithdrawalAndHold(wait);
+				testState.walletSession = "resolving";
+				await rerender();
+				testState.walletSession = "connected";
+				await rerender();
+				await act(async () => {
+					release();
+					await submission;
+				});
+
+				expect(testState.exchangeMutations.get(wait.method)).not.toHaveBeenCalled();
+				expect(testState.exchangeSdkCalls.get(wait.method)).not.toHaveBeenCalled();
+				expect(toastMocks.error).not.toHaveBeenCalled();
+				expect(closeDepositModal).not.toHaveBeenCalled();
+				expect(withdrawForm()?.getAttribute("data-is-pending")).toBe("false");
+				expect(withdrawForm()?.getAttribute("data-amount")).toBe(testState.withdrawDraft);
+			},
+		);
+
 		async function submitDepositAndHoldRouteCheck() {
 			testState.modalOpen = true;
 			testState.activeTab = "deposit";
@@ -1593,6 +2225,39 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			},
 		);
 
+		it("holds the mode of a pending email deposit while the session resolves", async () => {
+			testState.emailAddress = "user@example.com";
+			testState.modalOpen = true;
+			testState.activeTab = "deposit";
+			testState.depositStatus = "pending";
+			await rerender();
+			expect(testState.useDepositOptions?.mode).toBe("smart");
+
+			testState.walletSession = "resolving";
+			testState.walletIntentOverride = "unavailable";
+			await rerender();
+			expect(testState.useDepositOptions?.mode).toBe("smart");
+			expect(testState.useDepositOptions?.walletAddress).toBe(testState.walletAddress);
+			expect(container.querySelector('[data-testid="status-screen"]')).not.toBeNull();
+		});
+
+		it("holds the wallet of a pending external-wallet deposit while the session resolves", async () => {
+			testState.modalOpen = true;
+			testState.activeTab = "deposit";
+			testState.depositStatus = "pending";
+			await rerender();
+			expect(testState.useDepositOptions).toMatchObject({ mode: "wallet", walletAddress: testState.walletAddress });
+
+			testState.walletSession = "resolving";
+			await rerender();
+			expect(testState.useDepositOptions).toMatchObject({ mode: "wallet", walletAddress: testState.walletAddress });
+			expect(container.querySelector('[data-testid="status-screen"]')).not.toBeNull();
+
+			testState.walletSession = "connected";
+			await rerender();
+			expect(testState.useDepositOptions?.walletAddress).toBe(testState.walletAddress);
+		});
+
 		it("does not start a deposit when the route check answers 16 seconds after the click", async () => {
 			const held = await submitDepositAndHoldRouteCheck();
 			advanceWallAndMonotonicClocks(16_000);
@@ -1612,6 +2277,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 				expectedBalanceRaw: undefined,
 				expectedCctpMaxFeeRaw: 200_000n,
 				deadline: expect.any(Object),
+				session: expect.any(Object),
 			});
 			const retriedDeadline = submittedDepositDeadline();
 			expect(hasExchangeActionDeadlinePassed(retriedDeadline)).toBe(false);
@@ -1630,6 +2296,7 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 				expectedBalanceRaw: undefined,
 				expectedCctpMaxFeeRaw: 200_000n,
 				deadline: expect.any(Object),
+				session: expect.any(Object),
 			});
 			const clickDeadline = submittedDepositDeadline();
 			expect(hasExchangeActionDeadlinePassed(clickDeadline)).toBe(false);
@@ -1640,6 +2307,222 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 			expect(container.querySelector('[data-testid="deposit-routing-preflight-error"]')).toBeNull();
 			expect(depositForm()?.getAttribute("data-status")).toBe("ready");
 			expect(depositForm()?.getAttribute("data-is-pending")).toBe("false");
+		});
+
+		describe("the session of a started deposit (ADR 0058)", () => {
+			const OTHER_ACCOUNT = "0x3333333333333333333333333333333333333333";
+
+			async function startedDepositSession(): Promise<DepositSessionCheck> {
+				readRealDepositModalActions().open("deposit");
+				const held = await submitDepositAndHoldRouteCheck();
+				await act(async () => held.release());
+				const session = (testState.deposit.mock.calls[0]?.[1] as DepositReview | undefined)?.session;
+				if (!session) throw new Error("The deposit was started without its session");
+				return session;
+			}
+
+			function trackSettlement(session: DepositSessionCheck) {
+				const tracked: { settlement: DepositSessionSettlement | null } = { settlement: null };
+				const done = session.waitUntilSettled(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS).then(({ settlement }) => {
+					tracked.settlement = settlement;
+				});
+				return { tracked, done };
+			}
+
+			async function flushSettlement() {
+				await act(async () => {
+					for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+				});
+			}
+
+			it("binds a started deposit to the session of the click", async () => {
+				const session = await startedDepositSession();
+				expect(session.isCurrent()).toBe(true);
+				expect(session.isSettledOnSubmitted()).toBe(true);
+				const interruptionsAtStart = session.readInterruptions();
+
+				testState.walletSession = "resolving";
+				await rerender();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				expect(session.readInterruptions()).toBeGreaterThan(interruptionsAtStart);
+				expect(testState.useDepositOptions?.walletAddress).toBe(testState.walletAddress);
+
+				testState.walletSession = "connected";
+				await rerender();
+				const interruptionsWhenBack = session.readInterruptions();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(true);
+				await rerender();
+				expect(session.readInterruptions()).toBe(interruptionsWhenBack);
+
+				const submittedWallet = testState.walletAddress;
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+
+				testState.walletAddress = submittedWallet;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				expect(session.isCurrent()).toBe(false);
+			});
+
+			it("stays void when the session visits another account and comes back before anything reads it", async () => {
+				const session = await startedDepositSession();
+				const submittedWallet = testState.walletAddress;
+
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				testState.walletAddress = submittedWallet;
+				await rerender();
+
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("treats a session settled on another client key as replaced", async () => {
+				const session = await startedDepositSession();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+
+				testState.hyperliquidClientKey = OTHER_ACCOUNT;
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const later = trackSettlement(session);
+				await flushSettlement();
+				expect(later.tracked.settlement).toBe("replaced");
+			});
+
+			it("voids a started deposit's session when its dialog unmounts", async () => {
+				const session = await startedDepositSession();
+
+				act(() => root.render(null));
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("keeps a started deposit's session void after its dialog is closed and reopened", async () => {
+				const session = await startedDepositSession();
+				const depositModal = readRealDepositModalActions();
+
+				depositModal.close();
+				testState.modalOpen = false;
+				await rerender();
+				depositModal.open("deposit");
+				testState.modalOpen = true;
+				await rerender();
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+			});
+
+			it("voids a started deposit's session when its dialog is closed and opened again within one commit", async () => {
+				const session = await startedDepositSession();
+				const depositModal = readRealDepositModalActions();
+
+				act(() => {
+					depositModal.close();
+					depositModal.open("deposit");
+				});
+				expect(testState.modalOpen).toBe(true);
+				expect(session.isCurrent()).toBe(false);
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				await rerender();
+				expect(session.isSettledOnSubmitted()).toBe(false);
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait at once while the session is settled on the click's account", async () => {
+				const session = await startedDepositSession();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("waits for the session to come back on the click's account", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("keeps waiting while the signed-in session is without its wallet and ends once it is back", async () => {
+				const session = await startedDepositSession();
+				const clickedAccount = testState.hyperliquidClientKey;
+				testState.walletSession = "away";
+				testState.hyperliquidClientKey = "disconnected";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await flushSettlement();
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				testState.hyperliquidClientKey = clickedAccount;
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("same");
+			});
+
+			it("ends the wait as replaced when the session comes back on another account", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				testState.walletSession = "connected";
+				testState.walletAddress = OTHER_ACCOUNT;
+				await rerender();
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait as replaced when the dialog unmounts", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				const { tracked } = trackSettlement(session);
+				await act(async () => Promise.resolve());
+				expect(tracked.settlement).toBeNull();
+
+				act(() => root.render(null));
+				await flushSettlement();
+				expect(tracked.settlement).toBe("replaced");
+			});
+
+			it("ends the wait with a timeout at the independent 30-second limit", async () => {
+				const session = await startedDepositSession();
+				testState.walletSession = "resolving";
+				await rerender();
+				vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
+				const { tracked, done } = trackSettlement(session);
+				await act(async () => {
+					vi.advanceTimersByTime(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS - 1);
+				});
+				expect(DEPOSIT_SESSION_SETTLE_TIMEOUT_MS).toBe(30_000);
+				expect(tracked.settlement).toBeNull();
+
+				await act(async () => {
+					vi.advanceTimersByTime(1);
+					await done;
+				});
+				expect(tracked.settlement).toBe("timeout");
+			});
 		});
 	});
 
@@ -2054,6 +2937,69 @@ describe("DepositModal withdrawal route pre-execution guard wiring", () => {
 		expect(container.querySelector('[data-testid="deposit-data-error"]')?.textContent).toBe("");
 		expect(testState.refreshDepositBalance).toHaveBeenCalledTimes(2);
 		expect(testState.deposit).not.toHaveBeenCalled();
+	});
+
+	it("drops a withdrawal-route retry that a reconnect interrupted", async () => {
+		testState.modalOpen = true;
+		testState.activeTab = "withdraw";
+		let answerRetry: (value: unknown) => void = () => {};
+		testState.routingRefetch.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answerRetry = resolve;
+			}),
+		);
+		await rerender();
+		await act(async () => getButton("Retry withdrawal route").click());
+		expect(testState.routingRefetch).toHaveBeenCalledOnce();
+
+		testState.walletSession = "resolving";
+		await rerender();
+		testState.walletSession = "connected";
+		await rerender();
+		await act(async () => {
+			answerRetry({ data: undefined, isError: true });
+		});
+
+		expect(
+			container.querySelector('[data-testid="withdraw-routing-status"]')?.getAttribute("data-preflight-failed"),
+		).toBe("false");
+	});
+
+	it("keeps an email deposit quiet while the wallet session resolves", async () => {
+		testState.emailAddress = "trader@example.com";
+		testState.modalOpen = true;
+		testState.activeTab = "deposit";
+		await rerender();
+		expect(container.querySelector('[data-testid="deposit-routing-status"]')).not.toBeNull();
+
+		testState.walletSession = "resolving";
+		await rerender();
+		expect(container.querySelector('[data-slot="funds-session-resolving"] [aria-busy="true"]')).not.toBeNull();
+		expect(container.querySelector('[data-testid="deposit-routing-status"]')).toBeNull();
+
+		testState.walletSession = "connected";
+		await rerender();
+		expect(container.querySelector('[data-testid="deposit-routing-status"]')).not.toBeNull();
+	});
+
+	it("releases a deposit-data retry that a reconnect interrupted", async () => {
+		testState.modalOpen = true;
+		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+		testState.refreshDepositBalance.mockReturnValueOnce(new Promise(() => {}));
+		await rerender();
+		await act(async () => getButton("Retry deposit data").click());
+		expect(testState.refreshDepositBalance).toHaveBeenCalledOnce();
+
+		testState.walletSession = "resolving";
+		await rerender();
+		testState.walletSession = "connected";
+		await rerender();
+		await act(async () => getButton("Retry deposit data").click());
+
+		expect(testState.refreshDepositBalance).toHaveBeenCalledTimes(2);
+		expect(container.querySelector('[data-testid="deposit-routing-status"]')?.getAttribute("data-is-pending")).toBe(
+			"false",
+		);
 	});
 
 	it("discards an old deposit-data retry after closing and reopening", async () => {

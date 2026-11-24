@@ -622,7 +622,7 @@ export function TradeHistoryPage({ address }: Props) {
 								>
 									<Trans>Back to trade</Trans>
 								</Button>
-								<h1 className="text-2xl font-bold tracking-tight text-fg">
+								<h1 className="text-xl font-bold tracking-tight text-fg">
 									<Trans>Trade history</Trans>
 								</h1>
 								<p className="mt-1 text-xs text-fg-muted">

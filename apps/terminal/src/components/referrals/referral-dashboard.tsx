@@ -112,7 +112,7 @@ export function ReferralDashboard({ initialReferralCode }: Props) {
 	const header = (
 		<div className="flex flex-wrap items-start justify-between gap-3">
 			<div>
-				<h1 id={titleId} className="text-lg font-bold text-fg">
+				<h1 id={titleId} className="text-xl font-bold text-fg">
 					<Trans>Referrals & rewards</Trans>
 				</h1>
 				<p className="mt-1 max-w-2xl text-xs leading-4 text-fg-muted">

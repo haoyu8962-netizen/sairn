@@ -722,7 +722,6 @@ msgid "All sides"
 msgstr "所有方向"
 
 #: src/components/historical-orders/historical-orders-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All statuses"
 msgstr "全部状态"
 
@@ -736,7 +735,6 @@ msgstr "全部时间"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All types"
 msgstr "全部类型"
 
@@ -906,8 +904,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "签名前 API 钱包数据已发生变化。请关闭本次请求并查看刷新后的列表。"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "API 钱包列表暂时不可用"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "API 钱包列表暂时不可用"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4815,8 +4813,8 @@ msgid "Loading..."
 msgstr "加载中..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "加载中…"
+#~ msgid "Loading…"
+#~ msgstr "加载中…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -7179,7 +7177,6 @@ msgstr "提交另一个已签名请求前，请先刷新推荐数据。"
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "正在刷新金库数据，操作暂不可用。"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "刷新中…"
@@ -8262,7 +8259,6 @@ msgstr "滑点容忍度"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "智能钱包客户端尚未就绪"
 
@@ -8510,6 +8506,7 @@ msgstr "统计"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/twap-history-table.tsx
@@ -9172,8 +9169,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "原有 TP/SL 已撤销，但新的 TP/SL 未能下达。"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "extraAgents 请求失败。现有 API 钱包仍可正常使用，但在验证到最新数据前，管理功能将保持禁用。"
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "extraAgents 请求失败。现有 API 钱包仍可正常使用，但在验证到最新数据前，管理功能将保持禁用。"
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -10594,6 +10591,7 @@ msgstr "双边开放利益：该合约上的多头和空头头寸之和。"
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
@@ -10717,7 +10715,6 @@ msgstr "无法验证 Hyperliquid 当前的提款路由。"
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "无法验证提款资格。请求未提交。"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -11334,6 +11331,7 @@ msgstr "钱包尚未就绪，无法更新账户模式"
 
 #: src/components/trade/tradebox/bridge/shared-ui.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts

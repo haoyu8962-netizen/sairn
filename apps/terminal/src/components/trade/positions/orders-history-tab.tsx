@@ -124,7 +124,7 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 	const availableTypeFilters = new Set(searchableEntries.map((entry) => entry.type));
 	if (typeFilter !== "all") availableTypeFilters.add(typeFilter);
 	const typeOptions = [
-		{ value: "all", label: t`All types` },
+		{ value: "all", label: t`Type` },
 		...Array.from(availableTypeFilters).map((value) => ({
 			value,
 			label: getOrderTypeLabel(value),
@@ -133,7 +133,7 @@ function OrdersHistoryTabContent({ address, toolbarTarget }: OrdersHistoryTabCon
 	const availableStatusFilters = new Set(searchableEntries.map(getOrderHistoryStatusCategory));
 	if (statusFilter !== "all") availableStatusFilters.add(statusFilter);
 	const statusOptions = [
-		{ value: "all", label: t`All statuses` },
+		{ value: "all", label: t`Status` },
 		...(["open", "filled", "triggered", "canceled", "rejected", "other"] as const)
 			.filter((value) => availableStatusFilters.has(value))
 			.map((value) => ({ value, label: getStatusFilterLabel(value) })),

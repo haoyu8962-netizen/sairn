@@ -722,7 +722,6 @@ msgid "All sides"
 msgstr "सभी साइड"
 
 #: src/components/historical-orders/historical-orders-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All statuses"
 msgstr "सभी स्थितियां"
 
@@ -736,7 +735,6 @@ msgstr "सभी समय"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All types"
 msgstr "सभी प्रकार"
 
@@ -906,8 +904,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "हस्ताक्षर से पहले API वॉलेट डेटा बदल गया। यह अनुरोध बंद करें और रीफ़्रेश की गई सूची की समीक्षा करें।"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "API वॉलेट सूची अस्थायी रूप से उपलब्ध नहीं है"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "API वॉलेट सूची अस्थायी रूप से उपलब्ध नहीं है"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4815,8 +4813,8 @@ msgid "Loading..."
 msgstr "लोड हो रहा है..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "लोड हो रहा है…"
+#~ msgid "Loading…"
+#~ msgstr "लोड हो रहा है…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -7179,7 +7177,6 @@ msgstr "कोई दूसरा हस्ताक्षरित अनुर
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "वॉल्ट डेटा रीफ़्रेश हो रहा है। कार्रवाइयाँ अस्थायी रूप से उपलब्ध नहीं हैं।"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "रीफ़्रेश हो रहा है…"
@@ -8262,7 +8259,6 @@ msgstr "Slippage सहनशीलता"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "स्मार्ट वॉलेट क्लाइंट तैयार नहीं है"
 
@@ -8510,6 +8506,7 @@ msgstr "आँकड़े"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/twap-history-table.tsx
@@ -9172,8 +9169,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "मौजूदा TP/SL रद्द कर दिया गया, लेकिन नया TP/SL नहीं लगाया जा सका।"
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "extraAgents अनुरोध विफल रहा। मौजूदा API वॉलेट काम करते रहेंगे, लेकिन नया डेटा सत्यापित होने तक प्रबंधन अक्षम रहेगा।"
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "extraAgents अनुरोध विफल रहा। मौजूदा API वॉलेट काम करते रहेंगे, लेकिन नया डेटा सत्यापित होने तक प्रबंधन अक्षम रहेगा।"
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -10594,6 +10591,7 @@ msgstr "दो-तरफ़ा ओपन इंटरेस्ट: इस कॉ
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
@@ -10717,7 +10715,6 @@ msgstr "Hyperliquid के मौजूदा निकासी रूट क�
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "निकासी पात्रता सत्यापित नहीं की जा सकी। अनुरोध सबमिट नहीं किया गया।"
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -11334,6 +11331,7 @@ msgstr "खाता मोड अपडेट करने के लिए व
 
 #: src/components/trade/tradebox/bridge/shared-ui.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts

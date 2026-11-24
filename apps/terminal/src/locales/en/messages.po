@@ -722,7 +722,6 @@ msgid "All sides"
 msgstr "All sides"
 
 #: src/components/historical-orders/historical-orders-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All statuses"
 msgstr "All statuses"
 
@@ -736,7 +735,6 @@ msgstr "All Time"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
-#: src/components/trade/positions/orders-history-tab.tsx
 msgid "All types"
 msgstr "All types"
 
@@ -906,8 +904,8 @@ msgid "API wallet data changed before signing. Close this request and review the
 msgstr "API wallet data changed before signing. Close this request and review the refreshed list."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "API wallet list is temporarily unavailable"
-msgstr "API wallet list is temporarily unavailable"
+#~ msgid "API wallet list is temporarily unavailable"
+#~ msgstr "API wallet list is temporarily unavailable"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "API wallet removed"
@@ -4815,8 +4813,8 @@ msgid "Loading..."
 msgstr "Loading..."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "Loading…"
-msgstr "Loading…"
+#~ msgid "Loading…"
+#~ msgstr "Loading…"
 
 #: src/components/vaults/use-vault-action-controller.ts
 msgid "Location eligibility could not be verified."
@@ -7179,7 +7177,6 @@ msgstr "Refresh referral data before submitting another signed request."
 #~ msgid "Refreshing Vault data. Actions are temporarily unavailable."
 #~ msgstr "Refreshing Vault data. Actions are temporarily unavailable."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Refreshing…"
 msgstr "Refreshing…"
@@ -8262,7 +8259,6 @@ msgstr "Slippage tolerance"
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
-#: src/lib/hyperliquid/use-deposit.ts
 msgid "Smart wallet client not ready"
 msgstr "Smart wallet client not ready"
 
@@ -8510,6 +8506,7 @@ msgstr "Statistics"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/twap-history-table.tsx
@@ -9172,8 +9169,8 @@ msgid "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 msgstr "The existing TP/SL was cancelled, but the new TP/SL was not placed."
 
 #: src/components/api-wallet/api-wallet-list.tsx
-msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
-msgstr "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgid "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
+#~ msgstr "The extraAgents request failed. Existing API wallets continue to operate, but management stays disabled until fresh data can be verified."
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "The gas-sponsored wallet is configured for a different Arbitrum network."
@@ -10594,6 +10591,7 @@ msgstr "Two-sided open interest: the sum of long and short positions on this con
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/positions/orders-history-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
@@ -10717,7 +10715,6 @@ msgstr "Unable to verify the current Hyperliquid withdrawal route."
 msgid "Unable to verify withdrawal eligibility. Request was not submitted."
 msgstr "Unable to verify withdrawal eligibility. Request was not submitted."
 
-#: src/components/api-wallet/api-wallet-list.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/tradebox/account-mode-modal.tsx
 #: src/components/vaults/vault-detail-view.tsx
@@ -11334,6 +11331,7 @@ msgstr "Wallet is not ready to update account mode"
 
 #: src/components/trade/tradebox/bridge/shared-ui.tsx
 #: src/components/trade/tradebox/deposit/shared-ui.tsx
+#: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts
 #: src/lib/hyperliquid/use-deposit.ts

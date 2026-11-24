@@ -433,6 +433,100 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Signer session guard total and static-startup re-baseline (2026-11-23)
+
+PR 2 (`claude/signer-session-guard`, head `2d30f86d`, `main` `fa82e486` merged in) checks the wallet session before
+signing and sending (ADR 0058): session generations and their retirement reasons in hl-react, a guarded EIP-1193
+provider for every request a deposit makes, one wait after the deposit permit, the forwarding ledger and the deposit
+dialog's per-click session attempt. Its builds exceeded the static-startup budget in both pairing states and the total
+budget with pairing on.
+
+Paired builds, each run on its own, in two clean worktrees on the same machine: `main` `fa82e486` in a fresh worktree
+and the PR head in its own worktree, both with Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile
+--prefer-offline`, no `apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=2d30f86de1ff292e3eae7d9d10c2aa325df80454`, `SAIRN_RELEASE_ID=signer-session-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-23T00:00:00.000Z`). The worktree state, environment-file check, versions, the build script
+and every build log were saved when the builds ran, in the Git-ignored `.worklog/2026-11-23/signer-session-rebaseline/`.
+
+| Metric | `main` off | PR off | Change | `main` on | PR on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,405,604 | 3,407,642 | +2,038 | 3,408,394 | 3,410,986 | +2,592 |
+| Static trade startup | 1,673,045 | 1,674,674 | +1,629 | 1,674,183 | 1,675,936 | +1,753 |
+| Mobile runtime increment | 120,357 | 120,354 | -3 | 120,343 | 120,357 | +14 |
+| Desktop runtime increment | 207,193 | 207,180 | -13 | 207,080 | 207,158 | +78 |
+| `trade-terminal-page` | 128,901 | 128,905 | +4 | 128,884 | 128,902 | +18 |
+| `api-wallet` | 18,742 | 18,744 | +2 | 18,619 | 18,620 | +1 |
+
+The static closure and both runtime profiles keep their asset counts (103, 15, 31). By chunk, compared with Node's
+`gzipSync` on the pairing-on outputs with content hashes removed: `vendor-router` +856 (the hl-react session
+generations, the request scheduler and the session provider, which load at startup), the shared chunk that holds
+`useDeposit` (`use-cctp-deposit-fee`) +792 (the deposit session guard, the guarded provider and the forwarding ledger;
+the automatic email-wallet deposit host loads it at startup) and the lazy `deposit-modal` chunk +652 (the per-click
+session attempt); every other chunk moved by less than 40 bytes.
+
+Change to the baselines, allowances unchanged, each by the larger of the two measured increments so the room left
+stays at what `main` has:
+
+- all client JS + CSS raised by +2,592 to 3,402,441 (before the raise pairing on exceeded the allowance by 1,137);
+- static trade startup raised by +1,753 to 1,666,091 (before the raise pairing off exceeded it by 336 and pairing on
+  by 1,598); pairing on now keeps 155 bytes, as `main` `fa82e486` keeps 155;
+- the mobile and desktop runtime increments, `trade-terminal-page`, `api-wallet` and the other surfaces are
+  unchanged.
+
+Against the new baselines, with the checker run again on the same pairing-on output, the PR reads total +8,545
+(1,455 left), static startup +9,845 (155 left) and mobile runtime +9,258 (742 left); the pairing-off build reads
+total +5,201 (4,799 left), static startup +8,583 (1,417 left) and mobile runtime +9,255 (745 left), from the logged
+numbers (its output was not kept, and the checker is not part of the build). Limits: static trade startup with pairing
+on keeps 155 bytes, under the release precheck's 200, as on `main` after PR #17, so a release preflight is likely to
+stop on this surface; that needs a real cut or an operator decision on the allowance. The release configuration
+(production `.env.local`, pairing on) was not built, and CI-identity builds can differ from these by a few dozen bytes.
+
+## Funds session presentation total, static-startup and mobile-runtime re-baseline (2026-11-23)
+
+PR #17 (`claude/funds-session-and-api-wallet-quiet`, head `fce35f78`) keeps funds dialogs and their outcomes across a
+resolving wallet session, keeps send retry drafts per owner and gives the API wallet list its passive states. Its CI
+builds failed the total and static-startup budgets: `main` itself had already used most of both allowances (static
+trade startup was 90 bytes from the limit with pairing on).
+
+Paired builds, each run on its own, in two clean worktrees on the same machine: `main` `f0f789bc` in a fresh worktree
+and the PR head in its own worktree, both with Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile
+--prefer-offline`, no `apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=fce35f78ab56455f504f9557e4b6f515d585b90d`, `SAIRN_RELEASE_ID=funds-session-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-23T00:00:00.000Z`). The worktree state, environment-file check, versions and every build log
+were saved when the builds ran, in the Git-ignored `.worklog/2026-11-23/funds-session-rebaseline/`.
+
+| Metric | `main` off | PR off | Change | `main` on | PR on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,400,743 | 3,405,263 | +4,520 | 3,403,996 | 3,408,473 | +4,477 |
+| Static trade startup | 1,671,602 | 1,673,007 | +1,405 | 1,672,843 | 1,674,182 | +1,339 |
+| Mobile runtime increment | 119,834 | 120,353 | +519 | 119,850 | 120,357 | +507 |
+| Desktop runtime increment | 205,946 | 207,146 | +1,200 | 205,909 | 207,183 | +1,274 |
+| `trade-terminal-page` | 128,845 | 128,895 | +50 | 128,846 | 128,902 | +56 |
+| `api-wallet` | 18,431 | 18,745 | +314 | 18,313 | 18,619 | +306 |
+
+The static closure gained two assets (101 to 103) and the desktop runtime one (30 to 31): the funds-session hold, the
+held identities and live session tokens of the funds dialogs, which the global modals host loads at startup. The
+other surfaces moved by less than 40 bytes.
+
+Change to the baselines, allowances unchanged, each by the larger of the two measured increments so the room left
+stays at what `main` had:
+
+- all client JS + CSS raised by +4,520 to 3,399,849 (before the raise pairing on exceeded the allowance by 3,144);
+- static trade startup raised by +1,405 to 1,664,338 (before the raise pairing off exceeded it by 74 and pairing on by
+  1,249); pairing on now keeps 156 bytes, as `main` kept 90;
+- mobile runtime increment raised by +519 to 111,099 (it passed without the raise with 223 bytes left pairing on; the
+  raise keeps `main`'s 730);
+- the desktop runtime increment, `trade-terminal-page`, `api-wallet` and the other surfaces are unchanged (each keeps
+  more than 240 bytes).
+
+Against the new baselines the pairing-on PR build reads total +8,624 (1,376 left), static startup +9,844 (156 left)
+and mobile runtime +9,258 (742 left). Limits: static trade startup with pairing on keeps 156 bytes, under the release
+precheck's 200, so a release preflight is likely to stop on this surface; that needs a real cut or an operator
+decision on the allowance. The release configuration (production `.env.local`, pairing on) was not built. CI-identity
+builds of the PR read 21 bytes less static startup pairing on than this protocol build. A confirming pairing-off
+build of the PR after the change, same identity, read the same bytes and passed every budget: total +5,414
+(4,586 left), static startup +8,669 (1,331 left), mobile runtime +9,254 (746 left).
+
 ## UI compliance fixes re-baseline (2026-11-20)
 
 PR #15 (`claude/ui-compliance-fixes` `500e9b1f`: order-form validators that take an explicit translator, funds-entry
@@ -457,6 +551,31 @@ off: `trade-terminal-page` +485, `portfolio` +154, `positions-panel` +153, `acco
 4,209 and 10,356 for the two exceeded surfaces with pairing on, within about 25 bytes of these local readings. The
 release configuration was not built; static startup with pairing on stays under the 200-byte margin the release
 preflight asks for, as it already did on `main`.
+
+### Measured again after merging `main` (2026-11-23)
+
+By the time PR #15 was ready to merge, `main` had raised the same baselines for PR #17 and PR #18, so the increments
+above, measured against `ba78481a`, no longer applied. `main` `ebdc7413` was merged into the branch and the pair was
+built again: base a clean detached worktree of `ebdc7413`, head the branch with the merge resolved but not yet
+committed; Node 22.15.0, pnpm 10.21.0, no `.env.local`, `NITRO_PRESET=node-server`, one fixed build identity for all
+four builds, each build run on its own. Logs and state files are in the Git-ignored
+`.worklog/2026-11-23/pr15-merge-rebaseline/`.
+
+| Surface | Pairing off main | Pairing off PR | Pairing on main | Pairing on PR |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,674,677 | 1,675,271 (+594) | 1,675,817 | 1,676,448 (+631) |
+| Total client gzip | 3,407,421 | 3,409,015 (+1,594) | 3,410,356 | 3,412,154 (+1,798) |
+| `trade-terminal-page` | 128,895 | 129,406 (+511) | 128,901 | 129,402 (+501) |
+| Mobile runtime startup | 120,346 | 120,355 (+9) | 120,342 | 120,365 (+23) |
+| Desktop runtime startup | 207,121 | 207,485 (+364) | 207,132 | 207,494 (+362) |
+
+The three baselines PR #15 had raised were set to `main`'s values plus the larger increment, replacing the earlier
+raises: static startup 1,666,091 + 631 = 1,666,722, total 3,402,441 + 1,798 = 3,404,239, `trade-terminal-page`
+125,144 + 511 = 125,655. In its tighter configuration each of the three keeps the room `main` itself has: 274 bytes
+of static startup and 2,085 of the total with pairing on, 249 of `trade-terminal-page` with pairing off. In the other
+configuration they keep 37, 204 and 10 bytes more than `main` does there. The runtime increments are within
+their allowances and were not raised; mobile runtime keeps 734 bytes with pairing on, against `main`'s 757. Every
+other named surface differs from `main` by at most 60 bytes. The release configuration was not built.
 
 ## Fix integration third review round re-baseline (2026-11-20)
 

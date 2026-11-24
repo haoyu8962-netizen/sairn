@@ -5,6 +5,7 @@ import { useTradingGuard } from "@sairn/hl-react/hooks/useTradingGuard";
 import {
 	assertExchangeSigningDeadline,
 	ExchangeActionDeadlineError,
+	ExchangeRequestInvalidatedError,
 	type ExchangeSigningDeadlineSlot,
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { PERSIST_TRADING_CONNECTION_STORAGE_KEY } from "@sairn/hl-react/signing/agent-storage";
@@ -14,6 +15,7 @@ import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isExchangeRequestNotSentError } from "@/lib/errors/action-error";
 import { formatTransferError } from "@/lib/errors/format";
 
 const AGENT = "0x3333333333333333333333333333333333333333" as const;
@@ -256,6 +258,46 @@ describe("trading authorization contracts", () => {
 		await act(async () => {
 			await expect(hook.authorize()).rejects.toThrow("Trading authorization could not be confirmed");
 		});
+	});
+
+	it("reports a builder fee dropped by the scheduler after the Agent approval as an incomplete authorization", async () => {
+		testState.refetch.mockResolvedValueOnce(requirements(true, true)).mockResolvedValue(requirements(true, false));
+		const dropped = new ExchangeRequestInvalidatedError("before-start");
+		testState.approveBuilderFee.mockRejectedValue(dropped);
+		const hook = renderHook();
+
+		let failure: unknown;
+		await act(async () => {
+			failure = await hook.authorize().then(
+				() => undefined,
+				(error: unknown) => error,
+			);
+		});
+
+		expect(testState.registerAgent).toHaveBeenCalledOnce();
+		expect(failure).toMatchObject({ name: "TradingAuthorizationIncompleteError" });
+		expect((failure as Error).cause).toBe(dropped);
+		expect(isExchangeRequestNotSentError(failure)).toBe(false);
+		expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor))).toBe("Failed to enable trading");
+	});
+
+	it("keeps a builder fee dropped by the scheduler as not sent when no Agent was approved", async () => {
+		testState.refetch.mockResolvedValue(requirements(true, false));
+		const dropped = new ExchangeRequestInvalidatedError("before-start");
+		testState.approveBuilderFee.mockRejectedValue(dropped);
+		const hook = renderHook();
+
+		let failure: unknown;
+		await act(async () => {
+			failure = await hook.authorize().then(
+				() => undefined,
+				(error: unknown) => error,
+			);
+		});
+
+		expect(testState.registerAgent).not.toHaveBeenCalled();
+		expect(failure).toBe(dropped);
+		expect(isExchangeRequestNotSentError(failure)).toBe(true);
 	});
 
 	describe("one deadline from the explicit authorization", () => {

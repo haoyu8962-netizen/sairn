@@ -48,10 +48,17 @@ import {
 	useDefaultDexBalances,
 } from "@/hooks/trade/use-account-balances";
 import { FundsActionGeoExecutionError, useFundsActionAvailability } from "@/hooks/trade/use-funds-action-availability";
+import { useFundsSessionHold } from "@/hooks/trade/use-funds-session-hold";
+import { useHeldWhileResolving } from "@/hooks/wallet/use-held-while-resolving";
+import { useLiveSessionToken } from "@/hooks/wallet/use-live-session-token";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { STATUS_GLYPH_UNKNOWN } from "@/lib/brand/status-glyph.gen";
 import { cn } from "@/lib/cn";
-import { formatExchangeActionError, isAmbiguousExchangeActionError } from "@/lib/errors/format";
+import {
+	formatExchangeActionError,
+	isAmbiguousExchangeActionError,
+	isExchangeRequestNotSentError,
+} from "@/lib/errors/format";
 import { useNumberFormat } from "@/lib/format";
 import { type ExchangeParams, useExchange, useHyperliquid } from "@/lib/hyperliquid";
 import { useSpotTokens } from "@/lib/hyperliquid/markets/use-spot-tokens";
@@ -143,6 +150,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<SendSubmission | null>(null);
 	const requestSubmissionsRef = useRef(new WeakMap<object, SendSubmission>());
+	const unsentFailuresRef = useRef(new WeakSet<object>());
 	const { clientKey, env, exchangeLifecycle, info, sessionMode: exchangeSessionMode } = useHyperliquid();
 	const draftOwnerKey = `${env}:${clientKey.toLowerCase()}`;
 	const [restoredDraft] = useState(() => getSendDraft(draftOwnerKey));
@@ -186,7 +194,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		walletAddress,
 		walletIntent,
 	} = useWalletSession();
-	const submissionIdentityKey = [
+	const liveSubmissionIdentityKey = [
 		env,
 		clientKey.toLowerCase(),
 		exchangeSessionMode,
@@ -195,6 +203,14 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		walletSessionMode,
 		accountAbstraction,
 	].join(":");
+	const fundsSessionHeld = useFundsSessionHold();
+	const submissionIdentityKey = useHeldWhileResolving(liveSubmissionIdentityKey, fundsSessionHeld);
+	const destinationCheckRef = useRef<AbortController | null>(null);
+	const liveSessionTokenRef = useLiveSessionToken(liveSubmissionIdentityKey, isResolving, () => {
+		destinationCheckRef.current?.abort();
+		destinationCheckRef.current = null;
+		setIsCheckingDestination(false);
+	});
 	useLayoutEffect(() => {
 		const identity = { exchangeLifecycle, key: submissionIdentityKey };
 		submissionIdentityRef.current = identity;
@@ -304,32 +320,58 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		signal.throwIfAborted();
 		assertSendDestinationUnchanged(submission.reviewedDestination, check);
 	}
+	function rejectUnsent(error: unknown): never {
+		if (typeof error === "object" && error !== null) unsentFailuresRef.current.add(error);
+		throw error;
+	}
+	function isUnsentFailure(error: unknown): boolean {
+		return (
+			isExchangeRequestNotSentError(error) ||
+			(typeof error === "object" && error !== null && unsentFailuresRef.current.has(error))
+		);
+	}
 	const { mutateAsync: sendAsset, isPending: isSendAssetPending } = useExchange("sendAsset", {
 		executionGuard: (params) => {
-			assertCurrentSendSubmission("sendAsset", params);
-			assertCurrentSendAssetBalance(params);
+			try {
+				assertCurrentSendSubmission("sendAsset", params);
+				assertCurrentSendAssetBalance(params);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 		preExecutionGuard: async (params, signal) => {
-			assertCurrentSendAssetBalance(params);
-			await assertCurrentGeo(signal);
-			await assertCurrentAccountAbstraction(signal);
-			signal.throwIfAborted();
-			assertCurrentSendAssetBalance(params);
-			await assertCurrentSendDestination("sendAsset", params, signal);
+			try {
+				assertCurrentSendAssetBalance(params);
+				await assertCurrentGeo(signal);
+				await assertCurrentAccountAbstraction(signal);
+				signal.throwIfAborted();
+				assertCurrentSendAssetBalance(params);
+				await assertCurrentSendDestination("sendAsset", params, signal);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 	});
 	const { mutateAsync: spotSend, isPending: isSpotSendPending } = useExchange("spotSend", {
 		executionGuard: (params) => {
-			assertCurrentSendSubmission("spotSend", params);
-			assertCurrentSpotSendBalance(params);
+			try {
+				assertCurrentSendSubmission("spotSend", params);
+				assertCurrentSpotSendBalance(params);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 		preExecutionGuard: async (params, signal) => {
-			assertCurrentSpotSendBalance(params);
-			await assertCurrentGeo(signal);
-			await assertCurrentAccountAbstraction(signal);
-			signal.throwIfAborted();
-			assertCurrentSpotSendBalance(params);
-			await assertCurrentSendDestination("spotSend", params, signal);
+			try {
+				assertCurrentSpotSendBalance(params);
+				await assertCurrentGeo(signal);
+				await assertCurrentAccountAbstraction(signal);
+				signal.throwIfAborted();
+				assertCurrentSpotSendBalance(params);
+				await assertCurrentSendDestination("spotSend", params, signal);
+			} catch (error) {
+				rejectUnsent(error);
+			}
 		},
 	});
 
@@ -464,17 +506,32 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		if (!canSend || !address) return;
 		const checked: SendDraft = { destination, amount, token: selectedToken, accountType: activeAccountType };
 		const checkedIdentity = submissionIdentityRef.current;
-		if (!checkedIdentity) return;
+		const checkedSession = liveSessionTokenRef.current;
+		if (!checkedIdentity || !checkedSession) return;
+		const destinationCheck = new AbortController();
+		destinationCheckRef.current?.abort();
+		destinationCheckRef.current = destinationCheck;
 		setIsCheckingDestination(true);
 		let verdict: ReturnType<typeof getSendDestinationVerdict>;
 		try {
-			verdict = getSendDestinationVerdict(await info.preTransferCheck({ user: destination, source: address }));
+			verdict = getSendDestinationVerdict(
+				await info.preTransferCheck({ user: destination, source: address }, destinationCheck.signal),
+			);
 		} catch {
 			verdict = { kind: "unavailable" };
 		} finally {
-			setIsCheckingDestination(false);
+			if (destinationCheckRef.current === destinationCheck) {
+				destinationCheckRef.current = null;
+				setIsCheckingDestination(false);
+			}
 		}
-		if (submissionIdentityRef.current !== checkedIdentity || !isSameSendDraft(draftRef.current, checked)) return;
+		if (
+			submissionIdentityRef.current !== checkedIdentity ||
+			liveSessionTokenRef.current !== checkedSession ||
+			!isSameSendDraft(draftRef.current, checked)
+		) {
+			return;
+		}
 		if (verdict.kind === "sanctioned") {
 			toast.error(t`Unable to send funds to this address.`);
 			return;
@@ -522,7 +579,8 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 	}
 
 	async function submitSend(reviewedDestination: SendDestinationReview) {
-		if (!canSend || !address) return;
+		const submissionSession = liveSessionTokenRef.current;
+		if (!canSend || !address || !submissionSession) return;
 
 		const submissionIdentity = submissionIdentityRef.current;
 		if (!submissionIdentity || submissionRef.current) return;
@@ -548,6 +606,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 		const sentAmount = formatDecimalString(toPlainDecimal(amount));
 		const draftToken = selectedToken;
 		const sentToken = getTokenDisplayName(selectedToken);
+		let cancelledBeforeSending = false;
 		try {
 			if (usesTradingAccount) {
 				await sendAsset({
@@ -572,11 +631,11 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 					amount,
 				});
 			}
-			clearSendDraft();
+			clearSendDraft(draftOwnerKey);
 			if (isCurrentSubmission()) toast.success(t`Sent ${sentAmount} ${sentToken}`);
 		} catch (err) {
 			if (isAmbiguousExchangeActionError(err)) {
-				clearSendDraft();
+				clearSendDraft(draftOwnerKey);
 				if (isCurrentSubmission()) {
 					toast.warning(t`Send status unknown`, {
 						icon: <StatusGlyph glyph={STATUS_GLYPH_UNKNOWN} />,
@@ -585,6 +644,8 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 						closeButton: true,
 					});
 				}
+			} else if (isUnsentFailure(err) && liveSessionTokenRef.current !== submissionSession) {
+				cancelledBeforeSending = true;
 			} else if (isCurrentSubmission()) {
 				saveSendDraft({
 					ownerKey: draftOwnerKey,
@@ -597,7 +658,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			}
 		} finally {
 			if (submissionRef.current === submission) submissionRef.current = null;
-			if (isCurrentSubmission()) onOpenChange(false);
+			if (isCurrentSubmission() && !cancelledBeforeSending) onOpenChange(false);
 		}
 	}
 

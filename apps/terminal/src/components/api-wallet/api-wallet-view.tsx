@@ -12,7 +12,9 @@ import { ApiWalletList } from "./api-wallet-list";
 const OFFICIAL_AGENT_WALLET_DOCS_URL =
 	"https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets";
 
-export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "disconnected" | "nonMaster";
+export type ApiWalletPageState = "normal" | "empty" | "loading" | "error" | "retained" | "disconnected" | "nonMaster";
+
+export type ApiWalletListState = Exclude<ApiWalletPageState, "nonMaster">;
 
 export type ApiWalletValidityDays = 30 | 90 | 180;
 
@@ -55,6 +57,7 @@ export interface ApiWalletActionView {
 
 export interface ApiWalletViewProps {
 	pageState: ApiWalletPageState;
+	listState: ApiWalletListState;
 	masterWalletReason?: string | null;
 	accountAddress?: string;
 	accountLabel?: string;
@@ -85,6 +88,7 @@ export interface ApiWalletViewProps {
 
 export function ApiWalletView({
 	pageState,
+	listState,
 	masterWalletReason = null,
 	accountAddress,
 	accountLabel,
@@ -118,8 +122,8 @@ export function ApiWalletView({
 		<section
 			data-api-wallet-state={pageState}
 			className={cn(
-				"mx-auto flex w-full max-w-[var(--api-wallet-content-max)] flex-col bg-surface text-api-wallet-fg shadow-api-wallet-page",
-				!isMobile && "min-h-[var(--api-wallet-page-min-height)] overflow-hidden rounded-24",
+				"mx-auto flex w-full max-w-[var(--api-wallet-content-max)] flex-col overflow-hidden rounded-24 bg-surface text-api-wallet-fg shadow-api-wallet-page",
+				!isMobile && "min-h-[var(--api-wallet-page-min-height)]",
 			)}
 		>
 			<header className={cn("flex flex-wrap items-start justify-between gap-4 pt-4 pb-3", isMobile ? "px-4" : "px-5")}>
@@ -127,9 +131,7 @@ export function ApiWalletView({
 					<p className="text-2xs text-api-wallet-subtle">
 						<Trans>Account / API Wallet</Trans>
 					</p>
-					<h1
-						className={cn("mt-1 font-bold tracking-heading-1 text-api-wallet-fg", isMobile ? "text-base" : "text-lg")}
-					>
+					<h1 className="mt-1 text-xl font-bold tracking-heading-1 text-api-wallet-fg">
 						<Trans>API Wallet</Trans>
 					</h1>
 					<p className="mt-1 text-2sm leading-6 text-api-wallet-muted">
@@ -232,7 +234,8 @@ export function ApiWalletView({
 			/>
 
 			<ApiWalletList
-				pageState={pageState}
+				listState={listState}
+				canRemove={pageState === "normal"}
 				agents={agents}
 				isRefreshing={isRefreshing}
 				onRemove={onRemove}

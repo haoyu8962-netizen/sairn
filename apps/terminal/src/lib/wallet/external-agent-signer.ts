@@ -8,12 +8,18 @@ type HyperliquidTypedData = Parameters<AbstractViemJsonRpcAccount["signTypedData
 interface CreateExternalAgentSignerOptions {
 	expectedAddress: `0x${string}`;
 	walletClient: WalletClient;
+	/**
+	 * Runs right before the wallet is asked to sign, after the SDK's own awaits; the wallet is asked only once it
+	 * settles without throwing.
+	 */
+	beforeSign?: () => void | Promise<void>;
 	beforeSubmit: () => void | Promise<void>;
 }
 
 export function createExternalAgentSigner({
 	expectedAddress,
 	walletClient,
+	beforeSign,
 	beforeSubmit,
 }: CreateExternalAgentSignerOptions): AbstractViemJsonRpcAccount {
 	assertExpectedWallet(walletClient, expectedAddress);
@@ -23,6 +29,7 @@ export function createExternalAgentSigner({
 	return {
 		async signTypedData(typedData: HyperliquidTypedData): Promise<`0x${string}`> {
 			assertExpectedWallet(walletClient, expectedAddress);
+			await beforeSign?.();
 			const signature = await walletClient.signTypedData({
 				account,
 				domain: typedData.domain as Parameters<WalletClient["signTypedData"]>[0]["domain"],

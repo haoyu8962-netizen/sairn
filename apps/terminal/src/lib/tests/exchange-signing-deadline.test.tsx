@@ -9,7 +9,7 @@ import { useExchange } from "@sairn/hl-react/hooks/useExchange";
 import {
 	ExchangeActionDeadlineError,
 	startExchangeActionDeadline,
-	unwrapExchangeSigningDeadline,
+	unwrapExchangeSignerGuardError,
 } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import {
 	captureAgentRegistrationExecutionLease,
@@ -667,7 +667,7 @@ describe("direct client bound to the caller's deadline", () => {
 				deadline,
 			);
 
-			const outcome = track(client.approveAgent(APPROVE as never).catch(unwrapExchangeSigningDeadline));
+			const outcome = track(client.approveAgent(APPROVE as never).catch(unwrapExchangeSignerGuardError));
 			await vi.advanceTimersByTimeAsync(0);
 			expect(signatures).toEqual([]);
 			freezeFor(waitMs);
@@ -702,7 +702,7 @@ describe("direct client bound to the caller's deadline", () => {
 			startExchangeActionDeadline(),
 		);
 
-		const outcome = track(client.approveAgent(APPROVE as never).catch(unwrapExchangeSigningDeadline));
+		const outcome = track(client.approveAgent(APPROVE as never).catch(unwrapExchangeSignerGuardError));
 		await vi.advanceTimersByTimeAsync(20_000);
 		await vi.advanceTimersByTimeAsync(0);
 
