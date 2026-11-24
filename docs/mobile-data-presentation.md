@@ -95,6 +95,7 @@
 资金能力必须区分 `supported`、`unresolved` 与 `unsupported`，不能仅凭 `accountModeReady` 布尔决定限制文案。
 
 - `disabled`、`unifiedAccount`、`portfolioMargin` 属于当前终端支持的模式；可操作性仍由钱包、地区、余额新鲜度和具体动作规则共同决定。
+- 模式尚未解析（`account-mode-unresolved`）属于被动原因：不显示可见文字，禁用的资金按钮只带一句中性的读屏说明「Loading account mode. Funds actions are temporarily unavailable.」，不说“请选择账户模式”（2026-11-20，[任务记录](work-memory/sessions/2026-11-20-ui-compliance-review-fixes.md)）。
 - 明确解析出的 `default`、`dexAbstraction` 使用 `account-mode-unsupported`，保留“移动资金前请选择支持的账户模式”的限制说明。`default` 不能当成 Standard / `disabled`，也不能当成尚未收到数据。
 - `default` 是新账号的协议初始状态，页面级宿主会在入金后把它自动设为统一账户（[ADR 0041](adr/0041-automatic-unified-account-for-new-accounts.md)）。数值与可用性不变（权益与余额仍为 0，资金动作的 `available` 仍为假，下单可用性永远不是 success），只有呈现跟随宿主发布的状态：
   - `awaiting-funds`（资金快照完整、当前且确认为空）：看起来与普通空账号相同。下单按钮为「Deposit」，但下单可用性仍为 error，表单与提交照旧阻断；余额页签为“No balances found. Deposit funds to start trading.”及存款入口；提款/划转仍禁用，原因改为“New accounts are set to Unified account automatically after the first deposit.”；交易面板的账户模式显示统一账户，账户类型弹窗预选统一账户、选项与确认禁用并显示同一句说明。这里的空账号结论来自完整快照，不是来自模式本身。

@@ -17,6 +17,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
+import { getMarketDexLabel, getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { mergeHistoricalOrderSources } from "@/lib/trade/historical-orders";
 import {
 	getFilteredHistoryEmptyPresentation,
@@ -379,11 +380,13 @@ function MobileOrdersHistoryTabContent({
 					<MobileProgressiveList key={`${typeFilter}:${directionFilter}:${statusFilter}`} items={filteredEntries}>
 						{(visibleEntries) =>
 							visibleEntries.map((entry) => {
-								const marketName = entry.coin;
 								const cardKey = getOrderHistoryDisclosureKey(entry);
 								const detailsId = `mobile-order-history-${entry.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 								const isExpanded = expandedKeys.has(cardKey);
 								const market = markets.getMarket(entry.coin);
+								const marketLabel = getMarketListLabel(market, entry.coin);
+								const marketDex = getMarketDexLabel(market);
+								const marketName = marketDex ? `${marketLabel} (${marketDex})` : marketLabel;
 								const isBuy = entry.side === "B";
 								const orderTypeLabel = getEntryTypeLabel(entry);
 								const sideLabel = getOrderSideLabel(entry.side, entry.reduceOnly);
@@ -410,13 +413,20 @@ function MobileOrdersHistoryTabContent({
 										>
 											<button
 												type="button"
-												onClick={() => handleSelectMarket(marketName)}
+												onClick={() => handleSelectMarket(entry.coin)}
 												aria-label={t`Switch to ${marketName} market, ${sideLabel} order`}
 												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-left focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
 											>
 												<span className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
-												<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
-													{marketName}
+												<span className="flex min-w-0 items-center gap-1">
+													<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
+														{marketLabel}
+													</span>
+													{marketDex ? (
+														<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+															{marketDex}
+														</span>
+													) : null}
 												</span>
 											</button>
 											<div className="min-w-0">

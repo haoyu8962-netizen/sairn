@@ -1071,7 +1071,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 					</TradeOptionCheckboxes>
 				)}
 
-				{tpSlEnabled && canUseTpSl && (
+				{capabilities.hasTpSl && tpSlEnabled && canUseTpSl && (
 					<TradeFormTpSl
 						showValidation={validationPresentationState.accountReady && validationPresentationState.marketReady}
 						assetId={market?.assetId ?? null}

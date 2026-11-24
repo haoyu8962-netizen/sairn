@@ -3,7 +3,7 @@ import { APP_BAR_BUTTON_HEIGHT_CLASS, APP_FOOTER_HEIGHT_CLASS } from "@/config/l
 import { cn } from "@/lib/cn";
 
 export const FOOTER_LINK_CLASS =
-	"rounded-6 text-fg-muted transition-colors hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus";
+	"rounded-12 text-fg-muted transition-colors hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus";
 
 export interface FooterLink {
 	id: string;
@@ -62,7 +62,7 @@ export function FooterBarView({
 				)}
 				aria-label={commandLabel}
 			>
-				<kbd className="pointer-events-none rounded-6 border border-stroke-weak bg-sunken px-1 py-px font-sans text-3xs leading-none text-fg-muted">
+				<kbd className="pointer-events-none rounded-12 border border-stroke-weak bg-sunken px-1 py-px font-sans text-3xs leading-none text-fg-muted">
 					{commandKey}
 				</kbd>
 			</button>

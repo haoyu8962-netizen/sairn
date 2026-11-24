@@ -44,3 +44,23 @@ export function processTrades(trades: RawTrade[], locale?: string): ProcessedTra
 		side: trade.side === "B" ? "buy" : "sell",
 	}));
 }
+
+export interface InitialTrades {
+	coin: string;
+	ids: Set<string> | null;
+}
+
+/**
+ * The trades a panel treats as history rather than as new fills: the first displayable snapshot of
+ * the coin it subscribes to. A change of coin drops the old set at once, so returning to a market
+ * re-captures it from that market's next snapshot. Returns `stored` unchanged when nothing changes,
+ * so a caller can keep the result in state and update it only when the identity differs.
+ */
+export function getInitialTrades(
+	stored: InitialTrades,
+	coin: string,
+	processed: readonly { id: string }[],
+): InitialTrades {
+	if (stored.coin === coin && (stored.ids !== null || processed.length === 0)) return stored;
+	return { coin, ids: processed.length > 0 ? new Set(processed.map((trade) => trade.id)) : null };
+}

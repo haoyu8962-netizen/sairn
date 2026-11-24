@@ -1,4 +1,5 @@
 import type { MarkPriceStatus } from "@/domain/trade/market-price";
+import type { Translate } from "@/lib/translate";
 import { noBalanceValidator } from "../definitions/balance";
 import {
 	signerNotReadyValidator,
@@ -103,12 +104,12 @@ const spotOrderValidators: Validator<SpotOrderContext>[] = [
 	insufficientBaseBalanceValidator,
 ];
 
-export function validateSpotOrder(context: SpotOrderContext): SpotOrderValidationResult {
+export function validateSpotOrder(context: SpotOrderContext, translate: Translate): SpotOrderValidationResult {
 	if (context.needsAgentApproval) {
 		return { valid: false, errors: [], canSubmit: false, needsApproval: true };
 	}
 
-	const errors = runValidators(spotOrderValidators, context);
+	const errors = runValidators(spotOrderValidators, context, translate);
 
 	return {
 		valid: errors.length === 0,

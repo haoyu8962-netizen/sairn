@@ -527,6 +527,56 @@ builds of the PR read 21 bytes less static startup pairing on than this protocol
 build of the PR after the change, same identity, read the same bytes and passed every budget: total +5,414
 (4,586 left), static startup +8,669 (1,331 left), mobile runtime +9,254 (746 left).
 
+## UI compliance fixes re-baseline (2026-11-20)
+
+PR #15 (`claude/ui-compliance-fixes` `500e9b1f`: order-form validators that take an explicit translator, funds-entry
+presentation on the account panel, positions toolbar, top bar and Portfolio, phone history market names, trade-history
+phone cards, the trades panel's per-market first-snapshot state and three contract tests) exceeded the
+`trade-terminal-page` allowance in both configurations and static trade startup with pairing on. Measured with the
+fixed identity of the reproduction protocol, Node 22.15.0, pnpm 10.21.0, no `.env.local` and no `NITRO_PRESET`; the
+base is `main` `ba78481a` (built in a worktree whose only change was the website snapshot), the head is the PR branch;
+451 client chunks pairing off and 452 on. The two worktrees were built at the same time, one configuration at a time.
+
+| Surface | Pairing off main | Pairing off PR | Pairing on main | Pairing on PR |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,671,597 | 1,672,121 (+524) | 1,672,816 | 1,673,266 (+450) |
+| Total client gzip | 3,400,413 | 3,401,914 (+1,501) | 3,404,273 | 3,404,897 (+624) |
+| `trade-terminal-page` | 128,849 | 129,334 (+485) | 128,861 | 129,354 (+493) |
+
+Each baseline was raised by the larger of its two increments: static startup +524 (to 1,663,457), total +1,501 (to
+3,396,830), `trade-terminal-page` +493 (to 125,637). After the raise pairing on keeps 191 bytes of static startup
+(main itself keeps 117 there) and 283 of `trade-terminal-page`; pairing off keeps 1,336 and 303. Per chunk, pairing
+off: `trade-terminal-page` +485, `portfolio` +154, `positions-panel` +153, `account-panel` +150,
+`use-account-abstraction-control` +113, the English catalog +91, the stylesheet −144. The CI builds of the PR read
+4,209 and 10,356 for the two exceeded surfaces with pairing on, within about 25 bytes of these local readings. The
+release configuration was not built; static startup with pairing on stays under the 200-byte margin the release
+preflight asks for, as it already did on `main`.
+
+### Measured again after merging `main` (2026-11-23)
+
+By the time PR #15 was ready to merge, `main` had raised the same baselines for PR #17 and PR #18, so the increments
+above, measured against `ba78481a`, no longer applied. `main` `ebdc7413` was merged into the branch and the pair was
+built again: base a clean detached worktree of `ebdc7413`, head the branch with the merge resolved but not yet
+committed; Node 22.15.0, pnpm 10.21.0, no `.env.local`, `NITRO_PRESET=node-server`, one fixed build identity for all
+four builds, each build run on its own. Logs and state files are in the Git-ignored
+`.worklog/2026-11-23/pr15-merge-rebaseline/`.
+
+| Surface | Pairing off main | Pairing off PR | Pairing on main | Pairing on PR |
+|---|---:|---:|---:|---:|
+| Static trade startup | 1,674,677 | 1,675,271 (+594) | 1,675,817 | 1,676,448 (+631) |
+| Total client gzip | 3,407,421 | 3,409,015 (+1,594) | 3,410,356 | 3,412,154 (+1,798) |
+| `trade-terminal-page` | 128,895 | 129,406 (+511) | 128,901 | 129,402 (+501) |
+| Mobile runtime startup | 120,346 | 120,355 (+9) | 120,342 | 120,365 (+23) |
+| Desktop runtime startup | 207,121 | 207,485 (+364) | 207,132 | 207,494 (+362) |
+
+The three baselines PR #15 had raised were set to `main`'s values plus the larger increment, replacing the earlier
+raises: static startup 1,666,091 + 631 = 1,666,722, total 3,402,441 + 1,798 = 3,404,239, `trade-terminal-page`
+125,144 + 511 = 125,655. In its tighter configuration each of the three keeps the room `main` itself has: 274 bytes
+of static startup and 2,085 of the total with pairing on, 249 of `trade-terminal-page` with pairing off. In the other
+configuration they keep 37, 204 and 10 bytes more than `main` does there. The runtime increments are within
+their allowances and were not raised; mobile runtime keeps 734 bytes with pairing on, against `main`'s 757. Every
+other named surface differs from `main` by at most 60 bytes. The release configuration was not built.
+
 ## Fix integration third review round re-baseline (2026-11-20)
 
 The third review round (deposit dialog terminal states, the tracking notifier keeping an outcome until the user

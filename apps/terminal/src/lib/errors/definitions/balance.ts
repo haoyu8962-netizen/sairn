@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { createValidator, type Validator } from "../types";
 
 interface HasAvailableBalance {
@@ -12,7 +12,7 @@ export const noBalanceValidator: Validator<HasAvailableBalance> = createValidato
 	code: "BAL_001",
 	category: "balance",
 	priority: 30,
-	getMessage: () => t`No balance`,
+	getMessage: (_ctx, translate) => translate(msg`No balance`),
 	validate: (ctx) => ctx.availableBalance > 0,
 });
 

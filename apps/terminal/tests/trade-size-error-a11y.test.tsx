@@ -324,7 +324,9 @@ async function releaseSlider() {
 }
 
 async function renderDesktop(root: Root) {
-	const errors = runValidators(orderInputValidators, {
+	const errors = runValidators(
+		orderInputValidators,
+		{
 		usesLimitPrice: desktopState.orderType === "stopLimit",
 		usesTriggerPrice: desktopState.orderType === "stopLimit",
 		price: desktopState.price,
@@ -332,7 +334,9 @@ async function renderDesktop(root: Root) {
 		sizeValue: desktopState.sizeValue,
 		orderValue: desktopState.orderValue,
 		maxSize: desktopState.maxSize,
-	});
+		},
+		(descriptor) => i18n._(descriptor),
+	);
 	const visibleValidationErrors = getOrderValidationPresentation(errors, {
 		accountReady: desktopState.accountReady,
 		marketReady: desktopState.marketReady,

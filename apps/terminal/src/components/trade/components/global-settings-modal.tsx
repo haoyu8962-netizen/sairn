@@ -270,7 +270,7 @@ export function GlobalSettingsModal() {
 								type="button"
 								onClick={() => void copyVersion(`${APP_VERSION} ${APP_RELEASE_ID} ${APP_BUILD_COMMIT}`)}
 								aria-label={t`Copy version`}
-								className="rounded-6 font-mono text-xs text-fg-muted transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+								className="rounded-12 font-mono text-xs text-fg-muted transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
 							>
 								{APP_RELEASE_LABEL}
 							</button>

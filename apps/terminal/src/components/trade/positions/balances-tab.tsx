@@ -7,7 +7,7 @@ import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
 import { SMALL_BALANCE_THRESHOLD_USD } from "@/config/trade";
 import { isTradingToolbarBalancePositive } from "@/domain/trade/balance-toolbar";
 import { type BalanceRow, filterBalanceRowsByUsdValue, getBalanceRowDisplayAvailable } from "@/domain/trade/balances";
-import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
 import { useBalanceRows } from "@/hooks/trade/use-balance-rows";
 import { useDepositAvailability } from "@/hooks/trade/use-deposit-availability";
 import { useFundsActionAvailability } from "@/hooks/trade/use-funds-action-availability";
@@ -281,10 +281,12 @@ export function BalancesTab({ toolbarTarget }: Props) {
 	}
 
 	function renderDepositPlaceholder(defaultLabel: string) {
+		const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+		const depositRestricted = isFundsActionRestricted(depositAvailability);
 		return (
 			<Placeholder>
 				<div className="flex flex-col items-center gap-2.5 text-center">
-					<span>{depositAvailability.unavailableReason ?? defaultLabel}</span>
+					<span>{depositNotice ?? defaultLabel}</span>
 					<Button
 						variant="outline"
 						intent="neutral"
@@ -292,11 +294,11 @@ export function BalancesTab({ toolbarTarget }: Props) {
 						disabled={!depositAvailability.available}
 						onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 						{...(depositAvailability.available ? depositModalIntentProps : undefined)}
-						aria-label={depositAvailability.available ? undefined : depositAvailability.unavailableLabel}
-						title={depositAvailability.unavailableReason ?? undefined}
+						aria-label={depositRestricted ? depositAvailability.unavailableLabel : undefined}
+						title={depositNotice ?? undefined}
 						className="rounded-[7px] border-market-close-stroke-control px-3 text-market-close-fg"
 					>
-						{depositAvailability.available ? t`Deposit` : depositAvailability.unavailableLabel}
+						{depositRestricted ? depositAvailability.unavailableLabel : t`Deposit`}
 					</Button>
 				</div>
 			</Placeholder>

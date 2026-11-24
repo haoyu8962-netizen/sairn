@@ -7,7 +7,7 @@ import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view"
 import { depositModalIntentProps } from "@/components/trade/components/deposit-modal-intent";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
 import { isQuoteBalanceSharedWithPerps } from "@/domain/trade/balances";
-import { getFundsAvailabilityNotice } from "@/domain/trade/data-presentation";
+import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
 import {
 	type SelectableAccountAbstraction,
 	useAccountAbstractionControl,
@@ -35,6 +35,8 @@ import { AccountModeModal } from "../trade/tradebox/account-mode-modal";
 import { PortfolioOverview } from "./portfolio-overview";
 
 const PositionsPanel = createLazyComponent(() => import("../trade/positions/positions-panel"), "PositionsPanel");
+
+type PassiveReasonKey = "modeDependent" | "transfer" | "withdrawal" | "deposit";
 
 export function PortfolioPage() {
 	const { i18n, t } = useLingui();
@@ -72,15 +74,10 @@ export function PortfolioPage() {
 	const fundsActionsDisabled = !hasWalletAccess || geoBlocked;
 	const depositDisabled = !depositAvailability.available;
 	const modeDependentFundsActionsDisabled = fundsActionsDisabled || !accountModeReady;
-	const internalTransferDisabledReason = isMobile
-		? getFundsAvailabilityNotice(fundsActionAvailability.internalTransfer)
-		: fundsActionAvailability.internalTransfer.unavailableReason;
-	const withdrawalNotice = isMobile
-		? getFundsAvailabilityNotice(fundsActionAvailability.withdrawal)
-		: fundsActionAvailability.withdrawal.unavailableReason;
-	const depositNotice = isMobile
-		? getFundsAvailabilityNotice(depositAvailability)
-		: depositAvailability.unavailableReason;
+	const internalTransferDisabledReason = getFundsAvailabilityNotice(fundsActionAvailability.internalTransfer);
+	const withdrawalNotice = getFundsAvailabilityNotice(fundsActionAvailability.withdrawal);
+	const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+	const showsDepositRestrictionLabel = !isMobile && isFundsActionRestricted(depositAvailability);
 	const transferDisabled = !fundsActionAvailability.internalTransfer.available;
 	const modeDependentFundsActionsDisabledReason = modeDependentFundsActionsDisabled ? withdrawalNotice : null;
 	const transferDisabledReason = transferDisabled ? internalTransferDisabledReason : null;
@@ -95,9 +92,27 @@ export function PortfolioPage() {
 		{ actions: [t`Withdraw`], reason: withdrawalDisabledReason },
 		{ actions: [t`Deposit`], reason: depositDisabledReason },
 	]);
-	const getUnavailableReasonId = (reason: string | null) => {
+	const passiveUnavailableReasons: Record<PassiveReasonKey, string | null> = {
+		modeDependent:
+			modeDependentFundsActionsDisabled && !modeDependentFundsActionsDisabledReason
+				? fundsActionAvailability.withdrawal.unavailableReason
+				: null,
+		transfer:
+			transferDisabled && !transferDisabledReason ? fundsActionAvailability.internalTransfer.unavailableReason : null,
+		withdrawal:
+			!fundsActionAvailability.withdrawal.available && !withdrawalDisabledReason
+				? fundsActionAvailability.withdrawal.unavailableReason
+				: null,
+		deposit: depositDisabled && !depositDisabledReason ? depositAvailability.unavailableReason : null,
+	};
+	const passiveReasonTexts = [
+		...new Set(Object.values(passiveUnavailableReasons).filter((reason): reason is string => !!reason)),
+	];
+	const getUnavailableReasonId = (reason: string | null, passiveKey: PassiveReasonKey) => {
 		const index = reason ? unavailableActionGroups.findIndex((group) => group.reason === reason) : -1;
-		return index >= 0 ? `${unavailableActionsId}-${index}` : undefined;
+		if (index >= 0) return `${unavailableActionsId}-${index}`;
+		const passiveReason = passiveUnavailableReasons[passiveKey];
+		return passiveReason ? `${unavailableActionsId}-passive-${passiveReasonTexts.indexOf(passiveReason)}` : undefined;
 	};
 	const handleAccountModeChange = useCallback(
 		async (nextMode: SelectableAccountAbstraction) => {
@@ -132,7 +147,7 @@ export function PortfolioPage() {
 										size="sm"
 										disabled={modeDependentFundsActionsDisabled}
 										focusableWhenDisabled
-										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason)}
+										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason, "modeDependent")}
 										onClick={openStablecoinSwapModal}
 										iconLeft={<ArrowsLeftRightIcon className="size-3.5" />}
 									>
@@ -146,7 +161,7 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={transferDisabled}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(transferDisabledReason)}
+												aria-describedby={getUnavailableReasonId(transferDisabledReason, "transfer")}
 												onClick={
 													fundsActionAvailability.internalTransfer.available
 														? () => openTransferModal("toPerp")
@@ -164,7 +179,7 @@ export function PortfolioPage() {
 										size="sm"
 										disabled={modeDependentFundsActionsDisabled}
 										focusableWhenDisabled
-										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason)}
+										aria-describedby={getUnavailableReasonId(modeDependentFundsActionsDisabledReason, "modeDependent")}
 										onClick={() => openSendModal()}
 										iconLeft={<PaperPlaneTiltIcon className="size-3.5" />}
 									>
@@ -178,7 +193,7 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={!fundsActionAvailability.withdrawal.available}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(withdrawalDisabledReason)}
+												aria-describedby={getUnavailableReasonId(withdrawalDisabledReason, "withdrawal")}
 												onClick={
 													fundsActionAvailability.withdrawal.available ? () => openDepositModal("withdraw") : undefined
 												}
@@ -197,24 +212,23 @@ export function PortfolioPage() {
 												size="sm"
 												disabled={depositDisabled}
 												focusableWhenDisabled
-												aria-describedby={getUnavailableReasonId(depositDisabledReason)}
+												aria-describedby={getUnavailableReasonId(depositDisabledReason, "deposit")}
 												onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 												{...(depositAvailability.available ? depositModalIntentProps : undefined)}
-												aria-label={
-													depositAvailability.available || isMobile ? undefined : depositAvailability.unavailableLabel
-												}
+												aria-label={showsDepositRestrictionLabel ? depositAvailability.unavailableLabel : undefined}
 												title={depositNotice ?? undefined}
 												iconLeft={<DownloadSimpleIcon className="size-3.5" />}
 											>
-												{depositAvailability.available || isMobile ? (
-													<Trans>Deposit</Trans>
-												) : (
-													depositAvailability.unavailableLabel
-												)}
+												{showsDepositRestrictionLabel ? depositAvailability.unavailableLabel : <Trans>Deposit</Trans>}
 											</Button>
 										</span>
 									</Tooltip>
 								</div>
+								{passiveReasonTexts.map((reason, index) => (
+									<span key={reason} id={`${unavailableActionsId}-passive-${index}`} className="sr-only">
+										{reason}
+									</span>
+								))}
 								{unavailableActionGroups.length ? (
 									<div
 										aria-live="polite"

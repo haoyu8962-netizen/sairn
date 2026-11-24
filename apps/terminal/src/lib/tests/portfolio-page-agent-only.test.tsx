@@ -14,6 +14,8 @@ const { FUNDS_REASON } = vi.hoisted(() => ({
 
 const testState = vi.hoisted(() => ({
 	isMobile: true,
+	reason: "agent-only-session",
+	reasonText: "",
 	openDeposit: vi.fn(),
 	openTransfer: vi.fn(),
 	openSend: vi.fn(),
@@ -63,19 +65,21 @@ vi.mock("@/hooks/trade/use-deposit-availability", () => ({
 	useDepositAvailability: () => ({
 		available: false,
 		path: "external",
-		reason: "agent-only-session",
+		reason: testState.reason,
 		unavailableLabel: "Deposit unavailable",
-		unavailableReason: FUNDS_REASON,
+		unavailableReason: testState.reasonText || FUNDS_REASON,
 	}),
 }));
 vi.mock("@/hooks/trade/use-funds-action-availability", () => {
-	const unavailable = { available: false, reason: "agent-only-session", unavailableReason: FUNDS_REASON };
 	return {
-		useFundsActionAvailability: () => ({
-			assertFreshGeoAllowed: vi.fn(),
-			internalTransfer: unavailable,
-			withdrawal: unavailable,
-		}),
+		useFundsActionAvailability: () => {
+			const unavailable = {
+				available: false,
+				reason: testState.reason,
+				unavailableReason: testState.reasonText || FUNDS_REASON,
+			};
+			return { assertFreshGeoAllowed: vi.fn(), internalTransfer: unavailable, withdrawal: unavailable };
+		},
 	};
 });
 vi.mock("@/stores/use-global-modal-store", () => ({
@@ -93,6 +97,8 @@ describe("PortfolioPage in an Agent-only session", () => {
 	let root: Root;
 
 	beforeEach(() => {
+		testState.reason = "agent-only-session";
+		testState.reasonText = "";
 		i18n.loadAndActivate({ locale: "en", messages: {} });
 		container = document.createElement("div");
 		document.body.appendChild(container);
@@ -131,5 +137,30 @@ describe("PortfolioPage in an Agent-only session", () => {
 		expect(testState.openTransfer).not.toHaveBeenCalled();
 		expect(testState.openSend).not.toHaveBeenCalled();
 		expect(testState.openSwap).not.toHaveBeenCalled();
+	});
+
+	it("keeps the Deposit name and only screen-reader reasons while the region is still being checked on desktop", () => {
+		const checking = "Checking regional availability. Deposits are temporarily unavailable.";
+		testState.isMobile = false;
+		testState.reason = "geo-unresolved";
+		testState.reasonText = checking;
+		act(() => root.render(<PortfolioPage />));
+
+		const labels = ["Swap Stablecoins", "Perps / Spot", "Send", "Withdraw", "Deposit"];
+		const actions = [...container.querySelectorAll<HTMLButtonElement>("button")].filter((button) =>
+			labels.includes(button.textContent ?? ""),
+		);
+		expect(actions.map((button) => button.textContent)).toEqual(labels);
+		for (const action of actions) {
+			expect(action.disabled || action.getAttribute("aria-disabled") === "true").toBe(true);
+			expect(action.getAttribute("aria-label")).toBeNull();
+			const reason = document.getElementById(action.getAttribute("aria-describedby") ?? "");
+			expect(reason?.className).toContain("sr-only");
+			expect(reason?.textContent).toBe(checking);
+		}
+		expect(container.textContent).not.toContain("Unavailable actions");
+		expect(container.textContent).not.toContain("Deposit unavailable");
+		expect(new Set(actions.map((action) => action.getAttribute("aria-describedby"))).size).toBe(1);
+		expect([...container.querySelectorAll(".sr-only")].filter((node) => node.textContent === checking)).toHaveLength(1);
 	});
 });

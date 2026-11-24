@@ -117,9 +117,11 @@ function renderChildren(children: ReactNode) {
 	return createElement(Fragment, null, children);
 }
 
+const modalLinger = vi.hoisted(() => ({ keepMounted: false }));
+
 vi.mock("@sairn/ui", () => ({
 	AdaptiveModal: ({ children, open }: { children: ReactNode; open: boolean }) =>
-		open ? createElement("section", null, children) : null,
+		open || modalLinger.keepMounted ? createElement("section", null, children) : null,
 	Button: ({ children, ...props }: { children: ReactNode; [key: string]: unknown }) =>
 		createElement("button", { ...props, type: "button" }, children),
 	Checkbox: ({
@@ -359,6 +361,7 @@ describe("funds action balance wiring", () => {
 	});
 
 	afterEach(() => {
+		modalLinger.keepMounted = false;
 		act(() => root.unmount());
 		container.remove();
 		clearAccountModeSetup("0x1111111111111111111111111111111111111111");
@@ -424,6 +427,34 @@ describe("funds action balance wiring", () => {
 			expect(getButton(container, "Send").disabled).toBe(false);
 			act(() => setInputValue(getAmountInput(container), "1000000000000001"));
 			expect(getButton(container, "Send").disabled).toBe(true);
+		},
+	);
+
+	it.each(["transfer", "send"] as const)(
+		"submits nothing from a %s dialog that is closing but still mounted for its exit",
+		async (dialog) => {
+			modalLinger.keepMounted = true;
+			act(() =>
+				root.render(
+					dialog === "transfer"
+						? createElement(TransferModal, { onOpenChange: vi.fn(), open: false })
+						: createElement(SendModal, { initialAccountType: "perp", onOpenChange: vi.fn(), open: false }),
+				),
+			);
+			if (dialog === "send") {
+				const destinationInput = container.querySelector<HTMLInputElement>('input[placeholder="Destination address"]');
+				if (!destinationInput) throw new Error("Destination input not found");
+				act(() => setInputValue(destinationInput, "0x2222222222222222222222222222222222222222"));
+			}
+			act(() => setInputValue(getAmountInput(container), "1"));
+			const submit = getButton(container, dialog === "transfer" ? "Transfer" : "Send");
+			expect(submit.disabled).toBe(true);
+			await act(async () => submit.click());
+
+			expect(testState.exchangeMutations.usdClassTransfer).not.toHaveBeenCalled();
+			expect(testState.exchangeMutations.sendAsset).not.toHaveBeenCalled();
+			expect(testState.exchangeMutations.spotSend).not.toHaveBeenCalled();
+			expect(testState.exchangeIdentity.info.preTransferCheck).not.toHaveBeenCalled();
 		},
 	);
 

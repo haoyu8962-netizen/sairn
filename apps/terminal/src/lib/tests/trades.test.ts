@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { getTradeKey, getTradePriceDecimals, processTrades, type RawTrade } from "@/lib/trade/trades";
+import {
+	getInitialTrades,
+	getTradeKey,
+	getTradePriceDecimals,
+	type InitialTrades,
+	processTrades,
+	type RawTrade,
+} from "@/lib/trade/trades";
 
 describe("trades", () => {
 	it("builds globally unique trade keys from time, coin, and tid", () => {
@@ -42,5 +49,26 @@ describe("trades", () => {
 			side: "buy",
 		});
 		expect(trade?.time).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+	});
+});
+
+describe("getInitialTrades", () => {
+	const rows = (...ids: string[]) => ids.map((id) => ({ id }));
+
+	it("captures the first displayable snapshot and then keeps the stored value identical", () => {
+		const empty: InitialTrades = { coin: "HYPE", ids: null };
+		expect(getInitialTrades(empty, "HYPE", [])).toBe(empty);
+		const captured = getInitialTrades(empty, "HYPE", rows("1", "2"));
+		expect([...(captured.ids ?? [])]).toEqual(["1", "2"]);
+		expect(getInitialTrades(captured, "HYPE", rows("3", "1", "2"))).toBe(captured);
+	});
+
+	it("drops the baseline as soon as the coin changes, before the new coin has a snapshot", () => {
+		const hype: InitialTrades = { coin: "HYPE", ids: new Set(["1", "2"]) };
+		const pending = getInitialTrades(hype, "BTC", []);
+		expect(pending).toEqual({ coin: "BTC", ids: null });
+		const back = getInitialTrades(pending, "HYPE", rows("7", "1", "2"));
+		expect([...(back.ids ?? [])]).toEqual(["7", "1", "2"]);
+		expect(getInitialTrades(hype, "BTC", rows("3")).ids).toEqual(new Set(["3"]));
 	});
 });

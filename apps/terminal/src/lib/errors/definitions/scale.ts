@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { msg } from "@lingui/core/macro";
 import { SCALE_LEVELS_MAX, SCALE_LEVELS_MIN, SCALE_SKEW_MAX, SCALE_SKEW_MIN } from "@/config/trade";
 import { createScaleOrderLevelPlan, type ScaleOrderPlanIssue } from "@/domain/trade/orders";
 import { isPositive } from "@/lib/trade/numbers";
@@ -20,7 +20,7 @@ export const enterPriceRangeValidator: Validator<ScaleContext> = createValidator
 	code: "SCL_001",
 	category: "scale",
 	priority: 400,
-	getMessage: () => t`Enter price range`,
+	getMessage: (_ctx, translate) => translate(msg`Enter price range`),
 	validate: (ctx) => {
 		if (!ctx.scaleOrder) return true;
 		return isPositive(ctx.scaleStartPriceNum) && isPositive(ctx.scaleEndPriceNum);
@@ -32,7 +32,7 @@ export const scaleLevelsRangeValidator: Validator<ScaleContext> = createValidato
 	code: "SCL_002",
 	category: "scale",
 	priority: 401,
-	getMessage: () => t`Scale levels must be ${SCALE_LEVELS_MIN}-${SCALE_LEVELS_MAX}`,
+	getMessage: (_ctx, translate) => translate(msg`Scale levels must be ${SCALE_LEVELS_MIN}-${SCALE_LEVELS_MAX}`),
 	validate: (ctx) => {
 		if (!ctx.scaleOrder) return true;
 		return isScaleLevelsInRange(ctx.scaleLevelsNum);
@@ -44,7 +44,7 @@ export const scaleStartEndDifferValidator: Validator<ScaleContext> = createValid
 	code: "SCL_003",
 	category: "scale",
 	priority: 402,
-	getMessage: () => t`Start and end must differ`,
+	getMessage: (_ctx, translate) => translate(msg`Start and end must differ`),
 	validate: (ctx) => {
 		if (!ctx.scaleOrder) return true;
 		if (!isPositive(ctx.scaleStartPriceNum) || !isPositive(ctx.scaleEndPriceNum)) return true;
@@ -57,7 +57,7 @@ export const scaleLevelMinNotionalValidator: Validator<ScaleContext> = createVal
 	code: "SCL_004",
 	category: "scale",
 	priority: 403,
-	getMessage: () => t`Scale level below min notional`,
+	getMessage: (_ctx, translate) => translate(msg`Scale level below min notional`),
 	validate: (ctx) => {
 		return !hasScalePlanIssue(ctx, "min-notional");
 	},
@@ -68,7 +68,7 @@ export const scaleSizeAllocationValidator: Validator<ScaleContext> = createValid
 	code: "SCL_005",
 	category: "scale",
 	priority: 404,
-	getMessage: () => t`Scale size is too small for the selected number of orders`,
+	getMessage: (_ctx, translate) => translate(msg`Scale size is too small for the selected number of orders`),
 	validate: (ctx) => !hasScalePlanIssue(ctx, "insufficient-size"),
 });
 
@@ -77,7 +77,7 @@ export const scalePricePrecisionValidator: Validator<ScaleContext> = createValid
 	code: "SCL_006",
 	category: "scale",
 	priority: 405,
-	getMessage: () => t`Scale prices must resolve to distinct ticks`,
+	getMessage: (_ctx, translate) => translate(msg`Scale prices must resolve to distinct ticks`),
 	validate: (ctx) => !hasScalePlanIssue(ctx, "duplicate-price"),
 });
 
@@ -86,7 +86,7 @@ export const scaleSkewRangeValidator: Validator<ScaleContext> = createValidator(
 	code: "SCL_007",
 	category: "scale",
 	priority: 406,
-	getMessage: () => t`Scale skew must be ${SCALE_SKEW_MIN}-${SCALE_SKEW_MAX}`,
+	getMessage: (_ctx, translate) => translate(msg`Scale skew must be ${SCALE_SKEW_MIN}-${SCALE_SKEW_MAX}`),
 	validate: (ctx) => {
 		if (!ctx.scaleOrder) return true;
 		return isScaleSkewInRange(ctx.scaleSkewNum);
@@ -98,7 +98,7 @@ export const scaleSkewAllocationValidator: Validator<ScaleContext> = createValid
 	code: "SCL_008",
 	category: "scale",
 	priority: 407,
-	getMessage: () => t`Size skew is too aggressive for the total size`,
+	getMessage: (_ctx, translate) => translate(msg`Size skew is too aggressive for the total size`),
 	validate: (ctx) => !hasScalePlanIssue(ctx, "insufficient-size-for-skew"),
 });
 

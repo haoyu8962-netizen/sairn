@@ -59,7 +59,7 @@ export function PortfolioOverview() {
 	];
 
 	return (
-		<div className="grid gap-2 min-[1001px]:grid-cols-4">
+		<div className="grid grid-cols-1 gap-2 min-[1001px]:grid-cols-4">
 			<div className="grid grid-cols-2 gap-2 min-[1001px]:grid-cols-1">
 				<MetricCard
 					label={<Trans>14 Day Volume</Trans>}

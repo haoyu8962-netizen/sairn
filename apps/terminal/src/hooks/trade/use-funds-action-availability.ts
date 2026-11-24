@@ -87,8 +87,10 @@ export function useFundsActionAvailability({
 		if (reason === "account-mode-unsupported" && automaticAccountModeSetup) {
 			return t`New accounts are set to Unified account automatically after the first deposit.`;
 		}
-		if (reason === "account-mode-unresolved" || reason === "account-mode-unsupported")
-			return t`Select a supported account mode before moving funds.`;
+		if (reason === "account-mode-unresolved") {
+			return t`Loading account mode. Funds actions are temporarily unavailable.`;
+		}
+		if (reason === "account-mode-unsupported") return t`Select a supported account mode before moving funds.`;
 		if (reason === "account-data-unavailable") {
 			return t`Balance data is unavailable. Try again after the connection recovers.`;
 		}

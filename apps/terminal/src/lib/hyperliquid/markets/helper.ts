@@ -39,3 +39,21 @@ export function getBuilderPerpShortName(name: string): string {
 export function getBuilderPerpDisplayName(name: string, quoteTokenName?: string): string {
 	return `${getBuilderPerpShortName(name)}-${quoteTokenName ?? DEFAULT_QUOTE_TOKEN}`;
 }
+
+interface MarketLabelSource {
+	kind: MarketKind;
+	pairName: string;
+	shortName: string;
+	dex?: string;
+}
+
+/** The market name the official terminal shows in a list row: the pair for spot, the base for perps. */
+export function getMarketListLabel(market: MarketLabelSource | undefined, coin: string): string {
+	if (!market) return coin;
+	return market.kind === "spot" ? market.pairName : market.shortName;
+}
+
+/** The HIP-3 deployer a list row names beside the market, as the official terminal does (`TSLA` with `xyz`). */
+export function getMarketDexLabel(market: MarketLabelSource | undefined): string | null {
+	return market?.kind === "builderPerp" && market.dex ? market.dex : null;
+}

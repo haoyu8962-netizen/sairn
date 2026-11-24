@@ -69,7 +69,7 @@ function AssetSelectionLoading() {
 function AssetSelectionError({ onRetry }: { onRetry: () => void }) {
 	return (
 		<div className="flex flex-col items-center gap-4 py-8">
-			<div className="flex size-12 items-center justify-center rounded-full bg-error-soft border border-stroke-error-strong/30">
+			<div className="flex size-12 items-center justify-center rounded-full bg-error-soft border border-stroke-error-weak">
 				<WarningCircleIcon className="size-6 text-error" />
 			</div>
 			<div className="text-center space-y-1">

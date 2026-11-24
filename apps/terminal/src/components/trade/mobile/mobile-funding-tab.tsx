@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { buildCsvRows } from "@/lib/csv";
 import { formatDateTime, formatDateTimeShort, useNumberFormat } from "@/lib/format";
 import { useHyperliquid, useMarkets } from "@/lib/hyperliquid";
+import { getMarketDexLabel, getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { getFundingCollateralSymbol, getFundingCollateralToken } from "@/lib/trade/collateral-amount";
 import {
 	type FundingHistorySideFilter,
@@ -260,11 +261,13 @@ function MobileFundingTabContent({
 					<MobileProgressiveList key={directionFilter} items={filteredUpdates}>
 						{(visibleUpdates) =>
 							visibleUpdates.map((update) => {
-								const marketName = update.coin;
 								const cardKey = getUserFundingKey(update);
 								const detailsId = `mobile-funding-history-${cardKey}`;
 								const isExpanded = expandedKeys.has(cardKey);
 								const market = markets.getMarket(update.coin);
+								const marketLabel = getMarketListLabel(market, update.coin);
+								const marketDex = getMarketDexLabel(market);
+								const marketName = marketDex ? `${marketLabel} (${marketDex})` : marketLabel;
 								const fundingDirection = getFundingHistorySide(update.szi);
 								const positionDisplay = formatToken(getToolbarAbsoluteSize(update.szi), {
 									decimals: market?.szDecimals,
@@ -292,13 +295,20 @@ function MobileFundingTabContent({
 										>
 											<button
 												type="button"
-												onClick={() => handleSelectMarket(marketName)}
+												onClick={() => handleSelectMarket(update.coin)}
 												aria-label={t`Switch to ${marketName} market`}
 												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-start focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
 											>
 												<span className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
-												<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
-													{marketName}
+												<span className="flex min-w-0 items-center gap-1">
+													<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
+														{marketLabel}
+													</span>
+													{marketDex ? (
+														<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+															{marketDex}
+														</span>
+													) : null}
 												</span>
 											</button>
 											<div className="min-w-0">

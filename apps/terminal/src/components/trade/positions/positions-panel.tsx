@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PORTFOLIO_TRANSFERS_TAB } from "@/config/account-ledger";
 import { HL_ALL_DEXS } from "@/config/app";
 import { POSITIONS_TABS } from "@/config/trade";
+import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
 import {
 	ALL_POSITION_MARKETS,
 	getReadyItemCount,
@@ -137,6 +138,9 @@ export function PositionsPanel({ includeTransfers = false, autoHeight = false }:
 		hasError: balancesError,
 	} = defaultBalances;
 	const withdrawDisabledReason = fundsActionAvailability.withdrawal.unavailableReason;
+	const withdrawNotice = getFundsAvailabilityNotice(fundsActionAvailability.withdrawal);
+	const depositNotice = getFundsAvailabilityNotice(depositAvailability);
+	const depositRestricted = isFundsActionRestricted(depositAvailability);
 	const {
 		positions,
 		isLoading: positionsLoading,
@@ -355,7 +359,7 @@ export function PositionsPanel({ includeTransfers = false, autoHeight = false }:
 						<>
 							{showsFundsActions ? (
 								<>
-									<Tooltip content={depositAvailability.unavailableReason} side="top">
+									<Tooltip content={depositNotice} side="top">
 										<span className="inline-flex">
 											<Button
 												variant="filled"
@@ -364,8 +368,8 @@ export function PositionsPanel({ includeTransfers = false, autoHeight = false }:
 												disabled={!depositAvailability.available}
 												onClick={depositAvailability.available ? () => openDepositModal("deposit") : undefined}
 												{...(depositAvailability.available ? depositModalIntentProps : undefined)}
-												aria-label={depositAvailability.available ? undefined : depositAvailability.unavailableLabel}
-												title={depositAvailability.unavailableReason ?? undefined}
+												aria-label={depositRestricted ? depositAvailability.unavailableLabel : undefined}
+												title={depositNotice ?? undefined}
 												className="h-[25px] rounded-[7px] bg-market-close-control px-3 text-xs font-semibold text-market-close-on-control shadow-none transition-colors duration-[120ms] hover:opacity-90 active:scale-100"
 											>
 												<Trans context="Trading toolbar action">Deposit</Trans>
@@ -377,13 +381,13 @@ export function PositionsPanel({ includeTransfers = false, autoHeight = false }:
 											{withdrawDisabledReason}
 										</span>
 									) : null}
-									<Tooltip content={withdrawDisabledReason} side="top">
+									<Tooltip content={withdrawNotice} side="top">
 										<span className="inline-flex">
 											<Button
 												variant="outline"
 												intent="neutral"
 												size="xxs"
-												disabled={!!withdrawDisabledReason}
+												disabled={!fundsActionAvailability.withdrawal.available}
 												focusableWhenDisabled
 												aria-describedby={withdrawDisabledReason ? withdrawUnavailableId : undefined}
 												onClick={

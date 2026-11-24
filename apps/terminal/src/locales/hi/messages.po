@@ -3625,6 +3625,7 @@ msgstr "पसंदीदा"
 
 #: src/components/trade-history/trade-history-page.tsx
 #: src/components/trade-history/trade-history-page.tsx
+#: src/components/trade-history/trade-history-page.tsx
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
@@ -4668,6 +4669,10 @@ msgstr "और लोड करें"
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "लोड हो रहा है"
+
+#: src/hooks/trade/use-funds-action-availability.ts
+msgid "Loading account mode. Funds actions are temporarily unavailable."
+msgstr "खाता मोड लोड किया जा रहा है। धन संबंधी कार्रवाइयाँ अस्थायी रूप से उपलब्ध नहीं हैं।"
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Loading asset information..."

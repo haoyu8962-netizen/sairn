@@ -101,15 +101,15 @@ export function reportClientError() {
 }
 
 export function useGeoRestriction() {
-	const unresolved = params.get("deposit") === "unavailable";
+	const restricted = params.get("deposit") === "unavailable";
 	return {
-		actionsBlocked: unresolved,
-		tradeRestricted: false,
-		country: unresolved ? null : "SG",
+		actionsBlocked: restricted,
+		tradeRestricted: restricted,
+		country: restricted ? "US" : "SG",
 		proxy: false,
-		isResolving: unresolved,
+		isResolving: false,
 		isError: false,
-		isResolved: !unresolved,
+		isResolved: true,
 		retry: async () => undefined,
 	};
 }

@@ -268,7 +268,7 @@ export function FundingHistoryPage({ address }: Props) {
 												<dt className="text-2xs text-fg-muted">
 													<Trans>Position</Trans>
 												</dt>
-												<dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-fg">
+												<dd className="mt-0.5 break-words text-xs font-semibold tabular-nums text-fg">
 													{position.sideLabel ? (
 														<span
 															className={cn(
@@ -286,7 +286,7 @@ export function FundingHistoryPage({ address }: Props) {
 												<dt className="text-2xs text-fg-muted">
 													<Trans>Rate</Trans>
 												</dt>
-												<dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-fg">
+												<dd className="mt-0.5 break-words text-xs font-semibold tabular-nums text-fg">
 													<bdi dir="ltr">
 														{formatPercent(funding.fundingRate, {
 															maximumFractionDigits: 4,
@@ -301,7 +301,7 @@ export function FundingHistoryPage({ address }: Props) {
 												</dt>
 												<dd
 													className={cn(
-														"mt-0.5 truncate text-xs font-semibold tabular-nums",
+														"mt-0.5 break-words text-xs font-semibold tabular-nums",
 														getMarketCloseValueColorClass(funding.usdc),
 													)}
 												>

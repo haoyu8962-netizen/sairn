@@ -202,6 +202,7 @@ function MarginModeModalComponent({
 			);
 
 		function handleTabChange(value: string) {
+			if (!open) return;
 			if (value === "margin" || value === "account") onSettingsTabChange?.(value);
 		}
 
@@ -271,7 +272,8 @@ function MarginModeModalComponent({
 										<AccountModeForm
 											key={`${open}:${accountModeForm.currentMode ?? "unavailable"}`}
 											{...accountModeForm}
-											isUpdating={actionPending}
+											isUpdating={actionPending || !open}
+											sessionOpen={open}
 											onClose={() => onOpenChange(false)}
 											mobileLayout
 										/>
@@ -505,7 +507,7 @@ function MarginModeForm({
 				) : null}
 
 				{cannotSwitch && (
-					<div className="flex items-start gap-2 rounded-xs border border-stroke-warning-strong/20 bg-warning-soft/10 p-2.5">
+					<div className="flex items-start gap-2 rounded-16 border border-stroke-warning-weak bg-warning-soft/10 p-2.5">
 						<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 						<p className="text-xs leading-relaxed text-warning">
 							<Trans>Cannot switch to Isolated mode with an open position. Close your position first.</Trans>
@@ -514,7 +516,7 @@ function MarginModeForm({
 				)}
 
 				{positionStateUnavailable && (
-					<div className="flex items-start gap-2 rounded-xs border border-stroke-warning-strong/20 bg-warning-soft/10 p-2.5">
+					<div className="flex items-start gap-2 rounded-16 border border-stroke-warning-weak bg-warning-soft/10 p-2.5">
 						<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 						<p className="text-xs leading-relaxed text-warning">
 							<Trans>

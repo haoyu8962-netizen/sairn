@@ -216,7 +216,7 @@ export function VaultDetailView({
 				</section>
 			) : null}
 
-			<div className="grid gap-3 px-4 pb-4 min-[1001px]:grid-cols-[minmax(0,1.5fr)_minmax(var(--vault-detail-sidebar-min),1fr)] min-[1001px]:px-5">
+			<div className="grid grid-cols-1 gap-3 px-4 pb-4 min-[1001px]:grid-cols-[minmax(0,1.5fr)_minmax(var(--vault-detail-sidebar-min),1fr)] min-[1001px]:px-5">
 				<section className="overflow-hidden rounded-16 border border-stroke-weak" aria-label={t`Vault performance`}>
 					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-stroke-weak px-3 py-2">
 						<fieldset className="flex gap-1">
@@ -415,14 +415,14 @@ function FollowerMobileRow({ follower }: { follower: VaultDetail["followers"][nu
 	return (
 		<div className="px-4 py-3">
 			<div className="min-w-0">
-				<p className="truncate font-mono text-xs tabular-nums text-fg">
+				<p className="break-words font-mono text-xs tabular-nums text-fg">
 					{follower.user === "Leader" ? <Trans>Leader</Trans> : <bdi dir="ltr">{shortenAddress(follower.user)}</bdi>}
 				</p>
 				<p className="mt-0.5 text-2xs text-fg-muted">
 					<Trans>Following {follower.daysFollowing} days</Trans>
 				</p>
 			</div>
-			<dl className="mt-2 grid gap-1.5 text-2xs">
+			<dl className="mt-2 grid grid-cols-1 gap-1.5 text-2xs">
 				<FollowerMobileMetric
 					label={<Trans>Equity</Trans>}
 					value={formatVaultUsd(follower.vaultEquity, numberFormat)}
@@ -454,7 +454,7 @@ function FollowerMobileMetric({
 	return (
 		<div className="flex min-w-0 items-baseline justify-between gap-2">
 			<dt className="shrink-0 text-fg-muted">{label}</dt>
-			<dd className={cn("truncate text-right font-semibold tabular-nums", toneClass(tone))}>
+			<dd className={cn("min-w-0 break-words text-right font-semibold tabular-nums", toneClass(tone))}>
 				<bdi dir="ltr">{value}</bdi>
 			</dd>
 		</div>
@@ -473,7 +473,7 @@ function SummaryMetric({
 	return (
 		<div className="px-3 py-2.5 min-[1001px]:py-3">
 			<p className="text-2xs text-fg-muted min-[1001px]:text-xs">{label}</p>
-			<p className={cn("mt-1 truncate text-base font-bold tabular-nums min-[1001px]:text-xl", toneClass(tone))}>
+			<p className={cn("mt-1 break-words text-base font-bold tabular-nums min-[1001px]:text-xl", toneClass(tone))}>
 				<bdi dir="ltr">{value}</bdi>
 			</p>
 		</div>

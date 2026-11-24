@@ -1,3 +1,4 @@
+import type { Translate } from "@/lib/translate";
 import { walletLoadingValidator, walletNotConnectedValidator } from "../definitions/connection";
 import {
 	type DepositContext,
@@ -23,12 +24,12 @@ const depositValidators: Validator<DepositValidationContext>[] = [
 	depositInsufficientBalanceValidator,
 ];
 
-export function validateDeposit(context: DepositValidationContext): DepositValidationResult {
+export function validateDeposit(context: DepositValidationContext, translate: Translate): DepositValidationResult {
 	if (context.amount === 0) {
 		return { valid: false, error: null };
 	}
 
-	const errors = runValidators(depositValidators, context);
+	const errors = runValidators(depositValidators, context, translate);
 	const firstError = errors[0]?.message ?? null;
 
 	return {

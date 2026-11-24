@@ -24,19 +24,23 @@ order-conditions-changed feedback and must be reviewed again.
 ## Edits and completion
 
 The transient order-entry store advances its revision on changed input or
-preferences, an explicit form reset, and a market change. Mobile retains its
-local quantity, size mode and reduce-only fields, including its existing quote
-default. Editing those local fields explicitly advances the same revision.
+preferences, an explicit form reset, and a market change. Desktop and mobile
+read quantity, size mode and reduce-only from the same shared draft
+(`docs/order-entry-surface-parity.md`, cross-breakpoint drafts), so editing them
+advances the same revision on both surfaces.
 Transient edits and revisions never write localStorage; only the existing side,
-order-type and desktop size-mode preferences are persisted.
+order-type and size-mode preferences are persisted, and the size mode is one
+preference shared by both surfaces (the phone's unit control writes it through
+the same `setSizeMode` action).
 
 The submission hook validates the token before starting an order. After an order
 has started, success, partial failure and reconciling outcomes still update the
 original order's queue entry and market feedback. The token limits only whether
 completion can reset the form: the session lease, market and draft revision must
 still match. A successful reset advances the revision, so it can occur only once.
-The mobile `onReset` callback runs only after that conditional shared reset and
-clears the corresponding local fields. A late result can never erase a newer
+`useOrderSubmit` still accepts an optional `onReset` callback that runs only after
+that conditional shared reset; no form passes one since mobile moved to the shared
+draft (2026-11-20 check). A late result can never erase a newer
 draft or a draft edited while the old order was awaiting its result.
 
 The route-derived market identity resets transient fields before the next market's

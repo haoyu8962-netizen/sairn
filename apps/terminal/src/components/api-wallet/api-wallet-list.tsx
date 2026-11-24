@@ -248,12 +248,12 @@ function MobileAgentCards({ agents, listState, canRemove, onRemove, onRetry }: P
 			{agents.map((agent) => (
 				<article key={agent.id} className="flex flex-col gap-2.5 rounded-16 border border-api-wallet-stroke-card p-3">
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
-						<h3 className="min-w-0 truncate text-sm font-bold text-api-wallet-fg">{agent.name}</h3>
+						<h3 className="min-w-0 break-words text-sm font-bold text-api-wallet-fg">{agent.name}</h3>
 						<AgentStatus agent={agent} />
 					</div>
 					<div className="flex min-w-0 items-center gap-2">
 						<span
-							className="min-w-0 flex-1 truncate font-mono text-xs tabular-nums text-api-wallet-muted"
+							className="min-w-0 flex-1 break-all font-mono text-xs tabular-nums text-api-wallet-muted"
 							title={agent.address}
 						>
 							<bdi dir="ltr">{shortenAddress(agent.address, 6, 4)}</bdi>
@@ -267,7 +267,7 @@ function MobileAgentCards({ agents, listState, canRemove, onRemove, onRetry }: P
 							</p>
 							<p
 								className={cn(
-									"truncate text-2sm font-semibold tabular-nums text-api-wallet-fg",
+									"break-words text-2sm font-semibold tabular-nums text-api-wallet-fg",
 									agent.status === "expired" && "text-api-wallet-subtle line-through",
 								)}
 							>

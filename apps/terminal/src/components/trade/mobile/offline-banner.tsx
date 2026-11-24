@@ -46,7 +46,7 @@ export function OfflineBanner({ className }: Props) {
 				"flex items-center justify-between gap-2",
 				"text-xs font-medium",
 				isOnline
-					? "bg-success-soft text-success border-b border-stroke-success-strong/20"
+					? "bg-success-soft text-success border-b border-stroke-success-weak"
 					: "bg-warning-soft text-warning border-b border-stroke-warning-weak/20",
 				className,
 			)}

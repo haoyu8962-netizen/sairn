@@ -560,7 +560,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 					)}
 
 					{insufficientBalance && (
-						<div className="flex items-start gap-2 p-2.5 bg-warning-soft border border-stroke-warning-strong/20 rounded-8">
+						<div className="flex items-start gap-2 p-2.5 bg-warning-soft border border-stroke-warning-weak rounded-8">
 							<WarningIcon className="size-3.5 text-warning shrink-0 mt-0.5" />
 							<p className="text-xs text-warning">
 								<Trans>
@@ -571,7 +571,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 					)}
 
 					{belowMinimumNotional && !insufficientBalance && (
-						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-strong/20 bg-warning-soft p-2.5">
+						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5">
 							<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 							<p className="text-xs text-warning">
 								<Trans>Minimum order value is {ORDER_MIN_NOTIONAL_USD} USDC after size rounding.</Trans>
@@ -580,7 +580,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 					)}
 
 					{partialFill && !insufficientBalance && (
-						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-strong/20 bg-warning-soft p-2.5">
+						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5">
 							<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 							<p className="text-xs text-warning">
 								<Trans>Available order book liquidity can only fill part of this swap.</Trans>
@@ -589,7 +589,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 					)}
 
 					{noPairAvailable && (
-						<div className="flex items-start gap-2 p-2.5 bg-warning-soft border border-stroke-warning-strong/20 rounded-8">
+						<div className="flex items-start gap-2 p-2.5 bg-warning-soft border border-stroke-warning-weak rounded-8">
 							<WarningIcon className="size-3.5 text-warning shrink-0 mt-0.5" />
 							<p className="text-xs text-warning">
 								<Trans>
@@ -601,7 +601,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 					)}
 
 					{quoteUnavailable && (
-						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-strong/20 bg-warning-soft p-2.5">
+						<div className="flex items-start gap-2 rounded-8 border border-stroke-warning-weak bg-warning-soft p-2.5">
 							<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
 							<p className="text-xs text-warning">
 								<Trans>No liquidity was available within the {DEFAULT_SWAP_SLIPPAGE_PERCENT}% slippage limit.</Trans>
@@ -654,8 +654,8 @@ function TokenPanel({
 	return (
 		<div
 			className={cn(
-				"rounded-10 border p-3 space-y-2 transition-colors",
-				hasError ? "border-stroke-warning-strong/40 bg-warning-soft/50" : "border-stroke-weak/40 bg-fill-weak",
+				"rounded-16 border p-3 space-y-2 transition-colors",
+				hasError ? "border-stroke-warning-weak bg-warning-soft" : "border-stroke-weak",
 			)}
 		>
 			<div className="flex items-center justify-between">
@@ -682,7 +682,7 @@ function TokenPanel({
 							onChange={(e) => onAmountChange?.(e.target.value)}
 							className={cn(
 								"w-full tabular-nums",
-								hasError && "border-stroke-warning-strong/40 text-warning focus:border-stroke-warning-strong",
+								hasError && "border-stroke-warning-weak text-warning focus:border-stroke-warning-strong",
 							)}
 							disabled={disabled}
 						/>
