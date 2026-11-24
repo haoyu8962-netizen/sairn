@@ -197,10 +197,17 @@ for (const locale of ["en", "zh"]) {
 			{ width: 1440, height: 900 },
 		]) {
 			test(`cuts off no Vault ${view} text at ${viewport.width}px in ${locale}`, async ({ page }) => {
+				const errors: string[] = [];
+				page.on("pageerror", (error) => errors.push(error.message));
 				await page.setViewportSize(viewport);
 				await page.goto(`/vaults-list.html?locale=${locale}${view === "detail" ? "&view=detail" : ""}`);
+				const content = view === "detail"
+					? page.getByText(DETAIL_ADDRESS, { exact: true })
+					: page.getByRole("link", { name: /HyperGrowth/ });
+				await expect(content).toBeVisible();
 				await waitForFonts(page);
 				expect(await findLayoutIntegrityIssues(page, { root: "#root" })).toEqual([]);
+				expect(errors).toEqual([]);
 			});
 		}
 	}

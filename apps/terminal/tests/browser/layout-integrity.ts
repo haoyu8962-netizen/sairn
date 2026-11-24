@@ -11,11 +11,13 @@ import type { Page } from "@playwright/test";
  *   line clamp). Content that only wraps is not a finding.
  * - `clipped`: rendered text or a media element (svg, img, canvas) that extends beyond the padding box
  *   of an ancestor whose overflow is `hidden` or `clip`, below the probe root. Ancestors that scroll
- *   (`auto`, `scroll`) are skipped, because their hidden part is reachable.
+ *   (`auto`, `scroll`) are skipped, because their hidden part is reachable; on an axis where such an
+ *   ancestor has more content than room, the ancestors outside it are not compared on that axis
+ *   either, since they clip the scrolling box and not the text inside it.
  *
- * Elements that are not rendered (display none, visibility hidden, zero size) and screen-reader-only
- * content (a 1px clipped box) are ignored with their descendants. Exceptions are listed by the
- * caller as CSS selectors, each with a reason, so every accepted truncation stays visible in review.
+ * Hidden and screen-reader-only elements are skipped with their descendants. Elements without a
+ * layout box can still have rendered descendants or, with `display: contents`, rendered text.
+ * Exceptions are listed by the caller as CSS selectors, each with a reason.
  * The probe measures what the browser rendered; it says nothing about whether a wrapped layout is
  * pleasant, and a defect it reports must still be reproduced at the reported width before a fix.
  */
@@ -54,12 +56,6 @@ export async function findLayoutIntegrityIssues(
 				const box = element.getBoundingClientRect();
 				const clipped = style.clip !== "auto" && style.clip !== "" ? true : style.clipPath.startsWith("inset(50%");
 				return clipped && box.width <= 1 && box.height <= 1;
-			};
-
-			const isRendered = (element: Element, style: CSSStyleDeclaration) => {
-				if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
-				const box = element.getBoundingClientRect();
-				return box.width > 0 || box.height > 0;
 			};
 
 			const describe = (element: Element) => {
@@ -109,13 +105,23 @@ export async function findLayoutIntegrityIssues(
 				return rect;
 			};
 
+			const hidesOverflow = (value: string) => value === "hidden" || value === "clip";
+			const scrolls = (value: string) => value === "auto" || value === "scroll";
+
 			const clippingAncestors = (element: Element) => {
-				const result: Element[] = [];
-				let current = element.parentElement;
+				const result: { ancestor: Element; checkX: boolean; checkY: boolean }[] = [];
+				let reachableX = false;
+				let reachableY = false;
+				let current: Element | null = element;
 				while (current && rootElement.contains(current)) {
 					const style = getComputedStyle(current);
-					const hides = (value: string) => value === "hidden" || value === "clip";
-					if (hides(style.overflowX) || hides(style.overflowY)) result.push(current);
+					if (style.display !== "contents") {
+						if (scrolls(style.overflowX) && current.scrollWidth > current.clientWidth) reachableX = true;
+						if (scrolls(style.overflowY) && current.scrollHeight > current.clientHeight) reachableY = true;
+						const checkX = current !== element && hidesOverflow(style.overflowX) && !reachableX;
+						const checkY = current !== element && hidesOverflow(style.overflowY) && !reachableY;
+						if (checkX || checkY) result.push({ ancestor: current, checkX, checkY });
+					}
 					if (current === rootElement) break;
 					current = current.parentElement;
 				}
@@ -132,29 +138,33 @@ export async function findLayoutIntegrityIssues(
 					top,
 					right: left + element.clientWidth,
 					bottom: top + element.clientHeight,
-					hidesX: ["hidden", "clip"].includes(style.overflowX),
-					hidesY: ["hidden", "clip"].includes(style.overflowY),
 				};
 			};
 
 			const visit = (element: Element) => {
 				const style = getComputedStyle(element);
-				if (!isRendered(element, style) || isScreenReaderOnly(element, style)) return;
-				if (isAllowed(element)) return;
-				const text = ownText(element);
-				if (text) {
+				if (
+					style.display === "none" ||
+					style.visibility === "hidden" ||
+					style.visibility === "collapse" ||
+					isAllowed(element) ||
+					isScreenReaderOnly(element, style)
+				) return;
+				const box = element.getBoundingClientRect();
+				const hasBox = box.width > 0 || box.height > 0;
+				const text = hasBox || style.display === "contents" ? ownText(element) : "";
+				if (hasBox && text) {
 					const hidesX = style.overflowX !== "visible" || style.textOverflow === "ellipsis";
 					const lineClamp = style.getPropertyValue("-webkit-line-clamp");
 					const hidesY = style.overflowY !== "visible" || (lineClamp !== "" && lineClamp !== "none");
-					const scrolls = ["auto", "scroll"].includes(style.overflowX) || ["auto", "scroll"].includes(style.overflowY);
-					if (!scrolls && hidesX && element.scrollWidth > element.clientWidth + slack) {
+					if (!scrolls(style.overflowX) && hidesX && element.scrollWidth > element.clientWidth + slack) {
 						findings.push({
 							kind: "truncated",
 							path: describe(element),
 							text,
 							detail: `content ${element.scrollWidth}px wide in a ${element.clientWidth}px box`,
 						});
-					} else if (!scrolls && hidesY && element.scrollHeight > element.clientHeight + slack) {
+					} else if (!scrolls(style.overflowY) && hidesY && element.scrollHeight > element.clientHeight + slack) {
 						findings.push({
 							kind: "truncated",
 							path: describe(element),
@@ -164,13 +174,13 @@ export async function findLayoutIntegrityIssues(
 					}
 				}
 				const isMedia = ["svg", "img", "canvas", "video"].includes(element.tagName.toLowerCase());
-				const rect = isMedia ? element.getBoundingClientRect() : text ? textRect(element) : null;
+				const rect = isMedia ? box : text ? textRect(element) : null;
 				if (rect && (rect.width > 0 || rect.height > 0)) {
-					for (const ancestor of clippingAncestors(element)) {
+					for (const { ancestor, checkX, checkY } of clippingAncestors(element)) {
 						if (isAllowed(ancestor)) break;
 						const box = paddingBox(ancestor);
-						const overflowX = box.hidesX ? Math.max(box.left - rect.left, rect.right - box.right) : 0;
-						const overflowY = box.hidesY ? Math.max(box.top - rect.top, rect.bottom - box.bottom) : 0;
+						const overflowX = checkX ? Math.max(box.left - rect.left, rect.right - box.right) : 0;
+						const overflowY = checkY ? Math.max(box.top - rect.top, rect.bottom - box.bottom) : 0;
 						const overflow = Math.max(overflowX, overflowY);
 						if (overflow > slack) {
 							findings.push({
