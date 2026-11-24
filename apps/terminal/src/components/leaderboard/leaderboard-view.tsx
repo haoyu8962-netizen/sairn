@@ -50,8 +50,7 @@ export function LeaderboardView(props: LeaderboardViewProps) {
 			data-refresh-state={props.dataNotice ?? (props.isRefreshing ? "refreshing" : "idle")}
 			aria-busy={props.pageState === "loading" || props.isRefreshing}
 			className={cn(
-				"mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col bg-surface text-fg shadow-raised",
-				!isMobile && "overflow-hidden rounded-24",
+				"mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col overflow-hidden rounded-24 bg-surface text-fg shadow-raised",
 			)}
 		>
 			<header
@@ -64,7 +63,7 @@ export function LeaderboardView(props: LeaderboardViewProps) {
 					<p className="text-2xs text-fg-muted">
 						<Trans>Markets / Leaderboard</Trans>
 					</p>
-					<h1 className={cn("mt-1 font-bold tracking-heading-1", isMobile ? "text-xl" : "text-lg")}>
+					<h1 className="mt-1 text-xl font-bold tracking-heading-1">
 						<Trans>Leaderboard</Trans>
 					</h1>
 					<p className="mt-1 text-xs text-fg-muted">

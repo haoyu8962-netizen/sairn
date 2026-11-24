@@ -121,7 +121,7 @@ export function ApiWalletForm({
 								value={String(validityDays)}
 								orientation="horizontal"
 								aria-labelledby={validityLegendId}
-								className="grid grid-cols-3 gap-1.5"
+								className="grid grid-cols-3 gap-1.5 max-[359px]:grid-cols-1"
 								onValueChange={(value) => {
 									if (typeof value === "string" && isValidityDays(value)) {
 										onValidityChange(Number(value) as ApiWalletValidityDays);

@@ -189,24 +189,6 @@ const CONTROL_EXCEPTIONS = [
 	},
 ] as const;
 
-const FLAT_SHEETS = [
-	{
-		file: "components/leaderboard/leaderboard-view.tsx",
-		base: "mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col bg-surface text-fg shadow-raised",
-		desktop: "overflow-hidden rounded-24",
-	},
-	{
-		file: "components/funding-comparison/funding-comparison-view.tsx",
-		base: "mx-auto flex min-h-[var(--earn-page-min-height)] w-full max-w-[var(--earn-content-max)] flex-col bg-surface text-fg shadow-raised",
-		desktop: "overflow-hidden rounded-24",
-	},
-	{
-		file: "components/api-wallet/api-wallet-view.tsx",
-		base: "mx-auto flex w-full max-w-[var(--api-wallet-content-max)] flex-col bg-surface text-api-wallet-fg shadow-api-wallet-page",
-		desktop: "min-h-[var(--api-wallet-page-min-height)] overflow-hidden rounded-24",
-	},
-] as const;
-
 const ACCOUNT_CARD_SOURCES = [
 	"components/trade/mobile/mobile-funding-tab.tsx",
 	"components/trade/mobile/mobile-history-tab.tsx",
@@ -248,10 +230,6 @@ function isControlException({ file, value }: ClassString): boolean {
 	return CONTROL_EXCEPTIONS.some((exception) => exception.file === file && value.includes(exception.contains));
 }
 
-function isFlatSheetString({ file, value }: ClassString): boolean {
-	return FLAT_SHEETS.some((sheet) => sheet.file === file && (value === sheet.base || value === sheet.desktop));
-}
-
 function describeClass({ file, value }: ClassString): string {
 	return `${file}: ${value}`;
 }
@@ -260,10 +238,7 @@ describe("dashboard surface radius contract", () => {
 	it("rounds every page surface on the dashboard canvas to 12px and lifts it with a shadow", () => {
 		const surfaces = CLASS_STRINGS.filter(
 			(entry) =>
-				!isFlatSheetString(entry) &&
-				!isControlException(entry) &&
-				/(?:^|\s)bg-surface(?:\s|$)/.test(entry.value) &&
-				!entry.value.includes("border"),
+				!isControlException(entry) && /(?:^|\s)bg-surface(?:\s|$)/.test(entry.value) && !entry.value.includes("border"),
 		);
 
 		expect(surfaces.length).toBeGreaterThan(0);
@@ -276,7 +251,6 @@ describe("dashboard surface radius contract", () => {
 	it("rounds every other box to 8px unless it is a listed control", () => {
 		const boxes = CLASS_STRINGS.filter(
 			(entry) =>
-				!isFlatSheetString(entry) &&
 				!isControlException(entry) &&
 				radiusClasses(entry.value).length > 0 &&
 				!(/(?:^|\s)bg-surface(?:\s|$)/.test(entry.value) && !entry.value.includes("border")),
@@ -302,20 +276,6 @@ describe("dashboard surface radius contract", () => {
 	it("builds dashboard class names only from double-quoted strings", () => {
 		for (const file of DASHBOARD_SOURCES) {
 			expect(readSource(file), file).not.toMatch(/[`'][^`'\n]*\brounded-[^`'\n]*[`']/);
-		}
-	});
-
-	it("keeps flat phone sheets square on phones and rounds them to 12px on desktop", () => {
-		for (const sheet of FLAT_SHEETS) {
-			const source = readSource(sheet.file);
-			expect(source, sheet.file).toContain(`"${sheet.base}"`);
-			expect(radiusClasses(sheet.base), sheet.file).toEqual([]);
-			expect(sheet.base, sheet.file).toMatch(/(?:^|\s)shadow-(?:raised|api-wallet-page)(?:\s|$)/);
-			expect(
-				[...source.matchAll(/!isMobile && "([^"]*)"/g)].map((match) => match[1]),
-				sheet.file,
-			).toEqual([sheet.desktop]);
-			expect(radiusClasses(sheet.desktop), sheet.file).toEqual(["rounded-24"]);
 		}
 	});
 

@@ -66,6 +66,11 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- Portfolio, Earn, Vaults, Staking, Referrals, Leaderboard, Funding Comparison, API Wallet and the
+  history pages now share one page frame: the same side margin, top spacing, maximum width (1440px)
+  and title size on desktop and on phones, so the content no longer changes width or jumps when you
+  switch pages. On phones Leaderboard, Funding Comparison and API Wallet are inset panels like the
+  other pages instead of full-width sheets.
 - The TWAP sub-tabs (Current, History, Fill History) now start on the same edge and use the same
   weight as the account tabs above them and line up with the filter rows of the other account tabs,
   on phones and on desktop. The desktop Order History filters read `Type` and `Status` when nothing
