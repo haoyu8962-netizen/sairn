@@ -11,6 +11,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Settings → About → Diagnostics copies a local record of the last ten startups (timings and counts)
   and connection recoveries, to help explain a blank screen or a long wait for data. Nothing is sent
   anywhere and it contains no addresses or account data.
+- Korean interface language (한국어) in the language menu, including the TradingView chart and
+  Korean dates; numbers keep following the separate number-format setting.
 - Japanese interface language (日本語) in the language menu, including the TradingView chart and
   Japanese dates; numbers keep following the separate number-format setting.
 - A link can open the terminal in a language: `?lang=ja` (or any other interface language) shows the

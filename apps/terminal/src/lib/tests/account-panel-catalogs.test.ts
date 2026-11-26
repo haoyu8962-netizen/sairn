@@ -32,6 +32,11 @@ const EXPECTED_TRANSLATIONS = {
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
 			"残高共有型のアカウントモードでは、現物と無期限先物の間で振替できません。",
 	},
+	ko: {
+		"Cross Maintenance Margin": "교차 유지 증거금",
+		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
+			"공유 잔고 계정 모드에서는 현물과 무기한 선물 간 이체를 사용할 수 없습니다.",
+	},
 	hi: {
 		"Cross Maintenance Margin": "क्रॉस मेंटेनेंस मार्जिन",
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":

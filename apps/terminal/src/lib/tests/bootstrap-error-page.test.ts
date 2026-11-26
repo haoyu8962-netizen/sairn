@@ -68,6 +68,15 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("ターミナルを再読み込み");
 	});
 
+	it("renders the persisted Korean fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "ko");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("ko");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain("터미널을 안전하게 시작할 수 없습니다. 거래하기 전에 새로고침하세요.");
+		expect(document.querySelector("button")?.textContent).toBe("터미널 새로고침");
+	});
+
 	it("fails closed to English when persisted locale storage cannot be read", () => {
 		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
 			throw new Error("storage unavailable");

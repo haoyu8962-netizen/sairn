@@ -8,7 +8,7 @@ export default defineConfig({
     },
   ],
   // Maintained terminal interface languages
-  locales: ["en", "zh", "ja", "hi", "es", "fr", "ar"],
+  locales: ["en", "zh", "ja", "ko", "hi", "es", "fr", "ar"],
   sourceLocale: "en",
   formatOptions: {
     lineNumbers: false,

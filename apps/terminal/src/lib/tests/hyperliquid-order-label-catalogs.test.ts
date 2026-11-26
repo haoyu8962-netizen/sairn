@@ -22,6 +22,11 @@ const translations = {
 		"TWAP Slice": "TWAP 分割注文",
 		"Vault Close": "ボールトのポジション決済",
 	},
+	ko: {
+		"Spot Dust Conversion": "현물 소액 잔고 전환",
+		"TWAP Slice": "TWAP 분할 주문",
+		"Vault Close": "볼트 포지션 종료",
+	},
 	hi: {
 		"Spot Dust Conversion": "शेष स्पॉट बैलेंस का रूपांतरण",
 		"TWAP Slice": "TWAP ऑर्डर का भाग",

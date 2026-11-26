@@ -8,10 +8,16 @@ describe("TradingView locale mapping", () => {
 		expect(isRtlLocale("ja")).toBe(false);
 	});
 
+	it("uses Korean dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale.ko).toBe("ko-KR");
+		expect(isRtlLocale("ko")).toBe(false);
+	});
+
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
 		["ja", "ja"],
+		["ko", "ko"],
 		["es", "es"],
 		["fr", "fr"],
 		["ar", "ar"],

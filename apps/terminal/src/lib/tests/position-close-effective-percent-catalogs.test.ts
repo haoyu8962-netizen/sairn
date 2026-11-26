@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const MESSAGE = "{requestedPercent}% requested; {effectivePercent}% after size precision";
 const EXPECTED_TRANSLATIONS = {
 	ja: "指定 {requestedPercent}%、数量精度の適用後 {effectivePercent}%",
+	ko: "{requestedPercent}% 요청; 수량 정밀도 적용 후 {effectivePercent}%",
 	ar: "طُلب {requestedPercent}٪؛ {effectivePercent}٪ بعد تطبيق دقة الحجم",
 	es: "Se solicitó el {requestedPercent} %; queda en el {effectivePercent} % tras aplicar la precisión del tamaño",
 	fr: "{requestedPercent} % demandé ; {effectivePercent} % après application de la précision de taille",
@@ -13,6 +14,7 @@ const EXPECTED_TRANSLATIONS = {
 const LEVERAGE_SUCCESS_MESSAGE = "Leverage updated to {leverage}x";
 const EXPECTED_LEVERAGE_SUCCESS_TRANSLATIONS = {
 	ja: "レバレッジを {leverage}x に更新しました",
+	ko: "레버리지가 {leverage}x로 업데이트되었습니다",
 	ar: "تم تحديث الرافعة المالية إلى {leverage}x",
 	es: "Apalancamiento actualizado a {leverage}x",
 	fr: "Effet de levier mis à jour à {leverage}x",
