@@ -285,7 +285,7 @@ msgstr "마크 가격이 청산가에 도달하면 포지션이 강제청산될 
 
 #: src/lib/errors/exchange-error-text.ts
 msgid "A Post Only order would have matched immediately. Best bid and offer: {bbo}."
-msgstr "포스트 온리 주문이 즉시 체결되는 상태였습니다. 최우선 매수/매도 호가: {bbo}."
+msgstr "즉시 체결될 수 있어 포스트 온리 주문이 거부되었습니다. 최우선 매수/매도 호가: {bbo}."
 
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 msgid "A previous CCTP deposit is still being tracked. Do not resubmit the same transfer."
@@ -8183,11 +8183,11 @@ msgstr "주문이 등록되지 않았거나 이미 취소 또는 체결되었습
 
 #: src/lib/errors/exchange-error-text.ts
 msgid "The order would exceed the maximum position size at the current leverage."
-msgstr "이 주문은 현재 레버리지의 최대 포지션 수량을 초과합니다."
+msgstr "현재 레버리지의 최대 포지션 수량을 초과하게 되어 주문이 거부되었습니다."
 
 #: src/lib/errors/exchange-error-text.ts
 msgid "The order would increase open interest too quickly."
-msgstr "이 주문은 미결제약정을 너무 빠르게 증가시킵니다."
+msgstr "미결제약정이 너무 빠르게 증가하게 되어 주문이 거부되었습니다."
 
 #: src/components/vaults/vault-action-modal.tsx
 msgid "The page is matching a new Vault ledger event and refreshed account state. It will not sign again."
