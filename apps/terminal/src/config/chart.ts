@@ -50,6 +50,7 @@ const chartLocaleByAppLocale: Record<LocaleCode, LanguageCode> = {
 	"zh-TW": "zh_TW",
 	ja: "ja",
 	ko: "ko",
+	vi: "vi",
 	hi: "en",
 	es: "es",
 	fr: "fr",

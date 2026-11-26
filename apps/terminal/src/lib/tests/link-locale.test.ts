@@ -17,6 +17,7 @@ describe("parseLinkLocale", () => {
 	it("reads a maintained interface language from ?lang=", () => {
 		expect(parseLinkLocale("?lang=ja")).toBe("ja");
 		expect(parseLinkLocale("?lang=ko")).toBe("ko");
+		expect(parseLinkLocale("?lang=vi")).toBe("vi");
 		expect(parseLinkLocale("?utm_source=newsletter&lang=zh&utm_content=cta")).toBe("zh");
 		expect(parseLinkLocale("?lang=en")).toBe("en");
 	});
@@ -27,6 +28,9 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=KO")).toBe("ko");
 		expect(parseLinkLocale("?lang=ko-KR")).toBe("ko");
 		expect(parseLinkLocale("?lang=ko_KR")).toBe("ko");
+		expect(parseLinkLocale("?lang=VI")).toBe("vi");
+		expect(parseLinkLocale("?lang=vi-VN")).toBe("vi");
+		expect(parseLinkLocale("?lang=vi_VN")).toBe("vi");
 		expect(parseLinkLocale("?lang=pt_BR")).toBeNull();
 	});
 

@@ -32,6 +32,11 @@ const translations = {
 		"TWAP Slice": "TWAP 분할 주문",
 		"Vault Close": "볼트 포지션 종료",
 	},
+	vi: {
+		"Spot Dust Conversion": "Quy đổi số dư lẻ giao ngay",
+		"TWAP Slice": "Phân lệnh TWAP",
+		"Vault Close": "Đóng vị thế Vault",
+	},
 	hi: {
 		"Spot Dust Conversion": "शेष स्पॉट बैलेंस का रूपांतरण",
 		"TWAP Slice": "TWAP ऑर्डर का भाग",

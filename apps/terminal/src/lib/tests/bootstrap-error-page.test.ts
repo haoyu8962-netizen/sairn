@@ -86,6 +86,17 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("터미널 새로고침");
 	});
 
+	it("renders the persisted Vietnamese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "vi");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("vi");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Nền tảng giao dịch không thể khởi động an toàn. Hãy tải lại trước khi giao dịch.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Tải lại nền tảng giao dịch");
+	});
+
 	it("fails closed to English when persisted locale storage cannot be read", () => {
 		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
 			throw new Error("storage unavailable");

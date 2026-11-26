@@ -11,6 +11,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Settings → About → Diagnostics copies a local record of the last ten startups (timings and counts)
   and connection recoveries, to help explain a blank screen or a long wait for data. Nothing is sent
   anywhere and it contains no addresses or account data.
+- Vietnamese interface language (Tiếng Việt) in the language menu, including the TradingView chart and
+  Vietnamese dates; numbers keep following the separate number-format setting.
 - Traditional Chinese interface language (繁體中文) with Taiwanese wording, including the TradingView chart
   and Traditional Chinese dates. `?lang=zh-TW`, `zh-HK` or `zh-Hant` links open it; other Chinese tags
   keep opening Simplified Chinese.

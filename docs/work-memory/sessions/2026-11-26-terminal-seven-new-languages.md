@@ -10,7 +10,7 @@
   "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id；本批次做前三个。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a"],
+  "commits": ["39e976a3a", "75dc13273"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -41,8 +41,8 @@
 | 语言 | 术语表定稿 | 接入点齐备 | PO 硬校验 | 契约/单测 | Codex 对抗轮次与结论 | Commit SHA |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 韩语 `ko` | 是（60 条，编排改 3 处） | 是（25 个文件） | 2,152 条，错误 0 | 27 个文件 1,158 项通过；修复后 18 个文件 909 项通过 | 2 轮：8.2 → 9.3，P0–P2 清零 | `39e976a3a` |
-| 2 繁体中文 `zh-TW` | 是（145 条含台湾界面用词，编排改 8 处） | 是（28 个文件，含 `link-locale.ts`、`spot-asset-info.ts`、`styles.css`） | 2,152 条，错误 0，简体专用字 0 | 27 个文件 1,172 项通过；变异 3 个全部抓到；修复后 19 个文件 983 项通过 | 2 轮：7.0 → 9.2，P0–P2 清零，第 2 轮 P3 已修 | 繁中提交（本记录随下一个语言补写提交号） |
-| 3 越南语 `vi` | — | — | — | — | — | — |
+| 2 繁体中文 `zh-TW` | 是（145 条含台湾界面用词，编排改 8 处） | 是（28 个文件，含 `link-locale.ts`、`spot-asset-info.ts`、`styles.css`） | 2,152 条，错误 0，简体专用字 0 | 27 个文件 1,172 项通过；变异 3 个全部抓到；修复后 19 个文件 983 项通过 | 2 轮：7.0 → 9.2，P0–P2 清零，第 2 轮 P3 已修 | `75dc13273` |
+| 3 越南语 `vi` | 是（60 条，编排改 1 处） | 是（25 个文件；IBM Plex 越南语子集撤回，待决定） | 2,152 条，错误 0 | 25 个文件 1,167 项通过；修复后 19 个文件 1,049 项通过 | 2 轮：6.5 → 9.2，P0–P2 清零（字体闸门、订单簿列头两项待决定） | 越南语提交（本记录随后续提交补写提交号） |
 | 4 土耳其语 `tr` | — | — | — | — | — | — |
 | 5 俄语 `ru` | — | — | — | — | — | — |
 | 6 巴西葡萄牙语 `pt` | — | — | — | — | — | — |
@@ -307,6 +307,95 @@
   - 既有 P2 同韩语：三处价格值的无上下文 `Market` 在繁中显示「市場」，待运营方决定。
 - Codex 第 2 轮（窄范围，约 8.1 万 token，9.2 分）：第 1 轮处理全部确认，包括质押与现货之间保留「劃轉」的判断（「文案交代了方向与佇列，未发现具体误导」）；补查了 `exchange-error-text.ts` 映射的全部拒单原因、金库/Earn/子账户/跨链里的资金用词，无 P0–P2。1 项 P3：两条拒单原因（超过最大部位数量、未平倉量增加过快）没有写出「被拒」的假设关系，交 Gemini 改为「該筆委託因會……而遭拒絕」，未再送审。
 
+### 3 越南语 `vi`
+
+- 接入：照先例补齐（显示名 Tiếng Việt，Intl `vi-VN`，TradingView `vi`，语言顺序 en、zh、zh-TW、ja、ko、vi、hi、es、fr、ar）。Gemini 第一次接入因尝试了未放行的命令而零改动退出，放行 `rg`、`sort`、`diff`、`awk` 并在任务书写明只许用这些命令后重跑成功。
+- 字体（最终未改）：IBM Plex Sans 只声明了 latin 子集，越南语带调字母在 `font-market-close` 界面（交易页头、市场概览、代币选择、账户表格、资金弹窗）上逐字用回退字体。接入时曾为它加上越南语子集的 `@font-face`，第 1、2 轮审查指出启动字体等待只检查 latin 字面，单加子集会让这些字母在冷缓存首屏可能短暂不可见，「比不加更差」不能排除；这是有取舍的决定，提交前撤回了子集，改为在 `docs/i18n-presentation.md` 写明现状，并把「加子集 + 让启动字体等待跟随持久化语言」作为一个整体方案交运营方决定。Inter 的越南语子集本来就有同样的冷缓存不可见风险。
+- 术语表（Gemini xhigh 草稿 60 条，对齐币安/Bybit/OKX 越南语界面；编排改 1 处：草稿让 `Cross` 保留英文而 `Isolated` 译成 Cô lập，成对的保证金模式统一为 Chéo / Cô lập）：
+
+| English | msgctxt | 译法 | 被否决的写法 |
+| --- | --- | --- | --- |
+| Deposit |  | Nạp | 'Nạp tiền' (implies fiat cash and is longer on tight buttons), 'Gửi tiền' (overlaps with Send and sounds like retail banking) |
+| Withdraw |  | Rút | 'Rút tiền' (implies fiat cash and reads awkwardly on Earn when taking back supplied crypto tokens), 'Thu hồi' (unnatural for external wallet withdrawals) |
+| Transfer |  | Chuyển | 'Chuyển khoản' (bank-wire nuance, too long for buttons), 'Chuyển tiền' (too long, implies fiat), 'Gửi' (reserved for Send to another address) |
+| Send |  | Gửi | 'Chuyển' (reserved for internal Transfer between own balances), 'Gửi đi' (longer without added clarity) |
+| Bridge |  | Bridge | 'Cầu nối' (awkward as a verb in 'Bridging to Hyperliquid...' and 'Bridge failed'), 'Chuyển liên chuỗi' (too long for tabs) |
+| Earn |  | Earn | 'Kiếm lời', 'Sinh lời', 'Thu nhập' (must never translate the product name 'Earn') |
+| Supply |  | Cung cấp | 'Nạp' (reserved for Deposit), 'Gửi' (reserved for Send), 'Cho vay' (contradictory in 'Supply to Borrow') |
+| Borrow |  | Vay | 'Đi vay' (colloquial, longer), 'Vay mượn' (informal) |
+| Market |  | Thị trường | 'Cặp giao dịch' (too long for tight columns/tabs), 'Chợ' (informal) |
+| Market | `Order type` | Thị trường | 'Lệnh thị trường' (too long for tabs and columns), 'Giá thị trường' (creates redundant 'Giá: Giá thị trường'), 'Market' (Binance/Bybit/OKX VN localize Limit and Market) |
+| Limit | `Order type` | Giới hạn | 'Lệnh giới hạn' (too long for tabs/columns; use only in full prose), 'Limit' (localized to 'Giới hạn' on major VN exchanges) |
+| Stop Market |  | Stop Market | 'Cắt lỗ thị trường' (factually wrong—stop orders can open positions on breakout, not only cut losses), 'Dừng thị trường' (clunky literal translation) |
+| Scale |  | Chia tỷ lệ | 'Tỷ lệ' (means ratio), 'Quy mô' (misses order-splitting semantics), 'Rải lệnh' (informal trader slang) |
+| TWAP |  | TWAP | 'Giá bình quân theo thời gian' (never translate TWAP) |
+| Terminate |  | Chấm dứt | 'Hủy' (reserved for Cancel on standard orders), 'Dừng' (overlaps with Pause = 'Tạm dừng' and 'TWAP stopped' = 'TWAP đã dừng'), 'Kết thúc' (can imply normal completion) |
+| TP/SL |  | TP/SL | 'Chốt lời/Cắt lỗ' (too long for tight columns, badges, and buttons) |
+| Reduce Only |  | Chỉ giảm | 'Chỉ giảm vị thế' (too long for checkboxes/badges), 'Reduce Only' (major VN exchanges consistently translate to 'Chỉ giảm') |
+| Post Only |  | Post Only | 'Chỉ đăng' (reads like social-media posting out of context), 'Chỉ làm Maker' (wordier, non-standard) |
+| TIF |  | TIF | 'HL' or translated abbreviation (must never translate TIF) |
+| Margin |  | Ký quỹ | 'Biên độ' (wrong meaning), 'Tiền cọc' (informal), 'Margin' (VN exchanges consistently use 'Ký quỹ' for labels) |
+| Isolated |  | Cô lập | 'Độc lập' / 'Tách biệt' (non-standard on VN exchanges), 'Isolated' (universally localized to 'Cô lập' on Binance/Bybit/OKX VN) |
+| Cross |  | Chéo | Cross (would leave one margin mode in English next to Cô lập), Toàn phần (non-standard) |
+| Leverage |  | Đòn bẩy | 'Tỷ lệ đòn bẩy' (unnecessarily verbose in labels/headers) |
+| Collateral |  | Tài sản thế chấp | 'Tài sản đảm bảo' (banking/legal wording, less common on VN crypto exchanges), 'Ký quỹ' (reserved for Margin) |
+| Liquidation Price |  | Giá thanh lý | 'Giá cháy tài khoản' (slang), 'Giá bị thanh lý' (wordier) |
+| Funding Rate |  | Tỷ lệ funding | 'Tỷ lệ tài trợ' / 'Lãi suất tài trợ' (literal mistranslations; 'tài trợ' means sponsorship) |
+| Funding | `Cumulative position funding` | Phí funding | 'Tỷ lệ funding' (that is the percentage rate, not cumulative USD paid/received), 'Phí tài trợ' (literal mistranslation) |
+| Open Interest |  | Hợp đồng mở | 'Lãi suất mở' (mistranslation of 'interest'), 'Vị thế mở' (confuses market-wide OI with user's own open positions) |
+| Mark Price |  | Giá đánh dấu | 'Giá thị trường' (confuses Mark Price with Market/Last Price), 'Giá niêm yết' (wrong concept) |
+| Spread |  | Chênh lệch | 'Chênh lệch giá mua/bán' (too long for the order book divider), 'Biên độ' (means price range/amplitude) |
+| Slippage |  | Trượt giá | 'Độ lệch giá' (less idiomatic), 'Slippage' (VN exchanges consistently localize this to 'Trượt giá') |
+| Perps |  | Vĩnh cửu | 'Hợp đồng tương lai' (broader than perpetuals), 'Hợp đồng vĩnh cửu' (too long for tabs/badges; use only in explanatory prose), 'Phái sinh' (too broad) |
+| Spot |  | Giao ngay | 'Tại chỗ' (literal mistranslation), 'Tiền mặt' (means cash) |
+| Order Book |  | Sổ lệnh | 'Bảng giá' (too generic), 'Sổ đặt lệnh' (unnecessarily long) |
+| Trades |  | Khớp lệnh | 'Giao dịch' (overlaps with the 'Trade' navigation tab and verb), 'Mua bán' (informal) |
+| Positions |  | Vị thế | 'Lệnh đang mở' (confuses open positions with Open Orders), 'Trạng thái' (means status) |
+| Open Orders |  | Lệnh đang mở | 'Lệnh mở' (ambiguous with orders that open a position), 'Đơn hàng đang mở' (e-commerce wording) |
+| Filled |  | Đã khớp | 'Đã thực hiện' / 'Hoàn thành' (too generic; 'Completed' = 'Hoàn tất'), 'Đã lấp đầy' (literal mistranslation) |
+| PNL |  | PNL | 'Lãi/Lỗ' or 'Lời/Lỗ' (longer in tight badges/headers like 'PNL (ROE %)'; keep 'Lãi' and 'Lỗ' for Profit/Loss) |
+| Entry Price |  | Giá vào lệnh | 'Giá đầu vào' (literal mistranslation), 'Giá nhập' (inventory term), 'Giá mở cửa' (means session open price) |
+| Size |  | Số lượng | 'Khối lượng' (reserved for Volume), 'Kích thước' (longer and unnatural in 'Enter size' / 'Close size') |
+| Account Value |  | Giá trị tài khoản | 'Tổng tài sản tài khoản' (redundant and too long) |
+| Balances |  | Số dư | 'Tiền mặt' (means cash), 'Tài sản' (reserved for Asset) |
+| Long |  | Long | 'Mua lên' / 'Mua khống' (non-standard in VN crypto derivatives, too long for badges), 'Dài' (literal mistranslation) |
+| Buy |  | Mua | 'Đặt mua' (too long for action buttons) |
+| Account mode |  | Chế độ tài khoản | 'Loại tài khoản' (reserved for Account type) |
+| Vault |  | Vault | 'Kho tiền' (physical-bank feel, wordy in compounds), 'Kho' (means warehouse), 'Quỹ' (implies regulated investment fund) |
+| Staking |  | Staking | 'Đặt cược' (gambling connotation) |
+| Commission |  | Hoa hồng | 'Thưởng giới thiệu' (wrong concept—that is referral reward), 'Phí giao dịch' (trading fee), 'Tỷ lệ hoa hồng' (too long for table columns) |
+| Referrals |  | Giới thiệu | 'Tiếp thị liên kết' (means affiliate, too long), 'Đề xuất' (means recommend) |
+| Fees |  | Phí | 'Lệ phí' (government/administrative fee), 'Chi phí' (means general cost) |
+| Reverse | `Position action` | Đảo chiều | 'Đảo ngược' (generic inversion), 'Lật vị thế' (slang) |
+| Close Position |  | Đóng vị thế | 'Tất toán' (banking/loan term), 'Thanh lý' (reserved strictly for forced Liquidation) |
+| Cancel |  | Hủy | 'Xóa' (means delete/remove), 'Hủy bỏ' (wordier) |
+| API Wallet |  | Ví API | 'Ví đại lý' (wrong meaning of Agent) |
+| Wallet |  | Ví | 'Ví tiền' (wordier, physical-wallet feel) |
+| Leaderboard |  | Bảng xếp hạng | 'Xếp hạng' (overlaps with Rank = 'Hạng') |
+| Portfolio |  | Danh mục | 'Hồ sơ đầu tư' (means investor profile), 'Tài sản' (reserved for Asset) |
+| Mainnet |  | Mainnet | 'Mạng chính' (longer and less idiomatic in VN crypto terminals) |
+| Settings |  | Cài đặt | 'Thiết lập' (implies initial onboarding/setup rather than preferences menu) |
+
+不译：`{BRAND_NAME}`、`Earn`、`Alo`、`Gtc`、`Ioc`、`USDC`、`HYPE`、`BTC`、`ETH`、`USD`、`$SPCXD`、`Hyperliquid`、`HyperCore`、`HyperEVM`、`HIP-3`、`Arbitrum`、`CCTP`、`Circle`、`TradingView`、`Privy`、`WalletConnect`、`MetaMask`、`TWAP`、`TIF`、`API`、`AI`、`Defi`、`Gaming`、`Layer 1`、`Layer 2`、`Meme`、`TP/SL`、`PNL`、`ROE`、`ROI`、`APR`、`APY`、`TVL`、`LTV`、`OI`、`RO`、`DEX`、`SDK`、`CSV`、`QR`、`PWA`、`Long`、`Short`、`Maker`、`Taker`、Post Only、Stop Market、Stop Limit、`Vault`、`Staking`、`Validator`、`Bridge`、`Mainnet`、`Testnet`、`Agent`、`Builder`、`Oracle`。
+
+- Codex 第 1 轮（约 18.6 万 token，6.5 分）：3 项 P1、3 项 P2、1 项 P3，核实后处理：
+  - P1 成立：`Market Close` 原译「Đóng thị trường」读成关闭市场，改为「Đóng theo giá thị trường」，`Limit Close` 同步为「Đóng theo giá giới hạn」，相关的 10 条说明、设置项与全部平仓的复数消息一起改。锁定术语表里原来就写着「Đóng thị trường」，这条是术语表本身的缺陷。
+  - P1 成立：两条通用 Stop 触发价校验写成了「止损」触发价（`Giá kích hoạt cắt lỗ`），而它们也校验开仓的 Stop 单，改为中性的「Giá kích hoạt phải cao hơn / thấp hơn giá đánh dấu」。
+  - P1 成立（与繁中同类）：Post Only 拒单原因写成「将会立即成交」，改为「bị từ chối vì sẽ khớp ngay nếu được chấp nhận」；同类的两条拒单原因（超过最大仓位数量、未平仓量增长过快）一并改。
+  - P2 成立但不在本任务修：启动字体闸门（`lib/fonts/font-readiness.ts`）只检查两族的 latin 字面，冷缓存下越南语带调字母可能在首屏后短暂不可见（`font-display: block`）；Inter 的越南语子集原本就有同样问题。根治要改共享的启动代码，按运营方规则记为待决定，已写进 `docs/i18n-presentation.md`。新加的 IBM Plex 越南语子集随之撤回（见上「字体」）。
+  - P2 先判不成立、实测后改判成立：账户模式紧凑值「Tài khoản」。第一次截断扫描显示不裁切，但那次开发服务器是在加入 `vi` 之前启动的，Lingui 的 Vite 插件只认启动时的语言清单，页面 `lang` 是 `vi` 而文字全是英文，扫描作废（这是本任务的流程失误，之后的扫描都抽样核对页面文字）。重启后实测 1440 宽交易页 58/53px 被裁切，改为「Chế độ」（标签仍是「Tài khoản」），重测不再裁切。
+  - P2 成立：句子里的「nạp tiền / rút tiền / chuyển tiền」正是锁定术语表否决的写法，12 条改为「nạp / rút / chuyển」或「nạp tài sản / rút tài sản」，银行转账语境不动。
+  - P3 成立：`Add to Target` →「Thêm ký quỹ đến mức mục tiêu」，`Remove Margin` →「Giảm ký quỹ」。
+  - 实测新发现、未改：1440 宽桌面订单簿列头「Số lượng (BTC)」的「(BTC)」溢出 3px（32/29）。该列用的是全站共用、无上下文的 `Size`，只改越南语目录会连带改掉下单表单等处，根治要给订单簿列加消息上下文或调布局，记为待运营方决定。
+  - 既有 P2 同前两种语言：三处价格值的无上下文 `Market`，越南语显示「Thị trường」，恰好也能读成市价，影响比日语、韩语小。
+- Codex 第 2 轮（窄范围，约 10.6 万 token，9.2 分）：第 1 轮的 P1、P2、P3 修复全部确认；补查拒单原因、止损限定、全部平仓与反手的说明，无新增 P0–P3。它确认 `Stop trigger must be above/below liquidation price` 保留「cắt lỗ」合理（只用于持仓 TP/SL 的止损分支）。对字体它判断「保留子集 + 记录局限」不能算无回归，于是撤回子集；撤回后的越南语截断结果见「截断检查」。
+
+### 截断检查（本批次）
+
+- 方法：`apps/terminal/.env.local` 从本机 sairn 克隆复制（不读内容，Git 忽略；没有它页面会落到运行时致命错误页），沙箱外起开发服务器（3077），用仓库的 Playwright 无头 Chromium，按语言写入 `locale-v1` 后打开页面，等 12–20 秒，列出可见、有自身文字、`overflow` 非 visible 或 `text-overflow: ellipsis` 且内容宽于盒子的元素，排除 `sr-only`，与英文基线逐元素比较。扫描器先用一个人为溢出的元素做正向对照。
+- 覆盖：交易页、Portfolio、Earn、Vaults、Staking、Referrals、Leaderboard，各 1440、1100、390 宽，未连接钱包的默认状态。不含弹窗、下拉菜单、有持仓或委托时的表格（例如 84px 的订单类型列、`Original Size` 列）、悬停提示；这是脚本读取的几何，不是人眼或像素比对。
+- 结果：ko、zh-TW 在全部页面与宽度下与英文基线一致。vi 修复账户紧凑值后，在撤回 IBM Plex 越南语子集之前与之后各扫一次，结果相同：只比英文多出 1440 宽订单簿列头「(BTC)」一处。
+
 ## 验证与限制
 
 以下都在工作树 `ce3259b68` 加上对应语言的未提交改动上实际运行。
@@ -329,6 +418,15 @@
 - 变异（改源码、跑对应测试、确认变红后还原）：去掉 `parseLinkLocale` 的繁中分支，`link-locale.test.ts` 2 项失败；去掉小写化，1 项失败；去掉 `spot-asset-info.ts` 的繁中回退，`spot-asset-info.test.ts` 2 项失败。
 - Playwright（沙箱外，第 1 轮修复前的目录）：`referral-code-card.pw.ts` 24 项、`position-close-all.playwright.config.ts` 56 项、`TOP_NAV_CONNECTED_MATRIX=full` 下 `--grep " zh-TW"` 12 项通过。
 - 未验证：`:root:lang(zh-TW)` 的字体回退只在源码层面确认选择器与运行时 `lang` 相容，没有在浏览器里读计算字体；没有台湾母语审校与真机。
+
+### 越南语 `vi`
+
+- PO 硬校验：2,152 条同集同序，各类错误 0；两轮修复（31 条覆盖）后重跑仍为 0。27 条与原文相同的都是锁定保留英文的术语（Long/Short、Post Only、Stop Market、Stop Limit、Trailing Stop、Vault、Staking、Validator、Bridge、PNL、Maker/Taker、Oracle、Funding 等）。Codex 第 1 轮按另一口径数到 51 条逐字相同（含数字格式与重复上下文），未据此判漏译。
+- `pnpm i18n:extract`：vi 2,152 条、Missing 0；其他 9 个 `.po` 无变化；`pnpm i18n:compile` 通过；每次修复后重跑。
+- Biome（沙箱外）改动的 ts/tsx 通过；typecheck 通过。撤回字体后 `styles.css` 已与基线一致。
+- Vitest：改动测试加 i18n 与字体契约 25 个文件 1,167 项通过；第 1 轮修复后 19 个文件 1,049 项通过。
+- Playwright（沙箱外，第 1 轮修复前的目录）：`referral-code-card.pw.ts` 26 项、`position-close-all.playwright.config.ts` 61 项、完整矩阵下 `--grep " vi "` 的顶部导航 12 项通过。
+- 截断：见「截断检查」。未做母语审校、真机。
 
 ## 后续与替代关系
 

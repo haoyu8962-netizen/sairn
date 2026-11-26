@@ -18,12 +18,18 @@ describe("TradingView locale mapping", () => {
 		expect(isRtlLocale("ko")).toBe(false);
 	});
 
+	it("uses Vietnamese dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale.vi).toBe("vi-VN");
+		expect(isRtlLocale("vi")).toBe(false);
+	});
+
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
 		["zh-TW", "zh_TW"],
 		["ja", "ja"],
 		["ko", "ko"],
+		["vi", "vi"],
 		["es", "es"],
 		["fr", "fr"],
 		["ar", "ar"],

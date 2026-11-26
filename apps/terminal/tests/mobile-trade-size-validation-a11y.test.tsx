@@ -345,7 +345,7 @@ import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { LOADING_INDICATOR_SELECTOR } from "@/lib/tests/harness/loading-indicator";
 import { getScaleOrderNotional } from "@/domain/trade/orders";
 
-const LOCALES = ["en", "zh", "zh-TW", "ja", "ko", "hi", "es", "fr", "ar"] as const;
+const LOCALES = ["en", "zh", "zh-TW", "ja", "ko", "vi", "hi", "es", "fr", "ar"] as const;
 const OPEN_INTEREST_CAP_COPY =
 	"The limit order would be canceled after resting because open interest is capped. Use market orders to close positions.";
 type Locale = (typeof LOCALES)[number];
