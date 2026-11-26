@@ -1,6 +1,7 @@
 export const locales = {
 	en: "English",
 	zh: "简体中文",
+	"zh-TW": "繁體中文",
 	ja: "日本語",
 	ko: "한국어",
 	hi: "हिन्दी",
@@ -62,6 +63,7 @@ export function normalizeNumberFormatLocale(value: unknown): NumberFormatLocale 
 export const languageToIntlLocale: Record<LocaleCode, string> = {
 	en: "en-US",
 	zh: "zh-CN",
+	"zh-TW": "zh-TW",
 	ja: "ja-JP",
 	ko: "ko-KR",
 	hi: "hi-IN",
@@ -80,6 +82,18 @@ export function isRtlLocale(locale: string): boolean {
 
 export function isValidLocale(locale: string): locale is LocaleCode {
 	return Object.hasOwn(locales, locale);
+}
+
+const TRADITIONAL_CHINESE_SUBTAGS: ReadonlySet<string> = new Set(["hant", "tw", "hk", "mo"]);
+
+/**
+ * Whether a BCP 47 tag names Chinese written in Traditional characters (`zh-TW`, `zh-HK`, `zh-MO`, `zh-Hant`, …).
+ * Case and `_` separators are ignored, and an explicit Simplified script (`zh-Hans-HK`) wins over the region.
+ */
+export function isTraditionalChineseTag(tag: string): boolean {
+	const [language, ...subtags] = tag.trim().toLowerCase().split(/[-_]/);
+	if (language !== "zh" || subtags.includes("hans")) return false;
+	return subtags.some((subtag) => TRADITIONAL_CHINESE_SUBTAGS.has(subtag));
 }
 
 export function resolveNumberFormatLocale(

@@ -3,6 +3,11 @@ import { resolveChartLocale } from "@/config/chart";
 import { isRtlLocale, languageToIntlLocale } from "@/config/i18n";
 
 describe("TradingView locale mapping", () => {
+	it("uses Traditional Chinese dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale["zh-TW"]).toBe("zh-TW");
+		expect(isRtlLocale("zh-TW")).toBe(false);
+	});
+
 	it("uses Japanese dates and left-to-right presentation", () => {
 		expect(languageToIntlLocale.ja).toBe("ja-JP");
 		expect(isRtlLocale("ja")).toBe(false);
@@ -16,6 +21,7 @@ describe("TradingView locale mapping", () => {
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
+		["zh-TW", "zh_TW"],
 		["ja", "ja"],
 		["ko", "ko"],
 		["es", "es"],

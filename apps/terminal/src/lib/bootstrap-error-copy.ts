@@ -18,6 +18,11 @@ const BOOTSTRAP_FATAL_COPY: Readonly<Record<LocaleCode, TerminalFatalCopy>> = {
 		description: "交易终端无法安全启动。请重新加载后再交易。",
 		reload: "重新加载交易终端",
 	},
+	"zh-TW": {
+		heading: "發生錯誤",
+		description: "交易終端無法安全啟動。請重新載入後再交易。",
+		reload: "重新載入交易終端",
+	},
 	ja: {
 		heading: "エラーが発生しました",
 		description: "取引ターミナルを安全に起動できませんでした。取引する前に再読み込みしてください。",

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const TRANSLATED_LOCALES = ["zh", "ja", "ko", "hi", "es", "fr", "ar"] as const;
+const TRANSLATED_LOCALES = ["zh", "zh-TW", "ja", "ko", "hi", "es", "fr", "ar"] as const;
 
 interface CatalogEntry {
 	id: string;

@@ -10,7 +10,7 @@
   "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id；本批次做前三个。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": [],
+  "commits": ["39e976a3a"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -40,8 +40,8 @@
 
 | 语言 | 术语表定稿 | 接入点齐备 | PO 硬校验 | 契约/单测 | Codex 对抗轮次与结论 | Commit SHA |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 韩语 `ko` | 是（60 条，编排改 3 处） | 是（25 个文件） | 2,152 条，错误 0 | 27 个文件 1,158 项通过；修复后 18 个文件 909 项通过 | 2 轮：8.2 → 9.3，P0–P2 清零 | 韩语提交（本记录随下一个语言补写提交号） |
-| 2 繁体中文 `zh-TW` | — | — | — | — | — | — |
+| 1 韩语 `ko` | 是（60 条，编排改 3 处） | 是（25 个文件） | 2,152 条，错误 0 | 27 个文件 1,158 项通过；修复后 18 个文件 909 项通过 | 2 轮：8.2 → 9.3，P0–P2 清零 | `39e976a3a` |
+| 2 繁体中文 `zh-TW` | 是（145 条含台湾界面用词，编排改 8 处） | 是（28 个文件，含 `link-locale.ts`、`spot-asset-info.ts`、`styles.css`） | 2,152 条，错误 0，简体专用字 0 | 27 个文件 1,172 项通过；变异 3 个全部抓到；修复后 19 个文件 983 项通过 | 2 轮：7.0 → 9.2，P0–P2 清零，第 2 轮 P3 已修 | 繁中提交（本记录随下一个语言补写提交号） |
 | 3 越南语 `vi` | — | — | — | — | — | — |
 | 4 土耳其语 `tr` | — | — | — | — | — | — |
 | 5 俄语 `ru` | — | — | — | — | — | — |
@@ -137,6 +137,176 @@
   - 无法确认、不改：Hangul 走系统字体回退；`Spot Dust Conversion`（「현물 소액 잔고 전환」）在 84px 的订单类型列会截断，该列有 tooltip，长度与日语相当。
 - Codex 第 2 轮（窄范围，只审第 1 轮修复并补查同类问题；约 10.2 万 token，9.3 分）：第 1 轮处理全部确认，无新增 P0–P3；补查了 122 个含 `aria-label` / `title` / `sr-only` 的引用文件里的方向类名称、手机与桌面方向和否定范围，未发现同类问题。
 
+### 2 繁体中文 `zh-TW`
+
+- 接入：照日语、韩语先例补齐配置与测试矩阵（显示名 繁體中文，Intl `zh-TW`，TradingView `zh_TW`，语言顺序 en、zh、zh-TW、ja、ko、hi、es、fr、ar），另有三处繁中特有的改动：
+  - `config/i18n.ts` 新增 `isTraditionalChineseTag`：语言为 `zh`、且含 `Hant` 书写体系或 `TW`/`HK`/`MO` 地区时为真，显式的 `Hans` 优先于地区（`zh-Hans-HK` 是简体）。
+  - `lib/link-locale.ts` 的 `parseLinkLocale` 改为按小写整码查表（`zh-TW` 含大写，原来的 `isValidLocale(小写值)` 永远认不出它），再按上一条把繁体标签路由到 `zh-TW`，其余中文标签（`zh-CN`、`zh-SG`、`Hans`）路由到 `zh`；`_` 当作 `-`。存储的始终是规范码 `zh-TW`。
+  - `domain/market/spot-asset-info.ts`：Hyperliquid 快照只有简体描述，繁中界面返回 null、沿用不支持语言的回退，不混入简体。另一个可选做法是直接显示简体描述（信息更多但混用两种字形），未采用，可由运营方改回。
+  - `styles.css`：`:root:lang(zh-TW)` 下 `--font-market-close` 的中文回退改为 PingFang TC 与 Microsoft JhengHei；原栈写死的 PingFang SC 与 Microsoft YaHei 会用大陆字形标准显示繁体字。Inter 栈靠 `system-ui` 按 `lang` 选字体，不需要改。
+- 术语表（Gemini xhigh 草稿 145 条，含台湾界面常用词；编排审核改 8 处后锁定，审查后又补 2 处）：Earn 的 Supply 用「供應」，代币供给改称「發行量」以免撞词；用户的资金费支付记录「資金費紀錄」（费率历史才是「資金費率紀錄」）；「滑價」；「僅減倉」「僅掛單」；钱包「連結 / 中斷連結」，网络与交易会话的连接「連線」（`Stay Connected` 为「保持連線」）；第 1 轮后补「自選」，并把 `Transfer` 的边界写明为用户自有余额之间（含现货与质押），金库存入/提领不用「劃轉」。
+
+| English | msgctxt | 译法 | 被否决的写法 |
+| --- | --- | --- | --- |
+| Deposit |  | 存入 | 充值 (Mainland phrasing); 入金 (futures-only, clashes with Vault/Staking deposits and Depositors); 存款 (sounds like fiat bank savings) |
+| Deposit | `Trading toolbar action` | 存入 | 入金, 存款, 充值 |
+| Withdraw |  | 提領 | 提現 (Mainland phrasing); 提款 (sounds like ATM cash withdrawal); 出金 (unnatural on Earn for taking back supplied assets) |
+| Withdraw | `Trading toolbar action` | 提領 | 出金, 提款, 提現 |
+| Available to Withdraw |  | 可提領 | 可提款, 可出金, 可提現 |
+| Transfer |  | 劃轉 | 轉帳 (implies external recipient, overlaps with Send); 轉移 (too generic) |
+| Transfer USDC | `Deposit method` | 轉入 USDC | 劃轉 USDC (reserved for internal Spot/Perps transfers) |
+| Send |  | 發送 | 傳送 (more for files/messages); 轉帳 (blurs with internal Transfer) |
+| Bridge |  | 跨鏈 | 橋接 (less idiomatic as an exchange action button) |
+| Earn |  | Earn | 收益, 理財 (fixed project rule forbids translating the product name Earn) |
+| Supply |  | 供應 | 供給 (economics register), 存入借貸 (long; 存入 is reserved for Deposit) |
+| Borrow |  | 借入 | 借款 (noun-heavy, less parallel with action button 償還) |
+| Repay |  | 償還 | 還款 (more colloquial fiat-loan tone) |
+| Market |  | 市場 | 市價 (strictly Order type); 交易對 (narrower than perp + spot markets) |
+| Market | `Order type` | 市價 | 市場 (means trading pair/venue) |
+| Limit | `Order type` | 限價 | 限制 (wrong financial sense) |
+| Stop Market |  | 停損市價 | 止損市價 (Mainland 止損); 觸價市價 (breaks symmetry with 停利市價) |
+| Stop Limit |  | 停損限價 | 止損限價 (Mainland 止損); 觸價限價 (breaks symmetry with 停利限價) |
+| Scale |  | 分段委託 | 分段訂單 (breaks 委託 order consistency); 比例訂單 (inaccurate) |
+| TWAP |  | TWAP | 時間加權平均價格 (fixed project rule forbids translating TWAP) |
+| Terminate |  | 終止 | 取消 (reserved for Cancel order); 關閉 (reserved for Close dialog) |
+| Take Profit |  | 停利 | 止盈 (Mainland phrasing) |
+| Stop Loss |  | 停損 | 止損 (Mainland phrasing) |
+| TP/SL |  | 停利/停損 | 止盈止損 (Mainland phrasing); 停利停損 (harder to scan without slash) |
+| TP/SL | `Current orders column` | 停利/停損 | 止盈 / 止損 (Mainland phrasing and wider spacing) |
+| Reduce Only |  | 僅減倉 | 只減倉 (Mainland phrasing) |
+| Post Only |  | 僅掛單 | 只掛單 (Mainland phrasing) |
+| TIF |  | TIF | 有效期 (fixed project rule forbids translating TIF) |
+| Margin |  | 保證金 | 按金 (Hong Kong phrasing) |
+| Isolated |  | 逐倉 | 分離 (Japanese calque); 獨立倉位 (too verbose) |
+| Cross |  | 全倉 | 交叉 (literal English calque) |
+| Leverage |  | 槓桿 | 杠杆 (Simplified characters) |
+| Maintenance Margin |  | 維持保證金 | 維護保證金 (non-standard finance wording) |
+| Initial Margin |  | 原始保證金 | 初始保證金 (Mainland phrasing); 起始保證金 (less standard than TAIFEX term) |
+| Collateral |  | 擔保品 | 抵押品 (Mainland phrasing) |
+| Liquidation |  | 強制平倉 | 爆倉 (colloquial slang); 清算 (means clearing/settlement in Taiwan traditional finance) |
+| Liquidation Price |  | 強平價格 | 清算價格 (blurs with settlement); 爆倉價 (slang) |
+| Funding Rate |  | 資金費率 | 融資利率 (equity margin lending term) |
+| Funding | `Cumulative position funding` | 資金費 | 資金費率 (that is the rate, not cumulative fee paid/received) |
+| Funding History |  | 資金費紀錄 | 資金費率紀錄 for payments (that is the rate) |
+| Open Interest |  | 未平倉量 | 持倉量 (ambiguous with user's own position size) |
+| Mark Price |  | 標記價格 | 市場價格 (confuses Mark Price with Last/Market Price) |
+| Oracle Price |  | 預言機價格 | 外部參考價 (loses protocol precision) |
+| Mid |  | 中間價 | 中價 (less clear); 仲值 (Japanese loanword) |
+| Spread |  | 價差 | 買賣價差 (too wide for compact order-book center divider) |
+| Slippage |  | 滑價 | 滑點 (Mainland wording) |
+| Perps |  | 永續合約 | 合約 (too vague in Taiwan, sounds like legal contract); 無期限期貨 (Japanese calque) |
+| Spot |  | 現貨 | 實物 (wrong sense) |
+| Order Book |  | 訂單簿 | 盤口 (Mainland colloquial); 委買委賣 (too long for tab header) |
+| Trades |  | 成交 | 交易 (blurs with Trade action/nav tab) |
+| Bid |  | 買盤 | 出價 (auction tone) |
+| Ask |  | 賣盤 | 要價 (auction tone) |
+| Positions |  | 部位 | 倉位, 持倉 (Mainland-flavored as standalone nouns) |
+| Open Orders |  | 目前委託 | 當前委託 (Mainland 當前); 未成交訂單 (verbose) |
+| Order History |  | 委託紀錄 | 委託歷史 (Mainland 歷史 phrasing); 訂單歷史 (breaks 委託 consistency) |
+| Trade History |  | 成交紀錄 | 成交歷史 (Mainland 歷史 phrasing); 交易紀錄 (blurs fills with ledger transfers) |
+| Filled |  | 已成交 | 已完成 (vague, used for Completed) |
+| Triggered |  | 已觸發 | 觸發成功 (verbose) |
+| Rejected |  | 已拒絕 | 被拒 (too terse/informal) |
+| Canceled |  | 已取消 | 已撤單 (Mainland/old stock-terminal phrasing); 已撤銷 (legal tone) |
+| PNL |  | 損益 | 盈虧 (Mainland phrasing) |
+| Unrealized PNL |  | 未實現損益 | 未實現盈虧 (Mainland 盈虧); 浮動盈虧 (Mainland colloquial) |
+| Realized PNL |  | 已實現損益 | 已實現盈虧 (Mainland 盈虧) |
+| ROE |  | ROE | 權益報酬率 (too wide for compact tables and badges) |
+| Entry Price |  | 開倉價格 | 持倉均價 (inconsistent between cards and close modals) |
+| Size |  | 數量 | 大小 (literal English calque, unnatural for order/position quantity) |
+| Notional |  | 名目價值 | 名義價值 (Mainland phrasing) |
+| Account Value |  | 帳戶價值 | 賬戶價值 (wrong character variant 賬) |
+| Equity |  | 淨值 | 權益 (ambiguous with user rights/privileges in Taiwan unless qualified) |
+| Balances |  | 餘額 | 余额 (Simplified characters) |
+| Available |  | 可用 | 可利用 (Japanese calque) |
+| Long |  | 多 | 長倉 (Hong Kong / literal phrasing) |
+| Short |  | 空 | 短倉 (Hong Kong / literal phrasing) |
+| Buy |  | 買入 | 買進 (traditional equity-only phrasing, less symmetrical with Taiwan crypto UI 買入 / 賣出) |
+| Sell |  | 賣出 | 沽出 (Hong Kong phrasing) |
+| Unified account |  | 統一帳戶 | 整合帳戶 (less standard on Taiwan crypto exchanges); 統一賬戶 (wrong variant) |
+| Portfolio margin |  | 投資組合保證金 | 資產組合保證金 (breaks Portfolio consistency) |
+| Account mode |  | 帳戶模式 | 賬戶模式 (wrong variant) |
+| Vaults |  | 金庫 | 保險庫 (implies cold-storage security rather than pooled trading vault) |
+| Leader |  | 管理者 | 帶單員 (implies copy-trading rather than vault management); 領導者 (literal) |
+| Depositors |  | 存入者 | 存款人 (bank savings tone); 入金者 (breaks 存入 consistency) |
+| Child |  | 子金庫 | 子 (ambiguous bare character); 子項 (generic) |
+| Closed |  | 已關閉 | 已平倉 (reserved for closed trading positions); 已結束 (less precise) |
+| Staking |  | 質押 | 抵押 (blurs with borrowing collateral) |
+| Validator |  | 驗證者 | 驗證人 (Mainland phrasing); 驗證節點 (longer, conflates operator with hardware node) |
+| Delegate |  | 委任 | 委託 (collides with trading Order = 委託) |
+| Undelegate |  | 解除委任 | 解除委託 (collides with trading orders); 取消委任 (less idiomatic for unbonding) |
+| Commission |  | 佣金率 | 傭金 (wrong character — 傭 means hired servant); 分潤 (blurs with referrals); 手續費 (blurs with trading Fees) |
+| Referrals |  | 推薦 | 返佣 (too narrow); 邀請 (reserved for Invite traders = 邀請交易者) |
+| Referral code |  | 推薦碼 | 邀請碼 (breaks Referrals = 推薦 consistency) |
+| Rewards |  | 獎勵 | 回報, 報酬 (investment return concepts, not program incentives) |
+| Fees |  | 手續費 | 費用 (too generic unless referring to Funding Payments = 資金費用) |
+| Maker |  | 掛單方 | 做市商 (refers to institutional market makers, not passive order role) |
+| Taker |  | 吃單方 | 主動成交方 (too long for table cells and filters) |
+| Builder fee |  | Builder 手續費 | 建構者費用 (obscures Hyperliquid protocol concept); 開發者手續費 (inaccurate) |
+| Reverse | `Position action` | 反手 | 反向 (adjective, less clear as action verb); 反轉 (describes market trend reversal) |
+| Close |  | 關閉 | 平倉 (only for closing trading positions, never for dialogs) |
+| Close Position |  | 平倉 | 關閉部位 (unnatural in Taiwan futures) |
+| Close all |  | 全部平倉 | 一鍵全平 (Mainland colloquial phrasing) |
+| Market Close |  | 市價平倉 | 市價關閉 (wrong verb) |
+| Limit Close |  | 限價平倉 | 限價關閉 (wrong verb) |
+| Cancel |  | 取消 | 撤單, 刪單 (inconsistent across dialogs and orders) |
+| Cancel all | `Current orders toolbar` | 全部取消 | 取消所有 (less idiomatic than 全部取消 in Taiwan) |
+| Agent |  | Agent | 代理, 代理人 (sounds like a sales broker or network proxy) |
+| API Wallet |  | API 錢包 | 介面錢包 (API must stay untranslated) |
+| Connect |  | 連結 | 連接 (Mainland register) |
+| Disconnect |  | 中斷連結 | 斷開連接 (Mainland wording) |
+| Wallet |  | 錢包 | 皮夾 (physical wallet only) |
+| Stay Connected |  | 保持連線 | 保持連接 (Mainland wording) |
+| Enable Trading |  | 啟用交易 | 開啟交易 (less formal than 啟用) |
+| Leaderboard |  | 排行榜 | 龍虎榜 (traditional stock slang) |
+| Portfolio |  | 投資組合 | 資產組合 (breaks Portfolio margin consistency) |
+| Mainnet |  | 主網 | 正式網路 (verbose) |
+| Testnet |  | 測試網 | 測試環境 (vague) |
+| Delisted |  | 已下架 | 已下線 (Mainland phrasing, sounds like network offline) |
+| Spot Dust Conversion |  | 現貨小額轉換 | 現貨零頭轉換 (Mainland phrasing, awkward in Taiwan) |
+| Account |  | 帳戶 | 賬戶 (non-standard variant in Taiwan); 帳號 (login username, not financial account) |
+| Settings |  | 設定 | 設置 (Mainland phrasing) |
+| Default |  | 預設 | 默認 (Mainland phrasing) |
+| Loading |  | 載入中 | 加載中 (Mainland phrasing) |
+| Refresh |  | 重新整理 | 刷新 (Mainland phrasing) |
+| Export |  | 匯出 | 導出 (Mainland phrasing) |
+| Download |  | 下載 | 載下 (non-standard) |
+| Copy |  | 複製 | 拷貝 (colloquial loanword) |
+| Notifications |  | 通知 | 提醒 (narrower) |
+| Search |  | 搜尋 | 搜索 (Mainland phrasing) |
+| Network |  | 網路 | 網絡 (Mainland/HK phrasing) |
+| Server |  | 伺服器 | 服務器 (Mainland phrasing) |
+| Mobile |  | 行動裝置 | 移動端, 移動設備 (Mainland phrasing) |
+| Desktop |  | 桌面版 | 桌面端 (Mainland phrasing); 桌面 (alone sounds like the OS desktop folder) |
+| QR code |  | QR Code | 二維碼 (Mainland phrasing) |
+| Log in |  | 登入 | 登錄 (Mainland phrasing; means register/record in Taiwan) |
+| Email |  | 電子郵件 | 郵箱 (Mainland phrasing); 電郵 (Hong Kong phrasing) |
+| Support |  | 支援 | 支持 (Mainland phrasing for technical/feature support) |
+| Data |  | 資料 | 數據 (Mainland phrasing for general/account/market data) |
+| Information |  | 資訊 | 信息 (Mainland phrasing); 訊息 (reserved for chat/toast messages) |
+| Enable |  | 啟用 | 激活 (Mainland phrasing) |
+| Permission |  | 權限 | 許可 (too narrow, sounds like legal permit) |
+| User |  | 使用者 | 用戶 (Mainland phrasing) |
+| Link |  | 連結 | 鏈接 (Mainland phrasing); 關聯 (weaker for device linking) |
+| Screen |  | 畫面 | 屏幕 (Mainland phrasing) |
+| Browser |  | 瀏覽器 | 流覽器 (non-standard) |
+| Install |  | 安裝 | 裝設 (hardware tone) |
+| Theme |  | 主題 | 皮膚 (Mainland phrasing) |
+| Language |  | 語言 | 語系 (technical locale term, not user-facing setting) |
+| Favorites |  | 自選 | 我的最愛, 收藏 (mixed in the first draft) |
+
+不译：`{BRAND_NAME}`、`Earn`、`Alo`、`Gtc`、`Ioc`、`USDC`、`HYPE`、`BTC`、`ETH`、`USD`、`Hyperliquid`、`HyperCore`、`HyperEVM`、`HIP-3`、`Arbitrum`、`CCTP`、`Circle`、`TradingView`、`Privy`、`WalletConnect`、`MetaMask`、`TWAP`、`TIF`、`API`、`AI`、`Defi`、`Gaming`、`Layer 1`、`Layer 2`、`Meme`、`ROE`、`ROI`、`APR`、`APY`、`LTV`、`TVL`、`RO`、QR Code、`CSV`、`PWA`、`DEX`、`Gas`、`Agent`、`Builder`、`SDK`。
+
+- 机器闸门的繁中附加项：约 196 个常用简体专用字的检测（先在简体目录上正向对照，报出 1,812 条），以及 44 组大陆用词扫描（信息、网络、设置、默认、登录、导出、刷新、加载、数据、菜单、窗口、搜索、界面、盈亏、用户、当前、实时、添加、创建、保存、视图、获取、仓位、滑点、只减仓、连接、断开、充值、提现、存款、提款等）。命中的 19 处经逐条判定为误报：「存入金額」含「入金」子串、「用戶端」是台湾的 client 译法、「文件／說明文件」在台湾正指文档。
+- Codex 第 1 轮（约 18.2 万 token，7.0 分）：1 项 P1、3 项 P2、2 项 P3，核实后处理：
+  - P1 成立：Post Only 拒单原因「A Post Only order would have matched immediately」原译「僅掛單委託將會立即成交」把被拒读成将要成交，改为「此僅掛單委託因會立即成交而遭拒絕」。
+  - P2 部分成立：「劃轉」用在金库那条（实际是金库存入或提领）改为「金庫存入或提領」；质押与现货之间的转移判为正确用法、不改（都是用户自有余额，台湾交易所界面通用「劃轉」），理由交第 2 轮证伪。
+  - P2 成立：自选功能混用「自選 / 我的最愛 / 收藏」，统一为「自選」；`USD Value` 与账户启用费提示里的 `USD` 被译成「美元」，改回 `USD`。
+  - P3 成立：两条「No partial … history is shown.」改为「因此不顯示不完整的（委託）紀錄」；Ethereum 介绍「智能合約」改为「智慧合約」。
+  - 审查方指出锁定术语表的风格段仍写「供給」，已改为「供應」（目录本身一直用「供應」）。
+  - 既有 P2 同韩语：三处价格值的无上下文 `Market` 在繁中显示「市場」，待运营方决定。
+- Codex 第 2 轮（窄范围，约 8.1 万 token，9.2 分）：第 1 轮处理全部确认，包括质押与现货之间保留「劃轉」的判断（「文案交代了方向与佇列，未发现具体误导」）；补查了 `exchange-error-text.ts` 映射的全部拒单原因、金库/Earn/子账户/跨链里的资金用词，无 P0–P2。1 项 P3：两条拒单原因（超过最大部位数量、未平倉量增加过快）没有写出「被拒」的假设关系，交 Gemini 改为「該筆委託因會……而遭拒絕」，未再送审。
+
 ## 验证与限制
 
 以下都在工作树 `ce3259b68` 加上对应语言的未提交改动上实际运行。
@@ -149,6 +319,16 @@
 - Vitest：全部改动过的测试加 i18n 契约组（`i18n-reactivity-contract`、`i18n-hot-switch`、`lingui-helper-translator-contract`、`catalog-completeness-contract`、`brand-catalog-contract`、`bootstrap-entry-watchdog`、`client-bootstrap-error` 等）27 个文件 1,158 项通过；审查修复后改动测试加两个 i18n 契约 18 个文件 909 项通过。全量终端 Vitest 未在韩语单独运行，留到本批次结束统一跑。
 - Playwright（沙箱外，修复前的目录）：`referral-code-card.pw.ts` 22 项、`position-close-all.playwright.config.ts` 51 项、`TOP_NAV_CONNECTED_MATRIX=full` 下 `--grep " ko"` 的顶部导航 12 项通过。审查修复的 7 条不在这些夹具里。
 - 未做：开发服务器目视检查、交易页以外页面的韩语布局、母语审校、真机；生产构建与包体测量留到终验。
+
+### 繁体中文 `zh-TW`
+
+- PO 硬校验：2,152 条同集同序，各类错误 0，简体专用字 0；两轮修复（13 条覆盖）后重跑仍为 0。6 条与原文相同的是 APR、APY、ROI、TVL、LTV、`{periodLabel} ROI`。
+- `pnpm i18n:extract`：zh-TW 2,152 条、Missing 0；ko 与其他 7 个 `.po` 无变化；`pnpm i18n:compile` 通过。每次修复后都重跑过。
+- Biome（沙箱外）20 个改动的 ts/tsx/css，修正 1 处格式后通过；typecheck 通过。
+- Vitest：改动测试加 i18n 与字体契约 27 个文件 1,172 项通过；最终修复后改动测试加 `i18n-hot-switch`、`i18n-reactivity-contract`、`startup-font-display-contract` 19 个文件 983 项通过。
+- 变异（改源码、跑对应测试、确认变红后还原）：去掉 `parseLinkLocale` 的繁中分支，`link-locale.test.ts` 2 项失败；去掉小写化，1 项失败；去掉 `spot-asset-info.ts` 的繁中回退，`spot-asset-info.test.ts` 2 项失败。
+- Playwright（沙箱外，第 1 轮修复前的目录）：`referral-code-card.pw.ts` 24 项、`position-close-all.playwright.config.ts` 56 项、`TOP_NAV_CONNECTED_MATRIX=full` 下 `--grep " zh-TW"` 12 项通过。
+- 未验证：`:root:lang(zh-TW)` 的字体回退只在源码层面确认选择器与运行时 `lang` 相容，没有在浏览器里读计算字体；没有台湾母语审校与真机。
 
 ## 后续与替代关系
 

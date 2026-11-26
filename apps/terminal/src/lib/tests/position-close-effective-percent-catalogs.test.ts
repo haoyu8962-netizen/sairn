@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const MESSAGE = "{requestedPercent}% requested; {effectivePercent}% after size precision";
 const EXPECTED_TRANSLATIONS = {
+	"zh-TW": "已指定 {requestedPercent}%；受數量精度限制，實際為 {effectivePercent}%",
 	ja: "指定 {requestedPercent}%、数量精度の適用後 {effectivePercent}%",
 	ko: "{requestedPercent}% 요청; 수량 정밀도 적용 후 {effectivePercent}%",
 	ar: "طُلب {requestedPercent}٪؛ {effectivePercent}٪ بعد تطبيق دقة الحجم",
@@ -13,6 +14,7 @@ const EXPECTED_TRANSLATIONS = {
 
 const LEVERAGE_SUCCESS_MESSAGE = "Leverage updated to {leverage}x";
 const EXPECTED_LEVERAGE_SUCCESS_TRANSLATIONS = {
+	"zh-TW": "槓桿已更新為 {leverage}x",
 	ja: "レバレッジを {leverage}x に更新しました",
 	ko: "레버리지가 {leverage}x로 업데이트되었습니다",
 	ar: "تم تحديث الرافعة المالية إلى {leverage}x",

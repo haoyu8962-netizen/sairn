@@ -1,4 +1,5 @@
 import type { UnifiedMarket } from "@sairn/hl-react";
+import { isTraditionalChineseTag } from "@/config/i18n";
 import { SPOT_ASSET_SOCIALS } from "./spot-asset-socials.generated";
 
 export type SpotAssetDescriptionLocale = "en" | "es" | "fr" | "zh-CN";
@@ -58,6 +59,7 @@ function normalizeTokenId(value: unknown): TokenId | null {
 
 function getDescriptionLocale(locale: string): SpotAssetDescriptionLocale | null {
 	const normalizedLocale = locale.toLowerCase();
+	if (isTraditionalChineseTag(normalizedLocale)) return null;
 	if (normalizedLocale === "zh" || normalizedLocale.startsWith("zh-")) return "zh-CN";
 	if (normalizedLocale === "es" || normalizedLocale.startsWith("es-")) return "es";
 	if (normalizedLocale === "fr" || normalizedLocale.startsWith("fr-")) return "fr";

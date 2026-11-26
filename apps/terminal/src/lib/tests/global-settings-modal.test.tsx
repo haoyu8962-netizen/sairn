@@ -533,6 +533,7 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: "Order book animations",
 			zh: "订单簿动画",
+			"zh-TW": "訂單簿動畫",
 			ja: "板のアニメーション",
 			ko: "호가창 애니메이션",
 			hi: "ऑर्डर बुक एनिमेशन",
@@ -550,6 +551,7 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: "Transaction delay protection",
 			zh: "交易延迟保护",
+			"zh-TW": "交易延遲保護",
 			ja: "取引遅延保護",
 			ko: "거래 지연 보호",
 			hi: "लेनदेन विलंब सुरक्षा",
@@ -567,6 +569,7 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: ["Diagnostics", "Copy diagnostics"],
 			zh: ["诊断信息", "复制诊断信息"],
+			"zh-TW": ["診斷資訊", "複製診斷資訊"],
 			ja: ["診断情報", "診断情報をコピー"],
 			ko: ["진단 정보", "진단 정보 복사"],
 			hi: ["निदान जानकारी", "निदान जानकारी कॉपी करें"],

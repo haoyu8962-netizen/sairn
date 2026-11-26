@@ -1,20 +1,25 @@
 import { STORAGE_KEYS } from "@/config/app";
-import { defaultLocale, isValidLocale, type LocaleCode } from "@/config/i18n";
+import { defaultLocale, isTraditionalChineseTag, type LocaleCode, localeList } from "@/config/i18n";
 
 /** The query parameter a link uses to open the terminal in a language: `/trade/xyz:ANT?lang=ja`. */
 export const LINK_LOCALE_PARAM = "lang";
 
+const LOCALE_BY_LOWERCASE = new Map<string, LocaleCode>(localeList.map(({ code }) => [code.toLowerCase(), code]));
+
 /**
- * The interface language a link names, or null. Case is ignored and a region tag falls back to its
- * language (`ja-JP` → `ja`); anything that is not a maintained interface language is ignored.
+ * The interface language a link names, or null. Case and `_` are ignored, a region tag falls back
+ * to its language (`ja-JP` → `ja`), Chinese in Traditional characters (`zh-TW`, `zh-HK`, `zh-MO`,
+ * `zh-Hant…`) opens `zh-TW` and every other Chinese tag (`zh-CN`, `zh-SG`, `zh-Hans…`) opens `zh`;
+ * anything that is not a maintained interface language is ignored.
  */
 export function parseLinkLocale(search: string): LocaleCode | null {
-	const value = new URLSearchParams(search).get(LINK_LOCALE_PARAM)?.trim().toLowerCase();
+	const value = new URLSearchParams(search).get(LINK_LOCALE_PARAM)?.trim().toLowerCase().replaceAll("_", "-");
 	if (!value) return null;
-	if (isValidLocale(value)) return value;
-	const [language] = value.split(/[-_]/);
-	if (language && isValidLocale(language)) return language;
-	return null;
+	const exact = LOCALE_BY_LOWERCASE.get(value);
+	if (exact) return exact;
+	if (isTraditionalChineseTag(value)) return "zh-TW";
+	const [language] = value.split("-");
+	return language ? (LOCALE_BY_LOWERCASE.get(language) ?? null) : null;
 }
 
 /**

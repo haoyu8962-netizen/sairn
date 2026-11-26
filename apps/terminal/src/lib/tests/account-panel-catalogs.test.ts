@@ -12,6 +12,11 @@ const EXPECTED_TRANSLATIONS = {
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
 			"共享余额账户模式下无法在现货与永续之间划转。",
 	},
+	"zh-TW": {
+		"Cross Maintenance Margin": "全倉維持保證金",
+		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
+			"在共享餘額帳戶模式下，無法於現貨與永續之間劃轉。",
+	},
 	es: {
 		"Cross Maintenance Margin": "Margen de mantenimiento cruzado",
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":

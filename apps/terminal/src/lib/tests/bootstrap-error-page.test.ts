@@ -57,6 +57,15 @@ describe("bootstrap error page", () => {
 		expect(fallback?.textContent).toContain("إعادة تحميل المنصة");
 	});
 
+	it("renders the persisted Traditional Chinese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "zh-TW");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("zh-TW");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain("交易終端無法安全啟動。請重新載入後再交易。");
+		expect(document.querySelector("button")?.textContent).toBe("重新載入交易終端");
+	});
+
 	it("renders the persisted Japanese fallback without loading a catalog", () => {
 		window.localStorage.setItem("locale-v1", "ja");
 		renderBootstrapErrorPage();

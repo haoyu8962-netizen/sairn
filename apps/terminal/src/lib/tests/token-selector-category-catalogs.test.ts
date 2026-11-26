@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const locales = ["ar", "en", "es", "fr", "hi", "zh", "ja", "ko"] as const;
+const locales = ["ar", "en", "es", "fr", "hi", "zh", "zh-TW", "ja", "ko"] as const;
 const messages = ["AI", "Defi", "Gaming", "Layer 1", "Layer 2", "Meme"] as const;
 
 describe("token selector category catalogs", () => {

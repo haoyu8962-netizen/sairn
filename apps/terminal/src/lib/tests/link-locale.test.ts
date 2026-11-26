@@ -30,6 +30,24 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=pt_BR")).toBeNull();
 	});
 
+	it("routes Traditional and Simplified Chinese tags by script and region", () => {
+		expect(parseLinkLocale("?lang=zh-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-tw")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=ZH-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh_TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-HK")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-MO")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-Hant")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-Hant-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-hant-hk")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-CN")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-SG")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans-HK")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans-TW")).toBe("zh");
+	});
+
 	it("ignores a missing, empty or unknown language", () => {
 		expect(parseLinkLocale("")).toBeNull();
 		expect(parseLinkLocale("?lang=")).toBeNull();
@@ -223,6 +241,14 @@ describe("storeLocale", () => {
 		window.history.replaceState(null, "", "/trade/BTC?lang=ja&utm_source=newsletter");
 		expect(applyWindowLinkLocale()).toBe("ja");
 		expect(window.localStorage.getItem(STORAGE_KEYS.LOCALE)).toBe("ja");
+		expect(window.location.search).toBe("?utm_source=newsletter");
+		window.history.replaceState(null, "", "/");
+	});
+
+	it("persists a Traditional Chinese region link as zh-TW through storage", () => {
+		window.history.replaceState(null, "", "/trade/BTC?lang=zh-hk&utm_source=newsletter");
+		expect(applyWindowLinkLocale()).toBe("zh-TW");
+		expect(window.localStorage.getItem(STORAGE_KEYS.LOCALE)).toBe("zh-TW");
 		expect(window.location.search).toBe("?utm_source=newsletter");
 		window.history.replaceState(null, "", "/");
 	});
