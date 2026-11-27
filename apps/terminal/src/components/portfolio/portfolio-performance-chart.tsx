@@ -683,12 +683,10 @@ function formatTimeTick(timestamp: number, period: PortfolioPeriod, locale: stri
 	if (period === "day") {
 		return formatTime(timestamp, { locale, hour: "2-digit", minute: "2-digit", hour12: false });
 	}
-	const date = new Date(timestamp);
-	const month = String(date.getMonth() + 1).padStart(2, "0");
 	if (period === "allTime") {
-		return `${date.getFullYear()}-${month}`;
+		return formatDateTime(timestamp, { locale, year: "numeric", month: "short" });
 	}
-	return `${month}-${String(date.getDate()).padStart(2, "0")}`;
+	return formatDateTime(timestamp, { locale, month: "short", day: "numeric" });
 }
 
 function getMarketToneClass(value: string | null): "text-fg" | "text-market-down" | "text-market-up" {

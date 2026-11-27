@@ -46,10 +46,6 @@ const REGISTERED_FIXED_POINT_CALLS: Readonly<Record<string, Registration>> = {
 		count: 2,
 		use: "TP/SL size input prefill and Max, also sent in the trigger orders",
 	},
-	"components/trade/tradebox/bridge/amount-entry-screen.tsx": {
-		count: 2,
-		use: "USD amount input values for the percentage and Max shortcuts",
-	},
 	"components/trade/tradebox/trade-form-tp-sl.tsx": {
 		count: 1,
 		use: "TP/SL return input value",

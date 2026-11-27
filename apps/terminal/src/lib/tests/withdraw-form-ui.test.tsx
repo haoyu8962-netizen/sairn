@@ -231,4 +231,17 @@ describe("WithdrawForm UI", () => {
 		expect(input?.dir).toBe("ltr");
 		expect(container.querySelector(`label[for="${input?.id}"]`)?.textContent).toBe("Destination address");
 	});
+
+	it("shows a visible focus style on the amount field container in normal and error states", async () => {
+		await renderForm({ validation: { valid: true, error: null } });
+		const amountInput = container.querySelector<HTMLInputElement>('input[placeholder="0.00"]');
+		const amountFrame = amountInput?.closest("div.border");
+		expect(amountFrame?.className).toContain("focus-within:border-market-close-focus");
+		expect(amountFrame?.className).toContain("focus-within:ring-2");
+
+		await renderForm({ validation: { valid: false, error: "Amount exceeds available balance" } });
+		const errorFrame = container.querySelector<HTMLInputElement>('input[placeholder="0.00"]')?.closest("div.border");
+		expect(errorFrame?.className).toContain("focus-within:border-market-close-danger");
+		expect(errorFrame?.className).toContain("focus-within:ring-market-close-danger/20");
+	});
 });

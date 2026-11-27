@@ -95,7 +95,7 @@ export function VaultActionModal({
 			layer="blocking"
 			className="max-h-[calc(100dvh-var(--funds-action-modal-inset))] min-[1001px]:max-w-md"
 		>
-			<ModalHeader divider={false} className="px-4 pt-5 pb-2 min-[1001px]:px-6">
+			<ModalHeader divider={false} className="ps-4 pe-4 pt-5 pb-2 min-[1001px]:ps-6 min-[1001px]:pe-14">
 				<ModalTitle>{title}</ModalTitle>
 				<ModalDescription>{detail.name}</ModalDescription>
 			</ModalHeader>
@@ -117,14 +117,17 @@ export function VaultActionModal({
 									: undefined
 							}
 							iconRight={
-								<button
+								<Button
 									type="button"
-									className="text-xs font-semibold text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:text-fg-disabled"
+									variant="ghost"
+									intent="neutral"
+									size="xs"
+									className="text-fg-muted not-data-disabled:hover:text-fg"
 									disabled={maxAmount === null}
 									onClick={() => maxAmount !== null && onAmountChange(maxAmount)}
 								>
 									{t`Max`}
-								</button>
+								</Button>
 							}
 							hint={
 								availableAmount === null
@@ -255,6 +258,26 @@ function VaultActionRisk({
 	);
 }
 
+function renderPendingStageDescription(
+	stage: "awaiting" | "submitted" | "reconciling",
+	action: "deposit" | "withdraw",
+) {
+	if (stage === "awaiting") {
+		return (
+			<Trans>Your trading wallet signs this Vault transfer. Closing is disabled while authorization is active.</Trans>
+		);
+	}
+	if (stage === "submitted") {
+		if (action === "deposit") {
+			return <Trans>The signed deposit request is dispatched once and will not be retried automatically.</Trans>;
+		}
+		return <Trans>The signed withdrawal request is dispatched once and will not be retried automatically.</Trans>;
+	}
+	return (
+		<Trans>The page is matching a new Vault ledger event and refreshed account state. It will not sign again.</Trans>
+	);
+}
+
 function VaultPendingStage({
 	stage,
 	action,
@@ -279,19 +302,7 @@ function VaultPendingStage({
 					<Trans>Reconciling from Hyperliquid</Trans>
 				)}
 			</p>
-			<p className="max-w-sm text-xs leading-5 text-fg-muted">
-				{stage === "awaiting" ? (
-					<Trans>
-						Your trading wallet signs this Vault transfer. Closing is disabled while authorization is active.
-					</Trans>
-				) : stage === "submitted" ? (
-					<Trans>The signed {action} request is dispatched once and will not be retried automatically.</Trans>
-				) : (
-					<Trans>
-						The page is matching a new Vault ledger event and refreshed account state. It will not sign again.
-					</Trans>
-				)}
-			</p>
+			<p className="max-w-sm text-xs leading-5 text-fg-muted">{renderPendingStageDescription(stage, action)}</p>
 		</div>
 	);
 }

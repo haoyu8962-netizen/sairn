@@ -110,7 +110,7 @@ export interface ReferralRewardRow {
 	builderRewards: string;
 	claimedRewards: string;
 	cumVlm: string;
-	name: string;
+	name: string | null;
 	tokenId: number;
 	unclaimedRewards: string;
 	weiDecimals: number | null;
@@ -161,7 +161,7 @@ export function buildReferralRewardRows(
 ): ReferralRewardRow[] {
 	return data.tokenToState.map(([tokenId, state]) => ({
 		...state,
-		name: tokens?.get(tokenId)?.name ?? `Token #${tokenId}`,
+		name: tokens?.get(tokenId)?.name ?? null,
 		tokenId,
 		weiDecimals: tokens?.get(tokenId)?.weiDecimals ?? null,
 	}));

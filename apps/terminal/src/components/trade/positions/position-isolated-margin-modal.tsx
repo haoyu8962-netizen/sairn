@@ -422,7 +422,7 @@ function PositionIsolatedMarginModalBody({ open, isMobile, position, onOpenChang
 			isMobile={isMobile}
 			dismissible={!isSubmitting}
 		>
-			<ModalHeader className="max-[1000px]:gap-1 max-[1000px]:border-b-0 max-[1000px]:px-4 max-[1000px]:pt-7 max-[1000px]:pr-4 max-[1000px]:pb-0">
+			<ModalHeader className="pe-4 max-[1000px]:gap-1 max-[1000px]:border-b-0 max-[1000px]:pt-7 max-[1000px]:pb-0">
 				<ModalTitle>{t`Adjust Isolated Margin`}</ModalTitle>
 				<ModalDescription>{position.coin}</ModalDescription>
 			</ModalHeader>

@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsDownUpIcon, WarningIcon } from "@phosphor-icons/react";
 import { ExchangeRequestInvalidatedError } from "@sairn/hl-react/internal/exchange/request-scheduler";
 import { Button, Modal, ModalContent, ModalDescription, ModalHeader, ModalPopup, ModalTitle } from "@sairn/ui";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { labelTypographyClass } from "@/components/ui/field-label";
 import { NumberInput } from "@/components/ui/number-input";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
@@ -413,13 +413,15 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 		Boolean(quote);
 	const isDisabled = !accountDataReady || isSubmitting || submittedOpening !== null;
 	const isOpen = useGlobalModalType() === "swap";
+	const token = fromTokenInfo?.displayName ?? fromToken;
+	const amountContextLabel = token ? t`Amount (${token})` : t`Amount`;
 
 	return (
 		<Modal open={isOpen && submittedOpening === null} onOpenChange={handleOpenChange}>
 			<ModalPopup size={isStablecoinSwap ? "md" : "sm"} closeLabel={t`Close`}>
 				<ModalHeader
 					divider={!isStablecoinSwap}
-					className={isStablecoinSwap ? "items-center px-14 py-5 text-center" : undefined}
+					className={isStablecoinSwap ? "items-center ps-14 pe-14 py-5 text-center" : undefined}
 				>
 					<ModalTitle className={isStablecoinSwap ? "text-lg" : undefined}>
 						{isStablecoinSwap ? <Trans>Swap Stablecoins</Trans> : <Trans>Swap</Trans>}
@@ -438,8 +440,9 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 						<div className="space-y-1">
 							<TokenPanel
 								label={isStablecoinSwap ? t`Sell` : t`From`}
+								inputAmountLabel={amountContextLabel}
 								balance={fromBalance}
-								balanceToken={fromTokenInfo?.displayName ?? fromToken}
+								balanceToken={token}
 								balanceLabel={isStablecoinSwap ? t`Max` : t`Available`}
 								amount={amount}
 								onAmountChange={handleAmountChange}
@@ -624,6 +627,7 @@ function SpotSwapModalContent({ initialFromToken, initialToToken, mode, opening,
 
 interface TokenPanelProps {
 	label: string;
+	inputAmountLabel?: string;
 	balance: number;
 	balanceToken: string;
 	balanceLabel: string;
@@ -639,6 +643,7 @@ interface TokenPanelProps {
 
 function TokenPanel({
 	label,
+	inputAmountLabel,
 	balance,
 	balanceToken,
 	balanceLabel,
@@ -651,6 +656,10 @@ function TokenPanel({
 	editable,
 	tokenSelector,
 }: TokenPanelProps) {
+	const inputId = useId();
+	const labelId = useId();
+	const amountContextId = useId();
+
 	return (
 		<div
 			className={cn(
@@ -659,7 +668,13 @@ function TokenPanel({
 			)}
 		>
 			<div className="flex items-center justify-between">
-				<span className={labelTypographyClass}>{label}</span>
+				{editable ? (
+					<label id={labelId} htmlFor={inputId} className={labelTypographyClass}>
+						{label}
+					</label>
+				) : (
+					<span className={labelTypographyClass}>{label}</span>
+				)}
 				<TokenBalance
 					show={showBalance}
 					editable={editable}
@@ -675,17 +690,26 @@ function TokenPanel({
 				<div className="shrink-0">{tokenSelector}</div>
 				<div className="flex-1 min-w-0">
 					{editable ? (
-						<NumberInput
-							placeholder="0.00"
-							mobileSafe
-							value={amount}
-							onChange={(e) => onAmountChange?.(e.target.value)}
-							className={cn(
-								"w-full tabular-nums",
-								hasError && "border-stroke-warning-weak text-warning focus:border-stroke-warning-strong",
-							)}
-							disabled={disabled}
-						/>
+						<>
+							{inputAmountLabel ? (
+								<span id={amountContextId} className="sr-only">
+									{inputAmountLabel}
+								</span>
+							) : null}
+							<NumberInput
+								id={inputId}
+								aria-labelledby={inputAmountLabel ? `${labelId} ${amountContextId}` : labelId}
+								placeholder="0.00"
+								mobileSafe
+								value={amount}
+								onChange={(e) => onAmountChange?.(e.target.value)}
+								className={cn(
+									"w-full tabular-nums",
+									hasError && "border-stroke-warning-weak text-warning focus:border-stroke-warning-strong",
+								)}
+								disabled={disabled}
+							/>
+						</>
 					) : (
 						<div className="flex h-7 items-center justify-end text-xs tabular-nums text-fg-muted">
 							{amount || "0.00"}

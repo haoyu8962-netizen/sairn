@@ -39,7 +39,8 @@ export function TwapOrderSummary({
 	baseToken,
 }: Props) {
 	const { formatPrice, formatToken } = useNumberFormat();
-	const { t } = useLingui();
+	const { i18n, t } = useLingui();
+	const locale = i18n.locale;
 	const minutes = getTwapRuntimeMinutes(twapMinutesNum);
 	const stopPriceLabel = getTwapStopPriceLabel(side, { buy: t`Max Price`, sell: t`Min Price` });
 	const suborderSize = getTwapSuborderSize(totalSize, twapMinutesNum, referencePx);
@@ -48,7 +49,7 @@ export function TwapOrderSummary({
 		<div className="flex min-w-0 flex-col">
 			<SummaryRow compact={compact} label={t`Runtime`}>
 				<span className={cn("whitespace-nowrap", minutes > 0 ? "" : "font-normal text-trading-panel-muted")}>
-					{minutes > 0 ? formatDuration(minutes) : FALLBACK_VALUE_PLACEHOLDER}
+					{minutes > 0 ? formatDuration(minutes, { locale }) : FALLBACK_VALUE_PLACEHOLDER}
 				</span>
 			</SummaryRow>
 			<SummaryRow compact={compact} label={t`Size per Suborder`}>

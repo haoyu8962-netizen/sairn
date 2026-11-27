@@ -15,8 +15,8 @@ export function TradeHeaderView({ controls, tabs, sideToggle, orderTypeIndex, co
 			<div className={cn("trade-control-grid grid min-w-0 grid-cols-3", compact && "gap-1.5")}>{controls}</div>
 			<div className="relative grid min-w-0 grid-cols-3">
 				<div
-					className="pointer-events-none absolute bottom-0 left-0 z-10 h-0.5 w-1/3 bg-trading-panel-fg transition-transform duration-300 ease-out motion-reduce:transition-none"
-					style={{ transform: `translateX(${orderTypeIndex * 100}%)` }}
+					className="pointer-events-none absolute start-0 bottom-0 z-10 h-0.5 w-1/3 bg-trading-panel-fg transition-transform duration-300 ease-out [--order-type-direction:1] motion-reduce:transition-none rtl:[--order-type-direction:-1]"
+					style={{ transform: `translateX(calc(${orderTypeIndex} * 100% * var(--order-type-direction, 1)))` }}
 				/>
 				{tabs}
 			</div>

@@ -50,11 +50,11 @@ const thumbVariants = cva(
 	{
 		variants: {
 			size: {
-				xxs: "size-4 data-checked:translate-x-4",
-				xs: "size-5 data-checked:translate-x-5",
-				sm: "size-6 data-checked:translate-x-6",
-				md: "size-8 data-checked:translate-x-8",
-				lg: "size-10 data-checked:translate-x-10",
+				xxs: "size-4 data-checked:translate-x-4 rtl:data-checked:-translate-x-4",
+				xs: "size-5 data-checked:translate-x-5 rtl:data-checked:-translate-x-5",
+				sm: "size-6 data-checked:translate-x-6 rtl:data-checked:-translate-x-6",
+				md: "size-8 data-checked:translate-x-8 rtl:data-checked:-translate-x-8",
+				lg: "size-10 data-checked:translate-x-10 rtl:data-checked:-translate-x-10",
 			},
 		},
 		defaultVariants: {

@@ -60,6 +60,17 @@ const mocks = vi.hoisted(() => ({
 	hasSnapshot: true,
 	marketKind: "builderPerp" as "builderPerp" | "perp" | "spot",
 	marketSzDecimals: 3,
+	marketsByCoin: null as Record<
+		string,
+		{
+			assetId: number;
+			dex?: string;
+			kind: "builderPerp" | "perp" | "spot";
+			pairName: string;
+			shortName: string;
+			szDecimals: number;
+		}
+	> | null,
 	modifyError: null as Error | null,
 	modifyOrders: vi.fn(),
 	navigateToMarket: vi.fn(),
@@ -189,17 +200,19 @@ vi.mock("@/lib/hyperliquid", () => ({
 	useHyperliquid: () => ({ clientKey: mocks.clientKey, env: mocks.env }),
 	useMarkets: () => ({
 		error: null,
-		getAssetId: () => mocks.assetId,
-		getMarket: () =>
-			mocks.assetId === undefined
+		getAssetId: (coin: string) => mocks.marketsByCoin?.[coin]?.assetId ?? mocks.assetId,
+		getMarket: (coin: string) => {
+			if (mocks.marketsByCoin && coin in mocks.marketsByCoin) return mocks.marketsByCoin[coin];
+			return mocks.assetId === undefined
 				? undefined
 				: {
 						assetId: mocks.assetId,
 						kind: mocks.marketKind,
 						shortName: "ORCL",
 						szDecimals: mocks.marketSzDecimals,
-					},
-		getSzDecimals: () => mocks.marketSzDecimals,
+					};
+		},
+		getSzDecimals: (coin: string) => mocks.marketsByCoin?.[coin]?.szDecimals ?? mocks.marketSzDecimals,
 		isLoading: false,
 	}),
 	useMarketsInfo: () => ({
@@ -265,6 +278,7 @@ describe("MobileOrdersTab disclosure card", () => {
 		mocks.isStale = false;
 		mocks.marketKind = "builderPerp";
 		mocks.marketSzDecimals = 3;
+		mocks.marketsByCoin = null;
 		mocks.modifyError = null;
 		mocks.orders = [order];
 		mocks.openOrdersEvent = null;
@@ -955,5 +969,57 @@ describe("MobileOrdersTab disclosure card", () => {
 		expect(document.body.textContent).toContain("Some order markets are unavailable");
 		expect(document.body.textContent).not.toContain("Cancel All Orders");
 		expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining("Some order markets are unavailable"));
+	});
+
+	it("names modify and cancel actions with full market and DEX identity across same-symbol orders", () => {
+		mocks.marketsByCoin = {
+			"xyz:ORCL": {
+				assetId: 120_001,
+				dex: "xyz",
+				kind: "builderPerp",
+				pairName: "ORCL-USDC",
+				shortName: "ORCL",
+				szDecimals: 3,
+			},
+			"flx:ORCL": {
+				assetId: 130_001,
+				dex: "flx",
+				kind: "builderPerp",
+				pairName: "ORCL-USDC",
+				shortName: "ORCL",
+				szDecimals: 3,
+			},
+		};
+		const xyzOrder = { ...order, coin: "xyz:ORCL", oid: 101 } as OpenOrder;
+		const flxLinkedOrder = {
+			...order,
+			coin: "flx:ORCL",
+			oid: 102,
+			children: [{ ...order, coin: "flx:ORCL", oid: 103, orderType: "Take Profit Market", triggerPx: "165" }],
+		} as unknown as OpenOrder;
+		mocks.orders = [xyzOrder, flxLinkedOrder];
+		renderOrders({ expandFirst: false });
+
+		for (const label of ["Expand ORCL (xyz) order details", "Expand ORCL (flx) order details"]) {
+			act(() => container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)?.click());
+		}
+
+		const xyzModify = container.querySelector<HTMLButtonElement>('button[aria-label="Modify Order for ORCL (xyz)"]');
+		const flxModify = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Modify Order for ORCL (flx): Orders with linked TP/SL orders cannot be modified here."]',
+		);
+		const xyzCancel = container.querySelector<HTMLButtonElement>('button[aria-label="Cancel ORCL (xyz) order"]');
+		const flxCancel = container.querySelector<HTMLButtonElement>('button[aria-label="Cancel ORCL (flx) order"]');
+		expect(xyzModify).not.toBeNull();
+		expect(flxModify).not.toBeNull();
+		expect(flxModify?.getAttribute("aria-disabled")).toBe("true");
+		expect(xyzCancel).not.toBeNull();
+		expect(flxCancel).not.toBeNull();
+
+		act(() => flxCancel?.click());
+		expect(mocks.cancelOrders).toHaveBeenCalledWith(
+			{ cancels: [{ a: 130_001, o: 102 }] },
+			expect.objectContaining({ onSettled: expect.any(Function) }),
+		);
 	});
 });

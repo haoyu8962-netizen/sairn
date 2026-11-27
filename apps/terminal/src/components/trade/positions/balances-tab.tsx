@@ -330,22 +330,22 @@ export function BalancesTab({ toolbarTarget }: Props) {
 							</p>
 						) : null}
 						<ScrollArea className="min-h-0 flex-1">
-							<Table className="table-fixed min-w-[52rem] w-full">
+							<Table containerClassName="overflow-visible" className="table-fixed min-w-[66rem] w-full">
 								<TableHeader className={balancesTableHeaderClass}>
 									<TableRow className={positionsPanelTableHeaderRowClass}>
-										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[16%] text-start")}>
+										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[15%] text-start")}>
 											{t`Asset`}
 										</TableHead>
-										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[22%] text-right")}>
+										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[17%] text-right")}>
 											{t`Total`}
 										</TableHead>
-										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[22%] text-right")}>
+										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[17%] text-right")}>
 											{t`Available`}
 										</TableHead>
-										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[22%] text-right")}>
+										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[15%] text-right")}>
 											{t`USD Value`}
 										</TableHead>
-										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[18%] text-right")}>
+										<TableHead scope="col" size="dense" className={cn(balancesTableHeadClass, "w-[36%] text-right")}>
 											{t`Actions`}
 										</TableHead>
 									</TableRow>

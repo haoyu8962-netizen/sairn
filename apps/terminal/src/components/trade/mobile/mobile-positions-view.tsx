@@ -1,13 +1,14 @@
 import { useLingui } from "@lingui/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@sairn/ui";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { positionsTab, positionsTabs } from "@/components/trade/mobile/mobile-positions-tabs-view";
 import { Spinner } from "@/components/ui/spinner";
 import { PORTFOLIO_TRANSFERS_TAB } from "@/config/account-ledger";
 import { HL_ALL_DEXS } from "@/config/app";
+import { isRtlLocale } from "@/config/i18n";
 import { MOBILE_POSITIONS_TABS, type MobilePositionsTabValue } from "@/config/trade";
 import { getReadyItemCount } from "@/domain/trade/position-toolbar";
-import { useDefaultDexBalances } from "@/hooks/trade/use-account-balances";
+import { useBalanceRows } from "@/hooks/trade/use-balance-rows";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { useHyperliquid, useSubscription, useUserPositions } from "@/lib/hyperliquid";
@@ -38,6 +39,7 @@ interface Props {
 	balancesContent?: ReactNode;
 	transfersContent?: ReactNode;
 	disclosureStates?: MobilePositionsDisclosureStates;
+	onGoToTrade?: () => void;
 }
 
 export function MobilePositionsView({
@@ -47,8 +49,10 @@ export function MobilePositionsView({
 	balancesContent,
 	transfersContent,
 	disclosureStates,
+	onGoToTrade,
 }: Props) {
-	const { _ } = useLingui();
+	const { _, i18n } = useLingui();
+	const locale = i18n.locale;
 	const storedActiveTab = usePositionsActiveTab();
 	const hasTransfersTab = transfersContent != null;
 	const [pendingActiveTab, setPendingActiveTab] = useState<TabValue | null>(null);
@@ -66,15 +70,7 @@ export function MobilePositionsView({
 	const localDisclosureStates = useMobilePositionsDisclosureStates(disclosureIdentity);
 	const activeDisclosureStates =
 		disclosureStates?.identity === disclosureIdentity ? disclosureStates : localDisclosureStates;
-	const {
-		perpSummary,
-		spotBalances,
-		hasAllDexsSnapshot,
-		hasSpotStateSnapshot,
-		hasError: balancesError,
-		isDataStale: balancesStale,
-		isLoading: balancesLoading,
-	} = useDefaultDexBalances();
+	const { balances, hasAllDexsSnapshot, isDataReady: isBalancesReady, isPending: balancesLoading } = useBalanceRows();
 	const {
 		positions,
 		isLoading: isLoadingState,
@@ -170,23 +166,11 @@ export function MobilePositionsView({
 		isReady: twapStatesStatus === "active" && !twapStatesStale && twapStatesEvent !== undefined,
 		count: twapStatesEvent?.states?.length ?? 0,
 	});
-	const balancesCount = useMemo(() => {
-		if (!isConnected || balancesError || balancesStale || !hasAllDexsSnapshot || !hasSpotStateSnapshot) return null;
-		let count = 0;
-		if (toBig(perpSummary?.accountValue)?.gt(0)) count++;
-		for (const balance of spotBalances) {
-			if (toBig(balance.total)?.gt(0)) count++;
-		}
-		return count;
-	}, [
-		balancesError,
-		balancesStale,
-		hasAllDexsSnapshot,
-		hasSpotStateSnapshot,
+	const balancesCount = getReadyItemCount({
 		isConnected,
-		perpSummary?.accountValue,
-		spotBalances,
-	]);
+		isReady: isBalancesReady,
+		count: balances.length,
+	});
 
 	useEffect(() => {
 		const scroller = tabScrollRef.current;
@@ -199,13 +183,11 @@ export function MobilePositionsView({
 
 			const scrollerRect = scrollContainer.getBoundingClientRect();
 			const selectedTabRect = selectedTab.getBoundingClientRect();
-			const visibleRight = scrollerRect.right - MOBILE_TAB_EDGE_FADE_WIDTH_PX;
-			const horizontalDelta =
-				selectedTabRect.left < scrollerRect.left
-					? selectedTabRect.left - scrollerRect.left
-					: selectedTabRect.right > visibleRight
-						? selectedTabRect.right - visibleRight
-						: 0;
+			const horizontalDelta = getHorizontalTabScrollDelta(
+				scrollerRect,
+				selectedTabRect,
+				isElementRtl(scrollContainer, locale),
+			);
 			if (horizontalDelta === 0) return;
 
 			if (typeof scrollContainer.scrollBy === "function") {
@@ -224,7 +206,7 @@ export function MobilePositionsView({
 			resizeObserver.observe(tab);
 		}
 		return () => resizeObserver.disconnect();
-	}, [activeTab]);
+	}, [activeTab, locale]);
 
 	function handleTabChange(value: string) {
 		const nextTab = resolveMobilePositionsTab(value, hasTransfersTab);
@@ -300,7 +282,11 @@ export function MobilePositionsView({
 				{balancesContent}
 			</TabsContent>
 			<TabsContent value="positions" className={tabContentClass}>
-				<MobilePositionsTab scrollMode={scrollMode} disclosureState={activeDisclosureStates.positions} />
+				<MobilePositionsTab
+					scrollMode={scrollMode}
+					disclosureState={activeDisclosureStates.positions}
+					onGoToTrade={onGoToTrade}
+				/>
 			</TabsContent>
 			<TabsContent value="orders" className={tabContentClass}>
 				<MobileOrdersTab scrollMode={scrollMode} disclosureState={activeDisclosureStates.orders} />
@@ -326,6 +312,34 @@ export function MobilePositionsView({
 			{includeBottomNavSpacer ? <MobileBottomNavSpacer /> : null}
 		</MobilePositionsPanelView>
 	);
+}
+
+function isElementRtl(element: HTMLElement, locale: string): boolean {
+	const explicitDir = element.closest<HTMLElement>("[dir]")?.getAttribute("dir")?.toLowerCase();
+	if (explicitDir === "rtl") return true;
+	if (explicitDir === "ltr") return false;
+	if (typeof window !== "undefined") {
+		const computed = window.getComputedStyle(element).direction;
+		if (computed === "rtl" || computed === "ltr") return computed === "rtl";
+	}
+	return isRtlLocale(locale);
+}
+
+function getHorizontalTabScrollDelta(
+	scrollerRect: Pick<DOMRect, "left" | "right">,
+	selectedTabRect: Pick<DOMRect, "left" | "right">,
+	isRtl: boolean,
+): number {
+	const visibleLeft = isRtl ? scrollerRect.left + MOBILE_TAB_EDGE_FADE_WIDTH_PX : scrollerRect.left;
+	const visibleRight = isRtl ? scrollerRect.right : scrollerRect.right - MOBILE_TAB_EDGE_FADE_WIDTH_PX;
+	if (isRtl) {
+		if (selectedTabRect.right > visibleRight) return selectedTabRect.right - visibleRight;
+		if (selectedTabRect.left < visibleLeft) return selectedTabRect.left - visibleLeft;
+		return 0;
+	}
+	if (selectedTabRect.left < visibleLeft) return selectedTabRect.left - visibleLeft;
+	if (selectedTabRect.right > visibleRight) return selectedTabRect.right - visibleRight;
+	return 0;
 }
 
 function resolveMobilePositionsTab(value: string, hasTransfersTab: boolean): TabValue {

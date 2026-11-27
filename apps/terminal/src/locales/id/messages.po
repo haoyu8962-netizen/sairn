@@ -88,6 +88,10 @@ msgid "{FUNDING_HISTORY_WINDOW_DAYS}-day API window"
 msgstr "Rentang API {FUNDING_HISTORY_WINDOW_DAYS} hari"
 
 #: src/components/vaults/vault-performance-chart.tsx
+msgid "{label} over {periodLabel}."
+msgstr "{label} selama {periodLabel}."
+
+#: src/components/vaults/vault-performance-chart.tsx
 msgid "{label} over {periodLabel}. Latest value <0>{latestValue}</0>."
 msgstr "{label} selama {periodLabel}. Nilai terbaru <0>{latestValue}</0>."
 
@@ -487,10 +491,12 @@ msgid "Activate DEX"
 msgstr "Aktifkan DEX"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≤ {triggerPrice}"
 msgstr "Aktif saat mark ≤ {triggerPrice}"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≥ {triggerPrice}"
 msgstr "Aktif saat mark ≥ {triggerPrice}"
 
@@ -538,7 +544,6 @@ msgstr "Tambah margin"
 msgid "Add to Target"
 msgstr "Tambah margin hingga target"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Add TP/SL"
 msgstr "Tambah TP/SL"
@@ -687,6 +692,7 @@ msgstr "ALO (Tambah likuiditas saja)"
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-view.tsx
+#: src/components/trade/components/spot-swap-modal.tsx
 #: src/components/trade/positions/position-isolated-margin-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
@@ -696,6 +702,10 @@ msgstr "ALO (Tambah likuiditas saja)"
 msgid "Amount"
 msgstr "Jumlah"
 
+#: src/components/trade/components/spot-swap-modal.tsx
+msgid "Amount ({token})"
+msgstr "Jumlah ({token})"
+
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Amount (USDC)"
 msgstr "Jumlah (USDC)"
@@ -703,6 +713,10 @@ msgstr "Jumlah (USDC)"
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount exceeds the verified available balance."
 msgstr "Jumlah melebihi saldo tersedia yang terverifikasi."
+
+#: src/components/trade/tradebox/bridge/amount-entry-screen.tsx
+msgid "Amount in USD"
+msgstr "Jumlah dalam USD"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount is too large to submit safely."
@@ -1177,6 +1191,7 @@ msgstr "Imbalan builder adalah rincian sumber kumulatif, bukan saldo imbalan tam
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -1234,6 +1249,10 @@ msgstr "Pratinjau kamera untuk QR dompet desktop"
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Cancel"
 msgstr "Batalkan"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Cancel {marketLabel} order"
+msgstr "Batalkan order {marketLabel}"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
@@ -1626,7 +1645,6 @@ msgstr "Tutup tindakan dompet API"
 msgid "Close close-all confirmation"
 msgstr "Tutup konfirmasi tutup semua"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -1686,7 +1704,6 @@ msgstr "Tutup posisi"
 msgid "Close reverse confirmation"
 msgstr "Tutup konfirmasi balikkan posisi"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -2145,12 +2162,16 @@ msgid "Could not check the approval on Hyperliquid. Nothing was imported. Try ag
 msgstr "Tidak dapat memeriksa persetujuan di Hyperliquid. Tidak ada yang diimpor. Coba lagi."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Could not fetch your token balances"
-msgstr "Tidak dapat mengambil saldo token Anda"
+#~ msgid "Could not fetch your token balances"
+#~ msgstr "Tidak dapat mengambil saldo token Anda"
 
 #: src/hooks/wallet/use-email-wallet-export.ts
 msgid "Could not open wallet export. Retry in your system browser on the same {BRAND_NAME} site, using the same email."
 msgstr "Tidak dapat membuka ekspor dompet. Coba lagi di browser sistem Anda pada situs {BRAND_NAME} yang sama, menggunakan email yang sama."
+
+#: src/components/trade/components/wallet-modal.tsx
+msgid "Could not start app installation. Use your browser menu to install, or go back to connect."
+msgstr "Tidak dapat memulai instalasi aplikasi. Gunakan menu browser Anda untuk menginstal, atau kembali untuk terhubung."
 
 #: src/components/referrals/referral-action-modal.tsx
 msgid "Create a code after Hyperliquid confirms your eligibility. It cannot be changed from this page later."
@@ -2705,6 +2726,7 @@ msgid "Earn"
 msgstr "Earn"
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Earn Action History"
 msgstr "Riwayat operasi Earn"
 
@@ -2750,7 +2772,6 @@ msgstr "Edit ukuran order {0}"
 msgid "Edit {0} trigger price"
 msgstr "Edit harga pemicu {0}"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Edit TP/SL"
 msgstr "Edit TP/SL"
@@ -3152,12 +3173,12 @@ msgid "Failed to export TWAP fill history."
 msgstr "Gagal mengekspor riwayat eksekusi TWAP."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Failed to load balances"
-msgstr "Gagal memuat saldo"
+#~ msgid "Failed to load balances"
+#~ msgstr "Gagal memuat saldo"
 
 #: src/components/trade/chart/token-selector-content.tsx
-msgid "Failed to load market categories."
-msgstr "Gagal memuat kategori pasar."
+#~ msgid "Failed to load market categories."
+#~ msgstr "Gagal memuat kategori pasar."
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Failed to load positions."
@@ -3605,6 +3626,10 @@ msgstr "Per jam"
 msgid "Hourly rate paid by longs to shorts (if negative, shorts pay longs). Funding has no associated fee; it is a peer-to-peer transfer between users to push the price toward the spot price. See the documentation for details."
 msgstr "Tarif per jam yang dibayarkan oleh long kepada short (jika negatif, short membayar long). Pendanaan tidak dikenakan biaya; ini adalah transfer peer-to-peer antar pengguna untuk mendekatkan harga ke harga Spot. Lihat dokumentasi untuk detail."
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Hours must be 0-{TWAP_HOURS_MAX}"
+msgstr "Jam harus 0-{TWAP_HOURS_MAX}"
+
 #: src/components/referrals/referral-rewards-card.tsx
 msgid "How Hyperliquid referrals work"
 msgstr "Cara kerja referral Hyperliquid"
@@ -3810,6 +3835,7 @@ msgid "Insufficient spot balance for this order."
 msgstr "Saldo Spot tidak cukup untuk order ini."
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Interest"
 msgstr "Bunga"
 
@@ -3928,6 +3954,7 @@ msgstr "Pengelola"
 msgid "Leader commission"
 msgstr "Komisi pengelola"
 
+#: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -4050,6 +4077,10 @@ msgstr "Beli limit"
 msgid "Limit Close"
 msgstr "Tutup dengan limit"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Limit Close {displayName}"
+msgstr "Tutup {displayName} dengan limit"
+
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
 msgstr "Eksekusi limit"
@@ -4140,8 +4171,12 @@ msgid "Loading authorized API wallets"
 msgstr "Memuat dompet API yang diotorisasi"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Loading balances across all chains..."
-msgstr "Memuat saldo di semua chain..."
+msgid "Loading balances"
+msgstr "Memuat saldo"
+
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
+#~ msgid "Loading balances across all chains..."
+#~ msgstr "Memuat saldo di semua chain..."
 
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/funding-history/funding-history-page.tsx
@@ -4160,6 +4195,10 @@ msgstr "Memuat tingkat pendanaan"
 msgid "Loading leaderboard"
 msgstr "Memuat peringkat"
 
+#: src/components/trade/components/command-menu.tsx
+msgid "Loading markets"
+msgstr "Memuat pasar"
+
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Loading markets..."
 msgstr "Memuat pasar..."
@@ -4168,6 +4207,10 @@ msgstr "Memuat pasar..."
 #: src/components/historical-orders/historical-orders-page.tsx
 msgid "Loading order history"
 msgstr "Memuat riwayat order"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Loading position data. Switching to Isolated mode is temporarily unavailable."
+msgstr "Memuat data posisi. Peralihan ke mode isolated sementara tidak tersedia."
 
 #: src/components/trade/positions/position-pnl-share-modal.tsx
 msgid "Loading QR code"
@@ -4435,6 +4478,10 @@ msgstr "Klik Market saat ini langsung menutup seluruh posisi untuk akun dan jari
 msgid "Market Close"
 msgstr "Tutup dengan market"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Market Close {displayName}"
+msgstr "Tutup {displayName} dengan market"
+
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
 msgstr "Konfirmasi tutup dengan market"
@@ -4632,6 +4679,10 @@ msgstr "Mnt"
 msgid "Minute(s)"
 msgstr "Menit"
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Minutes must be 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+msgstr "Menit harus 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+
 #: src/components/trade/components/mobile-agent-qr-scanner.tsx
 #: src/routes/mobile-agent-sync.tsx
 msgid "Mobile QR import is temporarily unavailable."
@@ -4652,9 +4703,17 @@ msgstr "Ubah order"
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Modify Order"
 msgstr "Ubah order"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Modify Order for {marketLabel}"
+msgstr "Ubah order {marketLabel}"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
+msgid "Modify Order for {marketLabel}: {modifyUnavailableReason}"
+msgstr "Ubah order {marketLabel}: {modifyUnavailableReason}"
 
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -5269,7 +5328,6 @@ msgstr "Batas open interest"
 msgid "Open Interest Reward"
 msgstr "Imbalan open interest"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Long"
@@ -5304,7 +5362,6 @@ msgstr "Order terbuka telah berubah. Buka kembali konfirmasi lalu coba lagi."
 msgid "Open related page"
 msgstr "Buka halaman terkait"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Short"
@@ -5464,6 +5521,7 @@ msgstr "Order"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
 msgid "Orders with linked TP/SL orders cannot be modified here."
 msgstr "Order dengan order TP/SL tertaut tidak dapat diubah di sini."
 
@@ -5798,8 +5856,8 @@ msgid "Position data is unavailable"
 msgstr "Data posisi tidak tersedia"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
-msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
-msgstr "Data posisi tidak tersedia. Tunggu koneksi akun pulih sebelum mengubah mode margin."
+#~ msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
+#~ msgstr "Data posisi tidak tersedia. Tunggu koneksi akun pulih sebelum mengubah mode margin."
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 msgid "Position margin"
@@ -5852,6 +5910,7 @@ msgid "Positive PNL"
 msgstr "PNL positif"
 
 #: src/components/trade/tradebox/trade-form-tif.tsx
+#: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 msgid "Post Only"
 msgstr "Post only"
@@ -5941,6 +6000,8 @@ msgstr "Halaman Vault sebelumnya"
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -6297,6 +6358,7 @@ msgid "Referrals & rewards"
 msgstr "Referral & imbalan"
 
 #: src/components/referrals/referral-activity.tsx
+#: src/components/referrals/referred-traders.tsx
 msgid "Referred traders"
 msgstr "Trader referral"
 
@@ -6550,6 +6612,7 @@ msgid "Resume tracking"
 msgstr "Lanjutkan pelacakan"
 
 #: src/components/api-wallet/api-wallet-list.tsx
+#: src/components/earn/earn-view.tsx
 #: src/components/funding-comparison/funding-comparison-view.tsx
 #: src/components/portfolio/portfolio-overview.tsx
 #: src/components/portfolio/portfolio-performance-chart.tsx
@@ -6562,6 +6625,7 @@ msgstr "Lanjutkan pelacakan"
 #: src/components/trade/chart/funding-history-panel.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/tradingview-chart.tsx
+#: src/components/trade/components/command-menu.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/market-asset-info.tsx
@@ -6574,6 +6638,7 @@ msgstr "Lanjutkan pelacakan"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -6613,6 +6678,10 @@ msgstr "Balikkan"
 msgctxt "Position action"
 msgid "Reverse"
 msgstr "Balikkan"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Reverse {displayName} position"
+msgstr "Balikkan posisi {displayName}"
 
 #: src/components/trade/positions/position-inline-actions.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
@@ -6986,6 +7055,7 @@ msgstr "PNL periode terpilih"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -7168,6 +7238,10 @@ msgstr "Menandatangani dengan dompet email Anda"
 msgid "Signing..."
 msgstr "Menandatangani..."
 
+#: src/components/vaults/vault-performance-chart.tsx
+msgid "Single data point at <0>{latestValue}</0>."
+msgstr "Satu titik data pada <0>{latestValue}</0>."
+
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
@@ -7192,6 +7266,8 @@ msgstr "Menandatangani..."
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/funding-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -7319,9 +7395,16 @@ msgid "Sort by"
 msgstr "Urutkan berdasarkan"
 
 #: src/components/trade/chart/token-selector-content.tsx
-#: src/components/trade/chart/token-selector-content.tsx
 msgid "Sort by {sortLabel}"
 msgstr "Urutkan berdasarkan {sortLabel}"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted ascending"
+msgstr "Urutkan berdasarkan {sortLabel}, diurutkan menaik"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted descending"
+msgstr "Urutkan berdasarkan {sortLabel}, diurutkan menurun"
 
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Sort leaderboard"
@@ -7335,6 +7418,14 @@ msgstr "Urutkan pasar"
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Sorted by {0}"
 msgstr "Diurutkan berdasarkan {0}"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, ascending"
+msgstr "Diurutkan berdasarkan {sortLabel}, menaik"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, descending"
+msgstr "Diurutkan berdasarkan {sortLabel}, menurun"
 
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
@@ -7752,9 +7843,6 @@ msgid "Switch to {displayName} market, short position"
 msgstr "Beralih ke pasar {displayName}, posisi short"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/positions/twap-tab.tsx
@@ -7763,6 +7851,9 @@ msgstr "Beralih ke pasar {marketLabel}"
 
 #: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-tab.tsx
 msgid "Switch to {marketName} market"
 msgstr "Beralih ke pasar {marketName}"
 
@@ -8311,8 +8402,12 @@ msgid "The server rejected the request. Try again later."
 msgstr "Server menolak permintaan. Coba lagi nanti."
 
 #: src/components/vaults/vault-action-modal.tsx
-msgid "The signed {action} request is dispatched once and will not be retried automatically."
-msgstr "Permintaan {action} yang ditandatangani dikirim satu kali dan tidak akan dicoba ulang secara otomatis."
+#~ msgid "The signed {action} request is dispatched once and will not be retried automatically."
+#~ msgstr "Permintaan {action} yang ditandatangani dikirim satu kali dan tidak akan dicoba ulang secara otomatis."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed deposit request is dispatched once and will not be retried automatically."
+msgstr "Permintaan deposit yang ditandatangani dikirim satu kali dan tidak akan dicoba ulang secara otomatis."
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request has been submitted. Keep this window open."
@@ -8321,6 +8416,10 @@ msgstr "Permintaan yang ditandatangani telah dikirim. Biarkan jendela ini tetap 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request may have succeeded, but reconciliation timed out. Do not submit it again; verify against fresh extraAgents data. Closing before verification discards the local key."
 msgstr "Permintaan yang ditandatangani mungkin berhasil, tetapi rekonsiliasi habis waktu. Jangan kirim lagi; verifikasi terhadap data extraAgents terbaru. Menutup sebelum verifikasi akan membuang kunci lokal."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed withdrawal request is dispatched once and will not be retried automatically."
+msgstr "Permintaan penarikan yang ditandatangani dikirim satu kali dan tidak akan dicoba ulang secara otomatis."
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "The start and end values are unchanged."
@@ -8713,6 +8812,7 @@ msgstr "TIF"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/funding-tab.tsx
@@ -8756,6 +8856,13 @@ msgstr "Alihkan satuan laba dan rugi"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 msgid "Toggle size mode"
 msgstr "Alihkan mode ukuran"
+
+#: src/components/referrals/referral-action-modal.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referred-traders.tsx
+msgid "Token #{tokenId}"
+msgstr "Token #{tokenId}"
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Token ID"
@@ -8847,6 +8954,7 @@ msgstr "Harga TP"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
 msgid "TP/SL"
@@ -8856,6 +8964,10 @@ msgstr "TP/SL"
 msgctxt "Current orders column"
 msgid "TP/SL"
 msgstr "TP/SL"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "TP/SL for {displayName}"
+msgstr "TP/SL untuk {displayName}"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "TP/SL may have changed. Review this position's TP/SL before retrying."
@@ -9129,7 +9241,6 @@ msgstr "Terpicu"
 msgid "Try again"
 msgstr "Coba lagi"
 
-#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/bridge/bridge-error-screen.tsx
 msgid "Try Again"
 msgstr "Coba lagi"
@@ -9251,6 +9362,8 @@ msgstr "Open interest dua sisi: jumlah posisi long dan short pada kontrak ini."
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Type"
 msgstr "Jenis"
@@ -9296,6 +9409,10 @@ msgstr "Tidak dapat memverifikasi akses"
 #: src/lib/trade/withdrawal.ts
 msgid "Unable to verify available balance"
 msgstr "Tidak dapat memverifikasi saldo tersedia"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Unable to verify current positions. Switching to Isolated mode is temporarily unavailable."
+msgstr "Tidak dapat memverifikasi posisi saat ini. Peralihan ke mode isolated sementara tidak tersedia."
 
 #: src/hooks/trade/use-deposit-availability.ts
 msgid "Unable to verify regional availability. Deposits are temporarily unavailable."
@@ -9523,6 +9640,7 @@ msgstr "Pembaruan belum dikonfirmasi. Periksa pengaturan akun sebelum mencoba la
 msgid "Updated"
 msgstr "Diperbarui"
 
+#: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Updated live"
 msgstr "Diperbarui langsung"

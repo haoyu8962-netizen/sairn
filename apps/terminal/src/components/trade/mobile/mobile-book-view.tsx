@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { Button, Dropdown, type DropdownItem } from "@sairn/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
 import { ORDERBOOK_LABELS } from "@/config/orderbook-labels";
 import { getBaseQuoteFromPairName } from "@/domain/market";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { szDecimalsToPriceDecimals, useNumberFormat } from "@/lib/format";
 import { type SubParams, useHyperliquid, useSelectedMarketInfo } from "@/lib/hyperliquid";
 import { toBig, toNumber } from "@/lib/trade/numbers";
+import { getOrderTypeForBookPrice } from "@/lib/trade/order-types";
 import {
 	type BookLevel,
 	getDepthPercentage,
@@ -38,7 +40,7 @@ import {
 } from "@/lib/ui/orderbook-layout";
 import type { OrderbookLevelPulseEvent } from "@/lib/ui/orderbook-level-pulses";
 import { tradingPanelDropdownPopupClass } from "@/lib/ui/trading-dropdown";
-import { useSizeMode } from "@/stores/use-order-entry-store";
+import { useOrderType, useSizeMode } from "@/stores/use-order-entry-store";
 import { useOrderbookActions } from "@/stores/use-orderbook-actions-store";
 import { OrderbookGroupingTriggerView } from "../orderbook/orderbook-grouping-trigger-view";
 import { OrderbookHoverTooltip } from "../orderbook/orderbook-hover-tooltip";
@@ -321,6 +323,8 @@ export function MobileBookView({
 		return getBaseQuoteFromPairName(selectedMarket.pairName, selectedMarket.kind);
 	}, [selectedMarket]);
 
+	const selectedOptionLabel = selectedOption ? formatDecimalString(selectedOption.label) : FALLBACK_VALUE_PLACEHOLDER;
+
 	return (
 		<MobileBookFrameView className={className}>
 			<div
@@ -356,15 +360,16 @@ export function MobileBookView({
 						<Dropdown
 							triggerVariant="minimal"
 							size="xxs"
-							trigger={selectedOption ? formatDecimalString(selectedOption.label) : FALLBACK_VALUE_PLACEHOLDER}
+							trigger={selectedOptionLabel}
 							triggerAriaLabel={t`Price grouping`}
+							triggerAriaDescription={selectedOption ? selectedOptionLabel : undefined}
 							triggerClassName={cn(MOBILE_FILTER_CHIP_CLASS, "tabular-nums")}
 							popupClassName="min-w-28"
 							align="start"
 							items={priceGroupingOptions.map(
 								(option): DropdownItem => ({
 									label: formatDecimalString(option.label),
-									active: getPriceGroupingKey(option) === selectedOptionKey,
+									active: option.key === selectedOption?.key,
 									onSelect: () => setSelectedOptionKey(getPriceGroupingKey(option)),
 								}),
 							)}
@@ -414,9 +419,8 @@ export function MobileBookView({
 						mid={mid}
 						midDirection={midDirection}
 						marketName={name}
-						selectedOptionLabel={
-							selectedOption ? formatDecimalString(selectedOption.label) : FALLBACK_VALUE_PLACEHOLDER
-						}
+						selectedOptionKey={selectedOption?.key ?? null}
+						selectedOptionLabel={selectedOptionLabel}
 						priceGroupingOptions={priceGroupingOptions}
 						setSelectedOptionKey={setSelectedOptionKey}
 						mode={compactOrderbookMode}
@@ -472,6 +476,7 @@ interface CompactOrderbookProps extends OrderbookLayoutProps {
 	flashResetKey: string;
 	mid: string | undefined;
 	midDirection: "up" | "down" | "flat";
+	selectedOptionKey?: string | null;
 	selectedOptionLabel: string;
 	priceGroupingOptions: L2BookPriceGroupOption[];
 	setSelectedOptionKey: (key: string) => void;
@@ -497,6 +502,7 @@ export function CompactOrderbook({
 	szDecimals,
 	mid,
 	midDirection,
+	selectedOptionKey,
 	selectedOptionLabel,
 	priceGroupingOptions,
 	setSelectedOptionKey,
@@ -509,6 +515,7 @@ export function CompactOrderbook({
 }: CompactOrderbookProps) {
 	const { formatDecimalString, formatNumber } = useNumberFormat();
 	const { t } = useLingui();
+	const activeGroupingKey = selectedOptionKey ?? priceGroupingOptions[0]?.key ?? null;
 	const [height, orderbookRef, ladderWidthPx] = useOrderbookHeight<HTMLFieldSetElement>();
 	const measuredLayout = getCompactOrderbookLayout(height, mode);
 	const { rowCount, fullRowCount, rowHeightPx } =
@@ -693,12 +700,20 @@ export function CompactOrderbook({
 					triggerVariant="minimal"
 					triggerAriaLabel={t(ORDERBOOK_LABELS.pricePrecision)}
 					align="start"
-					renderTrigger={<OrderbookGroupingTriggerView mobile label={selectedOptionLabel} />}
+					renderTrigger={
+						<OrderbookGroupingTriggerView
+							mobile
+							label={selectedOptionLabel}
+							aria-description={selectedOptionLabel}
+							className={cn("min-h-6 min-w-7", TOUCH_PRESS_CLASS)}
+						/>
+					}
 					triggerClassName="relative min-h-6 text-xs tabular-nums text-trading-panel-muted"
 					popupClassName={tradingPanelDropdownPopupClass}
 					items={priceGroupingOptions.map(
 						(option): DropdownItem => ({
 							label: formatDecimalString(option.label),
+							active: option.key === activeGroupingKey,
 							onSelect: () => setSelectedOptionKey(getPriceGroupingKey(option)),
 						}),
 					)}
@@ -827,8 +842,8 @@ function SplitOrderbook({
 						data-slot="split-orderbook-bid-headings"
 						className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1 px-2"
 					>
-						<div className="truncate">{t`Total (${sizeToken})`}</div>
-						<div data-slot="split-orderbook-bid-price-heading" className="text-right">
+						<div className="truncate text-start">{t`Total (${sizeToken})`}</div>
+						<div data-slot="split-orderbook-bid-price-heading" className="text-end">
 							{t`Price`}
 						</div>
 					</div>
@@ -836,8 +851,10 @@ function SplitOrderbook({
 						data-slot="split-orderbook-ask-headings"
 						className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1 px-2"
 					>
-						<div data-slot="split-orderbook-ask-price-heading">{t`Price`}</div>
-						<div className="truncate text-right">{t`Total (${sizeToken})`}</div>
+						<div data-slot="split-orderbook-ask-price-heading" className="text-start">
+							{t`Price`}
+						</div>
+						<div className="truncate text-end">{t`Total (${sizeToken})`}</div>
 					</div>
 				</div>
 			</div>
@@ -1072,6 +1089,8 @@ export function SplitOrderbookRow({
 }: SplitOrderbookRowProps) {
 	const { formatNumber } = useNumberFormat();
 	const { setSelectedPrice } = useOrderbookActions();
+	const orderType = useOrderType();
+	const canSelectPrice = !disabled && getOrderTypeForBookPrice(orderType) !== null;
 	const isAsk = side === "ask";
 	const sizeValue = showInQuote ? level.quoteSize : level.size;
 	const totalValue = showInQuote ? level.quoteTotal : level.total;
@@ -1083,11 +1102,13 @@ export function SplitOrderbookRow({
 	const totalText = formatNumber(totalValue, totalDecimals);
 	const { t } = useLingui();
 	const sideLabel = isAsk ? t`Ask` : t`Bid`;
+	const baseAriaLabel = `${sideLabel}, ${t`Price`} ${priceText}, ${t`Size`} ${sizeText}, ${t`Total`} ${totalText}`;
+	const ariaLabel = canSelectPrice ? `${baseAriaLabel}. ${t`Use ${priceText} as limit price`}` : baseAriaLabel;
 	const price = (
 		<span
 			className={cn(
 				"font-medium tabular-nums",
-				isAsk ? "text-left orderbook-price-ask" : "text-right orderbook-price-bid",
+				isAsk ? "text-start orderbook-price-ask" : "text-end orderbook-price-bid",
 			)}
 		>
 			{priceText}
@@ -1108,19 +1129,29 @@ export function SplitOrderbookRow({
 		<button
 			type="button"
 			disabled={disabled}
-			onClick={() => setSelectedPrice(marketName, level.price)}
+			aria-disabled={!disabled && !canSelectPrice ? true : undefined}
+			onClick={() => {
+				if (!canSelectPrice) return;
+				setSelectedPrice(marketName, level.price);
+			}}
 			data-orderbook-side={side}
 			data-orderbook-rank={rank}
 			data-orderbook-price={level.price}
 			data-orderbook-hover={disabled ? undefined : hoverState}
 			data-orderbook-hover-edge="bottom"
 			aria-describedby={!disabled && hoverState === "active" ? tooltipId : undefined}
-			aria-label={`${sideLabel}, ${t`Price`} ${priceText}, ${t`Size`} ${sizeText}, ${t`Total`} ${totalText}. ${t`Use ${priceText} as limit price`}`}
-			className="orderbook-row group relative block h-[var(--orderbook-row-height,23px)] w-full shrink-0 cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus disabled:cursor-default"
+			aria-label={ariaLabel}
+			className={cn(
+				"orderbook-row group relative block h-[var(--orderbook-row-height,23px)] w-full shrink-0 text-start focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus disabled:cursor-default",
+				canSelectPrice ? "cursor-pointer" : "cursor-default",
+			)}
 		>
 			<span
-				className={cn("absolute inset-y-0 pointer-events-none", isAsk ? "depth-bar-ask" : "depth-bar-bid")}
-				style={{ width: `${depthPct}%`, [isAsk ? "left" : "right"]: 0, [isAsk ? "right" : "left"]: "auto" }}
+				className={cn(
+					"absolute inset-y-0 pointer-events-none",
+					isAsk ? "start-0 depth-bar-ask" : "end-0 depth-bar-bid",
+				)}
+				style={{ width: `${depthPct}%` }}
 			/>
 			{!disabled && pulse && onPulseEnd && (
 				<OrderbookLevelPulse key={pulse.id} event={pulse} onAnimationEnd={onPulseEnd} />

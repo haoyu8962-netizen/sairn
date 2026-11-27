@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { STORAGE_KEYS } from "@/config/app";
 import { type LimitTif, ORDER_TYPES, type OrderType, SCALE_SKEW_DEFAULT } from "@/config/trade";
+import type { TwapDurationDraft } from "@/domain/trade/twap-details";
 import { createValidatedStorage } from "@/lib/storage/validated-storage";
 import { isScaleOrderType, isTriggerOrderType } from "@/lib/trade/order-types";
 import type { Side, SizeMode } from "@/lib/trade/types";
@@ -28,6 +29,7 @@ interface FormState {
 	scaleLevels: number;
 	scaleSkew: string;
 	twapMinutes: number;
+	twapDurationDraft: TwapDurationDraft | null;
 	twapRandomize: boolean;
 	twapAdvancedEnabled: boolean;
 	twapTriggerPrice: string;
@@ -63,6 +65,7 @@ interface OrderEntryActions {
 	setScaleLevels: (levels: number) => void;
 	setScaleSkew: (skew: string) => void;
 	setTwapMinutes: (minutes: number) => void;
+	setTwapDurationDraft: (draft: TwapDurationDraft | null) => void;
 	setTwapRandomize: (randomize: boolean) => void;
 	setTwapAdvancedEnabled: (enabled: boolean) => void;
 	setTwapTriggerPrice: (price: string) => void;
@@ -105,6 +108,7 @@ const DEFAULT_FORM: FormState = {
 	scaleLevels: 4,
 	scaleSkew: String(SCALE_SKEW_DEFAULT),
 	twapMinutes: 30,
+	twapDurationDraft: null,
 	twapRandomize: true,
 	twapAdvancedEnabled: false,
 	twapTriggerPrice: "",
@@ -230,7 +234,8 @@ const useOrderEntryFormStore = create<OrderEntryFormStore>()((rawSet) => {
 			setScaleEnd: (scaleEnd) => set({ scaleEnd }),
 			setScaleLevels: (scaleLevels) => set({ scaleLevels }),
 			setScaleSkew: (scaleSkew) => set({ scaleSkew }),
-			setTwapMinutes: (twapMinutes) => set({ twapMinutes }),
+			setTwapMinutes: (twapMinutes) => set({ twapMinutes, twapDurationDraft: null }),
+			setTwapDurationDraft: (twapDurationDraft) => set({ twapDurationDraft }),
 			setTwapRandomize: (twapRandomize) => set({ twapRandomize }),
 			setTwapAdvancedEnabled: (twapAdvancedEnabled) => set({ twapAdvancedEnabled }),
 			setTwapTriggerPrice: (twapTriggerPrice) => set({ twapTriggerPrice }),
@@ -346,6 +351,9 @@ export function useScaleSkew() {
 
 export function useTwapMinutes() {
 	return useOrderEntryFormStore((s) => s.twapMinutes);
+}
+export function useTwapDurationDraft() {
+	return useOrderEntryFormStore((s) => s.twapDurationDraft);
 }
 export function useTwapRandomize() {
 	return useOrderEntryFormStore((s) => s.twapRandomize);

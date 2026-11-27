@@ -292,6 +292,30 @@ describe("PositionReverseConfirmationModal", () => {
 		act(() => confirm.click());
 		expect(onConfirm).not.toHaveBeenCalled();
 	});
+
+	it("wraps long market names and reverse quantities instead of truncating them", () => {
+		act(() =>
+			root.render(
+				<PositionReverseConfirmationModal
+					open
+					marketLabel="HYPERLIQUID-EXTENDED-PERP-USDH"
+					currentDirection="long"
+					reverseSizeLabel="12,345,678.90123 HYPERLIQUID-EXTENDED"
+					onOpenChange={vi.fn()}
+					onConfirm={vi.fn()}
+				/>,
+			),
+		);
+
+		const rows = [...container.querySelectorAll<HTMLElement>("dl > div")];
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) {
+			expect(row.className).toContain("flex-wrap");
+			const value = row.querySelector("dd");
+			expect(value?.className).not.toMatch(/\btruncate\b/);
+			expect(value?.className).toContain("[overflow-wrap:anywhere]");
+		}
+	});
 });
 
 function getButton(container: HTMLElement, text: string): HTMLButtonElement {

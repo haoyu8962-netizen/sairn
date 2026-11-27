@@ -1,9 +1,10 @@
+import { useLingui } from "@lingui/react/macro";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { memo } from "react";
 import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl } from "@/lib/hyperliquid";
-import type { ProcessedTrade } from "@/lib/trade/trades";
+import { formatTradeDecimal, type ProcessedTrade } from "@/lib/trade/trades";
 
 interface Props {
 	trade: ProcessedTrade;
@@ -31,15 +32,21 @@ function areTradeRowPropsEqual(previous: Props, next: Props): boolean {
 }
 
 function TradeRowComponent({ trade, priceDecimals, szDecimals, isTestnet, compact = false, initial = false }: Props) {
-	const { formatNumber } = useNumberFormat();
-	const priceDisplay = formatNumber(trade.price, priceDecimals);
-	const sizeDisplay = formatNumber(trade.size, szDecimals);
+	const { t } = useLingui();
+	const { formatDecimalString } = useNumberFormat();
+	const priceDisplay = formatTradeDecimal(trade.price, priceDecimals, formatDecimalString);
+	const sizeDisplay = formatTradeDecimal(trade.size, szDecimals, formatDecimalString);
+	const sideLabel = trade.side === "buy" ? t`Buy` : t`Sell`;
+	const ariaLabel = compact
+		? `${sideLabel}, ${t`Price`} ${priceDisplay}, ${t`Size`} ${sizeDisplay}`
+		: `${sideLabel}, ${t`Price`} ${priceDisplay}, ${t`Size`} ${sizeDisplay}, ${t`Time`} ${trade.time}`;
 
 	return (
 		<a
 			href={getExplorerTxUrl(trade.hash, isTestnet)}
 			target="_blank"
 			rel="noopener noreferrer"
+			aria-label={ariaLabel}
 			data-initial={initial || undefined}
 			className={cn(
 				"grid h-6 items-center tabular-nums hover:bg-fill-hover group recent-trade-row",

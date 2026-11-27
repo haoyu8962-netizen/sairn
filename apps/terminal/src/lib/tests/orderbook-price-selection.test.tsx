@@ -5,8 +5,15 @@ import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SplitOrderbookRow } from "@/components/trade/mobile/mobile-book-view";
 import { OrderbookRow } from "@/components/trade/orderbook/orderbook-row";
+import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 import { getOrderbookActionsStore, getSelectedPriceForMarket } from "@/stores/use-orderbook-actions-store";
 import { createI18nRoot } from "./harness/react";
+
+let orderEntryActions: ReturnType<typeof useOrderEntryActions> | null = null;
+function CaptureOrderEntryActions() {
+	orderEntryActions = useOrderEntryActions();
+	return null;
+}
 
 const LEVEL = {
 	price: "58.625",
@@ -31,6 +38,7 @@ describe("orderbook price selection", () => {
 		act(() => root.unmount());
 		container.remove();
 		getOrderbookActionsStore().actions.clearSelectedPrice();
+		act(() => orderEntryActions?.setOrderType("market"));
 	});
 
 	it("selects the desktop price when the size or depth area is clicked", () => {
@@ -205,5 +213,125 @@ describe("orderbook price selection", () => {
 		expect(getSelectedPriceForMarket(selection, "HYPE")).toBe("58.625");
 		expect(getSelectedPriceForMarket(selection, "BTC")).toBeNull();
 		expect(getSelectedPriceForMarket(selection, undefined)).toBeNull();
+	});
+
+	it.each(["takeProfitMarket", "scale", "twap"] as const)(
+		"removes the limit-price action promise on %s orders while keeping rows inspectable",
+		(orderType) => {
+			act(() => root.render(<CaptureOrderEntryActions />));
+			act(() => orderEntryActions?.setOrderType(orderType));
+			act(() => {
+				root.render(
+					<>
+						<OrderbookRow
+							flashResetKey="HYPE:0.01"
+							level={LEVEL}
+							marketName="HYPE"
+							side="ask"
+							maxTotal="500"
+							priceDecimals={3}
+							szDecimals={2}
+							compact
+						/>
+						<SplitOrderbookRow
+							level={LEVEL}
+							marketName="HYPE"
+							side="bid"
+							maxTotal="500"
+							priceDecimals={3}
+							showInQuote={false}
+							szDecimals={2}
+						/>
+					</>,
+				);
+			});
+
+			const buttons = [...container.querySelectorAll<HTMLButtonElement>("button")];
+			expect(buttons).toHaveLength(2);
+			for (const button of buttons) {
+				expect(button.disabled).toBe(false);
+				expect(button.getAttribute("aria-disabled")).toBe("true");
+				expect(button.getAttribute("aria-label")).not.toContain("limit price");
+				expect(button.getAttribute("aria-label")).toContain("58.625");
+				expect(button.className).not.toContain("cursor-pointer");
+				act(() => button.click());
+			}
+			expect(getOrderbookActionsStore().selectedPrice).toBeNull();
+		},
+	);
+
+	it("omits the limit-price promise on disabled rows and updates mounted rows across order type toggles", () => {
+		act(() => root.render(<CaptureOrderEntryActions />));
+		act(() => orderEntryActions?.setOrderType("limit"));
+
+		function renderRows(disabled: boolean) {
+			act(() => {
+				root.render(
+					<>
+						<CaptureOrderEntryActions />
+						<OrderbookRow
+							disabled={disabled}
+							flashResetKey="HYPE:0.01"
+							level={LEVEL}
+							marketName="HYPE"
+							side="ask"
+							maxTotal="500"
+							priceDecimals={3}
+							szDecimals={2}
+							compact
+						/>
+						<SplitOrderbookRow
+							disabled={disabled}
+							level={LEVEL}
+							marketName="HYPE"
+							side="bid"
+							maxTotal="500"
+							priceDecimals={3}
+							showInQuote={false}
+							szDecimals={2}
+						/>
+					</>,
+				);
+			});
+		}
+
+		renderRows(true);
+		const initialButtons = [...container.querySelectorAll<HTMLButtonElement>("button")];
+		expect(initialButtons).toHaveLength(2);
+		for (const button of initialButtons) {
+			expect(button.disabled).toBe(true);
+			expect(button.getAttribute("aria-disabled")).toBeNull();
+			expect(button.getAttribute("aria-label")).not.toContain("limit price");
+			expect(button.getAttribute("aria-label")).toContain("58.625");
+			expect(button.className).not.toContain("cursor-pointer");
+		}
+
+		renderRows(false);
+		const liveButtons = [...container.querySelectorAll<HTMLButtonElement>("button")];
+		expect(liveButtons).toEqual(initialButtons);
+		for (const button of liveButtons) {
+			expect(button.disabled).toBe(false);
+			expect(button.getAttribute("aria-disabled")).toBeNull();
+			expect(button.getAttribute("aria-label")).toContain("limit price");
+			expect(button.className).toContain("cursor-pointer");
+		}
+
+		act(() => orderEntryActions?.setOrderType("twap"));
+		expect([...container.querySelectorAll<HTMLButtonElement>("button")]).toEqual(liveButtons);
+		for (const button of liveButtons) {
+			expect(button.disabled).toBe(false);
+			expect(button.getAttribute("aria-disabled")).toBe("true");
+			expect(button.getAttribute("aria-label")).not.toContain("limit price");
+			expect(button.className).not.toContain("cursor-pointer");
+		}
+
+		act(() => orderEntryActions?.setOrderType("limit"));
+		expect([...container.querySelectorAll<HTMLButtonElement>("button")]).toEqual(liveButtons);
+		for (const button of liveButtons) {
+			expect(button.disabled).toBe(false);
+			expect(button.getAttribute("aria-disabled")).toBeNull();
+			expect(button.getAttribute("aria-label")).toContain("limit price");
+			expect(button.className).toContain("cursor-pointer");
+		}
 	});
 });

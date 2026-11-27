@@ -47,7 +47,7 @@ export function Hip3DeployerDisclaimer({ open, documentationUrl, exit, onExit, o
 			layer="blocking"
 			className="max-h-[calc(100dvh-1rem)] !shadow-none min-[1001px]:max-w-[32.5rem]"
 		>
-			<ModalHeader divider={false} className="px-6 pt-5 pb-2">
+			<ModalHeader divider={false} className="ps-6 pe-6 pt-5 pb-2">
 				<ModalTitle className="text-base font-normal">
 					<Trans>HIP-3 Deployer Disclaimer</Trans>
 				</ModalTitle>

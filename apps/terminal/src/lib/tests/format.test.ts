@@ -6,6 +6,7 @@ import {
 	formatDateTime,
 	formatDateTimeShort,
 	formatDecimalString,
+	formatDuration,
 	formatLiquidationPrice,
 	formatNumber,
 	formatPercent,
@@ -282,5 +283,31 @@ describe("format", () => {
 		expect(formatSlippageBps(undefined)).toBeNull();
 		expect(formatSlippageBps(Number.NaN)).toBeNull();
 		expect(formatSlippageBps(-1)).toBeNull();
+	});
+
+	it("preserves remaining minutes for durations longer than one day", () => {
+		expect(formatDuration(5)).toBe("5m");
+		expect(formatDuration(60)).toBe("1h");
+		expect(formatDuration(90)).toBe("1h 30m");
+		expect(formatDuration(1439)).toBe("23h 59m");
+		expect(formatDuration(1440)).toBe("1d");
+		expect(formatDuration(1441)).toBe("1d 1m");
+		expect(formatDuration(1499)).toBe("1d 59m");
+		expect(formatDuration(1500)).toBe("1d 1h");
+		expect(formatDuration(1501)).toBe("1d 1h 1m");
+		expect(formatDuration(10_080)).toBe("7d");
+	});
+
+	it("localizes duration units for every maintained language while keeping Latin digits", () => {
+		const formatLocalized = formatDuration as (minutes: number, opts?: { locale?: string }) => string;
+		expect(formatLocalized(1501, { locale: "en" })).toBe("1d 1h 1m");
+		expect(formatLocalized(1501, { locale: "zh" })).toBe("1天 1小时 1分钟");
+		expect(formatLocalized(1501, { locale: "ja" })).toBe("1 日 1 時間 1 分");
+		expect(formatLocalized(1501, { locale: "hi" })).toBe("1 दि 1 घं 1 मि");
+		expect(formatLocalized(1501, { locale: "es" })).toBe("1d 1h 1min");
+		expect(formatLocalized(1501, { locale: "fr" })).toBe("1j 1h 1min");
+		const arabic = formatLocalized(1501, { locale: "ar" });
+		expect(arabic).toBe("1 ي 1 س 1 د");
+		expect(arabic).not.toMatch(/[٠-٩]/);
 	});
 });

@@ -1353,7 +1353,7 @@ function OrdersTableHeader({ allSelected, someSelected, disabled, onToggleAll }:
 				>
 					<span
 						className={cn(
-							"absolute -left-4 top-1/2 z-[1] -translate-y-1/2 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover/orders-head:opacity-100",
+							"absolute -start-4 top-1/2 z-[1] -translate-y-1/2 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover/orders-head:opacity-100",
 							allSelected || someSelected ? "opacity-100" : "opacity-0",
 						)}
 					>
@@ -1516,7 +1516,7 @@ function OrderRow({
 			>
 				<span
 					className={cn(
-						"absolute -left-4 top-1/2 z-[1] -translate-y-1/2 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover/order-row:opacity-100",
+						"absolute -start-4 top-1/2 z-[1] -translate-y-1/2 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover/order-row:opacity-100",
 						isSelected ? "opacity-100" : "opacity-0",
 					)}
 				>

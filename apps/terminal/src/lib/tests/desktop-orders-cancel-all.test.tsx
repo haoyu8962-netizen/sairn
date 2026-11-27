@@ -1459,6 +1459,24 @@ describe("desktop cancel all orders confirmation", () => {
 		expect(mocks.toastWarning).toHaveBeenCalledWith("Open orders changed. Reopen the confirmation and try again.");
 	});
 
+	it("positions batch selection checkboxes with logical inline-start offset for RTL", () => {
+		act(() => root.render(<ReviewedOrders />));
+
+		const headerCheckbox = container.querySelector<HTMLElement>('[aria-label="Select all orders"]');
+		const rowCheckbox = container.querySelector<HTMLElement>('[aria-label="Select order xyz:ORCL"]');
+		expect(headerCheckbox).not.toBeNull();
+		expect(rowCheckbox).not.toBeNull();
+
+		const headerWrapper = headerCheckbox?.closest("th")?.querySelector<HTMLSpanElement>(":scope > span.absolute");
+		const rowWrapper = rowCheckbox?.closest("td")?.querySelector<HTMLSpanElement>(":scope > span.absolute");
+		expect(headerWrapper).not.toBeNull();
+		expect(rowWrapper).not.toBeNull();
+		expect(headerWrapper?.className).toContain("-start-4");
+		expect(headerWrapper?.className).not.toContain("-left-4");
+		expect(rowWrapper?.className).toContain("-start-4");
+		expect(rowWrapper?.className).not.toContain("-left-4");
+	});
+
 	it("fails closed when any order market cannot be mapped", () => {
 		mocks.assetId = undefined;
 		act(() => root.render(<ReviewedOrders />));

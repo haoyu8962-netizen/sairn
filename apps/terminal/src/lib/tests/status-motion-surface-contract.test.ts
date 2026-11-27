@@ -58,11 +58,6 @@ const ALLOWED_SPINNERS: Record<string, SpinnerReview> = {
 		reason: "passive position count loading in an account tab",
 	},
 	"components/trade/positions/positions-panel.tsx": { wrapper: 1, reason: "lazy account tab chunk fallback" },
-	"components/trade/tradebox/bridge/asset-selection-screen.tsx": {
-		spin: 1,
-		glyph: 1,
-		reason: "passive route list loading",
-	},
 	"components/trade/tradebox/bridge/confirmation-screen.tsx": { spin: 1, glyph: 1, reason: "passive quote refresh" },
 	"components/trade/tradebox/trade-control-button-view.tsx": {
 		glyph: 1,

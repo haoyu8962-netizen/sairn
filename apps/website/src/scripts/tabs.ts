@@ -51,6 +51,37 @@ function panelOf(root: HTMLElement, tab: HTMLElement): HTMLElement | null {
 	return root.ownerDocument.getElementById(tab.getAttribute("aria-controls") ?? "");
 }
 
+function isHiddenWithin(element: HTMLElement, boundary: HTMLElement): boolean {
+	let current: HTMLElement | null = element;
+	while (current && current !== boundary) {
+		if (current.hidden || current.hasAttribute("hidden") || current.inert || current.hasAttribute("inert")) return true;
+		current = current.parentElement;
+	}
+	return false;
+}
+
+function hasFocusableControl(panel: HTMLElement): boolean {
+	for (const candidate of panel.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+		if (candidate.hasAttribute("disabled")) continue;
+		if (isHiddenWithin(candidate, panel)) continue;
+		return true;
+	}
+	return false;
+}
+
+function syncPanelFocusability(panel: HTMLElement): void {
+	if (hasFocusableControl(panel)) {
+		if (panel.getAttribute("tabindex") !== "0") return;
+		if (panel.ownerDocument.activeElement === panel) {
+			panel.addEventListener("blur", () => syncPanelFocusability(panel), { once: true });
+			return;
+		}
+		panel.removeAttribute("tabindex");
+	} else if (panel.getAttribute("tabindex") !== "0") {
+		panel.tabIndex = 0;
+	}
+}
+
 type TabState = "active" | "leaving" | "inactive";
 
 const leavingTimers = new WeakMap<HTMLElement, number>();
@@ -112,7 +143,9 @@ function show(root: HTMLElement, tabs: HTMLElement[], next: HTMLElement) {
 	}
 	for (const tab of tabs) {
 		const panel = panelOf(root, tab);
-		if (panel) panel.hidden = tab !== next;
+		if (!panel) continue;
+		panel.hidden = tab !== next;
+		if (tab === next) syncPanelFocusability(panel);
 	}
 }
 
@@ -157,11 +190,23 @@ function wireBlock(root: HTMLElement): void {
 	if (tabs.length === 0 || panels.some((panel) => panel === null)) return;
 	list.dataset.wired = "true";
 	const initial = tabs.find((tab) => tab.getAttribute("aria-selected") === "true") ?? tabs[0];
+	const view = root.ownerDocument.defaultView;
 	for (const panel of panels) {
-		if (panel && !panel.querySelector(FOCUSABLE)) panel.tabIndex = 0;
+		if (!panel) continue;
+		syncPanelFocusability(panel);
+		if (view && "MutationObserver" in view) {
+			new view.MutationObserver((records) => {
+				if (records.every((record) => record.target === panel && record.attributeName === "tabindex")) return;
+				syncPanelFocusability(panel);
+			}).observe(panel, {
+				subtree: true,
+				childList: true,
+				attributes: true,
+				attributeFilter: ["hidden", "disabled", "inert", "tabindex", "href"],
+			});
+		}
 	}
 	syncOrientation(list);
-	const view = root.ownerDocument.defaultView;
 	if (view && "ResizeObserver" in view) new view.ResizeObserver(() => syncOrientation(list)).observe(list);
 	for (const tab of tabs) tab.addEventListener("click", () => select(root, tabs, tab, false));
 	list.addEventListener("keydown", (event) => {

@@ -274,9 +274,9 @@ describe("PortfolioPerformanceChart", () => {
 
 	it.each([
 		["day", /^\d{2}:\d{2}$/],
-		["week", /^\d{2}-\d{2}$/],
-		["month", /^\d{2}-\d{2}$/],
-		["allTime", /^\d{4}-\d{2}$/],
+		["week", /^[A-Za-z]{3} \d{1,2}$/],
+		["month", /^[A-Za-z]{3} \d{1,2}$/],
+		["allTime", /^[A-Za-z]{3} \d{4}$/],
 	] as const)("formats %s ticks for the selected period in local time", (period, expectedPattern) => {
 		renderChart(root, {
 			history: [
@@ -291,6 +291,29 @@ describe("PortfolioPerformanceChart", () => {
 		expect(labels.filter((label, index) => index > 0 && label === labels[index - 1])).toEqual([]);
 		for (const label of labels) expect(label).toMatch(expectedPattern);
 	});
+
+	it.each(["week", "month", "allTime"] as const)(
+		"localizes %s X-axis ticks when the interface language changes while keeping Latin digits",
+		(period) => {
+			renderChart(root, {
+				history: [
+					[LOCAL_DATE_TIMESTAMP, "-7"],
+					[LOCAL_DATE_TIMESTAMP + getPeriodSpan(period), "3"],
+				],
+				period,
+			});
+			const enLabels = getTimeTickLabels(container);
+
+			act(() => i18n.loadAndActivate({ locale: "fr", messages: {} }));
+			const frLabels = getTimeTickLabels(container);
+			expect(frLabels).not.toEqual(enLabels);
+
+			act(() => i18n.loadAndActivate({ locale: "ar", messages: {} }));
+			const arLabels = getTimeTickLabels(container);
+			expect(arLabels).not.toEqual(enLabels);
+			for (const label of arLabels) expect(label).toMatch(/[0-9]/);
+		},
+	);
 
 	it("reduces time tick density when the chart container narrows", () => {
 		const history: History = [

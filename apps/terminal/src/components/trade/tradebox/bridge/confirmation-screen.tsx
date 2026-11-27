@@ -1,4 +1,4 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
 	ArrowLeftIcon,
 	CaretDownIcon,
@@ -10,10 +10,12 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@sairn/ui";
 import Big from "big.js";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { InfoRow, InfoRowGroup } from "@/components/ui/info-row";
-import { formatSendAmount, formatTokenAmount } from "@/lib/bridge/format";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
+import { formatExactSendAmount, formatTokenAmount } from "@/lib/bridge/format";
+import { cn } from "@/lib/cn";
 import { formatDuration, shortenAddress, useNumberFormat } from "@/lib/format";
 import type { BridgeToken } from "@/lib/lifi/use-balances";
 import {
@@ -37,11 +39,24 @@ interface Props {
 type QuoteFeedback = "expired" | "refresh-error" | "updated" | "amount-too-low" | "fees-exceed-amount" | "unavailable";
 
 export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConfirm }: Props) {
+	const { i18n } = useLingui();
+	const locale = i18n.locale;
 	const numberFormat = useNumberFormat();
 	const { formatUSD } = numberFormat;
+	const noticeId = useId();
+	const confirmAttemptRef = useRef(0);
+	const inFlightAttemptRef = useRef<number | null>(null);
+	const confirmationKey = `${token.chainId}:${token.address}:${tokenAmount}:${address}`;
+	const activeConfirmationKeyRef = useRef<string | null>(null);
+	const [activeConfirmationKey, setActiveConfirmationKey] = useState(confirmationKey);
 	const [currentTime, setCurrentTime] = useState(Date.now);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [feedback, setFeedback] = useState<{ kind: QuoteFeedback; dataUpdatedAt: number } | null>(null);
+	if (activeConfirmationKey !== confirmationKey) {
+		setActiveConfirmationKey(confirmationKey);
+		setIsConfirming(false);
+		setFeedback(null);
+	}
 	const quoteParams = {
 		fromChainId: token.chainId,
 		fromTokenAddress: token.address,
@@ -65,6 +80,16 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 	if (!notice && quoteError && (!quote || quoteExpired)) notice = getBridgeQuoteErrorKind(quoteQueryError);
 	if (!notice && quoteExpired) notice = "expired";
 
+	useLayoutEffect(() => {
+		activeConfirmationKeyRef.current = confirmationKey;
+		inFlightAttemptRef.current = null;
+		return () => {
+			if (activeConfirmationKeyRef.current === confirmationKey) activeConfirmationKeyRef.current = null;
+			inFlightAttemptRef.current = null;
+			confirmAttemptRef.current += 1;
+		};
+	}, [confirmationKey]);
+
 	useEffect(() => {
 		if (!quote) return;
 		setCurrentTime(Date.now());
@@ -72,14 +97,31 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 		return () => window.clearInterval(interval);
 	}, [quote]);
 
+	function handleBack() {
+		confirmAttemptRef.current += 1;
+		inFlightAttemptRef.current = null;
+		setIsConfirming(false);
+		onBack();
+	}
+
 	async function handleConfirm() {
-		if (!quote || isConfirming) return;
+		if (
+			!quote ||
+			isConfirming ||
+			inFlightAttemptRef.current !== null ||
+			activeConfirmationKeyRef.current !== confirmationKey
+		) {
+			return;
+		}
+		const attemptId = ++confirmAttemptRef.current;
+		inFlightAttemptRef.current = attemptId;
 		const wasExpired = quoteExpired;
 		setIsConfirming(true);
 		setFeedback(null);
 
 		try {
 			const result = await refetch();
+			if (activeConfirmationKeyRef.current !== confirmationKey || confirmAttemptRef.current !== attemptId) return;
 			if (result.isError || !result.data) {
 				setFeedback({ kind: "refresh-error", dataUpdatedAt });
 				return;
@@ -89,11 +131,18 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 				setFeedback({ kind: "updated", dataUpdatedAt: result.dataUpdatedAt });
 				return;
 			}
+			if (activeConfirmationKeyRef.current !== confirmationKey || confirmAttemptRef.current !== attemptId) return;
 			onConfirm(result.data);
 		} catch {
+			if (activeConfirmationKeyRef.current !== confirmationKey || confirmAttemptRef.current !== attemptId) return;
 			setFeedback({ kind: "refresh-error", dataUpdatedAt });
 		} finally {
-			setIsConfirming(false);
+			if (inFlightAttemptRef.current === attemptId) {
+				inFlightAttemptRef.current = null;
+			}
+			if (activeConfirmationKeyRef.current === confirmationKey && confirmAttemptRef.current === attemptId) {
+				setIsConfirming(false);
+			}
 		}
 	}
 
@@ -143,14 +192,17 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 		<div className="flex flex-1 flex-col gap-3">
 			<div>
 				<div className="flex items-center justify-between">
-					<button
+					<Button
 						type="button"
-						onClick={onBack}
-						className="flex items-center gap-1 text-xs text-signal hover:text-signal-hover"
+						variant="ghost"
+						intent="brand"
+						size="xs"
+						onClick={handleBack}
+						iconLeft={<ArrowLeftIcon className="size-3 rtl:rotate-180" />}
+						className="text-signal hover:text-signal-hover max-[1000px]:min-h-11"
 					>
-						<ArrowLeftIcon className="size-3 rtl:rotate-180" />
 						<Trans>Back</Trans>
-					</button>
+					</Button>
 					{quote ? <QuoteCountdown remaining={remainingSeconds} /> : null}
 				</div>
 
@@ -178,17 +230,24 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 								<Trans>Estimated time</Trans>
 							</span>
 						}
-						value={quote ? `~${formatDuration(Math.ceil(quote.executionDuration / 60))}` : "---"}
+						value={quote ? `~${formatDuration(Math.ceil(quote.executionDuration / 60), { locale })}` : "---"}
 					/>
 				</InfoRowGroup>
 
 				<InfoRowGroup className="text-xs mt-3">
 					<InfoRow
+						className="items-start gap-3"
+						labelClassName="shrink-0 leading-5"
+						valueClassName="min-w-0 text-end"
 						label={<Trans>You send</Trans>}
 						value={
-							<span className="flex items-center gap-1.5">
+							<span className="flex max-w-full items-start justify-end gap-1.5">
 								<TokenIcon token={token} size="sm" />
-								{formatSendAmount(tokenAmount, numberFormat)} {token.symbol}
+								<span className="min-w-0 leading-5 [overflow-wrap:anywhere]">
+									<bdi dir="ltr">
+										{formatExactSendAmount(tokenAmount, numberFormat)} {token.symbol}
+									</bdi>
+								</span>
 							</span>
 						}
 					/>
@@ -207,7 +266,12 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 
 			{quote ? (
 				<Collapsible>
-					<CollapsibleTrigger className="flex w-full items-center justify-between rounded-8 px-2 py-1.5 text-xs text-fg-muted hover:bg-fill-hover transition-colors group">
+					<CollapsibleTrigger
+						className={cn(
+							"flex w-full items-center justify-between rounded-8 px-2 py-1.5 text-xs text-fg-muted hover:bg-fill-hover group",
+							TOUCH_PRESS_CLASS,
+						)}
+					>
 						<span>
 							<Trans>Transaction breakdown</Trans> ({formatUSD(quote.totalFeesUSD, 2)})
 						</span>
@@ -231,23 +295,28 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 				</Collapsible>
 			) : null}
 
-			{noticeContent ? (
-				<div className="flex items-center gap-2 rounded-16 border border-stroke-error-weak bg-error-soft p-2.5">
-					<WarningCircleIcon className="size-4 text-error shrink-0" />
-					<span className="text-xs text-error">{noticeContent}</span>
+			<div className="mt-auto">
+				<div id={noticeId} aria-live="polite" aria-atomic="true">
+					{noticeContent ? (
+						<div className="mb-3 flex items-center gap-2 rounded-16 border border-stroke-error-weak bg-error-soft p-2.5">
+							<WarningCircleIcon className="size-4 shrink-0 text-error" aria-hidden="true" />
+							<span className="text-xs text-error">{noticeContent}</span>
+						</div>
+					) : null}
 				</div>
-			) : null}
 
-			<Button
-				variant="filled"
-				intent="brand"
-				size="lg"
-				className="w-full mt-auto"
-				disabled={!quote || quoteLoading || isConfirming}
-				onClick={() => void handleConfirm()}
-			>
-				{confirmButtonContent}
-			</Button>
+				<Button
+					variant="filled"
+					intent="brand"
+					size="lg"
+					className="w-full"
+					aria-describedby={noticeContent ? noticeId : undefined}
+					disabled={!quote || quoteLoading || isConfirming}
+					onClick={() => void handleConfirm()}
+				>
+					{confirmButtonContent}
+				</Button>
+			</div>
 		</div>
 	);
 }

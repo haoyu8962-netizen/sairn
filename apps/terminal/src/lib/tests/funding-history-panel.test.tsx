@@ -159,6 +159,9 @@ describe("FundingHistoryPanel", () => {
 
 		const buttons = [...container.querySelectorAll<HTMLButtonElement>("button[data-funding-history-range]")];
 		expect(buttons).toHaveLength(3);
+		const toolbar = buttons[0]?.closest("fieldset")?.parentElement;
+		expect(toolbar?.className).toContain("max-[1000px]:pt-4");
+		expect(toolbar?.className).toContain("max-[1000px]:pb-2.5");
 		for (const button of buttons) {
 			expect(button.className).toContain("relative");
 			expect(button.className).toContain("max-[1000px]:after:h-11");

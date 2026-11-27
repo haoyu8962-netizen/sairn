@@ -147,12 +147,19 @@ const budgets = {
 	// merged into the branch: pairing on 3,412,154 minus main's 3,410,356 (pairing off measures +1,594: 3,409,015 minus
 	// 3,407,421), fixed-identity Node 22.15.0 builds without .env.local. The branch had first been measured against
 	// main ba78481a at +1,501 (docs/terminal-performance-baseline.md).
-	// Raised 2026-11-27 by +273,270 for seven interface languages (ko, zh-TW, vi, tr, ru, pt, id): 271,353 of it is
-	// their lazily loaded catalogs (34-48 kB gzip each, a viewer loads only the active one) and 1,469 the locale list,
-	// link parsing and font samples in vendor-router. Fixed-identity Node 22.15.0 pairing-on builds without .env.local:
-	// 3,684,396 for 02046906 minus 3,411,126 for main ce3259b6 (pairing off measures +273,149: 3,681,689 minus
-	// 3,408,540; docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_677_509,
+	// Raised 2026-11-27 by +21,320 for the multi-model UI review fixes (PR #21: about 280 files of fixes across the
+	// terminal, the shared primitives and seven catalogs). Fixed-identity Node 22.15.0 builds without .env.local:
+	// pairing on 3,432,877 for 7d92841d minus main ce3259b6's 3,411,557 (pairing off measures +21,201). The largest
+	// parts are the lazy Bridge tab (+2,845) and the six non-English catalogs (+2,794; a viewer loads at most one at
+	// startup and another one only when switching language);
+	// 264 chunk names changed and the 40 largest changes make up +20,861 (docs/terminal-performance-baseline.md).
+	// Raised 2026-11-27 by +276,703 for seven interface languages (ko, zh-TW, vi, tr, ru, pt, id), measured after
+	// main 4548175e (PR #21) was merged into the branch: almost all of it is their lazily loaded catalogs (34-48 kB
+	// gzip each, a viewer loads only the active one), the rest the locale list, link parsing and font samples in
+	// vendor-router. Fixed-identity Node 22.15.0 pairing-on builds without .env.local: 3,709,749 for c363643b minus
+	// 3,433,046 for main 4548175e (pairing off measures +275,955: 3,706,213 minus 3,430,258). The branch had first
+	// been measured against main ce3259b6 at +273,270 (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_702_262,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -201,12 +208,20 @@ const budgets = {
 		// ebdc7413 was merged into the branch: pairing on 1,676,448 minus main's 1,675,817 (pairing off measures +594:
 		// 1,675,271 minus 1,674,677). The larger increment is used, so pairing on keeps main's 274 bytes. The branch had
 		// first been measured against main ba78481a at +524 (docs/terminal-performance-baseline.md).
-		// Raised 2026-11-27 by +1,940 for the seven interface languages (see the total above): pairing off 1,677,135
-		// minus main ce3259b6's 1,675,195 (pairing on measures +1,768). The growth is the locale list, link-locale
-		// parsing, the startup font samples and the language-menu warm-up in vendor-router (+1,469) and the bootstrap
-		// failure copy of the new languages. Before the raise pairing on exceeded the allowance by 1,332; after it
-		// pairing on keeps 608 bytes, as main ce3259b6 keeps 436 plus the 172 the larger pairing-off increment adds.
-		baselineGzipBytes: 1_668_662,
+		// Raised 2026-11-27 by +8,107 for the multi-model UI review fixes (PR #21, see the total above): pairing on
+		// 1,684,429 minus main ce3259b6's 1,676,322 (pairing off measures +7,926). The growth is the TWAP sub-tabs and
+		// views and the phone second row in the shared use-account-abstraction-control chunk (+1,847), the TWAP submit
+		// guards in trade-terminal-page (+1,753), vendor-tanstack-router (+1,014 net, with the statically imported
+		// English catalog), the stylesheet (+644), twap-details (+587) and a new selector-quote chunk (+1,803): the
+		// favourites strip now calls getMarketSelectorChange, which moved domain/market/selector-quote.ts, popup-only
+		// getMarketSelectorQuote included, out of token-selector-popup into startup. The larger increment is used, so
+		// pairing on keeps main's 400 bytes.
+		// Raised 2026-11-27 by +1,877 for the seven interface languages (see the total above), measured after main
+		// 4548175e was merged: pairing on 1,686,295 minus main's 1,684,418 (pairing off measures +1,641). The growth is
+		// the locale list, link-locale parsing, the startup font samples and the language-menu warm-up in vendor-router
+		// and the bootstrap failure copy of the new languages. The larger increment is used, so pairing on keeps main's
+		// 411 bytes. The branch had first been measured against main ce3259b6 at +1,940.
+		baselineGzipBytes: 1_676_706,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
@@ -225,7 +240,10 @@ const budgets = {
 				// Raised 2026-11-23 by +519 for the funds session presentation (see the total above): pairing off 120,353
 				// minus main f0f789bc's 119,834 (pairing on +507). It passed without the raise with 223 bytes left pairing on;
 				// the raise keeps main's room (730).
-				baselineGzipBytes: 111_099,
+				// Raised 2026-11-27 by +1,623 for the multi-model UI review fixes (PR #21): pairing on 121,976 minus main
+				// ce3259b6's 120,353 (pairing off +1,600). The growth is token-selector-popup (+866), the command search
+				// (+496) and the toaster stylesheet (+217); pairing on keeps main's 746 bytes.
+				baselineGzipBytes: 112_722,
 				allowedIncreaseBytes: 10_000,
 			},
 			{
@@ -267,8 +285,12 @@ const budgets = {
 		// Raised 2026-11-23 by +511 for the UI compliance fixes (PR #15), measured after main ebdc7413 was merged into
 		// the branch: pairing off 129,406 minus main's 128,895 (pairing on measures +501: 129,402 minus 128,901), so
 		// pairing off keeps main's 249 bytes. The branch had first been measured against main ba78481a at +493.
-		{ name: "trade-terminal-page", baselineGzipBytes: 125_655, allowedIncreaseBytes: 4_000 },
-		{ name: "token-selector-popup", baselineGzipBytes: 14_355, allowedIncreaseBytes: 1_500 },
+		// Raised 2026-11-27 by +1,753 for the multi-model UI review fixes (PR #21: the TWAP trigger direction and
+		// invalid-price submit guards among them): pairing on 131,145 minus main ce3259b6's 129,392 (pairing off +1,733).
+		{ name: "trade-terminal-page", baselineGzipBytes: 127_408, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-27 by +866 for the same fixes (selector busy and retry states, favourites highlight, row
+		// accessibility): pairing on 16,275 minus main ce3259b6's 15,409 (pairing off +847).
+		{ name: "token-selector-popup", baselineGzipBytes: 15_221, allowedIncreaseBytes: 1_500 },
 		{ name: "api-wallet", baselineGzipBytes: 17_967, allowedIncreaseBytes: 2_000 },
 		{ name: "fundingHistory._address", baselineGzipBytes: 6_820, allowedIncreaseBytes: 1_500 },
 		{ name: "tradeHistory._address", baselineGzipBytes: 8_373, allowedIncreaseBytes: 1_500 },
@@ -281,7 +303,10 @@ const budgets = {
 		// Raised 2026-11-12 by +104 for the vault dialog's click deadlines (ADR 0053 decision 10), measured with the pair
 		// of builds named at the total: 30,638 minus 30,534. Without it the chunk would keep 138 bytes, under the 200 the
 		// release precheck asks for.
-		{ name: "vaults-page", baselineGzipBytes: 27_880, allowedIncreaseBytes: 3_000 },
+		// Raised 2026-11-27 by +396 for the multi-model UI review fixes (PR #21): pairing off 30,883 minus main
+		// ce3259b6's 30,487 (pairing on +394). Without it the chunk was 3 bytes over its allowance with pairing off and
+		// 4 with pairing on.
+		{ name: "vaults-page", baselineGzipBytes: 28_276, allowedIncreaseBytes: 3_000 },
 		// Added 2026-09-27 with the Funding Comparison route (Node 22.15.0 build of the SDK feature batch).
 		{ name: "fundingComparison", baselineGzipBytes: 11_133, allowedIncreaseBytes: 1_500 },
 		{ name: "funding-history-panel", baselineGzipBytes: 8_661, allowedIncreaseBytes: 1_500 },

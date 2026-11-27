@@ -84,14 +84,14 @@ export function PortfolioOverview() {
 							triggerAriaLabel={t`Fee market for taker and maker rates`}
 							size="xxs"
 							className="w-20"
-							triggerClassName="border-0 bg-transparent px-1 shadow-none"
+							triggerClassName="min-h-6 border-0 bg-transparent px-1 shadow-none"
 						/>
 					}
 				/>
 			</div>
 
 			<section
-				className="flex h-60 flex-col rounded-24 bg-surface shadow-raised min-[1001px]:h-[249px]"
+				className="flex min-h-60 flex-col rounded-24 bg-surface shadow-raised min-[1001px]:min-h-[249px]"
 				aria-label={t`Portfolio summary`}
 			>
 				<div className="flex min-h-10 items-center justify-between gap-2 border-b border-stroke-weak px-2">
@@ -102,7 +102,7 @@ export function PortfolioOverview() {
 						triggerAriaLabel={t`Portfolio account scope`}
 						size="xxs"
 						className="min-w-0 flex-1"
-						triggerClassName="border-0 bg-transparent shadow-none"
+						triggerClassName="min-h-6 border-0 bg-transparent shadow-none"
 					/>
 					<Select
 						value={period}
@@ -111,7 +111,7 @@ export function PortfolioOverview() {
 						triggerAriaLabel={t`Portfolio performance period`}
 						size="xxs"
 						className="w-22 shrink-0"
-						triggerClassName="border-0 bg-transparent shadow-none"
+						triggerClassName="min-h-6 border-0 bg-transparent shadow-none"
 					/>
 				</div>
 				<div className="flex flex-1 flex-col justify-center px-3 py-2 text-xs">
@@ -199,7 +199,7 @@ function SummaryRow({ label, value, tone }: { label: React.ReactNode; value: str
 	return (
 		<div className="flex min-h-6 items-center justify-between gap-3">
 			<span className="min-w-0 text-fg-muted">{label}</span>
-			<span className={cn("shrink-0 font-medium tabular-nums", toneClassName)}>{value}</span>
+			<span className={cn("min-w-0 break-words text-right font-medium tabular-nums", toneClassName)}>{value}</span>
 		</div>
 	);
 }

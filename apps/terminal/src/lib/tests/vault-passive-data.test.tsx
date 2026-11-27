@@ -390,6 +390,33 @@ describe("Vault pages passive data", () => {
 			expect(container.textContent).not.toContain("No withdrawable Vault equity");
 			expect(retryButtons()).toHaveLength(0);
 		});
+
+		it("withholds empty depositor and performance history conclusions after a failed detail refresh", async () => {
+			const emptyWindow = { accountValueHistory: [], pnlHistory: [], vlm: "0" };
+			answerAll({
+				vaultDetails: async () => ({
+					...rawDetail(),
+					followers: [],
+					portfolio: [
+						["day", emptyWindow],
+						["week", emptyWindow],
+						["month", emptyWindow],
+						["allTime", emptyWindow],
+					],
+				}),
+			});
+			await render(<VaultDetailPage vaultAddress={VAULT} />);
+			expect(container.textContent).toContain("No depositors were returned.");
+			expect(container.textContent).toContain("No performance history");
+
+			answerAll({ vaultDetails: fail() });
+			await refetch("vaultDetails");
+			expectNoFailureCopy();
+			expect(container.querySelector("h1")?.textContent).toBe("Alpha Vault");
+			expect(container.textContent).not.toContain("No depositors were returned.");
+			expect(container.textContent).not.toContain("No performance history");
+			expect(retryButtons()).toHaveLength(1);
+		});
 	});
 
 	describe("list", () => {
@@ -510,6 +537,44 @@ describe("Vault pages passive data", () => {
 			expectNoFailureCopy();
 			expect(container.textContent).not.toContain("Alpha Vault");
 			expect(retryButtons()).toHaveLength(1);
+		});
+
+		it("withholds empty sparkline history conclusions on desktop and mobile after a failed refresh while keeping retained non-empty charts", async () => {
+			const emptySeriesVault = {
+				...rawPublicVault(),
+				pnlHistory: { day: [], week: [], month: [], allTime: [] },
+			};
+			const nonEmptySeriesVault = {
+				...rawPublicVault(),
+				vaultAddress: "0x0000000000000000000000000000000000000099" as const,
+				name: "Beta Vault",
+				pnlHistory: { day: ["0", "2"], week: ["0", "2"], month: ["0", "2"], allTime: ["0", "2"] },
+			};
+			answerAll({ publicVaults: async () => [emptySeriesVault, nonEmptySeriesVault] });
+			await render(<VaultsPage />);
+
+			expect(container.textContent).toContain("Alpha Vault");
+			expect(container.textContent).toContain("Beta Vault");
+			const initialSummaries = [...container.querySelectorAll("[data-vault-chart-summary]")].map(
+				(summary) => summary.textContent,
+			);
+			expect(initialSummaries.filter((text) => text?.includes("No performance history"))).toHaveLength(2);
+			expect(initialSummaries.filter((text) => text?.includes("+$2.00"))).toHaveLength(2);
+			expect(container.textContent).toContain("No performance history");
+
+			answerAll({ publicVaults: fail() });
+			await act(async () => button("Refresh")?.click());
+			await flush();
+
+			expectNoFailureCopy();
+			expect(container.textContent).toContain("Alpha Vault");
+			expect(container.textContent).toContain("Beta Vault");
+			expect(container.textContent).not.toContain("No performance history");
+			const retainedSummaries = [...container.querySelectorAll("[data-vault-chart-summary]")].map(
+				(summary) => summary.textContent,
+			);
+			expect(retainedSummaries.filter((text) => text?.includes("No performance history"))).toHaveLength(0);
+			expect(retainedSummaries.filter((text) => text?.includes("+$2.00"))).toHaveLength(2);
 		});
 	});
 });
