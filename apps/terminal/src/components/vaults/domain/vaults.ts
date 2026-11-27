@@ -2,6 +2,7 @@ import Big from "big.js";
 import { USDC_ATOMIC_DECIMALS } from "@/components/funds-action/funds-amount";
 import { FILLED_AMOUNT_MIN_DECIMALS } from "@/config/app";
 import type { NumberFormatters } from "@/lib/format";
+import { foldSearchText } from "@/lib/search/utils";
 import { formatDecimalFloor, toPlainDecimal } from "@/lib/trade/numbers";
 
 export const VAULT_PERIODS = ["day", "week", "month", "allTime"] as const;
@@ -298,7 +299,9 @@ export function selectVaultRows({ rows, filter, query, account }: VaultListSelec
 		if (account.status === "error") return { status: "unavailable", reason: "accountError" };
 	}
 
-	const normalizedQuery = query.trim().toLowerCase();
+	const trimmedQuery = query.trim();
+	const nameQuery = foldSearchText(trimmedQuery);
+	const addressQuery = trimmedQuery.toLowerCase();
 	const filtered = rows.filter((row) => {
 		if (row.isClosed) return false;
 		if (filter === "official" || filter === "user") {
@@ -314,10 +317,10 @@ export function selectVaultRows({ rows, filter, query, account }: VaultListSelec
 		}
 
 		return (
-			!normalizedQuery ||
-			row.name.toLowerCase().includes(normalizedQuery) ||
-			row.vaultAddress.toLowerCase().includes(normalizedQuery) ||
-			row.leader.toLowerCase().includes(normalizedQuery)
+			!trimmedQuery ||
+			foldSearchText(row.name).includes(nameQuery) ||
+			row.vaultAddress.toLowerCase().includes(addressQuery) ||
+			row.leader.toLowerCase().includes(addressQuery)
 		);
 	});
 
@@ -329,7 +332,7 @@ export function selectVaultRows({ rows, filter, query, account }: VaultListSelec
 	return {
 		status: "ready",
 		rows: sorted,
-		isSearchNoResults: normalizedQuery.length > 0 && filtered.length === 0,
+		isSearchNoResults: trimmedQuery.length > 0 && filtered.length === 0,
 		classificationAvailable,
 	};
 }

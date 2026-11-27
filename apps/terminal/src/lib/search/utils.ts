@@ -1,5 +1,16 @@
+const LATIN_COMBINING_MARKS = /[\u0300-\u036f]/g;
+
+// Case and accent folding for search matching only: a name or symbol and the typed query both pass through it, so
+// "İNİT" finds INIT and "istanbul" finds "İstanbul". `toLowerCase()` turns "İ" into "i" plus a combining dot, so the
+// combining diacritics block (U+0300–U+036F) is removed after decomposition and the dotless "ı" is folded to "i".
+// Marks outside that block (Japanese voicing marks, Devanagari vowel signs) carry meaning and are kept. Protocol
+// comparisons (asset symbols, addresses, cloids) never use this.
+export function foldSearchText(value: string): string {
+	return value.toLowerCase().normalize("NFD").replace(LATIN_COMBINING_MARKS, "").normalize("NFC").replace(/ı/g, "i");
+}
+
 export function normalize(str: string): string {
-	return str.toLowerCase().trim();
+	return foldSearchText(str).trim();
 }
 
 export function tokenize(str: string): string[] {

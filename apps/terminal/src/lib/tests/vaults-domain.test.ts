@@ -161,6 +161,42 @@ describe("Vault list domain", () => {
 		expect(noResult).toMatchObject({ status: "ready", rows: [], isSearchNoResults: true });
 	});
 
+	it("matches Vault names across Turkish dotted and dotless i, Chinese text and ASCII", () => {
+		const rows = [
+			createListItem({ vaultAddress: VAULT_A, name: "İstanbul Kasası", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_B, name: "阿尔法金库", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_C, name: "INIT Yield", tvl: "1", classification: "user" }),
+		];
+		const names = (query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((row) => row.name) : [];
+		};
+		expect(names("istanbul")).toEqual(["İstanbul Kasası"]);
+		expect(names("İSTANBUL")).toEqual(["İstanbul Kasası"]);
+		expect(names("kasasi")).toEqual(["İstanbul Kasası"]);
+		expect(names("İNİT")).toEqual(["INIT Yield"]);
+		expect(names("ınıt")).toEqual(["INIT Yield"]);
+		expect(names(" init ")).toEqual(["INIT Yield"]);
+		expect(names("阿尔法")).toEqual(["阿尔法金库"]);
+		expect(selectVaultRows({ rows, filter: "all", query: "ıstanbulx", account: EMPTY_ACCOUNT })).toMatchObject({
+			rows: [],
+			isSearchNoResults: true,
+		});
+	});
+
+	it("keeps address search on the address's own lowercase comparison", () => {
+		const vault = "0x00000000000000000000000000000000000000ab" as const;
+		const rows = [createListItem({ vaultAddress: vault, name: "Hex", tvl: "1", classification: "user" })];
+		const names = (query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((row) => row.name) : [];
+		};
+		expect(names("00AB")).toEqual(["Hex"]);
+		expect(names("0x00000000000000000000000000000000000000AB")).toEqual(["Hex"]);
+		expect(names(LEADER.slice(-6))).toEqual(["Hex"]);
+		expect(names("ÀB")).toEqual([]);
+	});
+
 	it("sums and formats financial strings with Big.js beyond JavaScript precision", () => {
 		expect(sumVaultTvl(BASE_ROWS)).toBe("9007199254741000");
 		const child = { ...BASE_ROWS[1], vaultAddress: USER, relationship: "child" as const, tvl: "100" };
