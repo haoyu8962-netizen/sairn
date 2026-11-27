@@ -4079,7 +4079,7 @@ msgstr "Đóng theo giới hạn"
 
 #: src/components/trade/mobile/mobile-position-card.tsx
 msgid "Limit Close {displayName}"
-msgstr "Đóng theo giá giới hạn {displayName}"
+msgstr "Đóng theo giới hạn {displayName}"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
@@ -4480,7 +4480,7 @@ msgstr "Đóng theo thị trường"
 
 #: src/components/trade/mobile/mobile-position-card.tsx
 msgid "Market Close {displayName}"
-msgstr "Đóng theo giá thị trường {displayName}"
+msgstr "Đóng theo thị trường {displayName}"
 
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
@@ -8298,7 +8298,7 @@ msgstr "Nhà cung cấp thanh toán vẫn đang xử lý. USDC sẽ vào ví c�
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "The position grew after you confirmed, so nothing was closed. Reopen Market Close to review the new size."
-msgstr "Vị thế đã tăng sau khi bạn xác nhận nên chưa có phần nào được đóng. Hãy mở lại Đóng theo giá thị trường để kiểm tra số lượng mới."
+msgstr "Vị thế đã tăng sau khi bạn xác nhận nên chưa có phần nào được đóng. Hãy mở lại Đóng theo thị trường để kiểm tra số lượng mới."
 
 #: src/components/trade/positions/position-market-close-modal.tsx
 msgid "The position size has changed since you opened this dialog. Review the close size before submitting."
