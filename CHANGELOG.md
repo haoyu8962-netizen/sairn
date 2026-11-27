@@ -161,6 +161,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Market search (token selector and command menu) and the Vault name search ignore case and Latin
   accents the same way for names and what you type: a Turkish `İNİT` or `ınıt` finds INIT, and
   `istanbul` finds a Vault named İstanbul. Addresses are still matched as before.
+- Spanish and French no longer rewrite the numbers fixed in a few messages (the Circle deposit limits,
+  the referral code volume threshold and the leaderboard exclusion rule) in their own separators: they
+  show the same digits as every other language, such as 10,000,000 USDC.
 - Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
   moment, on every page including those that check the terms of use (Trade, Portfolio, Vaults and the
   history pages): while the wallet session is being resolved (at most 10 seconds) the dialog stays

@@ -7,10 +7,10 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["i18n-runtime"],
-  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，未推送。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
+  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，未推送。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。待决第 1、5、6 项另在分支 claude/compassionate-dewdney-663750 处理，未推送。进行中。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061"],
+  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "37e6b05b8", "fc251f889"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -450,6 +450,14 @@
 - 覆盖：交易页、Portfolio、Earn、Vaults、Staking、Referrals、Leaderboard，各 1440、1100、390 宽，未连接钱包的默认状态。不含弹窗、下拉菜单、有持仓或委托时的表格（例如 84px 的订单类型列、`Original Size` 列）、悬停提示；这是脚本读取的几何，不是人眼或像素比对。
 - 结果：ko、zh-TW 在全部页面与宽度下与英文基线一致。vi 修复账户紧凑值后，在撤回 IBM Plex 越南语子集之前与之后各扫一次，结果相同：只比英文多出 1440 宽订单簿列头「(BTC)」一处。2026-11-27 按 ADR 0059 补回子集后在开发服务器 3005 上重扫 en 与 vi（每个页面抽样确认是对应语言），结果仍是这一处（32/29px）。
 
+### 待决项处理（2026-11-27，第 1、5、6 项）
+
+运营方采纳了待决第 1、5、6 项的建议，另起会话在工作树 `.claude/worktrees/compassionate-dewdney-663750`（分支 `claude/compassionate-dewdney-663750`）处理，一项一个提交。工作树开始时停在原仓库的旧历史 `766a85668`，已重置到本分支当时的顶端 `5a0a345b1`（PR haoyu8962-netizen/sairn#22），三个提交都在它之上，依赖 #22 先合并或一起合并。
+
+- 第 1 项（`37e6b05b8`）：三处价格值改用 `t({ message: "Market", context: "Order type" })`，各语言目录里已有的译文直接生效（日语「成行」、韩语「시장가」、繁中「市價」、简中「市价」、阿语「سعر السوق」、法语「Au marché」）；同一组件里作列名或行名的 `Market`（市场名词）不变。`pnpm i18n:extract` 后 14 个目录都只有 3 行 `#:` 引用从无上下文的 `Market` 移到 `Order type` 的 `Market`，没有增删 msgid，英文显示不变。三处各加一条按语言断言的测试（ja、ko、zh-TW）：先以英文渲染，再切换语言，断言同一个 DOM 节点的价格值等于 `Order type` 的译文、市场名词的行或列仍是名词译文；读真实 `.po` 的辅助函数放在 `src/lib/tests/harness/catalog-messages.ts`，无上下文的查找只匹配没有 `msgctxt` 的条目。
+- 第 5 项（`fc251f889`）：`lib/search/utils.ts` 新增 `foldSearchText`（小写 → NFD → 去掉 U+0300–U+036F 的组合附加符号 → NFC → `ı` 折为 `i`），搜索库的 `normalize` 与金库名称筛选都用它；金库地址与领投人地址仍用原来的 `toLowerCase()`，市场查找、地址、cloid 等协议比较不经过它。没有去掉全部 `\p{M}`：日语浊点（U+3099）和天城文元音符号也是组合符号，去掉会改变词义（「ガ」会等于「カ」）。规则写进 `docs/i18n-presentation.md`（Turkish 一条之后），`search-fold.test.ts` 加入 AGENTS.md 的运行时翻译回归组。
+- 第 6 项（本节所在提交）：只改 `es`、`fr` 目录里这 6 条译文的数字（`10.000.000`、`1.000`、`10 000 000`、`1 000`、`100 000`、`10 000` 恢复为源文的 `,` 分组），货币符号位置与其他文字不动，所以法语读作「10,000 $」；`catalog-literal-number-contract` 的例外表清空（保留空表与过期检查），`docs/i18n-presentation.md` 的静态数字一条改为「没有例外」。
+
 ## 验证与限制
 
 以下都在工作树 `ce3259b68` 加上对应语言的未提交改动上实际运行。
@@ -531,6 +539,15 @@
 - 没有运行：生产构建与包体预算（留到终验）、`pnpm typecheck` 的全仓版本（只跑了终端的 typecheck）、交易页以外页面的弹窗与有数据状态的截断检查、真机。
 - 扫描用的 `apps/terminal/.env.local` 是从本机 sairn 克隆复制的，扫描结束后已删除；`apps/terminal/public/charting_library/` 由 `scripts/fetch-chart-library.mjs` 安装，Git 忽略，不入库。
 
+### 待决项处理的验证（2026-11-27）
+
+- 变异：三处价格值改回无上下文的 ``t`Market` ``，三个文件的 9 条按语言测试全部失败；`foldSearchText` 改回只 `toLowerCase()`，4 条失败；只把金库名称改回 `toLowerCase()`，1 条失败；把地址查询也改成折叠，地址用例（查询「ÀB」不得命中）失败；`es` 的「1,000」改回「1.000」、`fr` 的「10,000 $」改回「10 000 $」，两个目录的数字契约各自失败。全部已还原。
+- `pnpm i18n:extract`：第 1 项后 14 个目录各只有 3 行 `#:` 引用移动；第 2、3 项后没有任何 `.po` 差异（第 3 项的 6 行 `msgstr` 是手改的）。`pnpm i18n:compile` 通过。
+- Biome 对改过的 ts/tsx 通过；`pnpm --filter @sairn/terminal typecheck` 通过（图表库用 `scripts/fetch-chart-library.mjs --from` 从本机另一工作树的已安装副本装入，Git 忽略）；`pnpm memory:check` 通过。
+- 相关测试：第 1 项后 26 个文件 935 项通过（三个组件的测试、确认弹窗与订单列表的契约、i18n 与数字/日期格式契约、`catalog-completeness-contract`、`catalog-literal-number-contract`）；第 2 项后搜索与金库相关 11 个文件 177 项通过。
+- 终端全量 Vitest（沙箱外，`pnpm --filter @sairn/terminal test --maxWorkers=4`，在 `fc251f889` 加上未提交的第 3 项改动上运行）：779 个文件中 778 通过、1 跳过，12,235 项中 12,234 通过、1 跳过，0 失败，约 350 秒。
+- 没有运行：生产构建与包体预算（第 2 项给搜索库与金库筛选加了一个小函数，第 1、3 项只改消息的引用与 6 条译文的几个字符，预计在余量内，未量）、浏览器套件、真机与真人查看。没有做 Codex 审查。
+
 ## 后续与替代关系
 
 ### 待运营方决定（都需要改共享源码，本批次没有改）
@@ -540,7 +557,7 @@
 3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
 5. 已处理（2026-11-27，运营方采纳，见「待决项处理」）：搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
-6. 原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
+6. 已处理（2026-11-27，运营方同意恢复源文写法，见「待决项处理」）：原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
 
 ### 下一批次（4 土耳其语、5 俄语、6 巴西葡萄牙语、7 印尼语）接力要点
 
@@ -558,3 +575,9 @@
 - 全量验证：`pnpm i18n:extract`（14 个目录，新增 7 个 Missing 0，原有 7 个无差异）、`pnpm i18n:compile`、`pnpm typecheck`（hl-react、ui、terminal）通过；Biome 对分支改过的 34 个 ts/tsx/mjs 通过；`pnpm memory:check`、`memory:test`（12 项）通过；终端全量 Vitest（沙箱外，`--maxWorkers=4`，在 `020469061` 加上未提交的预算脚本与文档改动上运行）：778 个文件中 777 通过、1 跳过，12,218 项中 12,217 通过、1 跳过，0 失败。
 - 包体：按 `docs/terminal-performance-baseline.md` 配对构建（`main` `ce3259b6` 与分支 `02046906`，Node 22.15.0，无 `.env.local`，固定标识，两种配对状态，日志在 `.worklog/2026-11-27/i18n-languages-rebaseline/`）。总量 +273,149 / +273,270，其中 271,353 是 13 个非英文目录块（7 个新目录各 34–48 kB gzip，用户只下载所选语言的一个）；静态启动 +1,940 / +1,768（`vendor-router` +1,469）；其他面不变。总量基线上调 +273,270 到 3,677,509，静态启动上调 +1,940 到 1,668,662，余量不变；新基线下分支配对开读数为总量 +6,887（余 3,113，与 `main` 相同）、静态启动 +9,392（余 608）、手机运行时 +9,254（余 746）。`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。未构建生产发布配置（生产 `.env.local`、配对开）。
 - 文档：`docs/i18n-presentation.md`（语言清单、各语言规则、字体样例、静态数字规则）、`CHANGELOG.md`（七种语言各一条、字体与 IBM Plex 子集一条）、ADR 0059、`docs/terminal-performance-baseline.md`、AGENTS.md 回归清单已随各提交同步。各语言的锁定术语表仍只在草稿目录；若以后要长期对照，可整理成一份规范文档（未做）。
+
+### 待决项处理之后（2026-11-27）
+
+- 待决第 3 项（订单簿 `Size` 列头）与第 4 项（繁中现货描述）仍待运营方决定，本次未动。
+- 同类的搜索大小写问题还有两处，不在本次范围：资金费率对比的搜索（`domain/market/funding-comparison.ts` 的 `normalizeFundingComparisonQuery` 与 `row.coin.toLowerCase()`）同样搜不到「İNİT」；排行榜的搜索（`components/leaderboard/leaderboard-domain.ts`）用不带参数的 `toLocaleLowerCase()`，结果取决于浏览器的默认语言，在土耳其语系统上「I」会变成「ı」。两处都可以改用 `foldSearchText`（地址部分保持原样）。
+- 静态数字仍以 `,` 分组显示，不跟随数字格式设置；要跟随，需要把这些数字改成由数字格式器填入的占位符（改共享源码与所有目录）。
