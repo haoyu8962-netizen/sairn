@@ -43,6 +43,38 @@ function setInputValue(input: HTMLInputElement, value: string) {
 	input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function dispatchPasteEvent(input: HTMLInputElement, text: string): Event {
+	const event = new Event("paste", { bubbles: true, cancelable: true });
+	Object.defineProperty(event, "clipboardData", {
+		value: {
+			getData: (type: string) => (type === "text/plain" || type === "text" ? text : ""),
+		},
+	});
+	input.dispatchEvent(event);
+	return event;
+}
+
+function dispatchBeforeInputEvent(input: HTMLInputElement, inputType: string, data: string | null = null): Event {
+	const event = new InputEvent("beforeinput", {
+		bubbles: true,
+		cancelable: true,
+		inputType,
+		data,
+	});
+	input.dispatchEvent(event);
+	return event;
+}
+
+function dispatchInputEvent(input: HTMLInputElement, inputType: string, data: string | null = null): Event {
+	const event = new InputEvent("input", {
+		bubbles: true,
+		inputType,
+		data,
+	});
+	input.dispatchEvent(event);
+	return event;
+}
+
 describe("Bridge AmountEntryScreen", () => {
 	let container: HTMLDivElement;
 	let root: Root;
@@ -445,6 +477,234 @@ describe("Bridge AmountEntryScreen", () => {
 		expect(onContinue).not.toHaveBeenCalled();
 
 		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).toHaveBeenCalledWith("1", "2.00");
+	});
+
+	it("clears explicit Max when pasting identical text over the selected Max value", () => {
+		const onContinue = vi.fn();
+		const fractionalCentWhole = createToken({
+			symbol: "WHOLE",
+			name: "Whole Token",
+			decimals: 0,
+			priceUSD: "2.004",
+			amount: "1",
+			amountUSD: 2.004,
+		});
+		act(() =>
+			root.render(
+				<AmountEntryScreen token={fractionalCentWhole} initialUsd="" onBack={vi.fn()} onContinue={onContinue} />,
+			),
+		);
+
+		const input = container.querySelector<HTMLInputElement>("input");
+		if (!input) throw new Error("Missing input");
+
+		act(() => findButton(container, "Max").click());
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(false);
+
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			expect(dispatchPasteEvent(input, "2.00").defaultPrevented).toBe(false);
+			expect(dispatchBeforeInputEvent(input, "insertFromPaste", "2.00").defaultPrevented).toBe(false);
+			dispatchInputEvent(input, "insertFromPaste", "2.00");
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			expect(dispatchPasteEvent(input, "2.00").defaultPrevented).toBe(false);
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			expect(dispatchBeforeInputEvent(input, "insertFromPaste", "2.00").defaultPrevented).toBe(false);
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+	});
+
+	it("clears explicit Max when beforeinput inserts the same character or requests replacement or deletion", () => {
+		const onContinue = vi.fn();
+		const fractionalCentWhole = createToken({
+			symbol: "WHOLE",
+			name: "Whole Token",
+			decimals: 0,
+			priceUSD: "2.004",
+			amount: "1",
+			amountUSD: 2.004,
+		});
+		act(() =>
+			root.render(
+				<AmountEntryScreen token={fractionalCentWhole} initialUsd="" onBack={vi.fn()} onContinue={onContinue} />,
+			),
+		);
+
+		const input = container.querySelector<HTMLInputElement>("input");
+		if (!input) throw new Error("Missing input");
+
+		act(() => findButton(container, "Max").click());
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(false);
+
+		act(() => {
+			input.focus();
+			input.setSelectionRange(3, 4);
+			expect(dispatchBeforeInputEvent(input, "insertText", "0").defaultPrevented).toBe(false);
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			expect(dispatchBeforeInputEvent(input, "insertReplacementText", "2.00").defaultPrevented).toBe(false);
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, 0);
+			expect(dispatchBeforeInputEvent(input, "deleteContentBackward").defaultPrevented).toBe(false);
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+	});
+
+	it("clears explicit Max on same-text IME composition commit, cut, and drop while preserving decimal validation", () => {
+		const onContinue = vi.fn();
+		const fractionalCentWhole = createToken({
+			symbol: "WHOLE",
+			name: "Whole Token",
+			decimals: 0,
+			priceUSD: "2.004",
+			amount: "1",
+			amountUSD: 2.004,
+		});
+		act(() =>
+			root.render(
+				<AmountEntryScreen token={fractionalCentWhole} initialUsd="" onBack={vi.fn()} onContinue={onContinue} />,
+			),
+		);
+
+		const input = container.querySelector<HTMLInputElement>("input");
+		if (!input) throw new Error("Missing input");
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "2.00" }));
+		});
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			const cutEvent = new Event("cut", { bubbles: true, cancelable: true });
+			input.dispatchEvent(cutEvent);
+			expect(cutEvent.defaultPrevented).toBe(false);
+		});
+		expect(findButton(container, "Continue").disabled).toBe(true);
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => {
+			input.focus();
+			input.setSelectionRange(0, input.value.length);
+			const dropEvent = new Event("drop", { bubbles: true, cancelable: true });
+			input.dispatchEvent(dropEvent);
+			expect(dropEvent.defaultPrevented).toBe(false);
+		});
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+
+		act(() => {
+			setInputValue(input, "1.50");
+		});
+		expect(input.value).toBe("1.50");
+		act(() => {
+			setInputValue(input, "1.501");
+		});
+		expect(input.value).toBe("1.50");
+	});
+
+	it("keeps explicit Max when focusing, selecting text, moving the caret with arrow keys, or copying without editing", () => {
+		const onContinue = vi.fn();
+		const fractionalCentWhole = createToken({
+			symbol: "WHOLE",
+			name: "Whole Token",
+			decimals: 0,
+			priceUSD: "2.004",
+			amount: "1",
+			amountUSD: 2.004,
+		});
+		act(() =>
+			root.render(
+				<AmountEntryScreen token={fractionalCentWhole} initialUsd="" onBack={vi.fn()} onContinue={onContinue} />,
+			),
+		);
+
+		const input = container.querySelector<HTMLInputElement>("input");
+		if (!input) throw new Error("Missing input");
+
+		act(() => findButton(container, "Max").click());
+		expect(input.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(false);
+
+		act(() => {
+			input.focus();
+			input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+			input.setSelectionRange(0, input.value.length);
+			input.dispatchEvent(new Event("select", { bubbles: true }));
+			document.dispatchEvent(new Event("selectionchange"));
+			for (const init of [
+				{ key: "ArrowLeft" },
+				{ key: "ArrowRight" },
+				{ key: "Home" },
+				{ key: "End" },
+				{ key: "Shift" },
+				{ key: "a", metaKey: true },
+				{ key: "c", metaKey: true },
+			]) {
+				input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+			}
+			input.dispatchEvent(new Event("copy", { bubbles: true }));
+			input.blur();
+			input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+		});
+
+		expect(input.value).toBe("2.00");
 		expect(findButton(container, "Continue").disabled).toBe(false);
 		act(() => findButton(container, "Continue").click());
 		expect(onContinue).toHaveBeenCalledWith("1", "2.00");

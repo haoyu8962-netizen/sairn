@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowLeftIcon, ArrowRightIcon } from "@phosphor-icons/react";
 import { Button } from "@sairn/ui";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeDecimalInputEvent } from "@/components/ui/decimal-input-event";
 import { PERCENT_OPTIONS } from "@/config/bridge";
 import { cn } from "@/lib/cn";
@@ -29,11 +29,28 @@ export function AmountEntryScreen({ token, initialUsd, initialIsMax = false, onB
 	const tokenAmountKey = getTokenAmountKey(token);
 	const [usdInput, setUsdInput] = useState(initialUsd);
 	const [maxSelectionKey, setMaxSelectionKey] = useState<string | null>(() => (initialIsMax ? tokenAmountKey : null));
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	function clearMaxSelection() {
+		setMaxSelectionKey(null);
+	}
+
+	useEffect(() => {
+		const input = inputRef.current;
+		if (!input) return;
+		function handleNativeBeforeInput() {
+			setMaxSelectionKey(null);
+		}
+		input.addEventListener("beforeinput", handleNativeBeforeInput);
+		return () => {
+			input.removeEventListener("beforeinput", handleNativeBeforeInput);
+		};
+	}, []);
 
 	function handleUsdChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const typed = e.target.value;
 		const raw = normalizeDecimalInputEvent(e).target.value;
-		if (typed !== usdInput || raw !== usdInput) setMaxSelectionKey(null);
+		if (typed !== usdInput || raw !== usdInput) clearMaxSelection();
 		if (raw === "") {
 			setUsdInput("");
 			return;
@@ -43,7 +60,7 @@ export function AmountEntryScreen({ token, initialUsd, initialIsMax = false, onB
 	}
 
 	function handlePercent(percent: number) {
-		setMaxSelectionKey(null);
+		clearMaxSelection();
 		setUsdInput(getBridgeUsdShortcut(token, percent));
 	}
 
@@ -84,10 +101,17 @@ export function AmountEntryScreen({ token, initialUsd, initialIsMax = false, onB
 						$
 					</span>
 					<input
+						ref={inputRef}
 						type="text"
 						inputMode="decimal"
 						aria-label={t`Amount in USD`}
 						value={usdInput}
+						onBeforeInput={clearMaxSelection}
+						onInput={clearMaxSelection}
+						onPaste={clearMaxSelection}
+						onCut={clearMaxSelection}
+						onDrop={clearMaxSelection}
+						onCompositionEnd={clearMaxSelection}
 						onChange={handleUsdChange}
 						placeholder="0.00"
 						className={cn(
