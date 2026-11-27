@@ -3559,7 +3559,7 @@ msgstr "Leverage tinggi secara signifikan meningkatkan risiko likuidasi. Gunakan
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Highest / Lowest Price"
-msgstr "Harga tertinggi / terendah"
+msgstr "Harga maks / min"
 
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "HIP-3"
@@ -4325,7 +4325,7 @@ msgstr "Sekilas margin dan risiko akun"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Dibatalkan karena margin"
+msgstr "Batal (margin)"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -6047,7 +6047,7 @@ msgstr "Penutupan posisi proporsional"
 #: src/components/trade/components/historical-order-price.tsx
 #: src/components/trade/components/historical-order-price.tsx
 msgid "Protection price"
-msgstr "Harga perlindungan"
+msgstr "Harga proteksi"
 
 #: src/components/staking/staking-view.tsx
 msgid "Public validator data remains visible. Account balances and actions require a verified owner."

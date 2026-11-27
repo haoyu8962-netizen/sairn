@@ -3559,7 +3559,7 @@ msgstr "Đòn bẩy cao làm tăng đáng kể rủi ro thanh lý. Hãy sử d�
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Highest / Lowest Price"
-msgstr "Giá cao nhất / thấp nhất"
+msgstr "Giá cao / thấp nhất"
 
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "HIP-3"
@@ -4325,7 +4325,7 @@ msgstr "Tổng quan ký quỹ và rủi ro tài khoản"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Hủy do thiếu ký quỹ"
+msgstr "Hủy do ký quỹ"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -5479,7 +5479,7 @@ msgstr "Lịch sử lệnh thông thường của <0>{0}</0>"
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 msgid "Original Size"
-msgstr "Số lượng ban đầu"
+msgstr "Số lượng gốc"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
