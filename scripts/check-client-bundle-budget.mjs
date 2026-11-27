@@ -147,7 +147,12 @@ const budgets = {
 	// merged into the branch: pairing on 3,412,154 minus main's 3,410,356 (pairing off measures +1,594: 3,409,015 minus
 	// 3,407,421), fixed-identity Node 22.15.0 builds without .env.local. The branch had first been measured against
 	// main ba78481a at +1,501 (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_404_239,
+	// Raised 2026-11-27 by +273,270 for seven interface languages (ko, zh-TW, vi, tr, ru, pt, id): 271,353 of it is
+	// their lazily loaded catalogs (34-48 kB gzip each, a viewer loads only the active one) and 1,469 the locale list,
+	// link parsing and font samples in vendor-router. Fixed-identity Node 22.15.0 pairing-on builds without .env.local:
+	// 3,684,396 for 02046906 minus 3,411,126 for main ce3259b6 (pairing off measures +273,149: 3,681,689 minus
+	// 3,408,540; docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_677_509,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -196,7 +201,12 @@ const budgets = {
 		// ebdc7413 was merged into the branch: pairing on 1,676,448 minus main's 1,675,817 (pairing off measures +594:
 		// 1,675,271 minus 1,674,677). The larger increment is used, so pairing on keeps main's 274 bytes. The branch had
 		// first been measured against main ba78481a at +524 (docs/terminal-performance-baseline.md).
-		baselineGzipBytes: 1_666_722,
+		// Raised 2026-11-27 by +1,940 for the seven interface languages (see the total above): pairing off 1,677,135
+		// minus main ce3259b6's 1,675,195 (pairing on measures +1,768). The growth is the locale list, link-locale
+		// parsing, the startup font samples and the language-menu warm-up in vendor-router (+1,469) and the bootstrap
+		// failure copy of the new languages. Before the raise pairing on exceeded the allowance by 1,332; after it
+		// pairing on keeps 608 bytes, as main ce3259b6 keeps 436 plus the 172 the larger pairing-off increment adds.
+		baselineGzipBytes: 1_668_662,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {
