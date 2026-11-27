@@ -2631,11 +2631,11 @@ msgstr "Расстояние от мида"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Distance to mark"
-msgstr "До цены марк."
+msgstr "До цены маркировки"
 
 #: src/components/trade/positions/orders-tab.tsx
 msgid "Distance to mark {markDistanceLabel}"
-msgstr "Расстояние до маркировки {markDistanceLabel}"
+msgstr "До цены маркировки {markDistanceLabel}"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Do not submit again while Hyperliquid history is checked."
@@ -7372,7 +7372,7 @@ msgstr "Капитал спотового аккаунта"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Spot Dust Conversion"
-msgstr "Конвертация остатков (спот)"
+msgstr "Конвертация мелких остатков"
 
 #: src/components/staking/staking-view.tsx
 msgid "Spot to staking"

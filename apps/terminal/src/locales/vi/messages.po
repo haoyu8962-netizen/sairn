@@ -4048,7 +4048,7 @@ msgstr "Mua giới hạn"
 #: src/components/trade/positions/position-limit-close-modal.tsx
 #: src/hooks/trade/use-position-limit-close-submit.ts
 msgid "Limit Close"
-msgstr "Đóng theo giá giới hạn"
+msgstr "Đóng theo giới hạn"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
@@ -4433,7 +4433,7 @@ msgstr "Nhấp vào \"Thị trường\" hiện sẽ đóng toàn bộ vị thế
 #: src/components/trade/positions/position-market-close-modal.tsx
 #: src/lib/trade/order-notification-copy.ts
 msgid "Market Close"
-msgstr "Đóng theo giá thị trường"
+msgstr "Đóng theo thị trường"
 
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"

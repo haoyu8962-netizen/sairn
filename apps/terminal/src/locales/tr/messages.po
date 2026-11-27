@@ -4325,7 +4325,7 @@ msgstr "Marjin ve hesap riskine genel bakış"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Marjin iptali"
+msgstr "İptal (marjin)"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -6612,13 +6612,13 @@ msgstr "Tersine çevir"
 #: src/components/trade/positions/position-inline-actions.tsx
 msgctxt "Position action"
 msgid "Reverse"
-msgstr "Ters çevir"
+msgstr "Tersine çevir"
 
 #: src/components/trade/positions/position-inline-actions.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/hooks/trade/use-position-reverse-submit.ts
 msgid "Reverse Position"
-msgstr "Pozisyonu ters çevir"
+msgstr "Pozisyonu tersine çevir"
 
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 msgid "Reverse quantity (2× position)"
