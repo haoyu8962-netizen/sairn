@@ -92,4 +92,31 @@ describe("bridge quote safeguards", () => {
 		).toBe("unavailable");
 		expect(getBridgeQuoteErrorKind(new Error("network unavailable"))).toBe("unavailable");
 	});
+
+	it.each([
+		["1", 0, "1"],
+		["10.006000", 6, "10006000"],
+		["9.999999999999999999", 18, "9999999999999999999"],
+		["0.000000000000000001", 18, "1"],
+	] as const)(
+		"converts exact Max token amount %s (decimals=%i) to atomic units %s without precision loss",
+		async (amount, fromTokenDecimals, expectedFromAmount) => {
+			sdkMocks.getQuote.mockResolvedValueOnce({});
+			const query = useBridgeQuote({
+				fromChainId: 42161,
+				fromTokenAddress: "0x0000000000000000000000000000000000000001",
+				fromTokenDecimals,
+				fromAddress: "0x0000000000000000000000000000000000000002",
+				amount,
+			}) as unknown as { enabled: boolean; queryFn: () => Promise<BridgeQuote> };
+
+			expect(query.enabled).toBe(true);
+			await query.queryFn();
+			expect(sdkMocks.getQuote).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					fromAmount: expectedFromAmount,
+				}),
+			);
+		},
+	);
 });

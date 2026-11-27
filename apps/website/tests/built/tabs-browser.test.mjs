@@ -223,3 +223,219 @@ test("the features block cross-fades its screenshots over an opaque stage, with 
 		await context.close();
 	}
 });
+
+test("G-02: the features tab strip keeps vertical clearance for its focus ring and does not leave overflow-y as auto", async () => {
+	function assertFocusRingVisibleAndClear(metrics, label) {
+		assert.equal(metrics.focusVisible, true, `${label}: keyboard-focused tab must match :focus-visible`);
+		assert.notEqual(metrics.outlineStyle, "none", `${label}: focus ring outlineStyle must not be none`);
+		assert.ok(metrics.outlineWidth >= 1, `${label}: focus ring outlineWidth must be visible (got ${metrics.outlineWidth}px)`);
+		assert.notEqual(metrics.outlineColor, "rgba(0, 0, 0, 0)", `${label}: focus ring color must not be transparent`);
+		assert.notEqual(metrics.overflowY, "auto", `${label}: overflow-y must not compute to auto`);
+		assert.equal(metrics.scrollHeight, metrics.clientHeight, `${label}: tablist must not overflow vertically`);
+		assert.ok(
+			metrics.topClearance >= metrics.ringReach,
+			`${label}: top clearance ${metrics.topClearance}px < focus ring reach ${metrics.ringReach}px`,
+		);
+		assert.ok(
+			metrics.bottomClearance >= metrics.ringReach,
+			`${label}: bottom clearance ${metrics.bottomClearance}px < focus ring reach ${metrics.ringReach}px`,
+		);
+		assert.ok(
+			metrics.leftClearance >= metrics.ringReach,
+			`${label}: left clearance ${metrics.leftClearance}px < focus ring reach ${metrics.ringReach}px`,
+		);
+		assert.ok(
+			metrics.rightClearance >= metrics.ringReach,
+			`${label}: right clearance ${metrics.rightClearance}px < focus ring reach ${metrics.ringReach}px`,
+		);
+	}
+
+	function assertReachedTargetTab(metrics, expectedId, label) {
+		assert.equal(metrics.id, expectedId, `${label}: activeElement.id must reach ${expectedId} (got ${metrics.id})`);
+		assert.equal(metrics.ariaSelected, "true", `${label}: target tab ${expectedId} must have aria-selected="true"`);
+		assert.deepEqual(metrics.selectedIds, [expectedId], `${label}: only ${expectedId} should be aria-selected`);
+	}
+
+	async function measureActiveFeatureTab(page) {
+		return page.evaluate(() => {
+			const list = document.querySelector("#features [data-tablist]");
+			const tab = document.activeElement;
+			const listRect = list.getBoundingClientRect();
+			const tabRect = tab.getBoundingClientRect();
+			const listStyle = getComputedStyle(list);
+			const tabStyle = getComputedStyle(tab);
+			const outlineWidth = Number.parseFloat(tabStyle.outlineWidth);
+			const outlineOffset = Number.parseFloat(tabStyle.outlineOffset);
+			const ringReach = (Number.isFinite(outlineWidth) ? outlineWidth : 0) + (Number.isFinite(outlineOffset) ? outlineOffset : 0);
+			return {
+				id: tab?.id ?? null,
+				ariaSelected: tab?.getAttribute("aria-selected") ?? null,
+				selectedIds: [...list.querySelectorAll('[role="tab"][aria-selected="true"]')].map((el) => el.id),
+				focusVisible: Boolean(tab?.matches(":focus-visible")),
+				outlineStyle: tabStyle.outlineStyle,
+				outlineWidth: Number.isFinite(outlineWidth) ? outlineWidth : 0,
+				outlineColor: tabStyle.outlineColor,
+				overflowY: listStyle.overflowY,
+				scrollHeight: list.scrollHeight,
+				clientHeight: list.clientHeight,
+				topClearance: tabRect.top - listRect.top,
+				bottomClearance: listRect.bottom - tabRect.bottom,
+				leftClearance: tabRect.left - listRect.left,
+				rightClearance: listRect.right - tabRect.right,
+				ringReach,
+				tabOpacities: [...list.querySelectorAll('[role="tab"]')].map((el) => getComputedStyle(el).opacity),
+			};
+		});
+	}
+
+	for (const reducedMotion of ["reduce", "no-preference"]) {
+		for (const width of [320, 375, 768]) {
+			const { context, page } = await openPage(browser, "/", { viewport: { width, height: 844 }, reducedMotion });
+			try {
+				await page.goto("https://site.test/", { waitUntil: "load" });
+				await page.waitForSelector("#features [data-tabs][data-tabs-ready]");
+				await page.locator("#features [data-tablist]").scrollIntoViewIfNeeded();
+				const tabIds = await page.evaluate(() =>
+					[...document.querySelectorAll('#features [data-tablist] [role="tab"]')].map((el) => el.id),
+				);
+				assert.ok(tabIds.length >= 3, `${width}px (${reducedMotion}): expected at least 3 feature tabs`);
+				assert.equal(tabIds[0], "feature-tab-language");
+				assert.equal(tabIds.at(-1), "feature-tab-more");
+				await page.locator(`#${tabIds[0]}`).focus();
+
+				// Walk with arrow keys to middle, last, and back to first so Chromium activates :focus-visible
+				// and exercises scrolling at the start, middle and end of the horizontal strip.
+				const stops = [
+					[
+						"middle",
+						tabIds[2],
+						async () => {
+							await page.keyboard.press("ArrowRight");
+							await page.keyboard.press("ArrowRight");
+						},
+					],
+					[
+						"last",
+						tabIds.at(-1),
+						async () => {
+							await page.keyboard.press("End");
+						},
+					],
+					[
+						"first",
+						tabIds[0],
+						async () => {
+							await page.keyboard.press("Home");
+						},
+					],
+				];
+				for (const [position, expectedId, move] of stops) {
+					await move();
+					const metrics = await measureActiveFeatureTab(page);
+					const label = `${width}px (${reducedMotion}, ${position} ${expectedId})`;
+					assertReachedTargetTab(metrics, expectedId, label);
+					assertFocusRingVisibleAndClear(metrics, label);
+					assert.ok(
+						metrics.tabOpacities.every((opacity) => opacity === "1"),
+						`${label}: every feature tab must stay visible (${metrics.tabOpacities.join(", ")})`,
+					);
+				}
+
+				// F-07 self-check: stopping on the penultimate tab instead of the last tab must fail the stop check.
+				await page.keyboard.press("End");
+				await page.keyboard.press("ArrowLeft");
+				const penultimateMetrics = await measureActiveFeatureTab(page);
+				assert.equal(penultimateMetrics.id, tabIds.at(-2));
+				assert.throws(
+					() => assertReachedTargetTab(penultimateMetrics, tabIds.at(-1), "End-to-penultimate mutation"),
+					/activeElement\.id/,
+					"the target-tab check must fail when End stops on the penultimate tab",
+				);
+				await page.keyboard.press("Home");
+
+				// I-07 self-check: removing the focus ring with outline: none must fail the focus-ring assertion.
+				await page.evaluate(() => {
+					const sheet = [...document.styleSheets].find((s) => s.href);
+					sheet.insertRule(".feature-tab:focus-visible { outline: none !important; }", sheet.cssRules.length);
+				});
+				const withoutOutline = await measureActiveFeatureTab(page);
+				assert.throws(
+					() => assertFocusRingVisibleAndClear(withoutOutline, "outline-none mutation"),
+					/outlineStyle|outlineWidth/,
+					"the focus-ring check must fail when outline: none removes the ring",
+				);
+			} finally {
+				await context.close();
+			}
+		}
+	}
+});
+
+test("G-06: Live market panel stays keyboard-focusable when its controls are hidden or removed, and drops tabindex once a control is visible", async () => {
+	// Case 1: open-book module blocked so both buttons stay hidden.
+	const blocked = await openPage(browser, "/", { viewport: DESKTOP, block: [/\/_astro\/open-book\.[\w-]+\.js$/] });
+	try {
+		await blocked.page.goto("https://site.test/", { waitUntil: "load" });
+		await blocked.page.waitForSelector("[data-preview][data-tabs-ready]");
+		await blocked.page.locator("#preview-tab-terminal").focus();
+		await blocked.page.keyboard.press("ArrowRight");
+		assert.equal(await blocked.page.evaluate(() => document.activeElement.id), "preview-tab-live");
+		await blocked.page.keyboard.press("Tab");
+		assert.equal(
+			await blocked.page.evaluate(() => document.activeElement.id),
+			"preview-live",
+			"hidden buttons must not prevent Tab from entering the recorded preview panel",
+		);
+	} finally {
+		await blocked.context.close();
+	}
+
+	// Case 2: browser lacks Web Locks so open-book returns early and leaves both buttons hidden.
+	const unsupported = await openPage(browser, "/", { viewport: DESKTOP });
+	try {
+		await unsupported.page.addInitScript(() => {
+			Object.defineProperty(navigator, "locks", { value: undefined, configurable: true });
+		});
+		await unsupported.page.goto("https://site.test/", { waitUntil: "load" });
+		await unsupported.page.waitForSelector("[data-preview][data-tabs-ready]");
+		await unsupported.page.locator("#preview-tab-terminal").focus();
+		await unsupported.page.keyboard.press("ArrowRight");
+		await unsupported.page.waitForFunction(() =>
+			document.querySelector("[data-ob-note]")?.textContent?.includes("cannot show the live view"),
+		);
+		await unsupported.page.keyboard.press("Tab");
+		assert.equal(
+			await unsupported.page.evaluate(() => document.activeElement.id),
+			"preview-live",
+			"unsupported browser keeps the recorded preview panel focusable",
+		);
+	} finally {
+		await unsupported.context.close();
+	}
+
+	// Case 3: supported browser unhides Show live view (under reduced motion), so Tab lands on the button;
+	// removing all links from a market panel at runtime makes that panel focusable again.
+	const supported = await openPage(browser, "/", { viewport: DESKTOP });
+	try {
+		await supported.page.goto("https://site.test/", { waitUntil: "load" });
+		await supported.page.waitForSelector("[data-preview][data-tabs-ready]");
+		await supported.page.locator("#preview-tab-terminal").focus();
+		await supported.page.keyboard.press("ArrowRight");
+		await supported.page.waitForFunction(() => document.querySelector("[data-ob-start]")?.hidden === false);
+		await supported.page.keyboard.press("Tab");
+		assert.equal(
+			await supported.page.evaluate(() => document.activeElement.hasAttribute("data-ob-start")),
+			true,
+			"once Show live view is visible, Tab goes directly to it",
+		);
+		const emptyMarketTabindex = await supported.page.evaluate(async () => {
+			const panel = document.querySelector('#markets [data-tabpanel]');
+			for (const row of panel.querySelectorAll("[data-market-coin]")) row.remove();
+			await new Promise((done) => setTimeout(done, 0));
+			return panel.getAttribute("tabindex");
+		});
+		assert.equal(emptyMarketTabindex, "0", "removing all rows from a market panel makes the panel focusable");
+	} finally {
+		await supported.context.close();
+	}
+});

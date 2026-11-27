@@ -3,6 +3,7 @@ import {
 	getInitialTrades,
 	getTradeKey,
 	getTradePriceDecimals,
+	getTradeRowPriceDecimals,
 	type InitialTrades,
 	processTrades,
 	type RawTrade,
@@ -24,6 +25,23 @@ describe("trades", () => {
 	it("caps low-price precision at Hyperliquid market limits", () => {
 		expect(getTradePriceDecimals("0.6058", 2, "perp")).toBe(4);
 		expect(getTradePriceDecimals("0.0000004", 1, "spot")).toBe(7);
+	});
+
+	it("derives per-trade price decimals within Hyperliquid 5-sig-fig and szDecimals limits independent of markPx", () => {
+		expect(getTradeRowPriceDecimals("99.999", 2, "perp")).toBe(3);
+		expect(getTradeRowPriceDecimals("101", 2, "perp")).toBe(2);
+		expect(getTradeRowPriceDecimals("99.9994", 2, "perp")).toBe(3);
+		expect(getTradeRowPriceDecimals("99.9995", 2, "perp")).toBe(2);
+		expect(getTradeRowPriceDecimals("0.12345", 2, "perp")).toBe(4);
+		expect(getTradeRowPriceDecimals("0.12345", 2, "spot")).toBe(5);
+		expect(getTradeRowPriceDecimals("0.00000045", 1, "spot")).toBe(7);
+		expect(getTradeRowPriceDecimals("123456", 4, "perp")).toBe(0);
+		expect(getTradeRowPriceDecimals("9007199254740993", 4, "perp")).toBe(0);
+		expect(getTradeRowPriceDecimals(null, 3, "spot")).toBe(5);
+		expect(getTradeRowPriceDecimals("", 2, "perp")).toBe(4);
+		expect(getTradeRowPriceDecimals("not-a-price", 2, "perp")).toBe(4);
+		expect(getTradeRowPriceDecimals("0", 2, "perp")).toBe(4);
+		expect(getTradeRowPriceDecimals("-5", 2, "perp")).toBe(4);
 	});
 
 	it("preserves API price and size strings while formatting a 24-hour time", () => {

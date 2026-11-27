@@ -630,7 +630,7 @@ describe("funds modal scroll contract", () => {
 
 	it("builds the back button of the dialog and of the browser fixture with one renderer", () => {
 		const renderer = read(BACK_BUTTON_MODULE);
-		const closeLayer = /absolute top-4 right-4 (z-\d+)/.exec(
+		const closeLayer = /absolute top-4 end-4 (z-\d+)/.exec(
 			readFileSync(resolve(UI_PACKAGE_ROOT, "modal.tsx"), "utf8"),
 		)?.[1];
 		const bandLayer = Number(/\bz-(\d+)\b/.exec(FUNDS_MODAL_HEADING_CLASS)?.[1]);

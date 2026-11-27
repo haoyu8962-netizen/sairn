@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import type { Position } from "@/lib/hyperliquid";
 import type { Markets } from "@/lib/hyperliquid/markets";
+import { getMarketDexLabel, getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import { formatCollateralAmount, getMarketCollateralSymbol } from "@/lib/trade/collateral-amount";
 import { toBig } from "@/lib/trade/numbers";
 import type { TpSlOrderInfo } from "@/lib/trade/open-orders";
@@ -55,21 +56,13 @@ interface PositionMetricProps {
 	wrapValue?: boolean;
 }
 
-function PositionMetric({
-	className,
-	label,
-	value,
-	valueClassName,
-	valueTitle,
-	wrapValue = false,
-}: PositionMetricProps) {
+function PositionMetric({ className, label, value, valueClassName, valueTitle }: PositionMetricProps) {
 	return (
 		<div className={cn("min-w-0", className)}>
-			<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{label}</div>
+			<div className="break-words whitespace-normal text-3xs leading-[14px] text-market-close-subtle">{label}</div>
 			<div
 				className={cn(
-					"min-w-0 text-2sm font-semibold leading-[18px] tabular-nums text-market-close-fg",
-					wrapValue ? "whitespace-normal" : "truncate",
+					"min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] text-2sm font-semibold leading-[18px] tabular-nums text-market-close-fg",
 					valueClassName,
 				)}
 				title={valueTitle}
@@ -107,13 +100,17 @@ export function MobilePositionCard({
 	const [internalExpanded, setInternalExpanded] = useState(false);
 	const detailsId = useId();
 	const marginValueId = useId();
+	const tpSlValueId = useId();
 	const isExpanded = expanded ?? internalExpanded;
 
 	const sizeValue = toBig(p.szi);
 	const isLong = sizeValue?.gt(0) ?? false;
 	const absSize = sizeValue?.abs().toString();
 	const market = markets.getMarket(p.coin);
-	const displayName = market?.pairName ?? p.coin;
+	const shareSymbol = market?.pairName ?? p.coin;
+	const marketLabel = getMarketListLabel(market, p.coin);
+	const marketDex = getMarketDexLabel(market) ?? (p.dex || null);
+	const displayName = marketDex ? `${marketLabel} (${marketDex})` : marketLabel;
 	const sizeSymbol = market?.shortName ?? p.coin.split(":").pop() ?? p.coin;
 	const quoteSymbol = getMarketCollateralSymbol(market);
 	const assetId = market?.assetId;
@@ -162,6 +159,8 @@ export function MobilePositionCard({
 	const roeDisplay = formatPercent(p.returnOnEquity, 1);
 	const marginDisplay = formatCollateralAmount(p.marginUsed, quoteSymbol, collateralFormat);
 	const markPriceDisplay = formatPrice(hasFreshMark ? markPxRaw : undefined, { szDecimals, style: "decimal" });
+	const tpPriceDisplay = tpSlInfo?.tpPrice ? formatPrice(tpSlInfo.tpPrice, { szDecimals, style: "decimal" }) : "--";
+	const slPriceDisplay = tpSlInfo?.slPrice ? formatPrice(tpSlInfo.slPrice, { szDecimals, style: "decimal" }) : "--";
 
 	function buildReverseRef(): PositionReverseRef | null {
 		if (!canReverse || typeof assetId !== "number") return null;
@@ -186,7 +185,7 @@ export function MobilePositionCard({
 			position: p,
 			markPx: markPxRaw,
 			env,
-			symbol: displayName,
+			symbol: shareSymbol,
 			quoteSymbol,
 			szDecimals,
 		});
@@ -297,11 +296,16 @@ export function MobilePositionCard({
 									? t`Switch to ${displayName} market, long position`
 									: t`Switch to ${displayName} market, short position`
 							}
-							className="pointer-events-auto relative z-10 flex max-w-full min-w-0 flex-wrap items-baseline gap-x-1 rounded-xs text-start after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
+							className="pointer-events-auto relative z-10 flex max-w-full min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5 rounded-xs text-start after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
 						>
 							<span className="max-w-full shrink-0 break-words text-2sm font-bold leading-[18px] text-market-close-fg">
-								{sizeSymbol}
+								{marketLabel}
 							</span>
+							{marketDex ? (
+								<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+									{marketDex}
+								</span>
+							) : null}
 							<span
 								className={cn(
 									"shrink-0 text-2xs font-semibold leading-4",
@@ -352,7 +356,7 @@ export function MobilePositionCard({
 
 			{isExpanded ? (
 				<div id={detailsId} className="flex flex-col gap-3 px-3.5 py-3">
-					<div className="grid min-w-0 grid-cols-3 gap-x-2.5 gap-y-3">
+					<div className="grid min-w-0 grid-cols-2 min-[400px]:grid-cols-3 gap-x-2.5 gap-y-3">
 						<PositionMetric label={t`Entry Price`} value={formatPrice(p.entryPx, { szDecimals, style: "decimal" })} />
 						<PositionMetric label={t`Mark Price`} value={markPriceDisplay} />
 						<PositionMetric
@@ -392,24 +396,29 @@ export function MobilePositionCard({
 							type="button"
 							onClick={handleOpenTpSl}
 							disabled={typeof assetId !== "number" || isRowClosing}
+							aria-label={t`TP/SL for ${displayName}`}
+							aria-describedby={tpSlValueId}
 							className="group relative min-w-0 rounded-xs text-start transition-colors duration-[120ms] after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] min-[1001px]:hover:text-market-close-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 						>
 							<PositionMetric
 								label={t`TP/SL`}
 								value={
-									<span className="inline-flex max-w-full items-center gap-1">
+									<span className="inline-flex max-w-full flex-wrap items-center gap-x-1 gap-y-0.5">
 										<span className={tpSlInfo?.tpPrice ? "text-market-close-success" : "text-fg-muted"}>
-											{tpSlInfo?.tpPrice ? formatPrice(tpSlInfo.tpPrice, { szDecimals, style: "decimal" }) : "--"}
+											{tpPriceDisplay}
 										</span>
 										<span className="text-fg-muted">/</span>
 										<span className={tpSlInfo?.slPrice ? "text-market-close-danger" : "text-fg-muted"}>
-											{tpSlInfo?.slPrice ? formatPrice(tpSlInfo.slPrice, { szDecimals, style: "decimal" }) : "--"}
+											{slPriceDisplay}
 										</span>
 										<PencilIcon className={cn("size-3 shrink-0", hasTpSl ? "text-fg-muted" : "text-fg-disabled")} />
 									</span>
 								}
 								wrapValue
 							/>
+							<span id={tpSlValueId} hidden>
+								{`${tpPriceDisplay} / ${slPriceDisplay}`}
+							</span>
 						</button>
 						<PositionMetric
 							label={t({ message: "Funding", context: "Cumulative position funding" })}
@@ -420,9 +429,10 @@ export function MobilePositionCard({
 					</div>
 
 					<div className="flex items-center border-t border-market-close-stroke-card pt-[11px]">
-						<div className="flex min-w-0 items-center gap-4">
+						<div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
 							<button
 								type="button"
+								aria-label={t`Limit Close ${displayName}`}
 								className="min-h-11 shrink-0 text-2sm font-semibold leading-[18px] text-market-close-fg transition-colors duration-[120ms] min-[1001px]:hover:text-fg-muted focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 								onClick={handleLimitClose}
 								disabled={!canClose || isRowClosing}
@@ -431,6 +441,7 @@ export function MobilePositionCard({
 							</button>
 							<button
 								type="button"
+								aria-label={t`Market Close ${displayName}`}
 								className="min-h-11 shrink-0 text-2sm font-semibold leading-[18px] text-market-close-danger transition-colors duration-[120ms] min-[1001px]:hover:opacity-80 focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 								onClick={handleMarketClose}
 								disabled={!canClose || isRowClosing}
@@ -439,6 +450,7 @@ export function MobilePositionCard({
 							</button>
 							<button
 								type="button"
+								aria-label={t`Reverse ${displayName} position`}
 								className="min-h-11 shrink-0 text-2sm font-semibold leading-[18px] text-market-close-danger transition-colors duration-[120ms] min-[1001px]:hover:opacity-80 focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 								onClick={handleReverse}
 								disabled={!canReverse || isRowClosing}

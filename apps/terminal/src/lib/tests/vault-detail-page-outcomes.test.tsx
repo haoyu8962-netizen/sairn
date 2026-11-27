@@ -305,4 +305,17 @@ describe("VaultDetailPage settled outcomes", () => {
 		expect(toastMocks.error).toHaveBeenCalledTimes(2);
 		expect(testState.retry).toHaveBeenCalledTimes(2);
 	});
+
+	it("adds touch press feedback to the receipt explorer link", () => {
+		testState.action = settledAction("success");
+		render();
+
+		const options = toastMocks.success.mock.calls[0]?.[1] as { description?: ReactNode } | undefined;
+		const host = document.createElement("div");
+		const descriptionRoot = createI18nRoot(host);
+		act(() => descriptionRoot.render(createElement("span", null, options?.description)));
+		const explorerLink = host.querySelector<HTMLAnchorElement>("a");
+		expect(explorerLink?.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+		act(() => descriptionRoot.unmount());
+	});
 });

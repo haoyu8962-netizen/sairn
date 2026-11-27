@@ -16,7 +16,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@sairn/ui";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useId, useRef, useState } from "react";
 import type { MarginTierInput } from "@/domain/trade/order/liquidation";
 import { cn } from "@/lib/cn";
 import { classifyActionError, isAmbiguousExchangeActionError } from "@/lib/errors/action-error";
@@ -67,6 +67,7 @@ interface Props {
 	onPendingLeverageChange: (value: number) => void;
 	hasPosition: boolean;
 	positionStateReady: boolean;
+	positionStateLoading?: boolean;
 	allowsCrossMargin: boolean;
 	allowsIsolatedMarginRemoval: boolean;
 	isUpdating: boolean;
@@ -229,7 +230,7 @@ function MarginModeModalComponent({
 					/>
 				) : (
 					<>
-						<ModalHeader divider={false} className="px-4 pt-7 pr-14 pb-2">
+						<ModalHeader divider={false} className="ps-4 pe-14 pt-7 pb-2">
 							<ModalTitle className="text-trading-panel-fg">{title}</ModalTitle>
 						</ModalHeader>
 						{accountModeForm ? (
@@ -324,7 +325,7 @@ function MobileLeverageDrawerContent(props: FormProps) {
 
 	return (
 		<>
-			<ModalHeader divider={false} className="px-4 pt-7 pb-2 pr-4">
+			<ModalHeader divider={false} className="ps-4 pe-4 pt-7 pb-2">
 				<ModalTitle className="text-trading-panel-fg">
 					<Trans>Adjust leverage</Trans>
 				</ModalTitle>
@@ -351,6 +352,7 @@ function MarginModeForm({
 	onPendingLeverageChange,
 	hasPosition,
 	positionStateReady,
+	positionStateLoading = !positionStateReady,
 	allowsCrossMargin,
 	allowsIsolatedMarginRemoval,
 	isUpdating,
@@ -365,6 +367,7 @@ function MarginModeForm({
 }: FormProps) {
 	const { t } = useLingui();
 	const { clientKey, env } = useHyperliquid();
+	const positionUnavailableReasonId = useId();
 	const [selectedMode, setSelectedMode] = useState<MarginMode>(currentMode);
 	const [leverageInputValid, setLeverageInputValid] = useState(true);
 	const applyInFlightRef = useRef(false);
@@ -399,8 +402,9 @@ function MarginModeForm({
 	const isDirty = modeDirty || leverageDirty;
 	const leverageInputInvalid = showLeverageControls && !leverageInputValid;
 	const hasLeverageDraft = showLeverageControls && leverageDraft !== null;
-	const cannotSwitch = hasPosition && selectedMode === "isolated" && currentMode === "cross";
+	const cannotSwitch = positionStateReady && hasPosition && selectedMode === "isolated" && currentMode === "cross";
 	const positionStateUnavailable = !positionStateReady && selectedMode === "isolated" && currentMode === "cross";
+	const isPositionStateLoading = positionStateUnavailable && positionStateLoading;
 
 	function isLeverageDraftActive() {
 		return leverageGestureActiveRef.current || hasLeverageDraft;
@@ -465,7 +469,10 @@ function MarginModeForm({
 
 	return (
 		<>
-			<ModalContent className={cn("space-y-5", mobileLayout && "overflow-y-auto px-4 pt-3 pb-3")}>
+			<ModalContent
+				aria-busy={isPositionStateLoading || undefined}
+				className={cn("space-y-5", mobileLayout && "overflow-y-auto px-4 pt-3 pb-3")}
+			>
 				{showMarginControls ? (
 					<div className="space-y-2.5">
 						<div className="space-y-2">
@@ -516,14 +523,13 @@ function MarginModeForm({
 				)}
 
 				{positionStateUnavailable && (
-					<div className="flex items-start gap-2 rounded-16 border border-stroke-warning-weak bg-warning-soft/10 p-2.5">
-						<WarningIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
-						<p className="text-xs leading-relaxed text-warning">
-							<Trans>
-								Position data is unavailable. Wait for the account connection to recover before changing margin mode.
-							</Trans>
-						</p>
-					</div>
+					<span id={positionUnavailableReasonId} className="sr-only">
+						{positionStateLoading ? (
+							<Trans>Loading position data. Switching to Isolated mode is temporarily unavailable.</Trans>
+						) : (
+							<Trans>Unable to verify current positions. Switching to Isolated mode is temporarily unavailable.</Trans>
+						)}
+					</span>
 				)}
 
 				{showMarginControls && !allowsCrossMargin && (
@@ -549,6 +555,7 @@ function MarginModeForm({
 					requiresBuilderFee={false}
 					onClick={handleConfirm}
 					isActivationLocked={isLeverageDraftActive}
+					aria-describedby={positionStateUnavailable ? positionUnavailableReasonId : undefined}
 					disabled={
 						!sessionOpen || !isDirty || leverageInputInvalid || isUpdating || cannotSwitch || positionStateUnavailable
 					}

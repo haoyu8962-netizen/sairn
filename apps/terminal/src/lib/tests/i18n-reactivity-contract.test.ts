@@ -68,6 +68,7 @@ const REACTIVE_COMPONENTS = [
 	"components/trade/mobile/mobile-twap-fill-history-list.tsx",
 	"components/trade/mobile/mobile-twap-tab.tsx",
 	"components/trade/orderbook/orderbook-row.tsx",
+	"components/trade/orderbook/trade-row.tsx",
 	"components/trade/positions/balances-tab.tsx",
 	"components/trade/positions/funding-tab.tsx",
 	"components/trade/positions/history-tab.tsx",

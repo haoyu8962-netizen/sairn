@@ -40,9 +40,10 @@ export function OrderConfirmationModal({
 	onOpenChange,
 }: Props) {
 	const numberFormat = useNumberFormat();
-	const { _ } = useLingui();
+	const { _, i18n } = useLingui();
+	const locale = i18n.locale;
 	const isMobile = useIsMobile();
-	const rows = buildOrderConfirmationRows(draft, numberFormat, _);
+	const rows = buildOrderConfirmationRows(draft, numberFormat, _, locale);
 	const submitLabel = getOrderConfirmationSubmitLabel(draft, _);
 
 	function handleConfirm() {
@@ -59,9 +60,12 @@ export function OrderConfirmationModal({
 			showHandle={isMobile}
 			closeLabel={_(msg`Close order confirmation`)}
 			handleClassName="top-2 h-1 w-9 !rounded-[2px] bg-market-close-stroke-input"
-			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none [&>button]:!top-5 [&>button]:!right-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:max-w-[23.75rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!right-6"
+			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none [&>button]:!top-5 [&>button]:!end-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:max-w-[23.75rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!end-6"
 		>
-			<ModalHeader divider={false} className="gap-1 px-4 pt-7 pb-0 text-start min-[1001px]:px-6 min-[1001px]:pt-6">
+			<ModalHeader
+				divider={false}
+				className="gap-1 ps-4 pe-14 pt-7 pb-0 text-start min-[1001px]:ps-6 min-[1001px]:pe-16 min-[1001px]:pt-6"
+			>
 				<ModalTitle className="text-base leading-[22px] font-bold text-market-close-fg min-[1001px]:text-[17px] min-[1001px]:leading-6">
 					{_(msg`Confirm Order`)}
 				</ModalTitle>
@@ -76,10 +80,15 @@ export function OrderConfirmationModal({
 					className="flex max-h-[46dvh] flex-col gap-3.5 overflow-y-auto text-2sm leading-5"
 				>
 					{rows.map((row) => (
-						<div key={row.key} className="flex items-center justify-between gap-4">
+						<div key={row.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
 							<dt className="text-market-close-muted">{row.label}</dt>
-							<dd className={cn("min-w-0 truncate text-right font-semibold tabular-nums", getToneClass(row.tone))}>
-								{row.value}
+							<dd
+								className={cn(
+									"ms-auto min-w-0 max-w-full text-end font-semibold tabular-nums [overflow-wrap:anywhere]",
+									getToneClass(row.tone),
+								)}
+							>
+								<bdi>{row.value}</bdi>
 							</dd>
 						</div>
 					))}

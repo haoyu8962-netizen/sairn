@@ -467,7 +467,7 @@ describe("token selector wiring", () => {
 		expect(output.getAttribute("data-markets")?.split(",").sort()).toEqual(["BTC", "xyz:AAPL"]);
 	});
 
-	it("renders classification failures as an alert with a working retry action", () => {
+	it("renders classification failures as a neutral retry action without an alert banner", () => {
 		const retry = vi.fn();
 		const table = {
 			getHeaderGroups: () => [{ headers: [] }],
@@ -506,8 +506,8 @@ describe("token selector wiring", () => {
 			);
 		});
 
-		const alert = container.querySelector('[role="alert"]');
-		expect(alert?.textContent).toContain("Failed to load market categories.");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(container.textContent).not.toContain("Failed to load market categories.");
 
 		act(() => {
 			[...container.querySelectorAll("button")].find((button) => button.textContent === "Retry")?.click();

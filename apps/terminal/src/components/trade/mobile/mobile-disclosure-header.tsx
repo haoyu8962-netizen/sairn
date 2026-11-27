@@ -18,7 +18,7 @@ export function MobileDisclosureHeader({ expanded, label, onToggle, children, cl
 				type="button"
 				aria-expanded={expanded}
 				aria-label={label}
-				aria-controls={controls}
+				aria-controls={expanded ? controls : undefined}
 				onClick={onToggle}
 				className={cn(
 					"absolute inset-0 z-0 cursor-pointer rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus",
@@ -33,7 +33,7 @@ export function MobileDisclosureHeader({ expanded, label, onToggle, children, cl
 				className={cn(
 					"pointer-events-none relative z-10 size-4 shrink-0 text-market-close-subtle transition-transform duration-200",
 					"[transition-timing-function:cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
-					expanded && "rotate-90",
+					expanded ? "rotate-90" : "rtl:rotate-180",
 				)}
 			>
 				<path

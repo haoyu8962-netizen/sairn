@@ -795,6 +795,81 @@ describe("mobile orderbook subscription lifecycle", () => {
 		expect(getOrderbookActionsStore().selectedPrice).toBeNull();
 	});
 
+	it("omits the limit-price action label on unmeasured and cached compact and split orderbook rows", async () => {
+		const remeasures: Array<() => void> = [];
+		const rect = { bottom: 0, height: 0, left: 0, right: 400, top: 0, width: 400, x: 0, y: 0 };
+		vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+			...rect,
+			toJSON: () => ({}),
+		}));
+		vi.stubGlobal(
+			"ResizeObserver",
+			class implements ResizeObserver {
+				constructor(callback: ResizeObserverCallback) {
+					remeasures.push(() => callback([], this));
+				}
+
+				disconnect() {}
+				observe() {}
+				unobserve() {}
+			},
+		);
+
+		setSubscriptionState({
+			data: createBook(mocks.market.name, Date.now(), false, 3),
+			isStale: false,
+			status: "active",
+		});
+		render({ compact: false });
+		await act(async () => {});
+
+		const unmeasuredSplitAsk = container.querySelector<HTMLButtonElement>(
+			'button[data-orderbook-side="ask"][data-orderbook-rank="0"]',
+		);
+		expect(unmeasuredSplitAsk).not.toBeNull();
+		expect(unmeasuredSplitAsk?.disabled).toBe(true);
+		expect(unmeasuredSplitAsk?.getAttribute("aria-label")).not.toContain("limit price");
+		expect(unmeasuredSplitAsk?.getAttribute("aria-label")).toContain("101.00");
+
+		rect.height = 304;
+		rect.bottom = 304;
+		act(() => {
+			for (const remeasure of remeasures) remeasure();
+		});
+
+		const measuredSplitAsk = container.querySelector<HTMLButtonElement>(
+			'button[data-orderbook-side="ask"][data-orderbook-rank="0"]',
+		);
+		expect(measuredSplitAsk?.disabled).toBe(false);
+		expect(measuredSplitAsk?.getAttribute("aria-label")).toContain("limit price");
+
+		setSubscriptionState({ data: undefined, isStale: false, status: "subscribing" });
+		render({ compact: false });
+
+		const cachedSplitAsk = container.querySelector<HTMLButtonElement>(
+			'button[data-orderbook-side="ask"][data-orderbook-rank="0"]',
+		);
+		expect(cachedSplitAsk).not.toBeNull();
+		expect(cachedSplitAsk?.disabled).toBe(true);
+		expect(cachedSplitAsk?.getAttribute("aria-label")).not.toContain("limit price");
+
+		setSubscriptionState({
+			data: createBook(mocks.market.name, Date.now(), true, 3),
+			isStale: false,
+			status: "active",
+		});
+		render({ compact: true });
+		await act(async () => {});
+		expect(getAskPrice("101.00")?.getAttribute("aria-label")).toContain("limit price");
+
+		setSubscriptionState({ data: undefined, isStale: false, status: "subscribing" });
+		render({ compact: true });
+		const cachedCompactAsk = getAskPrice("101.00");
+		expect(cachedCompactAsk).not.toBeNull();
+		expect(cachedCompactAsk?.disabled).toBe(true);
+		expect(cachedCompactAsk?.getAttribute("aria-label")).not.toContain("limit price");
+	});
+
 	it("states an empty split side on a live frame and holds its rows while the cached book is transitioning", async () => {
 		const bidsOnly = (time: number): BookEvent => ({
 			...createBook(mocks.market.name, time, false, 3),

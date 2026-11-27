@@ -124,6 +124,8 @@ vi.mock("@sairn/ui", () => ({
 		open || modalLinger.keepMounted ? createElement("section", null, children) : null,
 	Button: ({ children, ...props }: { children: ReactNode; [key: string]: unknown }) =>
 		createElement("button", { ...props, type: "button" }, children),
+	ButtonIcon: ({ children, ...props }: { children: ReactNode; [key: string]: unknown }) =>
+		createElement("button", { ...props, type: "button" }, children),
 	Checkbox: ({
 		checked,
 		disabled,

@@ -73,7 +73,8 @@ vi.mock("@sairn/ui", () => ({
 		createElement("button", { disabled, onClick, type: "button" }, children),
 	ModalContent: ({ children }: { children: ReactNode }) => createElement("div", null, children),
 	ModalDescription: ({ children }: { children: ReactNode }) => createElement("p", null, children),
-	ModalHeader: ({ children }: { children: ReactNode }) => createElement("header", null, children),
+	ModalHeader: ({ children, className }: { children: ReactNode; className?: string }) =>
+		createElement("header", { className }, children),
 	ModalTitle: ({ children }: { children: ReactNode }) => createElement("h2", null, children),
 }));
 
@@ -353,5 +354,110 @@ describe("WalletModal", () => {
 
 		expect(findButton(container, "Try the PWA.")).toBeUndefined();
 		expect(testState.promptInstall).not.toHaveBeenCalled();
+	});
+
+	it("preserves logical end clearance on the mobile choice header so the RTL title cannot overlap the close button", async () => {
+		testState.isMobileQrSurface = true;
+		const { WalletModal } = await import("@/components/trade/components/wallet-modal");
+
+		act(() => {
+			root.render(createElement(WalletModal, { open: true, onOpenChange: vi.fn() }));
+		});
+
+		const header = container.querySelector("header");
+		expect(header?.className).toContain("pe-14");
+		expect(header?.className).not.toContain("px-4");
+	});
+
+	it("keeps the drawer open with a failure notice and back navigation when browser PWA installation fails", async () => {
+		testState.isMobileQrSurface = true;
+		testState.pwaCapability = "browser-prompt";
+		testState.promptInstall.mockResolvedValueOnce("failed");
+		const onOpenChange = vi.fn();
+		const { WalletModal } = await import("@/components/trade/components/wallet-modal");
+
+		act(() => {
+			root.render(createElement(WalletModal, { open: true, onOpenChange }));
+		});
+		act(() => findButton(container, "Try the PWA.")?.click());
+		await act(async () => {
+			findButton(container, "Install app")?.click();
+			await Promise.resolve();
+		});
+
+		expect(testState.promptInstall).toHaveBeenCalledTimes(1);
+		expect(onOpenChange).not.toHaveBeenCalledWith(false);
+		expect(container.querySelector('[role="alert"]')?.textContent).toMatch(/install/i);
+		expect(findButton(container, "Back")).toBeDefined();
+
+		act(() => findButton(container, "Back")?.click());
+		expect(container.querySelector("h2")?.textContent).toBe("Connect");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	it("ignores stale PWA install outcomes after navigating back to the connect view", async () => {
+		testState.isMobileQrSurface = true;
+		testState.pwaCapability = "browser-prompt";
+		let resolveInstall!: (outcome: "accepted" | "dismissed" | "failed") => void;
+		testState.promptInstall.mockImplementationOnce(
+			() =>
+				new Promise<"accepted" | "dismissed" | "failed">((resolve) => {
+					resolveInstall = resolve;
+				}),
+		);
+		const onOpenChange = vi.fn();
+		const { WalletModal } = await import("@/components/trade/components/wallet-modal");
+
+		act(() => {
+			root.render(createElement(WalletModal, { open: true, onOpenChange }));
+		});
+		act(() => findButton(container, "Try the PWA.")?.click());
+		act(() => findButton(container, "Install app")?.click());
+		act(() => findButton(container, "Back")?.click());
+		expect(container.querySelector("h2")?.textContent).toBe("Connect");
+
+		await act(async () => {
+			resolveInstall("dismissed");
+			await Promise.resolve();
+		});
+
+		expect(onOpenChange).not.toHaveBeenCalled();
+		expect(container.querySelector("h2")?.textContent).toBe("Connect");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	it("ignores stale PWA install outcomes after closing and reopening or remounting the wallet drawer", async () => {
+		testState.isMobileQrSurface = true;
+		testState.pwaCapability = "browser-prompt";
+		let resolveInstall!: (outcome: "accepted" | "dismissed" | "failed") => void;
+		testState.promptInstall.mockImplementationOnce(
+			() =>
+				new Promise<"accepted" | "dismissed" | "failed">((resolve) => {
+					resolveInstall = resolve;
+				}),
+		);
+		const onOpenChange = vi.fn();
+		const { WalletModal } = await import("@/components/trade/components/wallet-modal");
+
+		act(() => {
+			root.render(createElement(WalletModal, { open: true, onOpenChange }));
+		});
+		act(() => findButton(container, "Try the PWA.")?.click());
+		act(() => findButton(container, "Install app")?.click());
+
+		act(() => {
+			root.render(createElement(WalletModal, { open: false, onOpenChange }));
+		});
+		act(() => {
+			root.render(createElement(WalletModal, { open: true, onOpenChange }));
+		});
+
+		await act(async () => {
+			resolveInstall("accepted");
+			await Promise.resolve();
+		});
+
+		expect(onOpenChange).not.toHaveBeenCalled();
+		expect(container.querySelector("h2")?.textContent).toBe("Connect");
 	});
 });

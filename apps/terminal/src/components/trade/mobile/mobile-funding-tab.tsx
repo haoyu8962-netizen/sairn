@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Button, Select } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { MOBILE_ACCOUNT_SUBROW_CLASS } from "@/components/trade/mobile/mobile-account-subrow";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
 import { DataPendingState } from "@/components/ui/data-pending-state";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
@@ -170,10 +171,7 @@ function MobileFundingTabContent({
 
 	function renderFilterRow(disabled: boolean) {
 		return (
-			<div
-				data-testid="mobile-funding-history-filter-row"
-				className="flex h-9 shrink-0 items-center overflow-x-auto border-b border-market-close-stroke-card px-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-			>
+			<div data-testid="mobile-funding-history-filter-row" className={MOBILE_ACCOUNT_SUBROW_CLASS}>
 				<div className="flex shrink-0 items-center gap-1.5">
 					<Select
 						disabled={disabled}
@@ -291,50 +289,50 @@ function MobileFundingTabContent({
 											}
 											controls={detailsId}
 											onToggle={handleToggle}
-											className="h-[54px] grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_16px] gap-2.5 px-3.5"
+											className="min-h-[54px] grid-cols-[minmax(0,1fr)_16px] gap-2.5 px-3.5 py-2"
 										>
-											<button
-												type="button"
-												onClick={() => handleSelectMarket(update.coin)}
-												aria-label={t`Switch to ${marketName} market`}
-												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-start focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
-											>
-												<span className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
-												<span className="flex min-w-0 items-center gap-1">
-													<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
-														{marketLabel}
-													</span>
-													{marketDex ? (
-														<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
-															{marketDex}
+											<div className="pointer-events-none grid min-w-0 grid-cols-2 gap-x-2.5 gap-y-1.5">
+												<button
+													type="button"
+													onClick={() => handleSelectMarket(update.coin)}
+													aria-label={t`Switch to ${marketName} market`}
+													className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-start focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
+												>
+													<span className="text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
+													<span className="flex min-w-0 flex-wrap items-center gap-1">
+														<span className="min-w-0 break-words text-xs font-bold leading-[17px] text-market-close-fg [overflow-wrap:anywhere]">
+															{marketLabel}
 														</span>
-													) : null}
-												</span>
-											</button>
-											<div className="min-w-0">
-												<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Time`}</div>
-												<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-													{formatDateTimeShort(update.time, { locale })}
+														{marketDex ? (
+															<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+																{marketDex}
+															</span>
+														) : null}
+													</span>
+												</button>
+												<div className="flex min-w-0 flex-col justify-center">
+													<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Time`}</div>
+													<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
+														{formatDateTimeShort(update.time, { locale })}
+													</div>
 												</div>
-											</div>
-											<div className="min-w-0">
-												<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Position`}</div>
-												<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-													{positionDisplay}
+												<div className="col-span-2 min-w-0">
+													<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Position`}</div>
+													<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums [overflow-wrap:anywhere]">
+														{positionDisplay}
+													</div>
 												</div>
 											</div>
 										</MobileDisclosureHeader>
 
 										{isExpanded ? (
 											<div id={detailsId} className="flex flex-col gap-2.5 px-3.5 py-3">
-												<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-x-2.5 gap-y-3">
+												<div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
 													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">
-															{t`Direction`}
-														</div>
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Direction`}</div>
 														<div
 															className={cn(
-																"truncate whitespace-nowrap text-xs font-semibold leading-[17px]",
+																"break-words text-xs font-semibold leading-[17px]",
 																fundingDirection === null
 																	? "text-market-close-muted"
 																	: fundingDirection === "long"
@@ -350,25 +348,25 @@ function MobileFundingTabContent({
 														</div>
 													</div>
 													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Payment`}</div>
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Rate`}</div>
+														<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums [overflow-wrap:anywhere]">
+															{formatPercent(update.fundingRate, {
+																minimumFractionDigits: 4,
+																maximumFractionDigits: 4,
+															})}
+														</div>
+													</div>
+													<div className="col-span-2 min-w-0">
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Payment`}</div>
 														<div
 															className={cn(
-																"truncate whitespace-nowrap text-xs font-semibold leading-[17px] tabular-nums",
+																"break-words text-xs font-semibold leading-[17px] tabular-nums [overflow-wrap:anywhere]",
 																getMarketCloseValueColorClass(update.usdc),
 															)}
 														>
 															{formatToken(update.usdc, {
 																symbol:
 																	getFundingCollateralSymbol(update.coin, markets.getMarket(update.coin)) ?? undefined,
-															})}
-														</div>
-													</div>
-													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Rate`}</div>
-														<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-															{formatPercent(update.fundingRate, {
-																minimumFractionDigits: 4,
-																maximumFractionDigits: 4,
 															})}
 														</div>
 													</div>

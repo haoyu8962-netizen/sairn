@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 	isTestnet: false,
 	data: undefined as LeaderboardApiSuccessResponse | undefined,
 }));
-vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => mocks.isMobile }));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => mocks.isMobile, useOnlineStatus: () => true }));
 vi.mock("@/lib/hyperliquid", async () => ({
 	getExplorerAddressUrl: (await import("@sairn/hl-react")).getExplorerAddressUrl,
 	useHyperliquid: () => ({ isTestnet: mocks.isTestnet }),

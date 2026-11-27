@@ -21,6 +21,7 @@ export const N_SIG_FIGS = 5;
 const LIVE_HANDOFF_MS = 15_000;
 const SILENT_LIMIT_MS = 20_000;
 const BOOK_FRESH_MS = 12_000;
+const LOCK_WAIT_NOTE_MS = 2_000;
 const IDLE_DISCONNECT_MS = 30_000;
 const INVALID_FRAME_LIMIT = 3;
 const BUDGET = [
@@ -51,6 +52,7 @@ interface Quote {
 }
 
 type Phase = "recorded" | "live" | "paused" | "unavailable";
+type ConnectionState = "idle" | "lock_queued" | "lock_waiting" | "connecting" | "subscribed" | "reconnecting" | "lock_failed";
 
 function isLevelList(value: unknown, descending: boolean): value is { px: string; sz: string }[] {
 	if (!Array.isArray(value) || value.length === 0) return false;
@@ -178,6 +180,7 @@ interface Elements {
 	start: HTMLButtonElement;
 	state: HTMLElement;
 	note: HTMLElement;
+	stats: HTMLElement | null;
 	slots: Record<"bid" | "ask" | "spread" | "last", HTMLElement | null>;
 }
 
@@ -199,6 +202,7 @@ function readElements(root: HTMLElement): Elements | null {
 		start,
 		state,
 		note,
+		stats: root.querySelector<HTMLElement>("[data-ob-stats]"),
 		slots: {
 			bid: root.querySelector<HTMLElement>("[data-ob-bid]"),
 			ask: root.querySelector<HTMLElement>("[data-ob-ask]"),
@@ -216,8 +220,9 @@ export function startOpenBook(root: HTMLElement): void {
 	const recordedNote = root.dataset.recordedNote ?? "";
 	const elements = readElements(root);
 	if (!elements) return;
-	const { canvas, context, poster, panel, pause, start, state, note, slots } = elements;
-	if (!("WebSocket" in window) || !("locks" in navigator) || !("IntersectionObserver" in window)) {
+	const { canvas, context, poster, panel, pause, start, state, note, stats, slots } = elements;
+	if (!("WebSocket" in window) || !("locks" in navigator) || !navigator.locks || !("IntersectionObserver" in window)) {
+		stats?.setAttribute("aria-busy", "false");
 		note.textContent = `${recordedNote} This browser cannot show the live view.`;
 		return;
 	}
@@ -240,14 +245,20 @@ export function startOpenBook(root: HTMLElement): void {
 	let phase: Phase = "recorded";
 	let optedIn = !(reducedQuery.matches || connection?.saveData === true);
 	let paused = false;
+	let pageHidden = false;
 	let onScreen = false;
 	let socket: WebSocket | null = null;
+	let subscribed = false;
+	let socketOpenedAt = 0;
+	let connectionState: ConnectionState = "idle";
+	let lockQueuedAt = 0;
 	let releaseLock: (() => void) | null = null;
 	let lockAbort: AbortController | null = null;
 	const attempts: number[] = [];
 	let liveSince = 0;
 	let lastValidAt = 0;
 	let lastBookAt = 0;
+	let lastBookT = Number.NEGATIVE_INFINITY;
 	let invalid = { l2Book: 0, bbo: 0 };
 	let columns: Column[] = [];
 	let trades: Trade[] = [];
@@ -269,7 +280,12 @@ export function startOpenBook(root: HTMLElement): void {
 	let frame = 0;
 	let lastDraw = 0;
 	let idleTimer: ReturnType<typeof setTimeout> | undefined;
+	let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 	let yRange: { min: number; max: number } | null = null;
+
+	function isBookFresh(now: number): boolean {
+		return lastBookAt > 0 && now - lastBookAt <= BOOK_FRESH_MS;
+	}
 
 	function windowMs(now: number) {
 		const full = mobileQuery.matches ? 60_000 : 120_000;
@@ -284,6 +300,8 @@ export function startOpenBook(root: HTMLElement): void {
 	}
 
 	function setPhase(next: Phase) {
+		const activeBefore = document.activeElement;
+		const focusedControl = activeBefore === start || activeBefore === pause;
 		phase = next;
 		root.dataset.phase = next;
 		const showCanvas = next === "live" || (next === "paused" && columns.length > 0);
@@ -294,6 +312,16 @@ export function startOpenBook(root: HTMLElement): void {
 		pause.hidden = !optedIn || next === "unavailable";
 		pause.textContent = paused ? "Resume" : "Pause";
 		pause.setAttribute("aria-pressed", String(paused));
+		if (focusedControl && ((activeBefore === start && start.hidden) || (activeBefore === pause && pause.hidden))) {
+			if (!pause.hidden) {
+				pause.focus();
+			} else if (!start.hidden) {
+				start.focus();
+			} else if (!panel.hidden) {
+				panel.tabIndex = 0;
+				panel.focus();
+			}
+		}
 		renderNumbers();
 		renderNote();
 	}
@@ -301,19 +329,25 @@ export function startOpenBook(root: HTMLElement): void {
 	function renderNote() {
 		if (phase === "live") {
 			note.textContent = `Live from Hyperliquid public data${lastTrade ? ` · last trade ${utcTime(lastTrade.t)} UTC` : ""}.`;
-		} else if (phase === "paused") {
-			note.textContent = "Paused. Nothing updates until you resume.";
+		} else if (phase === "paused" || paused) {
+			note.textContent =
+				columns.length > 0 ? "Paused. Nothing updates until you resume." : `${recordedNote} Paused. Nothing updates until you resume.`;
 		} else if (phase === "unavailable") {
 			note.textContent = `${recordedNote} Live data is unavailable right now.`;
 		} else if (!optedIn) {
 			note.textContent = `${recordedNote} The live view starts when you ask for it.`;
-		} else {
+		} else if (connectionState === "lock_waiting") {
+			note.textContent = `${recordedNote} Live view is active in another tab.`;
+		} else if (connectionState === "connecting" || connectionState === "subscribed" || connectionState === "reconnecting") {
 			note.textContent = `${recordedNote} Switches to live after ${LIVE_HANDOFF_MS / 1000} s of live data.`;
+		} else {
+			note.textContent = recordedNote;
 		}
 	}
 
 	function renderNumbers() {
-		const live = phase === "live" && quote !== null && performance.now() - lastValidAt < SILENT_LIMIT_MS;
+		const now = performance.now();
+		const live = phase === "live" && quote !== null && isBookFresh(now) && now - lastValidAt < SILENT_LIMIT_MS;
 		const values = { bid: "", ask: "", spread: "", last: "" };
 		if (live && quote) {
 			values.bid = formatMarkPrice(quote.bid, szDecimals) ?? "";
@@ -325,7 +359,10 @@ export function startOpenBook(root: HTMLElement): void {
 		for (const [key, slot] of Object.entries(slots)) {
 			if (slot) slot.textContent = values[key as keyof typeof values];
 		}
-		root.setAttribute("aria-busy", live ? "false" : "true");
+		const hasActiveProgress =
+			connectionState === "connecting" || connectionState === "subscribed" || connectionState === "reconnecting";
+		const waitingForData = !live && phase === "recorded" && wanted() && hasActiveProgress;
+		stats?.setAttribute("aria-busy", waitingForData ? "true" : "false");
 	}
 
 	function resetData() {
@@ -341,17 +378,18 @@ export function startOpenBook(root: HTMLElement): void {
 		liveSince = 0;
 		lastValidAt = 0;
 		lastBookAt = 0;
+		lastBookT = Number.NEGATIVE_INFINITY;
 		invalid = { l2Book: 0, bbo: 0 };
 		yRange = null;
 	}
 
 	function wanted() {
-		return optedIn && !paused && onScreen && !panel.hidden && document.visibilityState === "visible" && phase !== "unavailable";
+		return optedIn && !paused && !pageHidden && onScreen && !panel.hidden && document.visibilityState === "visible" && phase !== "unavailable";
 	}
 
 	function rejectFrame(channel: "l2Book" | "bbo") {
 		invalid[channel] += 1;
-		if (invalid[channel] >= INVALID_FRAME_LIMIT) dropToRecorded(true);
+		if (invalid[channel] >= INVALID_FRAME_LIMIT) dropToRecorded(wanted());
 	}
 
 	function withdrawQuote() {
@@ -361,7 +399,8 @@ export function startOpenBook(root: HTMLElement): void {
 		if (phase === "live") setPhase("recorded");
 	}
 
-	function onMessage(event: MessageEvent) {
+	function onMessage(ws: WebSocket, event: MessageEvent) {
+		if (socket !== ws) return;
 		let message: { channel?: string; data?: unknown };
 		try {
 			message = JSON.parse(String(event.data));
@@ -373,24 +412,28 @@ export function startOpenBook(root: HTMLElement): void {
 			const book = readBook(message.data, coin);
 			if (!book) return rejectFrame("l2Book");
 			invalid.l2Book = 0;
-			lastBookAt = now;
-			lastValidAt = now;
-			exchangeNow = Math.max(exchangeNow, book.t);
-			exchangeNowAt = now;
-			const levels = [...book.bids.slice(0, MAX_LEVELS), ...book.asks.slice(0, MAX_LEVELS)].map((level) => ({
-				px: Number(level.px),
-				sz: Number(level.sz),
-			}));
-			if (columns.length === 0 || book.t > (columns.at(-1)?.t ?? 0)) columns.push({ t: book.t, levels });
-			if (firstBookT === 0) firstBookT = book.t;
-			const top = { bid: book.bids[0].px, ask: book.asks[0].px, t: book.t };
-			const replacesQuote = quote ? !quoteFromBbo || bookContradictsQuote(top, quote) : !quoteFromBbo || book.t > quoteT;
-			if (book.t >= quoteT && replacesQuote) {
-				quote = top;
-				quoteT = book.t;
-				quoteFromBbo = false;
+			if (book.t > lastBookT) {
+				if (phase === "recorded" && lastBookAt > 0 && now - lastBookAt > BOOK_FRESH_MS) liveSince = 0;
+				lastBookT = book.t;
+				lastBookAt = now;
+				lastValidAt = now;
+				exchangeNow = Math.max(exchangeNow, book.t);
+				exchangeNowAt = now;
+				const levels = [...book.bids.slice(0, MAX_LEVELS), ...book.asks.slice(0, MAX_LEVELS)].map((level) => ({
+					px: Number(level.px),
+					sz: Number(level.sz),
+				}));
+				columns.push({ t: book.t, levels });
+				if (firstBookT === 0) firstBookT = book.t;
+				const top = { bid: book.bids[0].px, ask: book.asks[0].px, t: book.t };
+				const replacesQuote = quote ? !quoteFromBbo || bookContradictsQuote(top, quote) : !quoteFromBbo || book.t > quoteT;
+				if (book.t >= quoteT && replacesQuote) {
+					quote = top;
+					quoteT = book.t;
+					quoteFromBbo = false;
+				}
+				recordMid(book.t);
 			}
-			recordMid(book.t);
 		} else if (message.channel === "bbo") {
 			const read = readBbo(message.data, coin);
 			if (!read) return rejectFrame("bbo");
@@ -416,60 +459,120 @@ export function startOpenBook(root: HTMLElement): void {
 		} else {
 			return;
 		}
-		if (liveSince === 0 && lastBookAt > 0 && quote) liveSince = now;
-		if (phase === "recorded" && liveSince > 0 && now - liveSince >= LIVE_HANDOFF_MS && quote) setPhase("live");
+		const bookFresh = isBookFresh(now);
+		const quoteFresh = quote !== null && lastValidAt > 0 && now - lastValidAt < SILENT_LIMIT_MS;
+		if (phase === "live" && !bookFresh) {
+			dropToRecorded(wanted());
+			return;
+		}
+		if (liveSince === 0 && bookFresh && quoteFresh) liveSince = now;
+		if (phase === "recorded" && liveSince > 0 && now - liveSince >= LIVE_HANDOFF_MS && bookFresh && quoteFresh) setPhase("live");
 		if (phase === "live" && reducedQuery.matches) draw();
 	}
 
 	function connect() {
 		if (socket || lockAbort || !wanted()) return;
-		const now = performance.now();
-		if (!connectionAllowed(attempts, now)) {
+		if (!connectionAllowed(attempts, performance.now())) {
+			connectionState = "idle";
 			setPhase("unavailable");
 			return;
 		}
-		attempts.push(now);
 		lockAbort = new AbortController();
 		const abort = lockAbort;
-		navigator.locks
-			.request(LOCK_NAME, { signal: abort.signal }, () => {
+		connectionState = "lock_queued";
+		lockQueuedAt = performance.now();
+		renderNumbers();
+		renderNote();
+		const onLockFailure = () => {
+			if (abort.signal.aborted) return;
+			if (lockAbort === abort) lockAbort = null;
+			lockQueuedAt = 0;
+			connectionState = "lock_failed";
+			setPhase("unavailable");
+		};
+		let pending: Promise<void>;
+		try {
+			pending = navigator.locks.request(LOCK_NAME, { signal: abort.signal }, () => {
 				if (abort.signal.aborted || !wanted()) return;
+				const now = performance.now();
+				if (!connectionAllowed(attempts, now)) {
+					lockQueuedAt = 0;
+					connectionState = "idle";
+					setPhase("unavailable");
+					return;
+				}
+				attempts.push(now);
+				lockQueuedAt = 0;
 				return new Promise<void>((resolve) => {
 					releaseLock = resolve;
 					openSocket();
 				});
-			})
-			.catch(() => {})
-			.finally(() => {
-				if (lockAbort === abort) lockAbort = null;
 			});
+		} catch {
+			onLockFailure();
+			return;
+		}
+		pending
+			.catch(() => {
+				onLockFailure();
+			})
+			.finally(() => {
+				if (lockAbort === abort) {
+					lockAbort = null;
+					lockQueuedAt = 0;
+					if (!socket && connectionState !== "lock_failed" && connectionState !== "reconnecting") {
+						connectionState = "idle";
+					}
+				}
+				renderNumbers();
+				renderNote();
+			});
+	}
+
+	function sendSubscriptions(ws: WebSocket) {
+		if (socket !== ws || subscribed || ws.readyState !== WebSocket.OPEN || !wanted()) return;
+		subscribed = true;
+		connectionState = "subscribed";
+		socketOpenedAt = performance.now();
+		for (const subscription of [
+			{ type: "l2Book", coin, nSigFigs: N_SIG_FIGS },
+			{ type: "bbo", coin },
+			{ type: "trades", coin },
+		]) {
+			ws.send(JSON.stringify({ method: "subscribe", subscription }));
+		}
+		renderNumbers();
+		renderNote();
 	}
 
 	function openSocket() {
 		const ws = new WebSocket(WS_URL);
 		socket = ws;
-		ws.addEventListener("open", () => {
-			for (const subscription of [
-				{ type: "l2Book", coin, nSigFigs: N_SIG_FIGS },
-				{ type: "bbo", coin },
-				{ type: "trades", coin },
-			]) {
-				ws.send(JSON.stringify({ method: "subscribe", subscription }));
-			}
-		});
-		ws.addEventListener("message", onMessage);
+		subscribed = false;
+		connectionState = "connecting";
+		socketOpenedAt = performance.now();
+		ws.addEventListener("open", () => sendSubscriptions(ws));
+		ws.addEventListener("message", (event) => onMessage(ws, event));
 		ws.addEventListener("close", () => {
 			if (socket !== ws) return;
-			disconnect();
-			// A close before the live handoff (including a failed first handshake) also retries, within the
-			// connection budget that connect() enforces.
-			if (phase === "live" || (phase === "recorded" && wanted())) dropToRecorded(true);
+			dropToRecorded(wanted());
 		});
+		if (ws.readyState === WebSocket.OPEN) sendSubscriptions(ws);
+		renderNumbers();
+		renderNote();
 	}
 
 	function disconnect() {
+		clearTimeout(idleTimer);
+		idleTimer = undefined;
+		clearTimeout(reconnectTimer);
+		reconnectTimer = undefined;
 		const ws = socket;
 		socket = null;
+		subscribed = false;
+		socketOpenedAt = 0;
+		lockQueuedAt = 0;
+		if (connectionState !== "lock_failed") connectionState = "idle";
 		if (ws && ws.readyState <= WebSocket.OPEN) ws.close();
 		lockAbort?.abort();
 		lockAbort = null;
@@ -480,8 +583,16 @@ export function startOpenBook(root: HTMLElement): void {
 	function dropToRecorded(reconnect: boolean) {
 		disconnect();
 		resetData();
+		if (reconnect && phase !== "unavailable" && phase !== "paused") connectionState = "reconnecting";
 		if (phase !== "unavailable" && phase !== "paused") setPhase("recorded");
-		if (reconnect) setTimeout(update, 1_000);
+		if (reconnect) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = setTimeout(() => {
+				reconnectTimer = undefined;
+				if (connectionState === "reconnecting") connectionState = "idle";
+				update();
+			}, 1_000);
+		}
 	}
 
 	function update() {
@@ -489,28 +600,44 @@ export function startOpenBook(root: HTMLElement): void {
 		idleTimer = undefined;
 		if (wanted()) {
 			connect();
+			if (socket) sendSubscriptions(socket);
 			loop();
+			renderNumbers();
+			renderNote();
 			return;
 		}
+		clearTimeout(reconnectTimer);
+		reconnectTimer = undefined;
+		if (connectionState === "reconnecting") connectionState = "idle";
 		cancelAnimationFrame(frame);
 		frame = 0;
+		renderNumbers();
+		renderNote();
 		if (!socket && !lockAbort) return;
-		if (paused || !optedIn) {
+		if (paused || !optedIn || pageHidden) {
 			disconnect();
 			return;
 		}
 		idleTimer = setTimeout(() => {
+			idleTimer = undefined;
 			if (!wanted()) dropToRecorded(false);
 		}, IDLE_DISCONNECT_MS);
 	}
 
+	function isFeedStale(now: number): boolean {
+		if (lastBookAt === 0) return socketOpenedAt > 0 && now - socketOpenedAt > SILENT_LIMIT_MS;
+		if (phase === "live" && !isBookFresh(now)) return true;
+		return now - lastValidAt > SILENT_LIMIT_MS || now - lastBookAt > BOOK_FRESH_MS * 2;
+	}
+
 	function tick() {
 		const now = performance.now();
-		if (phase === "live" && (now - lastValidAt > SILENT_LIMIT_MS || now - lastBookAt > BOOK_FRESH_MS * 2)) {
-			dropToRecorded(true);
-		} else if (phase === "recorded" && socket && liveSince === 0 && lastValidAt === 0 && attempts.length > 0) {
-			const opened = attempts.at(-1) ?? now;
-			if (now - opened > SILENT_LIMIT_MS) dropToRecorded(true);
+		if (connectionState === "lock_queued" && lockQueuedAt > 0 && now - lockQueuedAt >= LOCK_WAIT_NOTE_MS) {
+			connectionState = "lock_waiting";
+			renderNote();
+		}
+		if ((phase === "live" || (phase === "recorded" && socket && (subscribed || wanted()))) && isFeedStale(now)) {
+			dropToRecorded(wanted());
 		}
 		renderNumbers();
 		if (phase === "live") renderNote();
@@ -532,6 +659,10 @@ export function startOpenBook(root: HTMLElement): void {
 	}
 
 	function draw() {
+		if (phase === "live" && !isBookFresh(performance.now())) {
+			dropToRecorded(wanted());
+			return;
+		}
 		const mobile = mobileQuery.matches;
 		const ratio = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
 		const width = canvas.clientWidth;
@@ -547,7 +678,9 @@ export function startOpenBook(root: HTMLElement): void {
 		const span = windowMs(now);
 		const from = now - span;
 		mids = mids.filter((point, index) => point.t >= from || (mids[index + 1]?.t ?? Number.POSITIVE_INFINITY) >= from);
-		columns = columns.filter((column, index) => column.t >= from || columns[index + 1]?.t >= from);
+		columns = columns.filter(
+			(column, index) => column.t >= from || Math.min(columns[index + 1]?.t ?? now, column.t + BOOK_FRESH_MS, now) > from,
+		);
 		trades = trades.filter((trade) => trade.t >= from);
 		if (seenTrades.size > 5_000) seenTrades.clear();
 		if (!quote || columns.length === 0) return;
@@ -618,8 +751,11 @@ export function startOpenBook(root: HTMLElement): void {
 		const tickHeight = Math.max(2, Math.abs(y(mid) - y(mid + mid * 0.00001 * 2)));
 		context.fillStyle = colors.heat;
 		columns.forEach((column, index) => {
+			const rightT = Math.min(columns[index + 1]?.t ?? now, column.t + BOOK_FRESH_MS, now);
+			if (rightT <= from && column.t < from) return;
 			const left = Math.max(0, x(column.t));
-			const right = x(columns[index + 1]?.t ?? now);
+			const right = x(rightT);
+			if (right < left) return;
 			for (const level of column.levels) {
 				context.globalAlpha = 0.04 + 0.4 * Math.sqrt(level.sz / (largest || 1));
 				context.fillRect(left, y(level.px) - tickHeight / 2, Math.max(1, right - left), tickHeight);
@@ -696,8 +832,10 @@ export function startOpenBook(root: HTMLElement): void {
 	pause.addEventListener("click", () => {
 		paused = !paused;
 		if (paused) {
+			const keepFrozenCanvas = phase === "live" && columns.length > 0;
 			disconnect();
-			setPhase(columns.length > 0 && phase === "live" ? "paused" : "recorded");
+			if (!keepFrozenCanvas) resetData();
+			setPhase("paused");
 		} else {
 			resetData();
 			setPhase("recorded");
@@ -708,7 +846,7 @@ export function startOpenBook(root: HTMLElement): void {
 		optedIn = true;
 		setPhase(phase);
 		update();
-		pause.focus();
+		if (!pause.hidden) pause.focus();
 	});
 	reducedQuery.addEventListener("change", () => {
 		if (reducedQuery.matches && !paused) {
@@ -726,9 +864,15 @@ export function startOpenBook(root: HTMLElement): void {
 	}).observe(root);
 	new MutationObserver(update).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
 	window.addEventListener("pagehide", () => {
+		pageHidden = true;
 		disconnect();
 		resetData();
-		setPhase("recorded");
+		setPhase(paused ? "paused" : "recorded");
+	});
+	window.addEventListener("pageshow", () => {
+		if (!pageHidden) return;
+		pageHidden = false;
+		update();
 	});
 	setInterval(tick, 1_000);
 	setPhase("recorded");

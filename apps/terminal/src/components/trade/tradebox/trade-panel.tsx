@@ -32,7 +32,12 @@ import { buildOrderFeeQuote, resolveEstimatedProtocolRate } from "@/domain/trade
 import { isOrderSizeValidationError } from "@/domain/trade/order-size-validation";
 import { resolveScaleSkewNumber } from "@/domain/trade/orders";
 import { getTpSlPriceErrors } from "@/domain/trade/tpsl-price-validation";
-import { resolveTwapPriceInputs } from "@/domain/trade/twap-details";
+import {
+	getTwapTriggerDirection,
+	parseTwapPriceInput,
+	resolveTwapDurationState,
+	resolveTwapPriceStates,
+} from "@/domain/trade/twap-details";
 import {
 	type SelectableAccountAbstraction,
 	useAccountAbstractionControl,
@@ -63,7 +68,7 @@ import {
 } from "@/lib/hyperliquid";
 import { createLazyComponent } from "@/lib/lazy";
 import type { MarginMode } from "@/lib/trade/margin-mode";
-import { toNumber, toNumberOrZero } from "@/lib/trade/numbers";
+import { toBig, toNumber, toNumberOrZero } from "@/lib/trade/numbers";
 import {
 	canUseTpSl as canUseTpSlForOrder,
 	isScaleOrderType,
@@ -104,6 +109,7 @@ import {
 	useTpSlReturnInvalid,
 	useTriggerPrice,
 	useTwapAdvancedEnabled,
+	useTwapDurationDraft,
 	useTwapMinutes,
 	useTwapRandomize,
 	useTwapStopPrice,
@@ -318,6 +324,7 @@ export function TradePanel() {
 	const builderFeeTenthsBps = useBuilderFeeTenthsBps();
 	const triggerPriceInput = useTriggerPrice();
 	const twapMinutesNum = useTwapMinutes();
+	const twapDurationDraft = useTwapDurationDraft();
 	const twapRandomize = useTwapRandomize();
 	const twapAdvancedEnabled = useTwapAdvancedEnabled();
 	const twapTriggerPriceInput = useTwapTriggerPrice();
@@ -338,14 +345,18 @@ export function TradePanel() {
 	const isWalletLoading = isConnected && signerMode === "owner" && isSignerLoading;
 	const { authorize, status: registerStatus } = useTradingAuthorization({ requiresBuilderFee });
 	const twapPriceFormat = { assetId: market?.assetId, szDecimals: market?.szDecimals ?? 0 };
-	const { triggerPx: twapTriggerPx, stopPx: twapStopPx } = resolveTwapPriceInputs(
+	const { trigger: twapTriggerPriceState, stop: twapStopPriceState } = resolveTwapPriceStates(
 		twapAdvancedEnabled,
 		twapTriggerPriceInput,
 		twapStopPriceInput,
 		twapPriceFormat,
 	);
+	const twapTriggerPx = twapTriggerPriceState.price;
+	const twapStopPx = twapStopPriceState.price;
 	const twapTriggerPriceNum = toNumber(twapTriggerPx);
+	const twapTriggerDirection = twapOrder && twapTriggerPx ? getTwapTriggerDirection(twapTriggerPx, markPx) : null;
 	const twapStopPriceNum = toNumber(twapStopPx);
+	const twapDurationState = resolveTwapDurationState(twapMinutesNum, twapDurationDraft);
 	const requiresLiveMarkPrice = orderType === "market" || triggerOrder || twapOrder;
 	const scaleOrder = isScaleOrderType(orderType);
 	const usesLimitPrice = usesLimitPriceForOrder(orderType);
@@ -533,6 +544,27 @@ export function TradePanel() {
 		if (isAvailabilityBlocked) return false;
 		if (!validation.canSubmit) return false;
 		if (!market || !baseToken || typeof market.assetId !== "number") return false;
+		if (
+			twapOrder &&
+			twapAdvancedEnabled &&
+			(twapTriggerPriceState.status === "invalid" || twapStopPriceState.status === "invalid")
+		) {
+			return false;
+		}
+		if (input?.twapOrder && input.twapAdvancedEnabled) {
+			if (
+				(input.twapTriggerPriceInput !== undefined &&
+					parseTwapPriceInput(input.twapTriggerPriceInput, twapPriceFormat).status === "invalid") ||
+				(input.twapStopPriceInput !== undefined &&
+					parseTwapPriceInput(input.twapStopPriceInput, twapPriceFormat).status === "invalid")
+			) {
+				return false;
+			}
+			if (toBig(input.twapTriggerPx)?.gt(0)) {
+				const liveDirection = getTwapTriggerDirection(input.twapTriggerPx, markPx);
+				if (!liveDirection || liveDirection !== input.twapTriggerDirection) return false;
+			}
+		}
 		if (!requiresLiveMarkPrice) return true;
 		return isLiveMarkPriceReady(market.markPriceStatus, market.markPx, market.markPriceReceivedAt);
 	}
@@ -647,6 +679,7 @@ export function TradePanel() {
 			twapMinutes: twapMinutesNum,
 			twapRandomize,
 			twapTriggerPrice: twapTriggerPriceNum,
+			twapTriggerDirection,
 			twapStopPrice: twapStopPriceNum,
 			tpSlEnabled: tpSlEnabled && canUseTpSl,
 			tpPrice: tpPriceNum,
@@ -690,7 +723,10 @@ export function TradePanel() {
 				twapRandomize,
 				twapAdvancedEnabled,
 				twapTriggerPx,
+				twapTriggerDirection,
 				twapStopPx,
+				twapTriggerPriceInput,
+				twapStopPriceInput,
 				tpSlEnabled,
 				canUseTpSl,
 				tpPriceNum,
@@ -735,8 +771,14 @@ export function TradePanel() {
 		slPrice: slPriceInput,
 		side,
 	});
+	const hideTwapMinutesRangeFooterError = twapOrder && twapMinutesNum === 0 && twapDurationState.hasInlineError;
 	const displayValidationError = visibleValidationErrors
-		.filter((error) => !isOrderSizeValidationError(error) && !isInlineTpSlValidationError(error, inlineTpSlPriceErrors))
+		.filter(
+			(error) =>
+				!isOrderSizeValidationError(error) &&
+				!isInlineTpSlValidationError(error, inlineTpSlPriceErrors) &&
+				!(hideTwapMinutesRangeFooterError && error.id === "twap-minutes-range"),
+		)
 		.map((error) => error.message)
 		.join(" \u2022 ");
 
@@ -846,6 +888,9 @@ export function TradePanel() {
 							onPendingLeverageChange={setPendingLeverage}
 							hasPosition={hasPosition}
 							positionStateReady={positionStateReady}
+							positionStateLoading={
+								!positionStateReady && userPositions.isLoading && !userPositions.hasError && !userPositions.isStale
+							}
 							allowsCrossMargin={capabilities.allowsCrossMargin}
 							allowsIsolatedMarginRemoval={allowsIsolatedMarginRemoval}
 							isUpdating={isSwitchingMode}

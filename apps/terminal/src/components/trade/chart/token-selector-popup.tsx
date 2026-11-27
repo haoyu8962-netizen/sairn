@@ -31,6 +31,8 @@ export function TokenSelectorPopup({
 		search,
 		setSearch,
 		isLoading,
+		hasCatalogError,
+		retryCatalog,
 		hasClassificationError,
 		retryClassifications,
 		isFavorite,
@@ -45,14 +47,19 @@ export function TokenSelectorPopup({
 		virtualItems,
 		virtualTotalSize,
 		containerRef,
+		searchInputRef,
 		filteredMarkets,
 		highlightedIndex,
 		handleKeyDown,
+		handleFavoriteFocus,
+		handleFavoriteBlur,
+		setFavoriteButtonRef,
 	} = useTokenSelector({
 		value: selectedMarket?.name ?? "",
 		onValueChange,
 		open,
 		onOpenChange,
+		mobile,
 	});
 
 	const content = (
@@ -64,6 +71,8 @@ export function TokenSelectorPopup({
 			search={search}
 			setSearch={setSearch}
 			isLoading={isLoading}
+			hasCatalogError={hasCatalogError}
+			onRetryCatalog={retryCatalog}
 			hasClassificationError={hasClassificationError}
 			onRetryClassifications={retryClassifications}
 			isFavorite={isFavorite}
@@ -78,9 +87,13 @@ export function TokenSelectorPopup({
 			virtualItems={virtualItems}
 			virtualTotalSize={virtualTotalSize}
 			containerRef={containerRef}
+			searchInputRef={searchInputRef}
 			filteredMarkets={filteredMarkets}
 			highlightedIndex={highlightedIndex}
 			handleListKeyDown={handleKeyDown}
+			onFavoriteFocus={handleFavoriteFocus}
+			onFavoriteBlur={handleFavoriteBlur}
+			onFavoriteButtonRef={setFavoriteButtonRef}
 			headingId={headingId}
 			mobile={mobile}
 			onClose={mobile ? () => onOpenChange(false) : undefined}

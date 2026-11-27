@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 interface Props {
 	open: boolean;
 	marketLabel: string;
+	sizeUnitLabel?: string;
 	directionLabel: string;
 	directionTone: "positive" | "negative";
 	typeLabel: string;
@@ -26,9 +27,12 @@ interface Props {
 	onConfirm: () => void;
 }
 
+type ModifyInputField = "triggerPrice" | "limitPrice" | "size";
+
 export function MobileOrderModificationModal({
 	open,
 	marketLabel,
+	sizeUnitLabel,
 	directionLabel,
 	directionTone,
 	typeLabel,
@@ -49,6 +53,8 @@ export function MobileOrderModificationModal({
 }: Props) {
 	const { t } = useLingui();
 	const errorId = useId();
+	const triggerPriceInputRef = useRef<HTMLInputElement>(null);
+	const limitPriceInputRef = useRef<HTMLInputElement>(null);
 	const sizeInputRef = useRef<HTMLInputElement>(null);
 
 	function handleOpenChange(nextOpen: boolean) {
@@ -62,10 +68,18 @@ export function MobileOrderModificationModal({
 		onConfirm();
 	}
 
-	function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+	function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>, field: ModifyInputField) {
 		if (event.nativeEvent.isComposing) return;
 		if (event.key === "Enter") {
 			event.preventDefault();
+			if (field === "triggerPrice") {
+				(limitPriceInputRef.current ?? sizeInputRef.current)?.focus();
+				return;
+			}
+			if (field === "limitPrice") {
+				sizeInputRef.current?.focus();
+				return;
+			}
 			if (open && !isConfirmDisabled) onConfirm();
 			return;
 		}
@@ -87,11 +101,10 @@ export function MobileOrderModificationModal({
 			showHandle
 			closeLabel={t`Close order modification`}
 			handleClassName="top-2 h-1 w-9 !rounded-[2px] bg-market-close-stroke-input"
-			overlayClassName="!transition-none data-starting-style:!opacity-100 data-ending-style:!opacity-100"
-			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none !transition-none data-starting-style:!translate-y-0 data-starting-style:!scale-100 data-starting-style:!opacity-100 data-ending-style:!translate-y-0 data-ending-style:!scale-100 data-ending-style:!opacity-100 [&>button]:!top-5 [&>button]:!right-4 [&>button]:size-11 [&>button]:rounded-[8px] [&>button]:text-market-close-muted [&>button:active]:bg-market-close-hover"
+			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none [&>button]:!top-5 [&>button]:size-11 [&>button]:rounded-[8px] [&>button]:text-market-close-muted [&>button:active]:bg-market-close-hover"
 		>
 			<form onSubmit={handleSubmit} noValidate>
-				<ModalHeader divider={false} className="px-4 pt-7 pb-0 text-start">
+				<ModalHeader divider={false} className="ps-4 pe-16 pt-7 pb-0 text-start">
 					<ModalTitle className="text-base leading-[22px] font-bold text-market-close-fg">{t`Modify Order`}</ModalTitle>
 				</ModalHeader>
 
@@ -115,6 +128,7 @@ export function MobileOrderModificationModal({
 						>
 							<span className="me-2 shrink-0 text-xs text-market-close-subtle">{t`Trigger Price`}</span>
 							<input
+								ref={triggerPriceInputRef}
 								type="text"
 								inputMode="decimal"
 								enterKeyHint="next"
@@ -126,7 +140,7 @@ export function MobileOrderModificationModal({
 								aria-describedby={describedBy}
 								className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-right text-base font-semibold tabular-nums text-market-close-fg outline-none disabled:cursor-not-allowed disabled:text-market-close-subtle"
 								onChange={(event) => onTriggerPriceChange(normalizeDecimalInputEvent(event).target.value)}
-								onKeyDown={handleInputKeyDown}
+								onKeyDown={(event) => handleInputKeyDown(event, "triggerPrice")}
 							/>
 						</label>
 					) : null}
@@ -140,6 +154,7 @@ export function MobileOrderModificationModal({
 						>
 							<span className="me-2 shrink-0 text-xs text-market-close-subtle">{t`Price`}</span>
 							<input
+								ref={limitPriceInputRef}
 								type="text"
 								inputMode="decimal"
 								enterKeyHint="next"
@@ -151,7 +166,7 @@ export function MobileOrderModificationModal({
 								aria-describedby={describedBy}
 								className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-right text-base font-semibold tabular-nums text-market-close-fg outline-none disabled:cursor-not-allowed disabled:text-market-close-subtle"
 								onChange={(event) => onLimitPriceChange(normalizeDecimalInputEvent(event).target.value)}
-								onKeyDown={handleInputKeyDown}
+								onKeyDown={(event) => handleInputKeyDown(event, "limitPrice")}
 							/>
 						</label>
 					) : null}
@@ -176,9 +191,11 @@ export function MobileOrderModificationModal({
 							aria-describedby={describedBy}
 							className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-right text-base font-semibold tabular-nums text-market-close-fg outline-none disabled:cursor-not-allowed disabled:text-market-close-subtle"
 							onChange={(event) => onSizeChange(normalizeDecimalInputEvent(event).target.value)}
-							onKeyDown={handleInputKeyDown}
+							onKeyDown={(event) => handleInputKeyDown(event, "size")}
 						/>
-						<span className="ms-2 max-w-[35%] shrink-0 truncate text-xs text-market-close-muted">{marketLabel}</span>
+						<span className="ms-2 max-w-[35%] shrink-0 truncate text-xs text-market-close-muted">
+							{sizeUnitLabel ?? marketLabel}
+						</span>
 					</label>
 
 					{errorMessage ? (

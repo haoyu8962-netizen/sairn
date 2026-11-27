@@ -3,6 +3,7 @@ import { ArrowClockwiseIcon, CrownIcon, WarningCircleIcon } from "@phosphor-icon
 import { Button, Pagination, SearchInput, Select, Table } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
 import { cn } from "@/lib/cn";
 import { formatTime, shortenAddress, useNumberFormat } from "@/lib/format";
 import {
@@ -136,7 +137,7 @@ export function VaultsList({
 					/>
 				</div>
 
-				<fieldset className="mt-3 flex gap-2 overflow-x-auto pb-1">
+				<fieldset className="-mx-1 mt-2 flex gap-2 overflow-x-auto p-1">
 					<legend className="sr-only">{t`Vault filters`}</legend>
 					{(["all", "deposited", "leading"] as const).map((item) => (
 						<Button
@@ -192,7 +193,14 @@ export function VaultsList({
 				) : (
 					<div className="py-3">
 						{groups.map((group) => (
-							<VaultGroup key={group.id} group={group} period={period} account={account} now={ageReferenceTime} />
+							<VaultGroup
+								key={group.id}
+								group={group}
+								period={period}
+								account={account}
+								listCurrent={listCurrent}
+								now={ageReferenceTime}
+							/>
 						))}
 						{totalPages > 1 ? (
 							<Pagination
@@ -223,11 +231,13 @@ function VaultGroup({
 	group,
 	period,
 	account,
+	listCurrent,
 	now,
 }: {
 	group: VaultListGroup;
 	period: VaultPeriod;
 	account: VaultAccountFactsState;
+	listCurrent: boolean;
 	now: number;
 }) {
 	const { t } = useLingui();
@@ -273,13 +283,27 @@ function VaultGroup({
 				</thead>
 				<tbody className="divide-y divide-stroke-weak">
 					{group.rows.map((row) => (
-						<VaultDesktopRow key={row.vaultAddress} row={row} period={period} account={account} now={now} />
+						<VaultDesktopRow
+							key={row.vaultAddress}
+							row={row}
+							period={period}
+							account={account}
+							listCurrent={listCurrent}
+							now={now}
+						/>
 					))}
 				</tbody>
 			</Table>
 			<div className="grid grid-cols-1 gap-2 px-4 min-[1001px]:hidden">
 				{group.rows.map((row) => (
-					<VaultMobileCard key={row.vaultAddress} row={row} period={period} account={account} now={now} />
+					<VaultMobileCard
+						key={row.vaultAddress}
+						row={row}
+						period={period}
+						account={account}
+						listCurrent={listCurrent}
+						now={now}
+					/>
 				))}
 			</div>
 		</section>
@@ -290,11 +314,13 @@ function VaultDesktopRow({
 	row,
 	period,
 	account,
+	listCurrent,
 	now,
 }: {
 	row: VaultListItem;
 	period: VaultPeriod;
 	account: VaultAccountFactsState;
+	listCurrent: boolean;
 	now: number;
 }) {
 	const numberFormat = useNumberFormat();
@@ -338,7 +364,13 @@ function VaultDesktopRow({
 				<bdi dir="ltr">{formatVaultUsd(deposit, numberFormat)}</bdi>
 			</td>
 			<td className="w-28 px-3 py-2.5">
-				<VaultPerformanceChart snapshot={performance} kind="pnl" period={period} compact />
+				<VaultPerformanceChart
+					snapshot={performance}
+					kind="pnl"
+					period={period}
+					compact
+					snapshotCurrent={listCurrent}
+				/>
 			</td>
 			<td className="px-5 py-2.5 text-right text-xs tabular-nums text-fg-muted">
 				{age === null ? VAULT_UNKNOWN_VALUE : <Trans>{age} days</Trans>}
@@ -351,11 +383,13 @@ function VaultMobileCard({
 	row,
 	period,
 	account,
+	listCurrent,
 	now,
 }: {
 	row: VaultListItem;
 	period: VaultPeriod;
 	account: VaultAccountFactsState;
+	listCurrent: boolean;
 	now: number;
 }) {
 	const numberFormat = useNumberFormat();
@@ -372,7 +406,10 @@ function VaultMobileCard({
 		<Link
 			to="/vaults/$vaultAddress"
 			params={{ vaultAddress: row.vaultAddress }}
-			className="rounded-16 border border-stroke-weak p-3 focus-visible:outline-2 focus-visible:outline-stroke-focus"
+			className={cn(
+				"rounded-16 border border-stroke-weak p-3 focus-visible:outline-2 focus-visible:outline-stroke-focus",
+				TOUCH_PRESS_CLASS,
+			)}
 		>
 			<div className="flex min-w-0 items-center gap-2">
 				<VaultMark name={row.name} />
@@ -405,7 +442,7 @@ function VaultMobileCard({
 				/>
 			</dl>
 			<div className="mt-2 text-signal">
-				<VaultPerformanceChart snapshot={snapshot} kind="pnl" period={period} compact />
+				<VaultPerformanceChart snapshot={snapshot} kind="pnl" period={period} compact snapshotCurrent={listCurrent} />
 			</div>
 		</Link>
 	);

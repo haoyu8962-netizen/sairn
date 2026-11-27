@@ -161,4 +161,45 @@ describe("order confirmation modal", () => {
 		expect(rows?.textContent).toContain("1.234,50 HYPE");
 		expect(rows?.textContent).not.toContain("1,234.50");
 	});
+
+	it("renders full confirmation values without truncation and localizes TWAP runtime and Scale Post Only", () => {
+		const twapDraft: OrderConfirmationDraft = {
+			...draft,
+			orderType: "twap",
+			twapMinutes: 1501,
+			twapTriggerPrice: 101_000,
+			...({ twapTriggerDirection: "above" } as Record<string, unknown>),
+		};
+		render(true, twapDraft);
+		const rows = document.querySelector('[data-testid="order-confirmation-rows"]');
+		expect(rows?.textContent).toContain("1d 1h 1m");
+		expect(rows?.textContent).toContain("Activates when mark ≥ $101,000");
+		const values = [...(rows?.querySelectorAll("dd") ?? [])];
+		expect(values.length).toBeGreaterThan(0);
+		for (const value of values) {
+			expect(value.className).not.toMatch(/\btruncate\b/);
+			expect(value.className).toContain("[overflow-wrap:anywhere]");
+		}
+		for (const row of rows?.children ?? []) {
+			expect(row.className).toContain("flex-wrap");
+		}
+
+		act(() => i18n.loadAndActivate({ locale: "zh", messages: {} }));
+		expect(rows?.textContent).toContain("1天 1小时 1分钟");
+
+		const scaleDraft: OrderConfirmationDraft = {
+			...draft,
+			orderType: "scale",
+			tif: "Alo",
+			scaleStartPrice: 90,
+			scaleEndPrice: 110,
+			scaleLevels: 5,
+			scaleSkew: 1,
+		};
+		act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
+		render(true, scaleDraft);
+		expect(document.querySelector('[data-testid="order-confirmation-rows"]')?.textContent).toContain(
+			"Scale · Post Only",
+		);
+	});
 });

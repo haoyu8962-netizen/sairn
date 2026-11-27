@@ -85,9 +85,44 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 		const size = (sizeProp ?? DEFAULT_SIZE) as SearchInputSize;
 		const reactId = React.useId();
 		const inputId = id ?? reactId;
+		const inputRef = React.useRef<HTMLInputElement | null>(null);
 		const [internalValue, setInternalValue] = React.useState(defaultValue?.toString() ?? "");
 		const currentValue = value !== undefined ? value.toString() : internalValue;
 		const hasValue = currentValue.length > 0;
+
+		const setInputRef = React.useCallback(
+			(node: HTMLInputElement | null) => {
+				inputRef.current = node;
+				if (!node) {
+					if (typeof ref === "function") {
+						ref(null);
+					} else if (ref) {
+						ref.current = null;
+					}
+					return;
+				}
+				let refCleanup: (() => void) | undefined;
+				if (typeof ref === "function") {
+					const cleanup = ref(node);
+					if (typeof cleanup === "function") {
+						refCleanup = cleanup;
+					}
+				} else if (ref) {
+					ref.current = node;
+				}
+				return () => {
+					inputRef.current = null;
+					if (refCleanup) {
+						refCleanup();
+					} else if (typeof ref === "function") {
+						ref(null);
+					} else if (ref) {
+						ref.current = null;
+					}
+				};
+			},
+			[ref],
+		);
 
 		const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 			if (value === undefined) {
@@ -101,6 +136,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 				setInternalValue("");
 			}
 			onClear?.();
+			inputRef.current?.focus();
 		};
 
 		const iconSize = searchIconSizes[size];
@@ -121,7 +157,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 						className="shrink-0 text-icon group-data-disabled:text-icon-disabled"
 					/>
 					<input
-						ref={ref}
+						ref={setInputRef}
 						id={inputId}
 						type="search"
 						value={currentValue}
@@ -142,9 +178,8 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 						<button
 							type="button"
 							onClick={handleClear}
-							tabIndex={-1}
 							aria-label={clearLabel}
-							className="relative shrink-0 cursor-pointer text-icon hover:text-fg transition-colors duration-150 motion-reduce:transition-none after:content-[''] after:absolute after:top-1/2 after:left-1/2 after:-translate-1/2 after:size-11"
+							className="relative shrink-0 cursor-pointer rounded-4 text-icon hover:text-fg transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus after:content-[''] after:absolute after:top-1/2 after:left-1/2 after:-translate-1/2 after:size-11"
 						>
 							<XIcon size={iconSize} weight="bold" />
 						</button>

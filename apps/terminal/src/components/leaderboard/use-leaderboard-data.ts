@@ -8,9 +8,10 @@ import {
 	type LeaderboardApiSuccessResponse,
 } from "@/lib/leaderboard/leaderboard-api";
 import type { LeaderboardRow } from "./leaderboard-domain";
+import { LEADERBOARD_STALE_TIME_MS } from "./leaderboard-freshness";
 
+export { LEADERBOARD_STALE_TIME_MS };
 export const LEADERBOARD_REQUEST_TIMEOUT_MS = 20_000;
-export const LEADERBOARD_STALE_TIME_MS = 30_000;
 export const LEADERBOARD_GC_TIME_MS = 5 * 60_000;
 export const LEADERBOARD_STALE_REVALIDATION_DELAY_MS = 16_000;
 

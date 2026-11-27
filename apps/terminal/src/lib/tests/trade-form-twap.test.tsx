@@ -24,6 +24,7 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 
 vi.mock("@/stores/use-order-entry-store", () => ({
 	useOrderEntryActions: () => mocks,
+	useTwapDurationDraft: () => null,
 	useTwapMinutes: () => 30,
 	useTwapAdvancedEnabled: () => true,
 	useTwapRandomize: () => true,

@@ -32,7 +32,7 @@ export function CancelAllOrdersModal({ open, orderCount, onOpenChange, onConfirm
 		>
 			<ModalHeader
 				divider={false}
-				className="gap-3 px-4 pt-7 pb-0 text-start min-[1001px]:gap-1 min-[1001px]:px-6 min-[1001px]:pt-6"
+				className="gap-3 ps-4 pe-4 pt-7 pb-0 text-start min-[1001px]:gap-1 min-[1001px]:ps-6 min-[1001px]:pe-6 min-[1001px]:pt-6"
 			>
 				<ModalTitle className="text-base leading-[22px] font-bold text-market-close-fg min-[1001px]:text-[17px] min-[1001px]:leading-6">
 					{t`Cancel All Orders`}

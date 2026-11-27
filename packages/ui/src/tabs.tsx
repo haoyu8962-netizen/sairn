@@ -44,6 +44,12 @@ const TabsRoot = React.forwardRef<HTMLDivElement, TabsRootProps>(
 );
 TabsRoot.displayName = "Tabs";
 
+const TabsListScrollContext = React.createContext(false);
+
+function hasHorizontalScrollClass(className: TabsListProps["className"]): boolean {
+	return typeof className === "string" && /(?:^|\s)overflow-x-(?:auto|scroll)(?=\s|$)/.test(className);
+}
+
 const tabsListVariants = cva("relative flex items-center", {
 	variants: {
 		variant: {
@@ -59,40 +65,54 @@ const tabsListVariants = cva("relative flex items-center", {
 interface TabsListProps extends React.ComponentPropsWithoutRef<typeof Tabs.List> {
 	hideIndicator?: boolean;
 	indicatorClassName?: string;
+	scrollable?: boolean;
 }
 
 const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
-	({ className, children, hideIndicator, indicatorClassName, ...props }, ref) => {
+	({ className, children, hideIndicator, indicatorClassName, scrollable, ...props }, ref) => {
 		const { variant, fullWidth } = React.useContext(TabsContext);
+		const isScrollable = scrollable ?? hasHorizontalScrollClass(className);
 
 		return (
-			<Tabs.List ref={ref} className={cn(tabsListVariants({ variant }), fullWidth && "w-full", className)} {...props}>
-				{!hideIndicator &&
-					(variant === "underline" ? (
-						<Tabs.Indicator
-							className={cn(
-								"absolute -bottom-px h-0.5 bg-action transition-[left,width] duration-200 ease-in-out motion-reduce:transition-none",
-								indicatorClassName,
-							)}
-							style={{
-								left: "var(--active-tab-left)",
-								width: "var(--active-tab-width)",
-							}}
-						/>
-					) : (
-						<Tabs.Indicator
-							className={cn(
-								"absolute inset-y-0 rounded-8 bg-overlay border border-stroke-strong shadow-raised transition-[left,width] duration-200 ease-in-out motion-reduce:transition-none",
-								indicatorClassName,
-							)}
-							style={{
-								left: "var(--active-tab-left)",
-								width: "var(--active-tab-width)",
-							}}
-						/>
-					))}
-				{children}
-			</Tabs.List>
+			<TabsListScrollContext.Provider value={isScrollable}>
+				<Tabs.List
+					ref={ref}
+					className={cn(
+						tabsListVariants({ variant }),
+						fullWidth && "w-full",
+						isScrollable && "overflow-x-auto overflow-y-hidden",
+						className,
+					)}
+					{...props}
+				>
+					{!hideIndicator &&
+						(variant === "underline" ? (
+							<Tabs.Indicator
+								className={cn(
+									"absolute h-0.5 bg-action transition-[left,width] duration-200 ease-in-out motion-reduce:transition-none",
+									isScrollable ? "bottom-0" : "-bottom-px",
+									indicatorClassName,
+								)}
+								style={{
+									left: "var(--active-tab-left)",
+									width: "var(--active-tab-width)",
+								}}
+							/>
+						) : (
+							<Tabs.Indicator
+								className={cn(
+									"absolute inset-y-0 rounded-8 bg-overlay border border-stroke-strong shadow-raised transition-[left,width] duration-200 ease-in-out motion-reduce:transition-none",
+									indicatorClassName,
+								)}
+								style={{
+									left: "var(--active-tab-left)",
+									width: "var(--active-tab-width)",
+								}}
+							/>
+						))}
+					{children}
+				</Tabs.List>
+			</TabsListScrollContext.Provider>
 		);
 	},
 );
@@ -189,12 +209,18 @@ interface TabsTriggerProps extends React.ComponentPropsWithoutRef<typeof Tabs.Ta
 const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
 	({ className, icon, disabled: itemDisabled, children, ...props }, ref) => {
 		const { size, variant, fullWidth, disabled: groupDisabled } = React.useContext(TabsContext);
+		const isScrollable = React.useContext(TabsListScrollContext);
 
 		return (
 			<Tabs.Tab
 				ref={ref}
 				disabled={groupDisabled || itemDisabled}
-				className={cn(tabsTriggerVariants({ variant, size }), fullWidth && "flex-1", className)}
+				className={cn(
+					tabsTriggerVariants({ variant, size }),
+					isScrollable && "focus-visible:-outline-offset-2",
+					fullWidth && "flex-1",
+					className,
+				)}
 				{...props}
 			>
 				{icon}

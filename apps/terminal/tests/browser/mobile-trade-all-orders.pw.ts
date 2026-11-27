@@ -1,4 +1,180 @@
-import { expect, type Page, test } from "@playwright/test";
+import { inflateSync } from "node:zlib";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+function paethPredictor(a: number, b: number, c: number): number {
+	const p = a + b - c;
+	const pa = Math.abs(p - a);
+	const pb = Math.abs(p - b);
+	const pc = Math.abs(p - c);
+	if (pa <= pb && pa <= pc) return a;
+	if (pb <= pc) return b;
+	return c;
+}
+
+function decodePng(buffer: Buffer): { width: number; height: number; channels: 3 | 4; pixels: Uint8Array } {
+	if (buffer.length < 8 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
+		throw new Error("Invalid PNG screenshot buffer");
+	}
+	let width = 0;
+	let height = 0;
+	let bitDepth = 0;
+	let colorType = 0;
+	let interlace = 0;
+	const idatChunks: Buffer[] = [];
+	let offset = 8;
+	while (offset + 8 <= buffer.length) {
+		const length = buffer.readUInt32BE(offset);
+		const type = buffer.toString("ascii", offset + 4, offset + 8);
+		const dataStart = offset + 8;
+		const dataEnd = dataStart + length;
+		if (type === "IHDR") {
+			width = buffer.readUInt32BE(dataStart);
+			height = buffer.readUInt32BE(dataStart + 4);
+			bitDepth = buffer[dataStart + 8];
+			colorType = buffer[dataStart + 9];
+			interlace = buffer[dataStart + 12];
+		} else if (type === "IDAT") {
+			idatChunks.push(buffer.subarray(dataStart, dataEnd));
+		} else if (type === "IEND") {
+			break;
+		}
+		offset = dataEnd + 4;
+	}
+	if (width <= 0 || height <= 0 || bitDepth !== 8 || (colorType !== 2 && colorType !== 6) || interlace !== 0) {
+		throw new Error(
+			`Unsupported PNG format (${width}x${height}, bitDepth=${bitDepth}, colorType=${colorType}, interlace=${interlace})`,
+		);
+	}
+	const channels: 3 | 4 = colorType === 6 ? 4 : 3;
+	const stride = width * channels;
+	const raw = inflateSync(Buffer.concat(idatChunks));
+	const pixels = new Uint8Array(height * stride);
+	for (let y = 0; y < height; y += 1) {
+		const srcRow = y * (stride + 1);
+		const dstRow = y * stride;
+		const filter = raw[srcRow];
+		for (let i = 0; i < stride; i += 1) {
+			const val = raw[srcRow + 1 + i];
+			const a = i >= channels ? pixels[dstRow + i - channels] : 0;
+			const b = y > 0 ? pixels[dstRow - stride + i] : 0;
+			const c = y > 0 && i >= channels ? pixels[dstRow - stride + i - channels] : 0;
+			let reconstructed = val;
+			if (filter === 1) reconstructed = (val + a) & 0xff;
+			else if (filter === 2) reconstructed = (val + b) & 0xff;
+			else if (filter === 3) reconstructed = (val + ((a + b) >> 1)) & 0xff;
+			else if (filter === 4) reconstructed = (val + paethPredictor(a, b, c)) & 0xff;
+			else if (filter !== 0) throw new Error(`Unsupported PNG filter ${filter}`);
+			pixels[dstRow + i] = reconstructed;
+		}
+	}
+	return { width, height, channels, pixels };
+}
+
+async function expectPaintedLabelCoverage(page: Page, label: Locator, labelText: string) {
+	const metrics = await label.evaluate(async (node) => {
+		await document.fonts.ready;
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		const rangeRect = range.getBoundingClientRect();
+		const nodeRect = node.getBoundingClientRect();
+		const canvas = document.createElement("canvas");
+		canvas.width = 1;
+		canvas.height = 1;
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		if (!ctx) throw new Error("Missing 2d canvas context");
+		const resolveRgba = (cssColor: string): [number, number, number, number] => {
+			ctx.clearRect(0, 0, 1, 1);
+			ctx.fillStyle = cssColor;
+			ctx.fillRect(0, 0, 1, 1);
+			const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+			return [r, g, b, a];
+		};
+		const [fgR, fgG, fgB] = resolveRgba(getComputedStyle(node).color);
+		let bgRgb: [number, number, number] = [255, 255, 255];
+		for (let el: Element | null = node; el; el = el.parentElement) {
+			const [r, g, b, a] = resolveRgba(getComputedStyle(el).backgroundColor);
+			if (a >= 250) {
+				bgRgb = [r, g, b];
+				break;
+			}
+		}
+		return {
+			rangeRect: {
+				left: rangeRect.left,
+				top: rangeRect.top,
+				right: rangeRect.right,
+				bottom: rangeRect.bottom,
+				width: rangeRect.width,
+				height: rangeRect.height,
+			},
+			nodeRect: {
+				left: nodeRect.left,
+				top: nodeRect.top,
+				right: nodeRect.right,
+				bottom: nodeRect.bottom,
+				width: nodeRect.width,
+				height: nodeRect.height,
+			},
+			fgRgb: [fgR, fgG, fgB] as [number, number, number],
+			bgRgb,
+			viewport: { width: window.innerWidth, height: window.innerHeight },
+		};
+	});
+
+	expect(metrics.rangeRect.width, `order type label "${labelText}" has empty text range`).toBeGreaterThan(0);
+	const left = Math.max(metrics.nodeRect.left, metrics.rangeRect.left);
+	const right = Math.min(metrics.nodeRect.right, metrics.rangeRect.right);
+	const top = Math.min(metrics.nodeRect.top, metrics.rangeRect.top);
+	const bottom = Math.max(metrics.nodeRect.bottom, metrics.rangeRect.bottom);
+	const clipX = Math.max(0, Math.floor(left));
+	const clipY = Math.max(0, Math.floor(top));
+	const clipWidth = Math.max(1, Math.min(metrics.viewport.width, Math.ceil(right)) - clipX);
+	const clipHeight = Math.max(1, Math.min(metrics.viewport.height, Math.ceil(bottom)) - clipY);
+
+	const screenshot = await page.screenshot({
+		animations: "disabled",
+		scale: "css",
+		clip: { x: clipX, y: clipY, width: clipWidth, height: clipHeight },
+	});
+	const decoded = decodePng(screenshot);
+	const [fgR, fgG, fgB] = metrics.fgRgb;
+	const [bgR, bgG, bgB] = metrics.bgRgb;
+	const fgBgDistance = Math.abs(fgR - bgR) + Math.abs(fgG - bgG) + Math.abs(fgB - bgB);
+	expect(fgBgDistance, `order type label "${labelText}" has insufficient foreground/background contrast`).toBeGreaterThanOrEqual(
+		60,
+	);
+	const inkThreshold = Math.max(24, Math.round(fgBgDistance * 0.15));
+
+	let minInkX = decoded.width;
+	let maxInkX = -1;
+	let inkPixels = 0;
+	for (let y = 0; y < decoded.height; y += 1) {
+		const rowOffset = y * decoded.width * decoded.channels;
+		for (let x = 0; x < decoded.width; x += 1) {
+			const idx = rowOffset + x * decoded.channels;
+			const dist =
+				Math.abs(decoded.pixels[idx] - bgR) +
+				Math.abs(decoded.pixels[idx + 1] - bgG) +
+				Math.abs(decoded.pixels[idx + 2] - bgB);
+			if (dist >= inkThreshold) {
+				inkPixels += 1;
+				if (x < minInkX) minInkX = x;
+				if (x > maxInkX) maxInkX = x;
+			}
+		}
+	}
+
+	const scaleX = decoded.width / clipWidth;
+	const inkSpanPx = maxInkX >= minInkX ? (maxInkX - minInkX + 1) / scaleX : 0;
+	const coverage = inkSpanPx / metrics.rangeRect.width;
+	expect(inkPixels, `order type label "${labelText}" painted no ink pixels`).toBeGreaterThan(0);
+	expect(
+		coverage,
+		`order type label "${labelText}" painted ink span ${inkSpanPx.toFixed(1)}px covers only ${(coverage * 100).toFixed(1)}% of ${metrics.rangeRect.width.toFixed(1)}px text width`,
+	).toBeGreaterThanOrEqual(0.85);
+}
 
 const orders = [
 	"Market",
@@ -132,6 +308,56 @@ async function expectHeaderHitTargets(page: Page) {
 			return !!arrow && arrow.width >= 9 && arrow.left >= rect.left && arrow.right <= rect.right;
 		}),
 	).toBe(true);
+	const headerLabels = await orderType.evaluate((node) => {
+		const grid = node.parentElement?.parentElement;
+		if (!grid) throw new Error("Missing header grid");
+		const buttons = [node, grid.children[1], grid.children[2]].map((el) => {
+			if (!(el instanceof HTMLButtonElement)) throw new Error("Missing header control button");
+			return el;
+		});
+		return {
+			viewportWidth: window.innerWidth,
+			items: buttons.map((button) => {
+				const text = button.querySelector<HTMLElement>(".truncate");
+				const arrow = button.querySelector("svg");
+				if (!text || !arrow) throw new Error(`Missing header label or caret in ${button.textContent}`);
+				const buttonRect = button.getBoundingClientRect();
+				const textRect = text.getBoundingClientRect();
+				const arrowRect = arrow.getBoundingClientRect();
+				const container = text.parentElement ?? button;
+				const gap = Number.parseFloat(getComputedStyle(container).columnGap) || 0;
+				const style = getComputedStyle(button);
+				const paddingX = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+				return {
+					text: text.textContent?.trim() ?? "",
+					title: text.getAttribute("title"),
+					scrollWidth: text.scrollWidth,
+					clientWidth: text.clientWidth,
+					overflowPx: text.scrollWidth - text.clientWidth,
+					textWidth: textRect.width,
+					availableWidth: buttonRect.width - paddingX - arrowRect.width - gap,
+				};
+			}),
+		};
+	});
+	const [orderLabel, marginLabel, leverageLabel] = headerLabels.items;
+	expect(orderLabel.text.length).toBeGreaterThan(0);
+	expect(orderLabel.title).toBe(orderLabel.text);
+	expect(marginLabel.overflowPx, `margin label "${marginLabel.text}" truncated`).toBeLessThanOrEqual(1);
+	expect(leverageLabel.overflowPx, `leverage label "${leverageLabel.text}" truncated`).toBeLessThanOrEqual(1);
+	const knownWideEnglishTriggers =
+		headerLabels.viewportWidth < 375
+			? new Set(["Stop Market", "Stop Limit", "Take Profit Market", "Take Profit Limit"])
+			: new Set(["Stop Market", "Take Profit Market", "Take Profit Limit"]);
+	if (knownWideEnglishTriggers.has(orderLabel.text)) {
+		expect(
+			orderLabel.textWidth,
+			`order type label "${orderLabel.text}" narrowed below available column width`,
+		).toBeGreaterThanOrEqual(orderLabel.availableWidth - 2);
+	} else {
+		expect(orderLabel.overflowPx, `order type label "${orderLabel.text}" truncated`).toBeLessThanOrEqual(1);
+		await expectPaintedLabelCoverage(page, orderType.locator(".truncate"), orderLabel.text);
+	}
 }
 
 async function expectInputHitTarget(page: Page, name: string) {
@@ -514,11 +740,12 @@ for (const desktop of [false, true]) {
 		await page.setViewportSize(desktop ? { width: 1440, height: 1000 } : { width: 393, height: 852 });
 		await openFixture(page, "?quiet-audit");
 		const form = page.locator("[data-fixture-form]");
+		const advancedOrderTrigger = form.getByRole("button", { name: /^Advanced order types(?:: .+)?$/ });
 		async function chooseOrder(order: string) {
 			if (!desktop) return selectOrder(page, order);
 			if (order === "Market" || order === "Limit")
 				return form.getByRole("button", { name: order, exact: true }).click();
-			await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+			await advancedOrderTrigger.click();
 			await page.getByRole("menuitem", { name: order, exact: true }).click();
 		}
 		await chooseOrder("Market");
@@ -544,6 +771,9 @@ for (const desktop of [false, true]) {
 		await mid.click();
 		await expect(price).toHaveValue("100.00");
 		await chooseOrder("TWAP");
+		if (desktop) {
+			await expect(advancedOrderTrigger).toHaveAccessibleName("Advanced order types: TWAP");
+		}
 		await form.getByRole("textbox", { name: "Hour(s)", exact: true }).fill("1");
 		await form.getByRole("textbox", { name: "Minute(s)", exact: true }).fill("0");
 		await expect(form.getByRole("textbox", { name: "Minute(s)", exact: true })).toHaveValue("0");
@@ -551,6 +781,9 @@ for (const desktop of [false, true]) {
 		await expect(page.getByRole("status", { name: "Captured orders", exact: true })).toHaveText("[]");
 		await page.screenshot({ path: test.info().outputPath(`fields-${desktop ? "desktop" : "mobile"}.png`) });
 		await chooseOrder("Scale");
+		if (desktop) {
+			await expect(advancedOrderTrigger).toHaveAccessibleName("Advanced order types: Scale");
+		}
 		const start = form.getByRole("textbox", { name: "Start Price", exact: true });
 		await start.fill("90");
 		const startBounds = await start.boundingBox();
@@ -585,12 +818,13 @@ for (const desktop of [false, true]) {
 			observer.observe(element, { subtree: true, characterData: true, childList: true });
 			Object.assign(window, { quietAudit: { failures, observer } });
 		}, passive.source);
+		const advancedOrderTrigger = form.getByRole("button", { name: /^Advanced order types(?:: .+)?$/ });
 		for (const order of orders) {
 			if (!desktop) await selectOrder(page, order);
 			else if (order === "Market" || order === "Limit")
 				await form.getByRole("button", { name: order, exact: true }).click();
 			else {
-				await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+				await advancedOrderTrigger.click();
 				await page.getByRole("menuitem", { name: order, exact: true }).click();
 			}
 			const size = page.getByRole("textbox", { name: "Size", exact: true });
@@ -612,7 +846,7 @@ for (const desktop of [false, true]) {
 			}
 		}
 		if (desktop) {
-			await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+			await advancedOrderTrigger.click();
 			await page.getByRole("menuitem", { name: "Stop Market", exact: true }).click();
 		} else await selectOrder(page, "Stop Market");
 		const reduceOnly = form.getByRole("checkbox", { name: "Reduce Only", exact: true });

@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { SpinnerGapIcon, WalletIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { WalletIcon } from "@phosphor-icons/react";
 import { Button } from "@sairn/ui";
 import { formatTokenBalance } from "@/lib/bridge/format";
 import { cn } from "@/lib/cn";
@@ -11,24 +11,26 @@ const BRIDGE_ASSET_LIST_MAX_HEIGHT = "max-h-72";
 
 interface TokenRowProps {
 	token: BridgeToken;
+	disabled?: boolean;
 	onSelect: (token: BridgeToken) => void;
 }
 
-function tokenRowStyle(isDust: boolean): string {
-	if (isDust) return "opacity-50 cursor-not-allowed border-transparent";
+function tokenRowStyle(isDisabled: boolean): string {
+	if (isDisabled) return "opacity-50 cursor-not-allowed border-transparent";
 	return "border-transparent hover:bg-fill-hover active:bg-fill-weak cursor-pointer";
 }
 
-function TokenRow({ token, onSelect }: TokenRowProps) {
+function TokenRow({ token, disabled = false, onSelect }: TokenRowProps) {
 	const numberFormat = useNumberFormat();
+	const isDisabled = disabled || token.isDust;
 	return (
 		<button
 			type="button"
-			disabled={token.isDust}
+			disabled={isDisabled}
 			onClick={() => onSelect(token)}
 			className={cn(
 				"flex items-center gap-3 px-3 py-2.5 text-start transition-colors rounded-8 w-full border",
-				tokenRowStyle(token.isDust),
+				tokenRowStyle(isDisabled),
 			)}
 		>
 			<TokenIcon token={token} />
@@ -57,31 +59,19 @@ function TokenRow({ token, onSelect }: TokenRowProps) {
 
 function AssetSelectionLoading() {
 	return (
-		<div className="flex flex-col items-center gap-4 py-8">
-			<SpinnerGapIcon className="size-6 animate-spin text-fg-muted" />
-			<p className="text-xs text-fg-muted">
-				<Trans>Loading balances across all chains...</Trans>
-			</p>
-		</div>
+		<output aria-busy="true" className="block min-h-48 w-full flex-1">
+			<span className="sr-only">
+				<Trans>Loading balances</Trans>
+			</span>
+		</output>
 	);
 }
 
-function AssetSelectionError({ onRetry }: { onRetry: () => void }) {
+function AssetSelectionRetry({ onRetry, compact = false }: { onRetry: () => void; compact?: boolean }) {
 	return (
-		<div className="flex flex-col items-center gap-4 py-8">
-			<div className="flex size-12 items-center justify-center rounded-full bg-error-soft border border-stroke-error-weak">
-				<WarningCircleIcon className="size-6 text-error" />
-			</div>
-			<div className="text-center space-y-1">
-				<p className="text-sm font-medium">
-					<Trans>Failed to load balances</Trans>
-				</p>
-				<p className="text-xs text-fg-muted">
-					<Trans>Could not fetch your token balances</Trans>
-				</p>
-			</div>
+		<div className={cn("flex items-center justify-center", compact ? "py-3" : "min-h-48 py-8")}>
 			<Button variant="outline" intent="neutral" size="sm" onClick={onRetry}>
-				<Trans>Try Again</Trans>
+				<Trans>Retry</Trans>
 			</Button>
 		</div>
 	);
@@ -111,11 +101,19 @@ interface Props {
 }
 
 export function AssetSelectionScreen({ address, onSelect }: Props) {
-	const { data: tokens, isLoading, isError, refetch } = useBridgeBalances(address);
+	const { data: tokens, isSnapshotCurrent, needsStaleRetry, passiveState, refetch } = useBridgeBalances(address);
 
-	if (isLoading) return <AssetSelectionLoading />;
-	if (isError) return <AssetSelectionError onRetry={() => refetch()} />;
-	if (!tokens || tokens.length === 0) return <AssetSelectionEmpty />;
+	if (needsStaleRetry) return <AssetSelectionRetry onRetry={() => void refetch()} />;
+	if (passiveState === "loading") return <AssetSelectionLoading />;
+	if (passiveState === "failed" || (passiveState === "retained" && (!tokens || tokens.length === 0))) {
+		return <AssetSelectionRetry onRetry={() => void refetch()} />;
+	}
+	if (passiveState === "ready" && isSnapshotCurrent && (!tokens || tokens.length === 0)) {
+		return <AssetSelectionEmpty />;
+	}
+	if (!tokens || tokens.length === 0) return <AssetSelectionLoading />;
+
+	const isRetained = passiveState === "retained";
 
 	return (
 		<div className="flex flex-1 flex-col">
@@ -126,10 +124,10 @@ export function AssetSelectionScreen({ address, onSelect }: Props) {
 				)}
 			>
 				{tokens.map((token) => (
-					<TokenRow key={`${token.chainId}-${token.address}`} token={token} onSelect={onSelect} />
+					<TokenRow key={`${token.chainId}-${token.address}`} token={token} disabled={isRetained} onSelect={onSelect} />
 				))}
 			</div>
-			<PoweredByLiFi />
+			{isRetained ? <AssetSelectionRetry onRetry={() => void refetch()} compact /> : <PoweredByLiFi />}
 		</div>
 	);
 }

@@ -140,7 +140,7 @@ export function EstablishConnectionModal({ onClose, onConnected }: Props) {
 			layer="blocking"
 			className="max-h-[calc(100dvh-1rem)] !shadow-none min-[1001px]:max-w-[32.5rem]"
 		>
-			<ModalHeader divider={false} className="px-6 pt-5 pb-2">
+			<ModalHeader divider={false} className="ps-6 pe-14 pt-5 pb-2">
 				<ModalTitle className="text-xl font-normal leading-7">
 					{isResetConfirmationOpen ? <Trans>Reset trading connection</Trans> : <Trans>Establish Connection</Trans>}
 				</ModalTitle>

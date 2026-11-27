@@ -88,12 +88,17 @@ export function PositionsTab({ directionFilter, marketFilter, currentMarket }: P
 	const markets = useMarkets();
 	const { getMarketInfo } = useMarketsInfo();
 
-	const { data: openOrdersEvent } = useSubscription(
+	const {
+		data: openOrdersEvent,
+		status: openOrdersStatus,
+		isStale: openOrdersStale,
+	} = useSubscription(
 		"openOrders",
 		{ user: address ?? "0x0", dex: HL_ALL_DEXS },
 		{ enabled: isConnected && !!address },
 	);
-	const openOrders = openOrdersEvent?.orders ?? [];
+	const isOpenOrdersReady = openOrdersStatus === "active" && openOrdersEvent !== undefined && !openOrdersStale;
+	const openOrders = isOpenOrdersReady ? openOrdersEvent.orders : [];
 
 	const tpSlOrdersByCoin = useMemo(() => buildTpSlOrdersByCoin(openOrders), [openOrders]);
 	const filteredPositions = filterPositions(positions, directionFilter, marketFilter, currentMarket);
@@ -290,6 +295,7 @@ export function PositionsTab({ directionFilter, marketFilter, currentMarket }: P
 											markPx={marketInfo?.markPx}
 											markPriceStatus={marketInfo?.markPriceStatus ?? "loading"}
 											tpSlInfo={tpSlOrdersByCoin.get(p.coin)}
+											isTpSlReady={isOpenOrdersReady}
 											isRowClosing={isMarketClosePending}
 											isEven={i % 2 === 1}
 											pnlMode={pnlMode}

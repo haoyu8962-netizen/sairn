@@ -9,9 +9,18 @@ export interface TwapContext {
 	twapMinutesNum: number | null;
 	twapTriggerPriceNum: number | null;
 	twapStopPriceNum: number | null;
+	twapPricesEnabled: boolean;
+	twapTriggerPriceInput: string;
+	twapStopPriceInput: string;
 	orderValue: number;
 	side: Side;
 	markPx: number;
+}
+
+function isValidOptionalTwapPrice(priceNum: number | null, pricesEnabled: boolean, rawInput: string): boolean {
+	if (priceNum !== null) return isPositive(priceNum);
+	if (!pricesEnabled) return true;
+	return rawInput.trim() === "";
 }
 
 export const twapMinutesRangeValidator: Validator<TwapContext> = createValidator({
@@ -50,8 +59,8 @@ export const twapTriggerPricePositiveValidator: Validator<TwapContext> = createV
 	priority: 52,
 	getMessage: (_ctx, translate) => translate(msg`Enter a valid trigger price`),
 	validate: (ctx) => {
-		if (!ctx.twapOrder || ctx.twapTriggerPriceNum === null) return true;
-		return isPositive(ctx.twapTriggerPriceNum);
+		if (!ctx.twapOrder) return true;
+		return isValidOptionalTwapPrice(ctx.twapTriggerPriceNum, ctx.twapPricesEnabled, ctx.twapTriggerPriceInput);
 	},
 });
 
@@ -63,8 +72,8 @@ export const twapStopPricePositiveValidator: Validator<TwapContext> = createVali
 	getMessage: (ctx, translate) =>
 		ctx.side === "buy" ? translate(msg`Enter a valid max price`) : translate(msg`Enter a valid min price`),
 	validate: (ctx) => {
-		if (!ctx.twapOrder || ctx.twapStopPriceNum === null) return true;
-		return isPositive(ctx.twapStopPriceNum);
+		if (!ctx.twapOrder) return true;
+		return isValidOptionalTwapPrice(ctx.twapStopPriceNum, ctx.twapPricesEnabled, ctx.twapStopPriceInput);
 	},
 });
 

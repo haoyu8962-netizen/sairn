@@ -1,13 +1,15 @@
+import { Tooltip as BaseTooltip } from "@base-ui/react/tooltip";
 import { useLingui } from "@lingui/react/macro";
 import { ArrowSquareOutIcon, CheckIcon, CopyIcon } from "@phosphor-icons/react";
-import { type PointerEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { tooltipPopupVariants } from "@sairn/ui";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
 import { MARKET_HEADER_LABELS } from "@/config/market-header";
 import { get24hChange, getMarketCapUsd, getOiUsd } from "@/domain/market";
 import { getSpotAssetSocials, hasSpotSocialLinks, type SpotAssetSocials } from "@/domain/market/spot-asset-info";
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useCopyToClipboard } from "@/hooks/ui/use-copy-to-clipboard";
+import { cn } from "@/lib/cn";
 import { formatClockDuration, type NumberFormatters, shortenAddress, useNumberFormat } from "@/lib/format";
 import { getExplorerTokenUrl, type UnifiedMarketInfo } from "@/lib/hyperliquid";
 import { isTestnet } from "@/lib/network";
@@ -23,7 +25,6 @@ const HOUR_MS = 3_600_000;
 const TOOLTIP_WIDTH_PX = 320;
 const TOOLTIP_VIEWPORT_PADDING_PX = 16;
 const TOOLTIP_SIDE_OFFSET_PX = 4;
-const TOOLTIP_ESTIMATED_HEIGHT_PX = 144;
 
 interface Props {
 	className?: string;
@@ -35,16 +36,27 @@ interface DetailCellProps {
 	value: ReactNode;
 }
 
-interface TooltipPosition {
-	left: number;
-	top: number;
-	width: number;
-}
-
 function getSafeAreaInset(variable: "--sal" | "--sar"): number {
 	const value = window.getComputedStyle(document.documentElement).getPropertyValue(variable);
 	const parsed = Number.parseFloat(value);
 	return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function getTooltipCollisionPadding() {
+	if (typeof window === "undefined") {
+		return {
+			top: TOOLTIP_VIEWPORT_PADDING_PX,
+			bottom: TOOLTIP_VIEWPORT_PADDING_PX,
+			left: TOOLTIP_VIEWPORT_PADDING_PX,
+			right: TOOLTIP_VIEWPORT_PADDING_PX,
+		};
+	}
+	return {
+		top: TOOLTIP_VIEWPORT_PADDING_PX,
+		bottom: TOOLTIP_VIEWPORT_PADDING_PX,
+		left: Math.max(TOOLTIP_VIEWPORT_PADDING_PX, getSafeAreaInset("--sal")),
+		right: Math.max(TOOLTIP_VIEWPORT_PADDING_PX, getSafeAreaInset("--sar")),
+	};
 }
 
 export function MobileMarketBar({ className }: Props) {
@@ -269,105 +281,172 @@ function createSpotTokenInfo(
 function DetailCell({ label, tooltipContent, value }: DetailCellProps) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const tooltipId = useId();
-	const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
+	const [open, setOpen] = useState(false);
+	const [collisionPadding, setCollisionPadding] = useState(getTooltipCollisionPadding);
+	const isPointerPressingRef = useRef(false);
+	const openedByFocusDuringPressRef = useRef(false);
+	const openedByClickRef = useRef(false);
+	const pointerPressCleanupRef = useRef<(() => void) | null>(null);
+	const pointerPressResetTimerRef = useRef<number | null>(null);
+	const popupWidth =
+		typeof window === "undefined"
+			? TOOLTIP_WIDTH_PX
+			: Math.min(TOOLTIP_WIDTH_PX, Math.max(0, window.innerWidth - collisionPadding.left - collisionPadding.right));
 
-	function openTooltip() {
-		const trigger = triggerRef.current;
-		if (!trigger || typeof window === "undefined") return;
-
-		const rect = trigger.getBoundingClientRect();
-		const leftPadding = Math.max(TOOLTIP_VIEWPORT_PADDING_PX, getSafeAreaInset("--sal"));
-		const rightPadding = Math.max(TOOLTIP_VIEWPORT_PADDING_PX, getSafeAreaInset("--sar"));
-		const maxWidth = Math.max(0, window.innerWidth - leftPadding - rightPadding);
-		const width = Math.min(TOOLTIP_WIDTH_PX, maxWidth);
-		const left = Math.min(
-			Math.max(leftPadding, rect.left),
-			Math.max(leftPadding, window.innerWidth - width - rightPadding),
-		);
-		const belowTop = rect.bottom + TOOLTIP_SIDE_OFFSET_PX;
-		const aboveTop = rect.top - TOOLTIP_ESTIMATED_HEIGHT_PX - TOOLTIP_SIDE_OFFSET_PX;
-		const top =
-			belowTop + TOOLTIP_ESTIMATED_HEIGHT_PX > window.innerHeight - TOOLTIP_VIEWPORT_PADDING_PX
-				? Math.max(TOOLTIP_VIEWPORT_PADDING_PX, aboveTop)
-				: belowTop;
-
-		setTooltipPosition({
-			left,
-			top,
-			width,
-		});
-	}
-
-	function closeTooltip() {
-		setTooltipPosition(null);
-	}
-
-	function handlePointerEnter(event: PointerEvent<HTMLButtonElement>) {
-		if (!isHoverPointer(event.pointerType)) return;
-		openTooltip();
-	}
-
-	function handlePointerLeave(event: PointerEvent<HTMLButtonElement>) {
-		if (!isHoverPointer(event.pointerType)) return;
-		closeTooltip();
-	}
-
-	function handleTooltipClick() {
-		if (tooltipPosition) {
-			closeTooltip();
-			return;
+	function clearPointerPressState() {
+		if (pointerPressResetTimerRef.current !== null && typeof window !== "undefined") {
+			window.clearTimeout(pointerPressResetTimerRef.current);
+			pointerPressResetTimerRef.current = null;
 		}
-		openTooltip();
+		pointerPressCleanupRef.current?.();
+		pointerPressCleanupRef.current = null;
+		isPointerPressingRef.current = false;
+		openedByFocusDuringPressRef.current = false;
 	}
+
+	useEffect(
+		() => () => {
+			if (pointerPressResetTimerRef.current !== null && typeof window !== "undefined") {
+				window.clearTimeout(pointerPressResetTimerRef.current);
+				pointerPressResetTimerRef.current = null;
+			}
+			pointerPressCleanupRef.current?.();
+			pointerPressCleanupRef.current = null;
+			isPointerPressingRef.current = false;
+			openedByFocusDuringPressRef.current = false;
+		},
+		[],
+	);
 
 	useEffect(() => {
-		if (!tooltipPosition || typeof document === "undefined" || typeof window === "undefined") return;
+		if (!open || typeof window === "undefined") return;
 
 		function closeOpenTooltip() {
-			setTooltipPosition(null);
+			openedByClickRef.current = false;
+			openedByFocusDuringPressRef.current = false;
+			setOpen(false);
 		}
 
-		function handlePointerDown(event: globalThis.PointerEvent) {
-			const trigger = triggerRef.current;
-			if (trigger?.contains(event.target as Node)) return;
-			closeOpenTooltip();
-		}
-
-		function handleKeyDown(event: KeyboardEvent) {
-			if (event.key === "Escape") closeOpenTooltip();
-		}
-
-		document.addEventListener("pointerdown", handlePointerDown, true);
-		document.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("scroll", closeOpenTooltip, true);
 		window.addEventListener("resize", closeOpenTooltip);
 		return () => {
-			document.removeEventListener("pointerdown", handlePointerDown, true);
-			document.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("scroll", closeOpenTooltip, true);
 			window.removeEventListener("resize", closeOpenTooltip);
 		};
-	}, [tooltipPosition]);
+	}, [open]);
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			setCollisionPadding(getTooltipCollisionPadding());
+		}
+		setOpen(nextOpen);
+	}
+
+	function handleOpenChange(nextOpen: boolean, details: BaseTooltip.Root.ChangeEventDetails) {
+		if (!nextOpen && details.reason === "trigger-press") return;
+		if (!nextOpen && details.reason === "trigger-hover" && openedByClickRef.current) return;
+		if (nextOpen && details.reason === "trigger-hover") {
+			openedByClickRef.current = false;
+		}
+		if (!nextOpen) {
+			openedByClickRef.current = false;
+		}
+		if (nextOpen && details.reason === "trigger-focus" && isPointerPressingRef.current) {
+			openedByFocusDuringPressRef.current = true;
+		}
+		updateOpen(nextOpen);
+	}
+
+	function handlePointerDown() {
+		clearPointerPressState();
+		isPointerPressingRef.current = true;
+		if (typeof window === "undefined") return;
+
+		function handleWindowPointerCancel() {
+			clearPointerPressState();
+		}
+
+		function handleWindowPointerUp(event: PointerEvent) {
+			if (!triggerRef.current?.contains(event.target as Node)) {
+				clearPointerPressState();
+				return;
+			}
+			if (pointerPressResetTimerRef.current !== null) {
+				window.clearTimeout(pointerPressResetTimerRef.current);
+			}
+			pointerPressResetTimerRef.current = window.setTimeout(clearPointerPressState, 0);
+		}
+
+		function handleWindowKeyDown() {
+			clearPointerPressState();
+		}
+
+		window.addEventListener("pointercancel", handleWindowPointerCancel, true);
+		window.addEventListener("pointerup", handleWindowPointerUp, true);
+		window.addEventListener("keydown", handleWindowKeyDown, true);
+		pointerPressCleanupRef.current = () => {
+			window.removeEventListener("pointercancel", handleWindowPointerCancel, true);
+			window.removeEventListener("pointerup", handleWindowPointerUp, true);
+			window.removeEventListener("keydown", handleWindowKeyDown, true);
+		};
+	}
+
+	function handleTooltipClick() {
+		const openedDuringPress = openedByFocusDuringPressRef.current;
+		clearPointerPressState();
+		if (openedDuringPress) {
+			openedByClickRef.current = true;
+			return;
+		}
+		const nextOpen = !open;
+		openedByClickRef.current = nextOpen;
+		updateOpen(nextOpen);
+	}
 
 	return (
 		<div className="min-w-0">
 			<div className="text-3xs leading-4 text-trading-panel-subtle">
 				{tooltipContent ? (
-					<>
-						<button
-							ref={triggerRef}
-							type="button"
-							onPointerEnter={handlePointerEnter}
-							onPointerLeave={handlePointerLeave}
-							onBlur={closeTooltip}
-							onClick={handleTooltipClick}
-							aria-describedby={tooltipPosition ? tooltipId : undefined}
-							className="relative inline-flex max-w-full cursor-help border-0 border-b border-dashed border-trading-panel-stroke-control bg-transparent p-0 text-start text-current after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
-						>
-							<span className="truncate">{label}</span>
-						</button>
-						{tooltipPosition && createMarketDetailTooltip(tooltipId, tooltipContent, tooltipPosition)}
-					</>
+					<BaseTooltip.Root open={open} onOpenChange={handleOpenChange}>
+						<BaseTooltip.Trigger
+							delay={0}
+							closeDelay={0}
+							closeOnClick={false}
+							render={
+								<button
+									ref={triggerRef}
+									type="button"
+									onPointerDown={handlePointerDown}
+									onBlur={clearPointerPressState}
+									onClick={handleTooltipClick}
+									aria-describedby={open ? tooltipId : undefined}
+									className="relative inline-flex max-w-full cursor-help border-0 border-b border-dashed border-trading-panel-stroke-control bg-transparent p-0 text-start text-current after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+								>
+									<span className="truncate">{label}</span>
+								</button>
+							}
+						/>
+						<BaseTooltip.Portal>
+							<BaseTooltip.Positioner
+								positionMethod="fixed"
+								side="bottom"
+								align="start"
+								sideOffset={TOOLTIP_SIDE_OFFSET_PX}
+								collisionPadding={collisionPadding}
+								collisionAvoidance={{ side: "flip", align: "shift" }}
+								className="z-[var(--z-tooltip)] data-[anchor-hidden]:hidden"
+							>
+								<BaseTooltip.Popup
+									id={tooltipId}
+									role="tooltip"
+									style={{ width: popupWidth, maxWidth: popupWidth }}
+									className={cn(tooltipPopupVariants(), "box-border text-2xs leading-4")}
+								>
+									{tooltipContent}
+								</BaseTooltip.Popup>
+							</BaseTooltip.Positioner>
+						</BaseTooltip.Portal>
+					</BaseTooltip.Root>
 				) : (
 					label
 				)}
@@ -379,26 +458,6 @@ function DetailCell({ label, tooltipContent, value }: DetailCellProps) {
 				{value}
 			</div>
 		</div>
-	);
-}
-
-function isHoverPointer(pointerType: string): boolean {
-	return pointerType === "mouse" || pointerType === "pen";
-}
-
-function createMarketDetailTooltip(id: string, content: ReactNode, position: TooltipPosition) {
-	if (typeof document === "undefined") return null;
-
-	return createPortal(
-		<div
-			id={id}
-			role="tooltip"
-			className="fixed z-[var(--z-tooltip)] box-border rounded-xs border border-stroke-weak bg-overlay px-3 py-2 text-2xs leading-4 text-fg shadow-overlay"
-			style={{ left: position.left, top: position.top, width: position.width }}
-		>
-			{content}
-		</div>,
-		document.body,
 	);
 }
 
