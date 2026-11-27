@@ -161,6 +161,70 @@ describe("Vault list domain", () => {
 		expect(noResult).toMatchObject({ status: "ready", rows: [], isSearchNoResults: true });
 	});
 
+	it("matches Vault names across Turkish dotted and dotless i, Chinese text and ASCII", () => {
+		const rows = [
+			createListItem({ vaultAddress: VAULT_A, name: "İstanbul Kasası", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_B, name: "阿尔法金库", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_C, name: "INIT Yield", tvl: "1", classification: "user" }),
+		];
+		const names = (query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((row) => row.name) : [];
+		};
+		expect(names("istanbul")).toEqual(["İstanbul Kasası"]);
+		expect(names("İSTANBUL")).toEqual(["İstanbul Kasası"]);
+		expect(names("kasasi")).toEqual(["İstanbul Kasası"]);
+		expect(names("İNİT")).toEqual(["INIT Yield"]);
+		expect(names("ınıt")).toEqual(["INIT Yield"]);
+		expect(names(" init ")).toEqual(["INIT Yield"]);
+		expect(names("阿尔法")).toEqual(["阿尔法金库"]);
+		expect(selectVaultRows({ rows, filter: "all", query: "ıstanbulx", account: EMPTY_ACCOUNT })).toMatchObject({
+			rows: [],
+			isSearchNoResults: true,
+		});
+	});
+
+	it("folds the query before trimming and never treats a query of marks alone as empty", () => {
+		const combiningAcute = String.fromCharCode(0x301);
+		const rows = [
+			createListItem({ vaultAddress: VAULT_A, name: "İstanbul Kasası", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_B, name: "Quỹ Đồng", tvl: "1", classification: "user" }),
+		];
+		const select = (query: string) => selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+		expect(select(combiningAcute)).toMatchObject({ rows: [], isSearchNoResults: true });
+		expect(select(` ${combiningAcute} `)).toMatchObject({ rows: [], isSearchNoResults: true });
+		const prefixed = select(`${combiningAcute} istanbul`);
+		expect(prefixed.status === "ready" ? prefixed.rows.map((row) => row.name) : []).toEqual(["İstanbul Kasası"]);
+		const vietnamese = select("dong");
+		expect(vietnamese.status === "ready" ? vietnamese.rows.map((row) => row.name) : []).toEqual(["Quỹ Đồng"]);
+	});
+
+	it("refolds a row's name when the row or its name changes", () => {
+		const row = createListItem({ vaultAddress: VAULT_A, name: "Alpha", tvl: "1", classification: "user" });
+		const names = (rows: readonly VaultListItem[], query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((item) => item.name) : [];
+		};
+		expect(names([row], "alpha")).toEqual(["Alpha"]);
+		expect(names([{ ...row, name: "İstanbul" }], "istanbul")).toEqual(["İstanbul"]);
+		row.name = "Beta";
+		expect(names([row], "alpha")).toEqual([]);
+		expect(names([row], "beta")).toEqual(["Beta"]);
+	});
+
+	it("keeps address search on the address's own lowercase comparison", () => {
+		const vault = "0x00000000000000000000000000000000000000ab" as const;
+		const rows = [createListItem({ vaultAddress: vault, name: "Hex", tvl: "1", classification: "user" })];
+		const names = (query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((row) => row.name) : [];
+		};
+		expect(names("00AB")).toEqual(["Hex"]);
+		expect(names("0x00000000000000000000000000000000000000AB")).toEqual(["Hex"]);
+		expect(names(LEADER.slice(-6))).toEqual(["Hex"]);
+		expect(names("ÀB")).toEqual([]);
+	});
+
 	it("sums and formats financial strings with Big.js beyond JavaScript precision", () => {
 		expect(sumVaultTvl(BASE_ROWS)).toBe("9007199254741000");
 		const child = { ...BASE_ROWS[1], vaultAddress: USER, relationship: "child" as const, tvl: "100" };

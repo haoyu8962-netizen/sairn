@@ -1755,7 +1755,7 @@ msgstr "Закрыто"
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 msgid "Closed PNL"
-msgstr "Зафиксированный PnL"
+msgstr "Закрытый PnL"
 
 #: src/components/trade/components/mobile-agent-sync-modal.tsx
 msgid "Closes in {remainingSeconds}s"
@@ -2652,11 +2652,11 @@ msgstr "Расстояние от мида"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Distance to mark"
-msgstr "Расстояние до маркировки"
+msgstr "До цены маркировки"
 
 #: src/components/trade/positions/orders-tab.tsx
 msgid "Distance to mark {markDistanceLabel}"
-msgstr "Расстояние до маркировки {markDistanceLabel}"
+msgstr "До цены маркировки {markDistanceLabel}"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Do not submit again while Hyperliquid history is checked."
@@ -4368,7 +4368,7 @@ msgstr "Краткий обзор маржи и рисков аккаунта"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Отменен по марже"
+msgstr "Отмена: маржа"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -4432,12 +4432,9 @@ msgstr "Цена маркировки: используется для расч�
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/orders-tab.tsx
-#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-market-filter.tsx
-#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
@@ -4448,7 +4445,10 @@ msgstr "Рынок"
 
 #: src/components/trade/components/historical-order-price.tsx
 #: src/components/trade/components/historical-order-price.tsx
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-inline-actions.tsx
+#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/config/trade.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-order-display-labels.ts
@@ -5601,12 +5601,12 @@ msgstr "Частично исполнен {progress}"
 #: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-tab.tsx
 msgid "Pause"
-msgstr "Приостановить"
+msgstr "Пауза"
 
 #: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-tab.tsx
 msgid "Pause unavailable: Hyperliquid does not support pausing active TWAP orders."
-msgstr "Приостановка недоступна: Hyperliquid не поддерживает приостановку активных ордеров TWAP."
+msgstr "Пауза недоступна: Hyperliquid не поддерживает приостановку активных ордеров TWAP."
 
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/funding-history/funding-history-page.tsx
@@ -6677,7 +6677,7 @@ msgstr "Развернуть"
 #: src/components/trade/positions/position-inline-actions.tsx
 msgctxt "Position action"
 msgid "Reverse"
-msgstr "Развернуть"
+msgstr "Разворот"
 
 #: src/components/trade/mobile/mobile-position-card.tsx
 msgid "Reverse {displayName} position"
@@ -6687,7 +6687,7 @@ msgstr "Развернуть позицию {displayName}"
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/hooks/trade/use-position-reverse-submit.ts
 msgid "Reverse Position"
-msgstr "Развернуть позицию"
+msgstr "Разворот позиции"
 
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 msgid "Reverse quantity (2× position)"
@@ -7468,7 +7468,7 @@ msgstr "Капитал спотового аккаунта"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Spot Dust Conversion"
-msgstr "Конвертация мелких остатков (спот)"
+msgstr "Конвертация мелких остатков"
 
 #: src/components/staking/staking-view.tsx
 msgid "Spot to staking"
@@ -8915,7 +8915,7 @@ msgstr "Общая номинальная стоимость"
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Total Run Time"
-msgstr "Общее время выполнения"
+msgstr "Время выполнения"
 
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx

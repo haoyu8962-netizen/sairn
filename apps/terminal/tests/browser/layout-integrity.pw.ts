@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { findLayoutIntegrityIssues } from "./layout-integrity";
+import { findLayoutIntegrityIssues, findTableCellSpill } from "./layout-integrity";
 
 const CASES = `
 <style>
@@ -62,4 +62,42 @@ test("requires its root and honours the tolerance", async ({ page }) => {
 		{ kind: "clipped", text: "svg" },
 	]);
 	expect(await findLayoutIntegrityIssues(page, { root: "#root", tolerance: 2 })).toEqual([]);
+});
+
+test("measures text an element hides itself only within its own box, and anchors each finding", async ({ page }) => {
+	await page.setContent(`<style>
+		body { margin: 0; font: 14px/20px sans-serif; }
+		.card { width: 120px; border: 1px solid #888; padding: 4px; margin: 8px; overflow: hidden; }
+		.truncate { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	</style>
+	<main id="root">
+		<div class="card" data-testid="inside"><span class="truncate">A long market name that cannot fit</span></div>
+		<div class="card" data-testid="wider"><span class="truncate" style="width:200px">A long market name that does not fit in two hundred pixels either</span></div>
+	</main>`);
+	const findings = await findLayoutIntegrityIssues(page, { root: "#root" });
+	expect(findings.map((finding) => `${finding.kind}:${finding.path.split(" › ")[0]}:${finding.anchor}`)).toEqual([
+		"truncated:inside:0.0",
+		"truncated:wider:1.0",
+		"clipped:wider:1.0",
+	]);
+});
+
+test("reports table text that runs into the next column and leaves hidden text to the probe", async ({ page }) => {
+	await page.setContent(`<style>
+		body { margin: 0; font: 14px/20px sans-serif; }
+		table { table-layout: fixed; width: 240px; border-collapse: collapse; }
+		td, th { padding: 0; }
+	</style>
+	<main id="root"><table>
+		<thead><tr><th>Size</th><th>Value</th></tr></thead>
+		<tbody>
+			<tr><td><span style="white-space:nowrap">A value much wider than its column</span></td><td>1</td></tr>
+			<tr><td><span style="display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A truncated value is left to the probe</span></td><td>2</td></tr>
+			<tr><td>Fits</td><td><span style="white-space:nowrap;visibility:hidden">A hidden value much wider than its column</span></td></tr>
+		</tbody>
+	</table></main>`);
+	await expect(findTableCellSpill(page, { root: "#missing" })).rejects.toThrow(/Missing layout-integrity root/);
+	expect(await findTableCellSpill(page, { root: "#root" })).toMatchObject([
+		{ kind: "spilled", path: "cell-spill › «Size» › span", text: "A value much wider than its column", anchor: "0.1.0.0.0" },
+	]);
 });

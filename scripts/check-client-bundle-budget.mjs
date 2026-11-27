@@ -221,7 +221,12 @@ const budgets = {
 		// the locale list, link-locale parsing, the startup font samples and the language-menu warm-up in vendor-router
 		// and the bootstrap failure copy of the new languages. The larger increment is used, so pairing on keeps main's
 		// 411 bytes. The branch had first been measured against main ce3259b6 at +1,940.
-		baselineGzipBytes: 1_676_706,
+		// Raised 2026-11-27 by +935 for the search folding of PR #24 (Turkish İ/ı and Latin accents in market and Vault
+		// name search), measured after main 7474813c was merged: pairing on 1,687,005 for 36e69cdc minus main's
+		// 1,686,070 (pairing off measures +859). The Vault filter now imports lib/search/utils.ts, so that module,
+		// fuzzy-match helpers included, moved from the lazy search chunk (-413) into vendor-tanstack-router (+767).
+		// The larger increment is used, so pairing on keeps main's room (docs/terminal-performance-baseline.md).
+		baselineGzipBytes: 1_677_641,
 		allowedIncreaseBytes: 10_000,
 	},
 	tradeRuntimeStartup: {

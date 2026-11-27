@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import { i18n } from "@lingui/core";
 import { ApiRequestError } from "@nktkas/hyperliquid";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
@@ -17,6 +18,7 @@ import {
 	getPendingTradingActionActions,
 	getPendingTradingActionSnapshot,
 } from "@/stores/use-pending-trading-action-store";
+import { type CatalogEntry, loadCatalogMessages, readCatalogTranslation } from "./harness/catalog-messages";
 import { createI18nRoot } from "./harness/react";
 
 const queryClient = new QueryClient();
@@ -292,6 +294,7 @@ describe("MobileOrdersTab disclosure card", () => {
 		queueItems = [];
 		container.remove();
 		vi.clearAllMocks();
+		i18n.loadAndActivate({ locale: "en", messages: {} });
 	});
 
 	function renderOrders({ expandFirst = true }: { expandFirst?: boolean } = {}) {
@@ -360,6 +363,38 @@ describe("MobileOrdersTab disclosure card", () => {
 		act(() => collapse?.click());
 		expect(container.textContent).not.toContain("Original Size");
 	});
+
+	it.each(["ja", "ko", "zh-TW"])(
+		"prices a market trigger card with the %s market order type, not the market noun",
+		(locale) => {
+			const marketOrderType: CatalogEntry = ["Market", "Order type"];
+			const marketNoun: CatalogEntry = ["Market", ""];
+			const priceEntry: CatalogEntry = ["Price", ""];
+			const orderType = readCatalogTranslation(locale, marketOrderType);
+			const noun = readCatalogTranslation(locale, marketNoun);
+			const price = readCatalogTranslation(locale, priceEntry);
+			expect(orderType).not.toBe(noun);
+			renderOrders();
+			const metricValue = (label: string) =>
+				[...container.querySelectorAll<HTMLElement>("article div")].find(
+					(node) => node.childElementCount === 0 && node.textContent === label,
+				)?.nextElementSibling?.textContent;
+			const card = container.querySelector("article");
+			expect(metricValue("Price")).toBe("Market");
+			expect(metricValue("Market")).toBe("ORCL");
+
+			act(() =>
+				i18n.loadAndActivate({
+					locale,
+					messages: loadCatalogMessages(locale, [marketOrderType, marketNoun, priceEntry]),
+				}),
+			);
+
+			expect(container.querySelector("article")).toBe(card);
+			expect(metricValue(price)).toBe(orderType);
+			expect(metricValue(noun)).toBe("ORCL");
+		},
+	);
 
 	it("shows a trailing stop's trigger, retracement and watermark, as the official terminal does", () => {
 		mocks.orders = [

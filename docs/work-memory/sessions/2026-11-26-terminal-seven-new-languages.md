@@ -7,10 +7,10 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["i18n-runtime"],
-  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
+  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线；#22 已合入 main（7474813c3）。待决第 1、5、6 项在分支 claude/compassionate-dewdney-663750 处理，已推送为 PR #24，并合入了新 main。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "0a2afbefc", "c719ee0c9", "f81a5568a"],
+  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "37e6b05b8", "fc251f889", "f0f9bdfcc", "8f409af0f", "0a2afbefc", "c719ee0c9", "f81a5568a", "7575ee004"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -452,6 +452,24 @@
 - 覆盖：交易页、Portfolio、Earn、Vaults、Staking、Referrals、Leaderboard，各 1440、1100、390 宽，未连接钱包的默认状态。不含弹窗、下拉菜单、有持仓或委托时的表格（例如 84px 的订单类型列、`Original Size` 列）、悬停提示；这是脚本读取的几何，不是人眼或像素比对。
 - 结果：ko、zh-TW 在全部页面与宽度下与英文基线一致。vi 修复账户紧凑值后，在撤回 IBM Plex 越南语子集之前与之后各扫一次，结果相同：只比英文多出 1440 宽订单簿列头「(BTC)」一处。2026-11-27 按 ADR 0059 补回子集后在开发服务器 3005 上重扫 en 与 vi（每个页面抽样确认是对应语言），结果仍是这一处（32/29px）。
 
+### 待决项处理（2026-11-27，第 1、5、6 项）
+
+运营方采纳了待决第 1、5、6 项的建议，另起会话在工作树 `.claude/worktrees/compassionate-dewdney-663750`（分支 `claude/compassionate-dewdney-663750`）处理，一项一个提交。工作树开始时停在原仓库的旧历史 `766a85668`，已重置到本分支当时的顶端 `5a0a345b1`（PR haoyu8962-netizen/sairn#22），三个提交都在它之上，依赖 #22 先合并或一起合并。
+
+- 第 1 项（`37e6b05b8`）：三处价格值改用 `t({ message: "Market", context: "Order type" })`，各语言目录里已有的译文直接生效（日语「成行」、韩语「시장가」、繁中「市價」、简中「市价」、阿语「سعر السوق」、法语「Au marché」）；同一组件里作列名或行名的 `Market`（市场名词）不变。`pnpm i18n:extract` 后 14 个目录都只有 3 行 `#:` 引用从无上下文的 `Market` 移到 `Order type` 的 `Market`，没有增删 msgid，英文显示不变。三处各加一条按语言断言的测试（ja、ko、zh-TW）：先以英文渲染，再切换语言，断言同一个 DOM 节点的价格值等于 `Order type` 的译文、市场名词的行或列仍是名词译文；读真实 `.po` 的辅助函数放在 `src/lib/tests/harness/catalog-messages.ts`，无上下文的查找只匹配没有 `msgctxt` 的条目。
+- 第 5 项（`fc251f889`）：`lib/search/utils.ts` 新增 `foldSearchText`（小写 → NFD → 去掉 U+0300–U+036F 的组合附加符号 → NFC → `ı` 折为 `i`），搜索库的 `normalize` 与金库名称筛选都用它；金库地址与领投人地址仍用原来的 `toLowerCase()`，市场查找、地址、cloid 等协议比较不经过它。没有去掉全部 `\p{M}`：日语浊点（U+3099）和天城文元音符号也是组合符号，去掉会改变词义（「ガ」会等于「カ」）。规则写进 `docs/i18n-presentation.md`（Turkish 一条之后），`search-fold.test.ts` 加入 AGENTS.md 的运行时翻译回归组。
+- 第 6 项（本节所在提交）：只改 `es`、`fr` 目录里这 6 条译文的数字（`10.000.000`、`1.000`、`10 000 000`、`1 000`、`100 000`、`10 000` 恢复为源文的 `,` 分组），货币符号位置与其他文字不动，所以法语读作「10,000 $」；`catalog-literal-number-contract` 的例外表清空（保留空表与过期检查），`docs/i18n-presentation.md` 的静态数字一条改为「没有例外」。
+
+### PR #24 审查修复（2026-11-27）
+
+运营方授权后分支已推送并对 `main` 开了 PR haoyu8962-netizen/sairn#24。Gemini 4 Neon 的只读对抗审查给 8/10（P2 两项、P3 两项；它的提示词后半段被截断，结论已按完整代码逐条核实）。运营方要求转给本会话修复。
+
+- P2 只含组合符号的查询（成立）：金库筛选先 `trim()` 再折叠，查询「U+0301」折成空串后 `.includes("")` 命中全部金库，而改动前是无结果；「U+0301 istanbul」折叠后留下前导空格，匹配不到「İstanbul」。改为折叠后再 `trim()`，名称查询为空串时不参与匹配；`isSearchNoResults` 仍按原查询判断，所以只含组合符号的查询显示「无结果」，与改动前相同。市场搜索的 `normalize` 本来就是先折叠后 `trim()`，空查询返回空结果，与改动前一致。
+- P2 金库筛选的热路径（成立）：金库列表每次按键对每行折叠一次。Node 实测 1 万行、每 10 行有 1 行非 ASCII，每次按键约 23–25 ms，原来的 `toLowerCase()` 约 1.4–2.6 ms（读数随预热顺序浮动）。修法有两处：一是 `foldSearchText` 对纯 ASCII 直接返回小写（与完整折叠逐字相同，测试对 0–127 全部字符核对）；二是金库筛选按行对象缓存折叠后的名称（`WeakMap`，名称变了就重算）。加缓存后，按键时的开销回到原来 `toLowerCase()` 的量级（约 1.5 ms）。市场搜索在建索引时折叠一次，按键只折叠查询，不在热路径上。高亮偏移的担心不成立：搜索结果的 `matches` 没有调用方用来切片或高亮，`highlightedIndex` 是键盘选中的行号。
+- P3 命名与范围（成立）：U+0300–U+036F 是 Combining Diacritical Marks 块，也承载希腊字母与西里尔字母的附加符号，俄语「ё」「й」会折成「е」「и」。常量改名为 `COMBINING_DIACRITICAL_MARKS`，测试标题与 `docs/i18n-presentation.md` 写明实际范围。决定保留西里尔的折叠：它只让搜索更宽松（「май」仍能搜到「май」），不会漏掉结果。越南语「đ」不分解：已与「ı」一起显式折叠（`đ` → `d`），「dong」能搜到「Đồng」。其他不分解的字母（`ß`、`ø`、`æ`、`œ`、`ł`）不折叠，文档写明。补了俄语「й」、希腊语、阿拉伯语符号保留、`ß` 不折叠的用例。
+- P3 记录与 PR 正文（成立）：上面的验证小节补记了 `pnpm memory:test`。PR 正文混用了两套编号：#22 正文里是待决第 1、4、5 项，本记录是第 1、5、6 项，因为本记录还把已决定的越南语字体列为第 2 项。新正文统一用 #22 的编号，并注明与本记录编号的对应关系。按编排会话的要求，新正文只备好，没有改到 PR 上。
+- 第 1 项的补充核实：其余仍用无上下文 `Market` 的地方（`mobile-position-card.tsx`、`positions-tab.tsx`、`mobile-order-modification-modal.tsx`、`position-market-filter.tsx`、各历史表与 TWAP 表的列头）都是「市场」名词的列名或行名，不是价格值。
+
 ## 验证与限制
 
 以下都在工作树 `ce3259b68` 加上对应语言的未提交改动上实际运行。
@@ -533,6 +551,27 @@
 - 没有运行：生产构建与包体预算（留到终验）、`pnpm typecheck` 的全仓版本（只跑了终端的 typecheck）、交易页以外页面的弹窗与有数据状态的截断检查、真机。
 - 扫描用的 `apps/terminal/.env.local` 是从本机 sairn 克隆复制的，扫描结束后已删除；`apps/terminal/public/charting_library/` 由 `scripts/fetch-chart-library.mjs` 安装，Git 忽略，不入库。
 
+### 待决项处理的验证（2026-11-27）
+
+- 变异：三处价格值改回无上下文的 ``t`Market` ``，三个文件的 9 条按语言测试全部失败；`foldSearchText` 改回只 `toLowerCase()`，4 条失败；只把金库名称改回 `toLowerCase()`，1 条失败；把地址查询也改成折叠，地址用例（查询「ÀB」不得命中）失败；`es` 的「1,000」改回「1.000」、`fr` 的「10,000 $」改回「10 000 $」，两个目录的数字契约各自失败。全部已还原。
+- `pnpm i18n:extract`：第 1 项后 14 个目录各只有 3 行 `#:` 引用移动；第 2、3 项后没有任何 `.po` 差异（第 3 项的 6 行 `msgstr` 是手改的）。`pnpm i18n:compile` 通过。
+- Biome 对改过的 ts/tsx 通过；`pnpm --filter @sairn/terminal typecheck` 通过（图表库用 `scripts/fetch-chart-library.mjs --from` 从本机另一工作树的已安装副本装入，Git 忽略）；`pnpm memory:check` 通过；`pnpm memory:test` 12 项通过（第 3 项提交前运行，原先漏记，2026-11-27 审查后补记）。
+- 相关测试：第 1 项后 26 个文件 935 项通过（三个组件的测试、确认弹窗与订单列表的契约、i18n 与数字/日期格式契约、`catalog-completeness-contract`、`catalog-literal-number-contract`）；第 2 项后搜索与金库相关 11 个文件 177 项通过。
+- 终端全量 Vitest（沙箱外，`pnpm --filter @sairn/terminal test --maxWorkers=4`，在 `fc251f889` 加上未提交的第 3 项改动上运行）：779 个文件中 778 通过、1 跳过，12,235 项中 12,234 通过、1 跳过，0 失败，约 350 秒。
+- 没有运行：生产构建与包体预算（第 2 项给搜索库与金库筛选加了一个小函数，第 1、3 项只改消息的引用与 6 条译文的几个字符，预计在余量内，未量）、浏览器套件、真机与真人查看。没有做 Codex 审查。
+
+### PR #24 审查修复的验证（2026-11-27）
+
+- 变异（都已还原）：
+  - 去掉空名称查询的守卫：失败 1 条。
+  - 去掉折叠后的 `trim()`：失败 1 条。
+  - 不折叠 `đ`：失败 2 条。
+  - 缓存不核对名称：失败 1 条。
+  - ASCII 路径返回未小写的原文：失败 7 条。
+- 相关测试：16 个文件 619 项通过，包括 `search-fold`、`vaults-domain`、金库列表与控制器、命令菜单、代币选择器，以及 i18n、目录完整性、静态数字、数字与日期格式的契约。
+- 其他检查：Biome 对改过的 4 个文件通过，`pnpm --filter @sairn/terminal typecheck` 通过，`pnpm memory:check` 通过，`pnpm memory:test` 12 项通过。
+- 没有运行：这一轮没跑终端全量 Vitest、浏览器套件、生产构建与包体测量。性能读数来自 Node 微基准，不是浏览器里的按键实测。
+
 ### 订单簿数量列头（2026-11-27，待决定第 3 项）
 
 - 改法：`ORDERBOOK_LABELS.size` 改为 `msg({ message: "Size", context: "Order book column" })`，只有桌面订单簿列头（`orderbook-panel.tsx`）用它；`TRADE_PANEL_LABELS.size` 原来直接引用这条，改为自己的 `msg\`Size\``，下单表单与其他处的 `Size` 译文不变。`pnpm i18n:extract` 后每个目录只多这一条，另有一行来源注释从 `orderbook-labels.ts` 换成 `trade-panel-labels.ts`；新增的 7 个目录 Missing 0，原有目录的 Missing 数与改动前相同。
@@ -562,12 +601,12 @@
 
 ### 待运营方决定（都需要改共享源码，本批次没有改）
 
-1. 三处价格值仍用无上下文的 `Market`（反向开仓确认的价格、桌面与手机市价触发单的价格单元格：`position-reverse-confirmation-modal.tsx`、`orders-tab.tsx`、`mobile-orders-tab.tsx`），表达的是「按市价」，却显示成「市场」：日语「市場」、韩语「마켓」、繁中「市場」；越南语「Thị trường」两义皆可，影响较小。修法是源码改用已有的 `Order type` 上下文，所有语言的显示都会变。
+1. 已处理（2026-11-27，运营方采纳，见「待决项处理」）：三处价格值仍用无上下文的 `Market`（反向开仓确认的价格、桌面与手机市价触发单的价格单元格：`position-reverse-confirmation-modal.tsx`、`orders-tab.tsx`、`mobile-orders-tab.tsx`），表达的是「按市价」，却显示成「市场」：日语「市場」、韩语「마켓」、繁中「市場」；越南语「Thị trường」两义皆可，影响较小。修法是源码改用已有的 `Order type` 上下文，所有语言的显示都会变。
 2. 越南语字体：已决定（2026-11-27 运营方选方案 A），按 ADR 0059 实施，见「字体方案」。
 3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。（已处理，2026-11-27：订单簿列头改用 `Order book column` 上下文，越南语「Lượng」、葡萄牙语「Tam.」，见「订单簿数量列头」。）
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
-5. 搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
-6. 原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
+5. 已处理（2026-11-27，运营方采纳，见「待决项处理」）：搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
+6. 已处理（2026-11-27，运营方同意恢复源文写法，见「待决项处理」）：原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
 7. 订单簿列头在四个字母的单位下仍会裁切（2026-11-27 第 3 项处理后实测，见「订单簿数量列头」第二轮）：默认布局中 lg 的 1421–1511px 是三等分列档，单位为 `(USDC)`（永续计价模式）或 `(HYPE)` 这类四个字母的基础币时，西语、俄语、印尼语的数量列与土耳其语、阿拉伯语的累计列裁切单位；越南语「Lượng」在 1421 宽 `(USDC)` 下差 1px。英文与葡萄牙语不裁切。修法二选一：一是给这些语言的列头写更短的形式，累计列要另加 `Order book column` 上下文；二是调整列头布局，例如单位不截断、改由文字让位，这会影响所有语言。八个字母以上的符号连英文也截断，属于布局本身的取舍。
 
 ### 下一批次（4 土耳其语、5 俄语、6 巴西葡萄牙语、7 印尼语）接力要点
@@ -598,6 +637,42 @@
   - 新基线下分支配对开读数：总量 +7,487（余 2,513）、静态启动 +9,589（余 411），与 main 相同；手机运行时 +9,249（余 751）。`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
   - 第一次重定基线（对比 `ce3259b6`）的数据作为历史保留在性能文档里。
 - 没有做：生产发布配置的构建、真机、母语审校（同前）。
+
+### 待决项处理之后（2026-11-27）
+
+- 待决第 3 项（订单簿 `Size` 列头）与第 4 项（繁中现货描述）仍待运营方决定，本次未动。
+- 同类的搜索大小写问题还有两处，不在本次范围：资金费率对比的搜索（`domain/market/funding-comparison.ts` 的 `normalizeFundingComparisonQuery` 与 `row.coin.toLowerCase()`）同样搜不到「İNİT」；排行榜的搜索（`components/leaderboard/leaderboard-domain.ts`）用不带参数的 `toLocaleLowerCase()`，结果取决于浏览器的默认语言，在土耳其语系统上「I」会变成「ı」。两处都可以改用 `foldSearchText`（地址部分保持原样）。
+- 静态数字仍以 `,` 分组显示，不跟随数字格式设置；要跟随，需要把这些数字改成由数字格式器填入的占位符（改共享源码与所有目录）。
+- 包体（见下一节）：`foldSearchText` 和模糊匹配辅助函数一起进了静态启动块。把它拆成单独的模块（如 `lib/search/fold.ts`）很可能让 `levenshtein` 等函数留在懒加载的 `search` 块里，没有构建，也没有量。
+
+### 合入 main 7474813c 与静态启动重定基线（2026-11-27，PR #24）
+
+- 起因：#22 已合入 `main`（`7474813c3`）。编排会话要求把新 `main` 合入 PR #24 的分支，需要时重定包体基线后推送。之前 `8f409af0f` 的 CI 在配对开时，静态启动比当时的基线 1,668,662 超出 38 字节（+10,038）。
+- 合并：`36e69cdc3` 用合并提交把 `main` `7474813c3` 合入本分支，没有 rebase。冲突只有两处：本记录（保留 `main` 的版本，包括「合入 main 4548175e 与第二次重定基线」一节，本分支的提交号、摘要和这一节接在后面）和 `CHANGELOG.md`（Fixed 下先放 `main` 的条目，再放本分支的三条）。`catalog-literal-number-contract.test.ts` 自动合并，`main` 没有改它，待处理表仍是空表，`main` 新增的 25 条消息里也没有被改写的数字。14 个 `.po` 自动合并，`pnpm i18n:extract` 没有再改动任何目录，新增 7 个目录都是 Missing 0；ar/es/fr/hi 各缺 35 条、zh 缺 3 条，与 `main` 相同。`pnpm i18n:compile` 通过。与 `main` 相比，es 和 fr 只差本分支改的数字与引用行，ja、ko、zh-TW 只差三处引用行。
+- 包体：按 `docs/terminal-performance-baseline.md` 做配对构建，`main` `7474813c3` 对比合并后的分支头 `36e69cdc3`。条件：Node 22.15.0，没有 `.env.local`，`NITRO_PRESET=node-server`，固定标识 `SAIRN_RELEASE_ID=pr24-search-fold-rebaseline`，配对关、开各一次，四次构建逐个运行。日志、状态和产物副本在 `.worklog/2026-11-27/pr24-rebaseline/`。
+  - 增量（配对关 / 配对开）：静态启动 +859 / +935，总量 +723 / +1,034，手机运行时 -404 / -395，桌面运行时 -338 / -362，其他面都在 ±7 以内。
+  - 逐块：`vendor-tanstack-router` 增加 669（配对关）/ 767（配对开），懒加载的 `search` 块减少 414 / 413。原因：金库筛选从 `lib/search/utils.ts` 导入 `foldSearchText`，这个模块变成 search 块与金库页共用后，Rollup 把整个模块放进了启动块。
+  - 只有静态启动超出：配对开 +10,299，对比基线 1,676,706。按较大的增量 +935 上调到 1,677,641，余量不变。上调后分支配对开读 +9,364（余 636），与 `main` 在同一构建标识下的读数相同。总量（配对开 +7,669）、两个运行时增量和各命名面都没有改。
+  - 预估 CI：#22 的头 `739f20ca`（与 `main` `7474813c` 同树）在 CI 上配对开读到静态启动 1,686,224，比这里的本地 `main` 高 154 字节。照此推算，CI 对本分支应读到约 +9,518。
+- 验证：终端 typecheck 通过；本分支改过的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件，加上本分支的 4 个测试文件（金库领域测试、反手确认、桌面与手机委托），共 16 个文件 698 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过；`pnpm memory:check` 通过。终端全量 Vitest 没有在本机重跑，交给 PR 的 CI。
+- 没有做：生产发布配置的构建、浏览器套件、真机。
+
+### 再次合入 main b9f07503 与 CI 偶发失败（2026-11-27，PR #24）
+
+- 合并：#26（只新增一份任务记录）和 #25（账户表格夹具与 Playwright、layout-integrity、五个新目录的少量译文、文档、`apps/terminal/package.json` 一个脚本）合入 `main` 后，`dbe34da61` 用合并提交把 `main` `b9f07503d` 合入本分支，没有冲突。合并后的分支与 `main` 只差本分支的 32 个文件。`pnpm i18n:extract` 没有改动任何目录，新增 7 个目录都是 Missing 0；`pnpm i18n:compile` 通过。锁文件没变，没有重装依赖。
+- 包体检查：`main` `b9f07503d` 对比 `dbe34da61`，条件与上一节相同，构建标识为 `SAIRN_RELEASE_ID=pr24-search-fold-check-2`，日志在 `.worklog/2026-11-27/pr24-rebaseline-2/`。四次构建都通过预算检查，基线不变。
+  - 分支配对开：静态启动 1,686,865（+9,224，余 776），总量 3,709,439（+7,177，余 2,823），手机运行时 +8,833（余 1,167），桌面运行时 +6,631。
+  - 分支配对关：静态启动 +8,093，总量 +4,187。
+  - 相对 `main`（配对开 / 配对关）：静态启动 +800 / +624，总量 +579 / +395。
+  - `bb7e92968` 的 CI（run 45985443731）配对开读到静态启动 1,686,828（+9,187）、总量 3,709,304（+7,042），两个构建作业都通过。
+- CI 偶发失败：`bb7e92968` 的「Test terminal and release tooling (2/2)」（run 45985443732）只有一项失败，`src/lib/tests/mobile-agent-sync-modal.test.tsx > MobileAgentSyncModal > reveals the QR after a two-second hold and closes the dialog after sixty seconds`，报 `AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times`，位置 `:362:55`。
+  - 失败的断言是 `vi.waitFor(() => expect(testState.qrToCanvas).toHaveBeenCalledTimes(1))`：组件按住两秒后先 `await import("qrcode")` 再画码，`vi.waitFor` 默认只等 1 秒真实时间。
+  - 本分支与它无关：没有改这个组件和它的测试；组件的导入链不经过 `lib/search`、金库领域或 `harness/catalog-messages`；Vitest 用默认的按文件隔离，模块状态不跨文件共享。
+  - 本机重跑：先单独连跑 5 次，3 次通过，2 次 29 项全部失败。后来又单独连跑 9 次，全部通过。6 个副本并行跑两轮，12 次都是 29 项全部失败；3 个副本并行跑三轮，9 次全部通过。
+  - 全部失败的那几次都发生在后台生产构建期间，错误相同：第一个用例在用例计时内冷加载组件，超过 5 秒（`Test timed out in 5000ms`），后面的用例跟着失败。第 362 行这种失败在本机没有复现。
+  - 合并后在 `dbe34da61` 上与其他测试文件一起再跑一次，通过。
+  - 结论：负载导致的偶发失败。`docs/agent-handbook.md` 已列出这个文件，多模型 UI 审查记录（`2026-11-27-multi-agent-ui-review-phase-1.md` 后续第 5 项）也把它列为本批之前就有的稳定性问题。按要求没有改测试。
+- 验证（`dbe34da61`）：终端 typecheck 通过；本分支的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件、本分支的 4 个测试文件和 `mobile-agent-sync-modal`，共 17 个文件 727 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
 
 ### 订单簿列头分支合入 main 7474813c 与 `trade-terminal-page` 重定基线（2026-11-27）
 

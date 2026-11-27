@@ -583,6 +583,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/catalog-completeness-contract.test.ts \
   src/lib/tests/catalog-literal-number-contract.test.ts \
   src/lib/tests/command-menu.test.tsx \
+  src/lib/tests/search-fold.test.ts \
   src/components/staking/__tests__/use-staking-actions.test.tsx \
   src/lib/tests/use-api-wallet-controller.test.tsx
 
@@ -623,7 +624,7 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/top-nav.test.tsx
 ```
 
-Layout contracts also have browser suites: `docs/desktop-grid-layout.md` and `docs/runtime-guardrails.md` §9 name the Playwright configs under `apps/terminal/tests/browser/`. When a visual contract changes, also inspect the affected desktop, compact, and mobile layouts where applicable.
+Layout contracts also have browser suites: `docs/desktop-grid-layout.md` and `docs/runtime-guardrails.md` §9 name the Playwright configs under `apps/terminal/tests/browser/`. When a visual contract changes, also inspect the affected desktop, compact, and mobile layouts where applicable. Account tables with data have their own suite: `pnpm --dir apps/terminal test:browser:account-tables` renders the desktop account panel at 1440 and 1100px and the phone account view at 390px in every interface language, compares each language with English element by element and fails on a cut-off or overflowing label that is not registered (`docs/layout-integrity.md`); run it after changing an account table, a phone account card or a translation they show.
 
 <!-- BEGIN CODEX AUTO-COMMIT -->
 For every task that may modify repository files, use the `$auto-commit` skill from the beginning of the task. After completing and validating the requested work, create a Git commit before the final response. Do not commit only when the user explicitly says not to commit or when the skill's safety exceptions apply. Never push unless the user explicitly requests it. Pull requests target `main`, the only long-lived branch, and a release is marked by its `cloudfront-*` tag; `.claude/rules/git.md` owns the branch flow and the CI checks.
