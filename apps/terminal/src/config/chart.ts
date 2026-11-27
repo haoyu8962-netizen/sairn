@@ -51,6 +51,7 @@ const chartLocaleByAppLocale: Record<LocaleCode, LanguageCode> = {
 	ja: "ja",
 	ko: "ko",
 	vi: "vi",
+	id: "id_ID",
 	hi: "en",
 	es: "es",
 	pt: "pt",

@@ -38,6 +38,11 @@ const BOOTSTRAP_FATAL_COPY: Readonly<Record<LocaleCode, TerminalFatalCopy>> = {
 		description: "Nền tảng giao dịch không thể khởi động an toàn. Hãy tải lại trước khi giao dịch.",
 		reload: "Tải lại nền tảng giao dịch",
 	},
+	id: {
+		heading: "Terjadi kesalahan",
+		description: "Terminal tidak dapat dimulai secara aman. Muat ulang sebelum trading.",
+		reload: "Muat ulang terminal",
+	},
 	hi: {
 		heading: "कुछ गलत हो गया",
 		description: "टर्मिनल सुरक्षित रूप से शुरू नहीं हो सका। ट्रेडिंग से पहले इसे फिर से लोड करें।",

@@ -48,7 +48,7 @@
 | 4 土耳其语 `tr` | 是（60 条，编排改 3 处） | 是（26 个文件，含 `font-readiness.ts` 的 `tr: "ğ"`） | 2,152 条，错误 0；土耳其语专用扫描 0 条 | 27 个文件 1,237 项通过（修复后重跑同） | 2 轮：8.4 → 9.2，P0–P2 清零，第 2 轮 P3 已修；搜索 İ 失配为既有缺陷，待决定 | 见 Git 历史（`feat(i18n): add turkish interface language`） |
 | 5 俄语 `ru` | 是（121 条，编排改 3 处） | 是（26 个文件，含 `ru: "Ж"`；另改 `bootstrap-entry-watchdog` 的体积断言） | 2,152 条，错误 0；俄语专用扫描 0 条 | 27 个文件 1,305 项通过（看门狗断言改写后） | 3 轮：8.2 → 8.3 → 9.2，P0–P2 清零 | 见 Git 历史（`feat(i18n): add russian interface language`） |
 | 6 巴西葡萄牙语 `pt` | 是（60 条，未改术语，补一条 `=0` 复数规则） | 是（26 个文件，不加字体样例） | 2,152 条，错误 0；葡语专用扫描 0 条真问题 | 27 个文件 1,372 项通过 | 2 轮：8.0 → 9.1，P0–P2 清零，第 2 轮 P3 已修 | 见 Git 历史（`feat(i18n): add brazilian portuguese interface language`） |
-| 7 印尼语 `id` | — | — | — | — | — | — |
+| 7 印尼语 `id` | 是（60 条，编排改 3 处，其中 1 处译后撤回） | 是（26 个文件，TradingView `id_ID`，不加字体样例） | 2,152 条，错误 0；印尼语专用扫描 0 条真问题 | 27 个文件 1,439 项通过 | 2 轮：7.0 → 9.2，P0–P2 清零 | 见 Git 历史（`feat(i18n): add indonesian interface language`） |
 
 ## 结论与依据
 
@@ -436,6 +436,14 @@
 - Codex 第 1 轮（8.0 分，无 P0/P1）：前两项 P2（列头、手机订单类型）是审查期间已改的内容；另修 P2 资金费比较的「principais mercados」（应为主 DEX）、P2 `Your Supplied`、P2 跟投天数「1 dias」（改为「Dias no cofre: {0}」）、P3 permissionless。不改 P3 `Done`（同一 msgid 也是状态，「Concluído」也是 iOS 巴西葡语的标准按钮写法）；接受 P3：`many` 也用于整百万，省略理由改为这些消息的数量到不了百万。三处价格值用无上下文 `Market` 的既有问题在葡语里不可见（两条 `Market` 现都是「Mercado」）。
 - Codex 第 2 轮（窄范围，9.1 分）：第 1 轮各项确认；P3 一条设置说明仍引用旧按钮名「A mercado」，改为「Mercado」。它提示 `PNL (Price Change %)` 列（去掉排序箭头约 118px）可能偏紧，编排用真实字体量得葡语「PNL (variação de preço %)」141.8（英文 117.8），改为「PNL (variação %)」92.3。
 
+### 7 印尼语 `id`
+
+- 术语表：Gemini xhigh 草稿 60 条，编排改 3 处：`Market Close` / `Limit Close`「Tutup market / limit」改为仓位动作「Tutup dengan market / limit」；`Leaderboard`「Papan peringkat」改为「Peringkat」（俄语在 1380 宽导航上被这一项挤爆）；`Rewards`「Imbalan」改为「Hadiah」——这一处在翻译后撤回：锁定的「Hadiah」写进了每批提示词，Gemini 仍在全部 51 处用「Imbalan」，复核认为 imbalan 是印尼语金融语境的标准译法（rasio risiko/imbalan、imbalan staking），保持全目录一致。
+- 翻译：8 批各 269 条，0 缺失。PO 硬校验报出 7 条「品牌字面量」，是误报：「Pengaturan」含有已退役品牌名「gatu」的字母，草稿脚本改为整词匹配（仓库的 `brand-catalog-contract` 本来就按整词）。印尼语专用扫描（草稿脚本 `id-scan.mjs`：马来语写法、非正式称呼、仓位动作、数字后的重叠）没有真问题（「pasar-pasar ini」是正常复数）。编排审查前改 10 条：3 条拒单原因、`Add to Target`、金库跟投天数两条（「Mengikuti」是社交意义的关注）、资金费比较的主 DEX、两条 permissionless、Staking 的 `All validators` 改「Semua」。
+- 窄控件：手机订单类型与保证金模式保留英文写法，与英文同宽；用真实字体量账户表格列头，`Funding [Cumulative position funding]`「Biaya pendanaan」91.1/64 与 `PNL (Price Change %)`「PNL (Perubahan harga %)」137.3/118 超宽，改为「Biaya pend.」62.2 与「PNL (Perubahan %)」104.1。截断扫描 21 组与英文基线完全一致。
+- Codex 第 1 轮（7.0 分）：P1 `Rewards compound automatically`「otomatis digandakan」（自动翻倍）改为「otomatis didelegasikan ulang」；P2 累计资金费与无上下文 `Funding` 同名，改为「Biaya pend.」；P2 存款方式 `Transfer USDC [Deposit method]` 与内部划转同名，改为「Deposit USDC」；P2 推荐奖励说明的「biaya referral」改为被推荐交易者支付的交易手续费；P2 两条存款限额把「10,000,000」「1,000」改成了本地分隔符，恢复源文写法（数字跟随数字格式设置，不随界面语言）。由此核查全部目录：已提交的 tr、ru、pt 同样改了这几条（pt 另有推荐码的 `10,000`），另做修复提交；原有的 es、fr 也如此，见待决第 6 项。它数出与原文相同的条目 86 条（编排脚本报 67 条），逐条看过没有整句漏译。
+- Codex 第 2 轮（窄范围，9.2 分）：第 1 轮五项全部确认；逐组核对 10 组「相同 msgid、不同上下文」的条目与机制性动词，没有新的必修项；全目录静态数字与源文一致。
+
 ### 截断检查（本批次）
 
 - 方法：`apps/terminal/.env.local` 从本机 sairn 克隆复制（不读内容，Git 忽略；没有它页面会落到运行时致命错误页），沙箱外起开发服务器（3077），用仓库的 Playwright 无头 Chromium，按语言写入 `locale-v1` 后打开页面，等 12–20 秒，列出可见、有自身文字、`overflow` 非 visible 或 `text-overflow: ellipsis` 且内容宽于盒子的元素，排除 `sr-only`，与英文基线逐元素比较。扫描器先用一个人为溢出的元素做正向对照。
@@ -502,6 +510,15 @@
 - 截断：开发服务器 3005（加入 `pt` 后启动），7 个页面 × 3 宽，21 组都确认是葡语。比英文多出 4 处：手机订单类型（已改）、Staking 筛选框（已改）、Portfolio 下拉框「Perpétuos」58/56（既有限制，法语、俄语同样）、订单簿列头「Tamanho (BTC)」（待决第 3 项）。重扫交易页与 Staking 后只剩订单簿列头。
 - 未做母语审校、真机。
 
+### 印尼语 `id`
+
+- PO 硬校验：2,152 条同集同序，各类错误 0（品牌字面量改为整词匹配后）；18 条覆盖后重跑仍为 0。只有 `other`，两条 `=1`。
+- `pnpm i18n:extract`：id 2,152 条、Missing 0，其他 13 个 `.po` 无变化；compile、Biome（18 个 ts/tsx）、typecheck 通过。
+- Vitest：27 个文件 1,439 项通过（修复后重跑相同）；看门狗体积断言在 14 种语言下成立。
+- Playwright（沙箱外）：`referral-code-card.pw.ts` 34 项、`position-close-all` 81 项、顶部导航完整矩阵 ` id ` 12 项通过。
+- 截断：开发服务器 3005（加入 `id` 后启动），7 个页面 × 3 宽，21 组都确认是印尼语，与英文基线完全一致。
+- 未做母语审校、真机。
+
 ### 批次收尾
 
 - 终端全量 Vitest（沙箱外，`pnpm --filter @sairn/terminal test --maxWorkers=4`，在 `a094e3561` 加上未提交的韩语拒单原因补修上运行，当时没有其他重负载）：775 个文件中 774 通过、1 跳过，11,898 项中 11,897 通过、1 跳过，0 失败，约 210 秒。
@@ -517,6 +534,7 @@
 3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
 5. 搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
+6. 原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条（`100,000`、`10,000,000` 的账户排除说明与推荐码的 `10,000`）。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
 
 ### 下一批次（4 土耳其语、5 俄语、6 巴西葡萄牙语、7 印尼语）接力要点
 

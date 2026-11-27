@@ -52,6 +52,11 @@ const EXPECTED_TRANSLATIONS = {
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
 			"Không thể chuyển giữa giao ngay và vĩnh cửu ở các chế độ tài khoản dùng chung số dư.",
 	},
+	id: {
+		"Cross Maintenance Margin": "Margin pemeliharaan cross",
+		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
+			"Transfer antara Spot dan Perps tidak tersedia dalam mode akun saldo bersama.",
+	},
 	hi: {
 		"Cross Maintenance Margin": "क्रॉस मेंटेनेंस मार्जिन",
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":

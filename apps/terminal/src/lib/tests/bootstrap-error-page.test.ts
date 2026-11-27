@@ -97,6 +97,17 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("Tải lại nền tảng giao dịch");
 	});
 
+	it("renders the persisted Indonesian fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "id");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("id");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Terminal tidak dapat dimulai secara aman. Muat ulang sebelum trading.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Muat ulang terminal");
+	});
+
 	it("renders the persisted Turkish fallback without loading a catalog", () => {
 		window.localStorage.setItem("locale-v1", "tr");
 		renderBootstrapErrorPage();

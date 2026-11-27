@@ -8,6 +8,8 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Added
 
+- Indonesian interface language (Bahasa Indonesia) in the language menu, including the TradingView
+  chart and Indonesian dates; numbers keep following the separate number-format setting.
 - Brazilian Portuguese interface language (Português) in the language menu, including the TradingView
   chart and Portuguese dates; numbers keep following the separate number-format setting. `?lang=pt`,
   `pt-BR` or `pt-PT` links open it.

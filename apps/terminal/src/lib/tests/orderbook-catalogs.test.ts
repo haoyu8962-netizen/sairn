@@ -10,6 +10,7 @@ const translations = {
 	ja: { "Distance from mid": "仲値からの距離", Ask: "売り", Bid: "買い", "No orders": "注文なし" },
 	ko: { "Distance from mid": "중간가와의 거리", Ask: "매도 호가", Bid: "매수 호가", "No orders": "주문 없음" },
 	vi: { "Distance from mid": "Cách giá giữa", Ask: "Giá bán", Bid: "Giá mua", "No orders": "Không có lệnh" },
+	id: { "Distance from mid": "Jarak dari harga tengah", Ask: "Ask", Bid: "Bid", "No orders": "Tidak ada order" },
 	hi: { "Distance from mid": "मध्य मूल्य से दूरी", Ask: "बिक्री", Bid: "खरीद", "No orders": "कोई ऑर्डर नहीं" },
 	tr: { "Distance from mid": "Orta fiyata uzaklık", Ask: "Satış", Bid: "Alış", "No orders": "Emir yok" },
 	ru: { "Distance from mid": "Расстояние от мида", Ask: "Аск", Bid: "Бид", "No orders": "Нет ордеров" },
