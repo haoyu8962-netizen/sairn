@@ -4368,7 +4368,7 @@ msgstr "Visão geral da margem e do risco da conta"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Cancelada por margem"
+msgstr "Cancel. (margem)"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -8910,7 +8910,7 @@ msgstr "Nocional total"
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Total Run Time"
-msgstr "Tempo total de execução"
+msgstr "Duração total"
 
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx

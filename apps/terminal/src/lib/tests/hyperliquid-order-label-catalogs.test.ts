@@ -58,7 +58,7 @@ const translations = {
 		"Vault Close": "Kasa kapatma",
 	},
 	ru: {
-		"Spot Dust Conversion": "Конвертация мелких остатков (спот)",
+		"Spot Dust Conversion": "Конвертация мелких остатков",
 		"TWAP Slice": "Фрагмент TWAP",
 		"Vault Close": "Закрытие хранилищем",
 	},

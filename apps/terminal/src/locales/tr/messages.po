@@ -3580,7 +3580,7 @@ msgstr "Yüksek kaldıraç likidasyon riskini önemli ölçüde artırır. Dikka
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Highest / Lowest Price"
-msgstr "En yüksek / En düşük fiyat"
+msgstr "En yüksek/düşük fiyat"
 
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "HIP-3"
@@ -4368,7 +4368,7 @@ msgstr "Marjin ve hesap riskine genel bakış"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Marjin nedeniyle iptal"
+msgstr "İptal (marjin)"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx

@@ -18,6 +18,7 @@ export default defineConfig({
 		"top-nav-connected.pw.ts",
 		"brand-surfaces.pw.ts",
 		"mobile-history-cards.pw.ts",
+		"account-tables.pw.ts",
 	],
 	outputDir: fileURLToPath(new URL("../../test-results/shared-browser", import.meta.url)),
 	fullyParallel: false,
