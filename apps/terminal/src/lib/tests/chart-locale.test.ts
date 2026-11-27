@@ -33,6 +33,11 @@ describe("TradingView locale mapping", () => {
 		expect(isRtlLocale("ru")).toBe(false);
 	});
 
+	it("uses Portuguese dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale.pt).toBe("pt-BR");
+		expect(isRtlLocale("pt")).toBe(false);
+	});
+
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
@@ -41,6 +46,7 @@ describe("TradingView locale mapping", () => {
 		["ko", "ko"],
 		["vi", "vi"],
 		["es", "es"],
+		["pt", "pt"],
 		["fr", "fr"],
 		["tr", "tr"],
 		["ru", "ru"],

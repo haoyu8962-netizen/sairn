@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const locale of ["en", "zh", "zh-TW", "ja", "ko", "vi", "fr", "es", "hi", "tr", "ru", "ar"]) {
+for (const locale of ["en", "zh", "zh-TW", "ja", "ko", "vi", "pt", "fr", "es", "hi", "tr", "ru", "ar"]) {
 	for (const viewport of [
 		{ width: 320, height: 640 },
 		{ width: 375, height: 812 },

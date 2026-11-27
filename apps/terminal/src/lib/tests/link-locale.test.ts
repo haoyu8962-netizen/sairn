@@ -18,6 +18,7 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=ja")).toBe("ja");
 		expect(parseLinkLocale("?lang=ko")).toBe("ko");
 		expect(parseLinkLocale("?lang=vi")).toBe("vi");
+		expect(parseLinkLocale("?lang=pt")).toBe("pt");
 		expect(parseLinkLocale("?lang=tr")).toBe("tr");
 		expect(parseLinkLocale("?lang=ru")).toBe("ru");
 		expect(parseLinkLocale("?utm_source=newsletter&lang=zh&utm_content=cta")).toBe("zh");
@@ -33,13 +34,17 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=VI")).toBe("vi");
 		expect(parseLinkLocale("?lang=vi-VN")).toBe("vi");
 		expect(parseLinkLocale("?lang=vi_VN")).toBe("vi");
+		expect(parseLinkLocale("?lang=PT")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt-BR")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt_BR")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt-PT")).toBe("pt");
 		expect(parseLinkLocale("?lang=TR")).toBe("tr");
 		expect(parseLinkLocale("?lang=tr-TR")).toBe("tr");
 		expect(parseLinkLocale("?lang=tr_TR")).toBe("tr");
 		expect(parseLinkLocale("?lang=RU")).toBe("ru");
 		expect(parseLinkLocale("?lang=ru-RU")).toBe("ru");
 		expect(parseLinkLocale("?lang=ru_RU")).toBe("ru");
-		expect(parseLinkLocale("?lang=pt_BR")).toBeNull();
+		expect(parseLinkLocale("?lang=de_DE")).toBeNull();
 	});
 
 	it("routes Traditional and Simplified Chinese tags by script and region", () => {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const TRANSLATED_LOCALES = ["ar", "es", "fr", "hi", "zh", "zh-TW", "ja", "ko", "vi", "tr", "ru"] as const;
+const TRANSLATED_LOCALES = ["ar", "es", "pt", "fr", "hi", "zh", "zh-TW", "ja", "ko", "vi", "tr", "ru"] as const;
 const MESSAGES = [
 	"{venueName} rate higher",
 	"8 Hours",

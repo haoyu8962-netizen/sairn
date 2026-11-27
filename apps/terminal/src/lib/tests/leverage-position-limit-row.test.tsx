@@ -180,7 +180,7 @@ describe("LeveragePositionLimitRow", () => {
 		expect(getValue()).toBe("无档位上限");
 	});
 
-	it.each(["zh", "zh-TW", "ja", "ko", "vi", "es", "fr", "hi", "tr", "ru", "ar"])(
+	it.each(["zh", "zh-TW", "ja", "ko", "vi", "es", "pt", "fr", "hi", "tr", "ru", "ar"])(
 		"ships translations for the new copy in %s",
 		(locale) => {
 			for (const message of NEW_MESSAGES) {

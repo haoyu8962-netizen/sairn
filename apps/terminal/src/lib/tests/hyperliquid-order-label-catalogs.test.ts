@@ -12,6 +12,11 @@ const translations = {
 		"TWAP Slice": "Tramo de orden TWAP",
 		"Vault Close": "Cierre de posición de la bóveda",
 	},
+	pt: {
+		"Spot Dust Conversion": "Conversão de poeira spot",
+		"TWAP Slice": "Fatia TWAP",
+		"Vault Close": "Fechamento de cofre",
+	},
 	fr: {
 		"Spot Dust Conversion": "Conversion des soldes spot résiduels",
 		"TWAP Slice": "Tranche d'ordre TWAP",

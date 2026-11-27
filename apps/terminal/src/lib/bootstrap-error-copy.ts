@@ -48,6 +48,11 @@ const BOOTSTRAP_FATAL_COPY: Readonly<Record<LocaleCode, TerminalFatalCopy>> = {
 		description: "El terminal no pudo iniciarse de forma segura. Vuelva a cargarlo antes de operar.",
 		reload: "Volver a cargar el terminal",
 	},
+	pt: {
+		heading: "Algo deu errado",
+		description: "Não foi possível iniciar o terminal com segurança. Recarregue-o antes de negociar.",
+		reload: "Recarregar terminal",
+	},
 	fr: {
 		heading: "Une erreur s'est produite",
 		description: "Le terminal n’a pas pu démarrer en toute sécurité. Rechargez-le avant de trader.",

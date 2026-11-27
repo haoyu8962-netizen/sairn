@@ -119,6 +119,17 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("Перезагрузить терминал");
 	});
 
+	it("renders the persisted Portuguese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "pt");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("pt");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Não foi possível iniciar o terminal com segurança. Recarregue-o antes de negociar.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Recarregar terminal");
+	});
+
 	it("fails closed to English when persisted locale storage cannot be read", () => {
 		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
 			throw new Error("storage unavailable");
