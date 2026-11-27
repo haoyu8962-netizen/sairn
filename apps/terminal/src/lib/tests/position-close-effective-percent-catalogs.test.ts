@@ -11,6 +11,7 @@ const EXPECTED_TRANSLATIONS = {
 	es: "Se solicitó el {requestedPercent} %; queda en el {effectivePercent} % tras aplicar la precisión del tamaño",
 	fr: "{requestedPercent} % demandé ; {effectivePercent} % après application de la précision de taille",
 	hi: "{requestedPercent}% अनुरोध किया गया; साइज़ की सटीकता लागू करने के बाद {effectivePercent}%",
+	tr: "{requestedPercent}% istendi; miktar hassasiyetinden sonra {effectivePercent}%",
 } as const;
 
 const LEVERAGE_SUCCESS_MESSAGE = "Leverage updated to {leverage}x";
@@ -23,6 +24,7 @@ const EXPECTED_LEVERAGE_SUCCESS_TRANSLATIONS = {
 	es: "Apalancamiento actualizado a {leverage}x",
 	fr: "Effet de levier mis à jour à {leverage}x",
 	hi: "लीवरेज {leverage}x पर अपडेट किया गया",
+	tr: "Kaldıraç {leverage}x olarak güncellendi",
 	zh: "杠杆已更新为 {leverage}x",
 } as const;
 

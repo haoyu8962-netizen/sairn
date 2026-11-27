@@ -42,6 +42,11 @@ const translations = {
 		"TWAP Slice": "TWAP ऑर्डर का भाग",
 		"Vault Close": "वॉल्ट पोज़िशन बंद करना",
 	},
+	tr: {
+		"Spot Dust Conversion": "Spot küçük bakiye dönüşümü",
+		"TWAP Slice": "TWAP dilimi",
+		"Vault Close": "Kasa kapatma",
+	},
 } as const;
 
 describe("Hyperliquid order-label catalogs", () => {

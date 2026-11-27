@@ -11,12 +11,13 @@ import { messages as fr } from "@/locales/fr/messages.po";
 import { messages as hi } from "@/locales/hi/messages.po";
 import { messages as ja } from "@/locales/ja/messages.po";
 import { messages as ko } from "@/locales/ko/messages.po";
+import { messages as tr } from "@/locales/tr/messages.po";
 import { messages as vi } from "@/locales/vi/messages.po";
 import { messages as zh } from "@/locales/zh/messages.po";
 import { messages as zhTW } from "@/locales/zh-TW/messages.po";
 import "./referral-code-card.css";
 
-const catalogs = { en, zh, "zh-TW": zhTW, ja, ko, vi, fr, es, hi, ar };
+const catalogs = { en, zh, "zh-TW": zhTW, ja, ko, vi, fr, es, hi, tr, ar };
 const params = new URLSearchParams(location.search);
 
 const DATA: ReferralData = {

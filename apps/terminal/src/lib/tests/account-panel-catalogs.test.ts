@@ -52,6 +52,11 @@ const EXPECTED_TRANSLATIONS = {
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
 			"साझा-बैलेंस खाता मोड में Spot और Perps के बीच ट्रांसफ़र उपलब्ध नहीं हैं।",
 	},
+	tr: {
+		"Cross Maintenance Margin": "Çapraz sürdürme marjini",
+		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
+			"Ortak bakiyeli hesap modlarında Spot ve Vadeli arasında transfer yapılamaz.",
+	},
 } as const;
 
 describe("account panel catalogs", () => {

@@ -8,6 +8,7 @@ export const locales = {
 	hi: "हिन्दी",
 	es: "Español",
 	fr: "Français",
+	tr: "Türkçe",
 	ar: "العربية",
 } as const;
 
@@ -71,6 +72,7 @@ export const languageToIntlLocale: Record<LocaleCode, string> = {
 	hi: "hi-IN",
 	es: "es-ES",
 	fr: "fr-FR",
+	tr: "tr-TR",
 	ar: "ar-SA",
 };
 

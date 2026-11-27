@@ -23,6 +23,11 @@ describe("TradingView locale mapping", () => {
 		expect(isRtlLocale("vi")).toBe(false);
 	});
 
+	it("uses Turkish dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale.tr).toBe("tr-TR");
+		expect(isRtlLocale("tr")).toBe(false);
+	});
+
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
@@ -32,6 +37,7 @@ describe("TradingView locale mapping", () => {
 		["vi", "vi"],
 		["es", "es"],
 		["fr", "fr"],
+		["tr", "tr"],
 		["ar", "ar"],
 		["hi", "en"],
 		["unknown", "en"],

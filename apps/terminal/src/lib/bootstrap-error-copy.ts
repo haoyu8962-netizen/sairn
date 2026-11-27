@@ -53,6 +53,11 @@ const BOOTSTRAP_FATAL_COPY: Readonly<Record<LocaleCode, TerminalFatalCopy>> = {
 		description: "Le terminal n’a pas pu démarrer en toute sécurité. Rechargez-le avant de trader.",
 		reload: "Recharger le terminal",
 	},
+	tr: {
+		heading: "Bir sorun oluştu",
+		description: "Terminal güvenli bir şekilde başlatılamadı. İşlem yapmadan önce sayfayı yenileyin.",
+		reload: "Terminali yenile",
+	},
 	ar: {
 		heading: "حدث خطأ ما",
 		description: "تعذّر تشغيل المنصة بأمان. أعد تحميلها قبل التداول.",

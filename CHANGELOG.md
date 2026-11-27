@@ -8,6 +8,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Added
 
+- Turkish interface language (Türkçe) in the language menu, including the TradingView chart and
+  Turkish dates; numbers keep following the separate number-format setting, and the first screen
+  waits for the letters ğ, ş and İ as it does for the Latin letters.
 - Settings → About → Diagnostics copies a local record of the last ten startups (timings and counts)
   and connection recoveries, to help explain a blank screen or a long wait for data. Nothing is sent
   anywhere and it contains no addresses or account data.

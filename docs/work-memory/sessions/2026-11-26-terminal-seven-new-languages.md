@@ -7,7 +7,7 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["i18n-runtime"],
-  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id；本批次做前三个。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
+  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id；第一批做了前三个，第二批从土耳其语接着做。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
   "thread": null,
   "baseCommit": "ce3259b68",
   "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9"],
@@ -45,7 +45,7 @@
 | 1 韩语 `ko` | 是（60 条，编排改 3 处） | 是（25 个文件） | 2,152 条，错误 0 | 27 个文件 1,158 项通过；修复后 18 个文件 909 项通过 | 2 轮：8.2 → 9.3，P0–P2 清零；批次末补修 3 条拒单原因（第 3 轮 9.5） | `39e976a3a`，补修见 Git 历史 |
 | 2 繁体中文 `zh-TW` | 是（145 条含台湾界面用词，编排改 8 处） | 是（28 个文件，含 `link-locale.ts`、`spot-asset-info.ts`、`styles.css`） | 2,152 条，错误 0，简体专用字 0 | 27 个文件 1,172 项通过；变异 3 个全部抓到；修复后 19 个文件 983 项通过 | 2 轮：7.0 → 9.2，P0–P2 清零，第 2 轮 P3 已修 | `75dc13273` |
 | 3 越南语 `vi` | 是（60 条，编排改 1 处） | 是（25 个文件；IBM Plex 越南语子集提交时撤回，2026-11-27 按 ADR 0059 补做，见「字体方案」） | 2,152 条，错误 0 | 25 个文件 1,167 项通过；修复后 19 个文件 1,049 项通过 | 2 轮：6.5 → 9.2，P0–P2 清零（字体闸门、订单簿列头两项待决定） | `a094e3561` |
-| 4 土耳其语 `tr` | — | — | — | — | — | — |
+| 4 土耳其语 `tr` | 是（60 条，编排改 3 处） | 是（26 个文件，含 `font-readiness.ts` 的 `tr: "ğ"`） | 2,152 条，错误 0；土耳其语专用扫描 0 条 | 27 个文件 1,237 项通过（修复后重跑同） | 2 轮：8.4 → 9.2，P0–P2 清零，第 2 轮 P3 已修；搜索 İ 失配为既有缺陷，待决定 | 见 Git 历史（`feat(i18n): add turkish interface language`） |
 | 5 俄语 `ru` | — | — | — | — | — | — |
 | 6 巴西葡萄牙语 `pt` | — | — | — | — | — | — |
 | 7 印尼语 `id` | — | — | — | — | — | — |
@@ -403,6 +403,17 @@
 - Codex（gpt-6-astra，只读）两轮：第 1 轮 9.0，无 P0–P2，3 项 P3（文档没分开启动与按内容的下载、PO 解析器不拒绝不支持的写法且计入文件头、预热测试不证明菜单仍能打开）全部修复；第 2 轮 9.1，无 P0–P2，3 项 P3（CRLF 目录会被误拒、热切换等待的代价写重了、展示规范把覆盖说成所有文字）全部修复，CRLF 修复有变异确认。jsdom 里脚本注入的 pointerdown/pointerup 有无预热处理器都打不开该菜单，所以「按下」路径只在浏览器里验证。
 - 终端全量 Vitest（沙箱外，`--maxWorkers=3`，在第 1 轮修复之前的工作区上运行）：777 个文件中 776 通过、1 跳过，11,926 项中 11,925 通过、1 跳过，0 失败。之后的改动只涉及两个新测试与文档，已单独重跑相关测试。
 
+### 4 土耳其语 `tr`
+
+- 开工前按要求重读核对表；运营方 2026-11-27 同意让 Gemini 在后台先起草俄语、葡萄牙语、印尼语的术语表（只写草稿目录，不改仓库），锁定、翻译、接入、审查、提交仍按序号逐个做。理由：多语言同时改仓库会在 `lingui.config.ts`、`config/i18n.ts` 和二十多个测试矩阵上冲突，也违反「做完一个再进下一个」。
+- 术语表：Gemini xhigh 草稿 60 条，编排改 3 处：`Market Close` / `Limit Close` 写成仓位动作「Piyasa fiyatıyla kapat / Limit fiyatla kapat」（草稿「Piyasa kapat」读作关闭市场，与越南语同错）；`Mark Price` 用「İşaret fiyatı」（本项目统一采用；Codex 指出 Bybit TR 用「Gösterge fiyatı」，所以这不是行业唯一说法）；`Maker/Taker` 用短标签「Yapıcı/Alıcı」（完整说法为「Piyasa yapıcı/alıcı」，列头放不下）。其余照草稿：Yatır/Çek、Transfer、Gönder、Piyasa（交易对与市价单同词）、Kâr al/Zarar durdur、Yalnızca azalt、Marjin、İzole/Çapraz、Kaldıraç、Likidasyon、Fonlama oranı、Açık pozisyon、Vadeli/Spot、Emir、Pozisyon、Long/Short 与 Post Only 保留英文、Kasa（金库）。风格：句子用 siz、全部句首大写、占位符后不接格位后缀、百分号位置照源文。
+- 翻译：8 批各 269 条，并行，每批 130–198 秒，0 缺失。编排抽查后把 3 条交易所拒单原因改为「Emir reddedildi: kabul edilseydi …」（草稿只说「本会成交」）。
+- 土耳其语专用扫描（草稿脚本 `tr-scan.mjs`：占位符后的后缀、撇号紧挨花括号、ASCII 替代字母、首字母为无点 I 的词、术语表否决写法）0 条；在一份人为塞入错误的副本上 6 类全部报出。
+- 接入：Gemini `accept-edits` 按任务书改 26 个文件，没碰清单以外的文件；编排核对源码改动（语言顺序 en、zh、zh-TW、ja、ko、vi、hi、es、fr、tr、ar，`tr-TR`，TradingView `tr`，启动错误页文案，字体样例）。
+- Codex 第 1 轮（8.4 分，无 P0/P1）：P2 `Add to Target` 直译成「加到目标」，改为「Hedefe kadar marjin ekle」；P2 `Trader` 一族留了英文且与同页「Yatırımcı」不一致，四条统一；P3 `To Spot` 的「Spota」改为「Spot'a」；P3 HIP-3 免责声明的「izinsiz」易读成「擅自」，改为「izin gerektirmeden」；P3 术语表的否决理由改写如上。它数出与原文相同的条目 43 条（编排脚本按豁免表报 25 条），逐条核过，只有 Trader 一族需译。既有 P2：搜索与金库搜索的 `toLowerCase()` 对土耳其语 İ 失配，见「待运营方决定」第 5 项。
+- Codex 第 2 轮（窄范围，9.2 分）：第 1 轮修复全部确认；补查 trader 残留、专名后缀（Spot、Mainnet、Testnet、Hyperliquid、Arbitrum）、permissionless 与逐仓编辑器，无新增 P0–P2。P3 一处「Arbiscan'i」与同类提示的「Arbiscan'ı」不一致，已统一；它建议把 `Remove Margin` 的「Marjin kaldır」润色为「Marjin azalt」，注明非必修，没改（按钮与说明句用词会对不上）。
+- 截断后修复：Staking 页验证者筛选框的 `All validators`（「Tüm doğrulayıcılar」）在 1440 与 1100 宽 105/96px 被裁；该 msgid 只用于这个筛选框，其余选项是状态，改为「Tümü」，重扫与英文一致。
+
 ### 截断检查（本批次）
 
 - 方法：`apps/terminal/.env.local` 从本机 sairn 克隆复制（不读内容，Git 忽略；没有它页面会落到运行时致命错误页），沙箱外起开发服务器（3077），用仓库的 Playwright 无头 Chromium，按语言写入 `locale-v1` 后打开页面，等 12–20 秒，列出可见、有自身文字、`overflow` 非 visible 或 `text-overflow: ellipsis` 且内容宽于盒子的元素，排除 `sr-only`，与英文基线逐元素比较。扫描器先用一个人为溢出的元素做正向对照。
@@ -441,6 +452,16 @@
 - Playwright（沙箱外，第 1 轮修复前的目录）：`referral-code-card.pw.ts` 26 项、`position-close-all.playwright.config.ts` 61 项、完整矩阵下 `--grep " vi "` 的顶部导航 12 项通过。
 - 截断：见「截断检查」。未做母语审校、真机。
 
+### 土耳其语 `tr`
+
+- PO 硬校验：2,152 条同集同序，各类错误 0；13 条覆盖（拒单原因 3 条、两轮审查修复 9 条、截断 1 条）后重跑仍为 0。复数只有 `one`/`other`，5 条 ICU 都有两类。
+- `pnpm i18n:extract`：tr 2,152 条、Missing 0，其他 10 个 `.po` 无变化；`pnpm i18n:compile` 通过。
+- Biome（沙箱外）19 个改动的 ts/tsx 通过；typecheck 通过。
+- Vitest：接入测试加 i18n 与字体契约 27 个文件 1,237 项通过，审查修复后重跑相同；`locale-font-subset-contract` 确认土耳其语在两套字体上都只多用拉丁扩展子集。
+- Playwright（沙箱外）：`referral-code-card.pw.ts` 28 项（审查修复后重跑仍 28 项）、`position-close-all.playwright.config.ts` 66 项、完整矩阵下 `--grep " tr "` 的顶部导航 12 项通过。后两组跑在审查修复之前，修复的 8 条不在这两个夹具里。
+- 截断：开发服务器 3006（加入 `tr` 后启动），交易页、Portfolio、Earn、Vaults、Staking、Referrals、Leaderboard 各 1440、1100、390 宽，21 组都抽样确认页面文字是土耳其语，与当天的英文基线逐元素比较：只多出 Staking 筛选框一处，改短后重扫一致。不含弹窗、下拉菜单与有数据状态。
+- 未做母语审校、真机。
+
 ### 批次收尾
 
 - 终端全量 Vitest（沙箱外，`pnpm --filter @sairn/terminal test --maxWorkers=4`，在 `a094e3561` 加上未提交的韩语拒单原因补修上运行，当时没有其他重负载）：775 个文件中 774 通过、1 跳过，11,898 项中 11,897 通过、1 跳过，0 失败，约 210 秒。
@@ -455,6 +476,7 @@
 2. 越南语字体：已决定（2026-11-27 运营方选方案 A），按 ADR 0059 实施，见「字体方案」。
 3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
+5. 搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
 
 ### 下一批次（4 土耳其语、5 俄语、6 巴西葡萄牙语、7 印尼语）接力要点
 
@@ -462,6 +484,7 @@
 - 工具（分批、写回、PO 硬校验、截断扫描、Gemini 与 Codex 的调用脚本）放在本会话的草稿目录，不入库；新会话照「流程与工具」一节重建即可。
 - 教训：加入新语言后要重启开发服务器（Lingui 的 Vite 插件只认启动时的语言清单，否则页面 `lang` 对而文字仍是英文）；截断扫描要抽样核对页面文字，并先用正向对照证明扫描器能报出裁切；Gemini 的 `accept-edits` 运行要放行 `rg` 等只读命令，否则一碰未放行命令就零改动退出；把「交易所拒单原因的语态」「仓位动作与市场名词的歧义」「通用 Stop 校验不要写成止损」列为固定审查攻击面；术语表也要审（越南语的 `Market Close` 错在术语表本身）。
 - 字体：新语言的目录用到拉丁以外的子集时，在同一个提交里给 `LOCALE_FONT_SAMPLES`（`lib/fonts/font-readiness.ts`）加样例，每个子集一个字符；`locale-font-subset-contract` 会报出缺的或多的子集。按字母表预计土耳其语要拉丁扩展（如 `ğ`），俄语要西里尔（如 `Ж`），葡萄牙语和印尼语不需要。接入后要重启开发服务器再做截断扫描。
+- 俄语、葡萄牙语、印尼语的术语表草稿已在草稿目录（各自的 `glossary.json`，俄语 121 条、葡萄牙语与印尼语各 60 条），未锁定。葡萄牙语草稿漏了 `Market Close` / `Limit Close` 这对仓位动作，锁定前补上；每个草稿都要按「仓位动作」「拒单原因」「通用 Stop」三类攻击面过一遍。
 - 俄语的复数需要 `one`/`few`/`many`/`other` 四个类别，硬校验已会对缺失类别给出提示；土耳其语要注意 ICU 的撇号转义（`'` 紧挨 `{`）；印尼语的 TradingView 代码是 `id_ID`；葡萄牙语的 `?lang=pt-BR` / `pt-PT` 都会回退到 `pt`（当前解析逻辑已支持）。
 
 ### 终验收尾（七种语言全部完成后）

@@ -11,6 +11,7 @@ export const FONT_READY_TIMEOUT_MS = 3000;
 // this list misses one or names one the catalog does not use.
 export const LOCALE_FONT_SAMPLES: Readonly<Partial<Record<LocaleCode, string>>> = {
 	vi: "ạă",
+	tr: "ğ",
 };
 
 export function fontTextForLocale(locale: string): string | undefined {

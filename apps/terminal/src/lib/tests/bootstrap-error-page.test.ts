@@ -97,6 +97,17 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("Tải lại nền tảng giao dịch");
 	});
 
+	it("renders the persisted Turkish fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "tr");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("tr");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Terminal güvenli bir şekilde başlatılamadı. İşlem yapmadan önce sayfayı yenileyin.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Terminali yenile");
+	});
+
 	it("fails closed to English when persisted locale storage cannot be read", () => {
 		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
 			throw new Error("storage unavailable");
