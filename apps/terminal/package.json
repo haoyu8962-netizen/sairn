@@ -19,6 +19,7 @@
 		"test:browser:top-nav-connected": "playwright test --config tests/browser/top-nav-connected.playwright.config.ts",
 		"test:browser:brand-surfaces": "playwright test --config tests/browser/brand-surfaces.playwright.config.ts",
 		"test:browser:mobile-history-cards": "playwright test --config tests/browser/mobile-history-cards.playwright.config.ts",
+		"test:browser:account-tables": "playwright test --config tests/browser/account-tables.playwright.config.ts",
 		"typecheck": "tsc --noEmit --pretty false",
 		"i18n:extract": "lingui extract",
 		"i18n:compile": "lingui compile",

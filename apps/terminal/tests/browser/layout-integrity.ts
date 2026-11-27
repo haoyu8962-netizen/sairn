@@ -31,6 +31,12 @@ export interface LayoutIntegrityFinding {
 	path: string;
 	text: string;
 	detail: string;
+	/**
+	 * Child-index path of the element from the root (`0.3.1`). The same data renders the same element
+	 * tree in every interface language, so this matches one element across languages where `path`, which
+	 * quotes the translated field label, cannot.
+	 */
+	anchor: string;
 }
 
 export interface LayoutIntegrityOptions {
@@ -48,7 +54,8 @@ export async function findLayoutIntegrityIssues(
 		({ rootSelector, allowSelectors, slack }) => {
 			const rootElement = document.querySelector(rootSelector);
 			if (!rootElement) throw new Error(`Missing layout-integrity root ${rootSelector}`);
-			const findings: { kind: "truncated" | "clipped"; path: string; text: string; detail: string }[] = [];
+			const findings: { kind: "truncated" | "clipped"; path: string; text: string; detail: string; anchor: string }[] =
+				[];
 
 			const isAllowed = (element: Element) => allowSelectors.some((selector) => element.closest(selector));
 
@@ -76,6 +83,16 @@ export async function findLayoutIntegrityIssues(
 					}
 				}
 				return [regionName, label ? `«${label}»` : "", element.tagName.toLowerCase()].filter(Boolean).join(" › ");
+			};
+
+			const anchorOf = (element: Element) => {
+				const steps: number[] = [];
+				for (let current: Element | null = element; current && current !== rootElement; current = current.parentElement) {
+					const parent: Element | null = current.parentElement;
+					if (!parent) break;
+					steps.unshift(Array.prototype.indexOf.call(parent.children, current));
+				}
+				return steps.join(".");
 			};
 
 			const ownText = (element: Element) =>
@@ -163,6 +180,7 @@ export async function findLayoutIntegrityIssues(
 							path: describe(element),
 							text,
 							detail: `content ${element.scrollWidth}px wide in a ${element.clientWidth}px box`,
+							anchor: anchorOf(element),
 						});
 					} else if (!scrolls(style.overflowY) && hidesY && element.scrollHeight > element.clientHeight + slack) {
 						findings.push({
@@ -170,6 +188,7 @@ export async function findLayoutIntegrityIssues(
 							path: describe(element),
 							text,
 							detail: `content ${element.scrollHeight}px tall in a ${element.clientHeight}px box`,
+							anchor: anchorOf(element),
 						});
 					}
 				}
@@ -188,6 +207,7 @@ export async function findLayoutIntegrityIssues(
 								path: describe(element),
 								text: text || element.tagName.toLowerCase(),
 								detail: `extends ${Math.round(overflow)}px beyond ${describe(ancestor) || ancestor.tagName.toLowerCase()}`,
+								anchor: anchorOf(element),
 							});
 							break;
 						}
