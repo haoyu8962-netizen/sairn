@@ -10,7 +10,7 @@
   "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线；#22 已合入 main（7474813c3）。待决第 1、5、6 项在分支 claude/compassionate-dewdney-663750 处理，已推送为 PR #24，并合入了新 main。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "37e6b05b8", "fc251f889", "f0f9bdfcc", "8f409af0f"],
+  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "37e6b05b8", "fc251f889", "f0f9bdfcc", "8f409af0f", "0a2afbefc", "c719ee0c9", "f81a5568a", "7575ee004"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -20,6 +20,8 @@
     {"path": "docs/i18n-presentation.md"},
     {"path": "apps/terminal/src/lib/fonts/font-readiness.ts"},
     {"path": "docs/adr/0059-language-aware-startup-fonts.md"},
+    {"path": "apps/terminal/src/config/orderbook-labels.ts"},
+    {"path": "docs/orderbook-layout.md"},
     {"path": "docs/work-memory/sessions/2026-10-28-japanese-interface-language.md"}
   ],
   "supersedes": []
@@ -570,16 +572,42 @@
 - 其他检查：Biome 对改过的 4 个文件通过，`pnpm --filter @sairn/terminal typecheck` 通过，`pnpm memory:check` 通过，`pnpm memory:test` 12 项通过。
 - 没有运行：这一轮没跑终端全量 Vitest、浏览器套件、生产构建与包体测量。性能读数来自 Node 微基准，不是浏览器里的按键实测。
 
+### 订单簿数量列头（2026-11-27，待决定第 3 项）
+
+- 改法：`ORDERBOOK_LABELS.size` 改为 `msg({ message: "Size", context: "Order book column" })`，只有桌面订单簿列头（`orderbook-panel.tsx`）用它；`TRADE_PANEL_LABELS.size` 原来直接引用这条，改为自己的 `msg\`Size\``，下单表单与其他处的 `Size` 译文不变。`pnpm i18n:extract` 后每个目录只多这一条，另有一行来源注释从 `orderbook-labels.ts` 换成 `trade-panel-labels.ts`；新增的 7 个目录 Missing 0，原有目录的 Missing 数与改动前相同。
+- 译文：12 个目录沿用各自的 `Size`；越南语「Lượng」（锁定术语表的 `Số lượng` 去掉「Số」），没用编排建议的「KL」，因为它是「Khối lượng」的缩写，而术语表把「Khối lượng」留给 Volume；葡萄牙语「Tam.」，同目录已有「Tam. original」。
+- 实测（开发服务器 3015，填好译文后启动；Playwright 无头 Chromium；`/trade/BTC?lang=…`，逐组核对页面 `lang` 与列头文字；Inter Variable 12px；草稿脚本 `orderbook-size-probe.cjs`、`orderbook-unit-probe.cjs`，不入库）：
+  - 1440×900：面板 267px，三列各 81px，单位 `(BTC)` 32px、间距 2px，文字预算 47px。改前复现了报告：越南语「Số lượng」50.23px、单位 29/32；葡萄牙语「Tamanho」52.25px、单位 27/32（正向对照）。改后越南语 35.84px、葡萄牙语 27.58px；英文「Size」24.06px，俄语「Размер」43.92px。
+  - 1100×900：面板 310px，列宽 57.19/114.41/114.41，改前改后都不裁切。
+  - 第一轮结论只针对基础币 `(BTC)` 与 1440、1100 两种宽度：14 种语言都不裁切数量与累计两列的单位；各语言列宽相同，列头几何不变。截图只给越南语和葡萄牙语看过。
+  - 第一轮另把面板强制设为 279px 与 240px：279px 全部不裁切；240px（每列 72px，文字预算 38px）时西语「Tamaño」（单位 25/32）、俄语（26/32）、印尼语「Ukuran」（29/32）的数量单位与土耳其语「Toplam」的累计单位（28/32）被裁切，英文与新的越南语、葡萄牙语不裁切。更正（Gemini 审查第 2 项）：当时把两者都写成「用户手动收窄才会出现」不对。279px 是三等分列档的上沿，默认布局在 1506–1511px 就是这个宽度；只有 240px 这样低于 263px 的宽度才只在手动收窄时出现。
+- 第二轮实测（Gemini 4 Neon 只读审查 8/10 之后，同一开发服务器与浏览器）：
+  - 档位：只用英文扫视口宽度。1421px 时面板 263px、三列各 79.66px；1440px 为 267px；1505px 为 278px；1506–1511px 为 279px，三列各 85px；1512px 起面板 280px，列宽变为 1:2:2（51.19/102.41/102.41）；md 的 1001px 为 282px，1420px 为 402px。所以三等分列档在默认布局里是 lg 的 1421–1511px，md 不进入这一档。`orderbook-layout.md` 原来写「≤279 px 的容器档只在用户手动收窄列边界时出现」，已改正。
+  - 矩阵：14 种语言 × 1421/1440/1512/1001 四种宽度 × 四种单位，共 224 组，每组的页面 `lang` 都与目标语言一致。单位一种是页面真实的 `(BTC)`，另外三种把两列单位元素的文字临时换成 `(USDC)`（永续的计价币单位，`orderbook-panel-safety` 里计价模式显示的就是它）、`(HYPE)` 和 `(FARTCOIN)`，元素与字体不变。没有用下拉框真的切换计价模式，也没测现货与 HIP-3 市场。
+  - 基础币 `(BTC)`：14 种语言在四种宽度下都不裁切。
+  - 四个字母的单位，只在 1421–1511px 的三等分档里出问题，1512px 与 md 全部放得下：
+    - 数量列：西语（1421 宽 `(USDC)` 33/43）、俄语（34/43）、印尼语（37/43）在 `(USDC)` 与 `(HYPE)` 下，1421 与 1440 宽都裁切。
+    - 累计列：土耳其语「Toplam」（`(USDC)` 36/43、`(HYPE)` 36/41），阿拉伯语「الإجمالي」（只在 `(USDC)` 下，41/43）。土耳其语在 1421 宽 `(USDC)` 下数量列也差 1px（42/43）。
+    - 越南语「Lượng」只在 1421 宽 `(USDC)` 下差 1px（42/43），1440 宽放得下（35.84 + 2 + 43 ≤ 81）。
+    - 英文、葡萄牙语「Tam.」以及中日韩、印地语、法语都不裁切。
+  - 八个字母的 `(FARTCOIN)`：在三等分档里所有语言都裁切，英文也一样（1421 宽 54/68），这是单位自身的 `truncate`。1512px 与 md 时英文、中文（简繁）、日语、韩语、印地语、葡萄牙语、法语放得下，越南语（65/68）、印尼语、西语、土耳其语、俄语、阿拉伯语仍裁切。
+  - 以上属既有限制或这次没能完全消除的情况，本次不改，列为下面「待运营方决定」第 7 项。
+- 测试：
+  - `orderbook-catalogs.test.ts` 用 `harness/po-catalog.ts` 读目录条目，逐语言断言共用 `Size` 与列头 `Size` 各一条、译文如上、没有 `fuzzy` 标记，列头条目的来源只有 `orderbook-labels.ts`，共用条目来自 `trade-panel-labels.ts`。再按 Lingui 的消息 ID 规则把这两条装进一个 i18n 实例，断言 `ORDERBOOK_LABELS.size` 与 `TRADE_PANEL_LABELS.size` 各自解析到自己的译文。
+  - `orderbook-panel-safety.test.tsx` 用越南语、葡萄牙语目录里的这两条渲染真实的 `OrderbookPanel`，断言数量列头是「Lượng(HYPE)」「Tam.(HYPE)」。
+  - 变异检查（Gemini 审查第 1 项列出的三种回归）：两个定义互换 4 项失败；`context` 拼成 `Orderbook column` 15 项失败；面板改用 `TRADE_PANEL_LABELS.size` 2 项失败。第一轮只断言两个 ID 不相等，拦不住这三种回归。
+
 ## 后续与替代关系
 
 ### 待运营方决定（都需要改共享源码，本批次没有改）
 
 1. 已处理（2026-11-27，运营方采纳，见「待决项处理」）：三处价格值仍用无上下文的 `Market`（反向开仓确认的价格、桌面与手机市价触发单的价格单元格：`position-reverse-confirmation-modal.tsx`、`orders-tab.tsx`、`mobile-orders-tab.tsx`），表达的是「按市价」，却显示成「市场」：日语「市場」、韩语「마켓」、繁中「市場」；越南语「Thị trường」两义皆可，影响较小。修法是源码改用已有的 `Order type` 上下文，所有语言的显示都会变。
 2. 越南语字体：已决定（2026-11-27 运营方选方案 A），按 ADR 0059 实施，见「字体方案」。
-3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。
+3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。（已处理，2026-11-27：订单簿列头改用 `Order book column` 上下文，越南语「Lượng」、葡萄牙语「Tam.」，见「订单簿数量列头」。）
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
 5. 已处理（2026-11-27，运营方采纳，见「待决项处理」）：搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
 6. 已处理（2026-11-27，运营方同意恢复源文写法，见「待决项处理」）：原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。
+7. 订单簿列头在四个字母的单位下仍会裁切（2026-11-27 第 3 项处理后实测，见「订单簿数量列头」第二轮）：默认布局中 lg 的 1421–1511px 是三等分列档，单位为 `(USDC)`（永续计价模式）或 `(HYPE)` 这类四个字母的基础币时，西语、俄语、印尼语的数量列与土耳其语、阿拉伯语的累计列裁切单位；越南语「Lượng」在 1421 宽 `(USDC)` 下差 1px。英文与葡萄牙语不裁切。修法二选一：一是给这些语言的列头写更短的形式，累计列要另加 `Order book column` 上下文；二是调整列头布局，例如单位不截断、改由文字让位，这会影响所有语言。八个字母以上的符号连英文也截断，属于布局本身的取舍。
 
 ### 下一批次（4 土耳其语、5 俄语、6 巴西葡萄牙语、7 印尼语）接力要点
 
@@ -645,3 +673,24 @@
   - 合并后在 `dbe34da61` 上与其他测试文件一起再跑一次，通过。
   - 结论：负载导致的偶发失败。`docs/agent-handbook.md` 已列出这个文件，多模型 UI 审查记录（`2026-11-27-multi-agent-ui-review-phase-1.md` 后续第 5 项）也把它列为本批之前就有的稳定性问题。按要求没有改测试。
 - 验证（`dbe34da61`）：终端 typecheck 通过；本分支的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件、本分支的 4 个测试文件和 `mobile-agent-sync-modal`，共 17 个文件 727 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
+
+### 订单簿列头分支合入 main 7474813c 与 `trade-terminal-page` 重定基线（2026-11-27）
+
+- 起因：PR #23（第 3 项的订单簿列头，分支 `claude/quizzical-darwin-c01302`）从本分支旧头 `5a0a345b1` 切出。#22 合入 main（`7474813c3`）后，运营方定的合并顺序是 #25 → #24 → #23，编排会话要求先把新 main 合进 #23。#23 第一次 CI（头 `c719ee0c9`，当时的基线 125,655）报 `trade-terminal-page` 超出余量 80 / 89 字节（配对关 / 开）。
+- 合并：`f81a5568a` 把 `main` `7474813c3` 合入，没有冲突。每个目录与 main 只差列头 `Size` 一条和一行来源注释；`pnpm i18n:extract` 不改目录，新增 7 个都是 Missing 0（ar/es/fr/hi 缺 35 条、zh 缺 3 条，是 main 的现状），`pnpm i18n:compile` 通过。
+- 包体：按 `docs/terminal-performance-baseline.md` 做配对构建，`main` `7474813c3` 对比合并头 `f81a5568a`，日志与各次的客户端资源副本在 `.worklog/2026-11-27/orderbook-size-rebaseline/`。合并头超出 `trade-terminal-page` 余量 31 / 38 字节，其他面都在余量内。
+  - 增量（配对关 / 开）：`trade-terminal-page` +216 / +211，总量 +287 / +15，静态启动 +88 / +103，两种运行时与其他路由面变化在 ±28 以内。
+  - 原因：`ORDERBOOK_LABELS`（17 个描述符，原始 375 字节）原来因为 `TRADE_PANEL_LABELS` 引用它而放在共享的 `fees` 块；去掉这层引用后，它的使用者只剩手机盘口（在 `trade-terminal-page` 内）和桌面订单簿（`orderbook-panel` 块，本来就从 `trade-terminal-page` 导入），于是被移进 `trade-terminal-page`，`fees` 块相应少 195 / 193。两块都在静态启动闭包里；去掉文件名哈希后逐块比较，所有块合计只多 60 / 112 字节，13 个非英文目录块合计 +18。
+  - 新基线：`trade-terminal-page` 按较大的增量 +216，从 127,408 上调到 127,624，余量不变，剩余与 main 相同（配对关 185）。其他基线不变；新基线下合并头配对开读数为总量 +6,705（余 3,295）、静态启动 +9,417（余 583）、手机运行时 +9,237（余 763）。
+- 合并后的检查：终端 typecheck、改动文件 Biome、订单簿组与运行时翻译组等 32 个文件 1,042 项、`node --test scripts/check-client-bundle-budget.test.mjs`（19 项）、`pnpm memory:check` 与 `memory:test` 通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
+- 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。#25、#24 合入 main 后还要再合一次 main。
+
+### 订单簿列头分支再次合入 main 1bcaaff4 与包体检查（2026-11-27）
+
+- 合并：#26、#25、#24 合入 `main` 后，`ff1355c70` 用合并提交把 `main` `1bcaaff49` 合入本分支。冲突在三份文档：`docs/i18n-presentation.md`（保留本分支的列头条目，静态数字一条取 `main` 的新写法）、`docs/terminal-performance-baseline.md`（两节都保留，本分支一节在前）和本记录（以 `main` 为底，本分支的提交号与各节接在后面；待决第 5、6 项取 `main` 标的「已处理」，第 7 项保留）。上面「待决项处理之后」写第 3 项仍待决定，是 #24 当时的情况；第 3 项由本分支（PR #23）处理。`harness/po-catalog.ts` 与 #24 的 `harness/catalog-messages.ts` 都保留，没有合并。`pnpm i18n:extract` 不改目录，每个目录与 `main` 只差列头 `Size` 一条与一行来源注释，新增 7 个都是 Missing 0；`pnpm i18n:compile` 通过。
+- 包体检查：条件与上一节相同，`main` `1bcaaff49` 对比 `ff1355c70`，构建标识 `SAIRN_RELEASE_ID=orderbook-size-check-2`，日志与资源副本在 `.worklog/2026-11-27/orderbook-size-check-2/`。四次构建都通过预算检查，基线不变。
+  - 分支配对开：`trade-terminal-page` 131,450（基线 127,624，余 174），总量 3,709,264（+7,002，余 2,998），静态启动 1,686,773（+9,132，余 868），手机运行时 +8,821（余 1,179），桌面运行时 +6,627。
+  - 分支配对关：`trade-terminal-page` 131,451（余 173），总量 +3,980，静态启动 +8,203。
+  - 相对 `main`（配对关 / 开）：`trade-terminal-page` +217 / +223，总量 -485 / -196，静态启动 +6 / -37，两个运行时与其他路由面在 ±58 以内。逐块（去掉文件名哈希）仍只有 `trade-terminal-page` +227 / +225 与 `fees` -195 / -193，所有块合计 +68 / +61，与上一节同一原因。`main` 在它自己的基线 127,408 下读 131,234 / 131,227（余 174 / 181）。
+- 验证（`ff1355c70`）：终端 typecheck 通过；本分支改过的 5 个 ts/tsx 跑 Biome 通过；订单簿组、运行时翻译组与目录相关的 32 个文件 1,042 项通过；#24 用 `harness/catalog-messages.ts` 读目录的 3 个测试文件 104 项通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项、`pnpm memory:check`、`memory:test` 12 项通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
+- 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。

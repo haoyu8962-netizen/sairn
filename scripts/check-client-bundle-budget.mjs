@@ -292,7 +292,10 @@ const budgets = {
 		// pairing off keeps main's 249 bytes. The branch had first been measured against main ba78481a at +493.
 		// Raised 2026-11-27 by +1,753 for the multi-model UI review fixes (PR #21: the TWAP trigger direction and
 		// invalid-price submit guards among them): pairing on 131,145 minus main ce3259b6's 129,392 (pairing off +1,733).
-		{ name: "trade-terminal-page", baselineGzipBytes: 127_408, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-27 by +216 for the order book size heading's own message (PR #23): pairing off 131,439 minus
+		// main 7474813c's 131,223 (pairing on +211). The order book labels object moved here from the shared fees
+		// chunk, which shrank by 195; both chunks are in the static trade closure.
+		{ name: "trade-terminal-page", baselineGzipBytes: 127_624, allowedIncreaseBytes: 4_000 },
 		// Raised 2026-11-27 by +866 for the same fixes (selector busy and retry states, favourites highlight, row
 		// accessibility): pairing on 16,275 minus main ce3259b6's 15,409 (pairing off +847).
 		{ name: "token-selector-popup", baselineGzipBytes: 15_221, allowedIncreaseBytes: 1_500 },
