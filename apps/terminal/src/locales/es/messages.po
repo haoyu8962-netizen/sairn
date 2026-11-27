@@ -1677,7 +1677,7 @@ msgstr "Elige otros filtros de mercado, dirección, tipo o estado."
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Los depósitos mediante Circle CCTP están limitados a 10.000.000 USDC por transferencia."
+msgstr "Los depósitos mediante Circle CCTP están limitados a 10,000,000 USDC por transferencia."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1712,7 +1712,7 @@ msgstr "Circle está reenviando tus USDC a Hyperliquid. No vuelvas a enviar este
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Los depósitos en la testnet de Circle están limitados a 1.000 USDC por transferencia."
+msgstr "Los depósitos en la testnet de Circle están limitados a 1,000 USDC por transferencia."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -5044,12 +5044,9 @@ msgstr "Precio de marca: se usa para calcular margen, PnL no realizado, liquidac
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/orders-tab.tsx
-#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-market-filter.tsx
-#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
@@ -5060,7 +5057,10 @@ msgstr "Mercado"
 
 #: src/components/trade/components/historical-order-price.tsx
 #: src/components/trade/components/historical-order-price.tsx
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-inline-actions.tsx
+#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/config/trade.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-order-display-labels.ts

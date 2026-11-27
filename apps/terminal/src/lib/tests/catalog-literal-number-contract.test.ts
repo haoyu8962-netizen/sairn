@@ -7,23 +7,10 @@ const LOCALES_ROOT = resolve(__dirname, "../../locales");
 
 // Numbers follow the number-format setting, never the interface language. A number written into a message (a deposit
 // limit, a volume threshold) is not formatted at runtime, so every catalog keeps the source's digits and separators.
-// Catalogs that predate this contract and still localize some of them list each message with the source numbers it
-// changes; fixing one means removing it here, and a listed message that no longer changes them fails as stale
-// (docs/i18n-presentation.md, task record 2026-11-26 pending item 6).
-const LEADERBOARD_EXCLUSION =
-	"An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard.";
-const CCTP_LIMIT = "Circle CCTP deposits are limited to 10,000,000 USDC per transfer.";
-const TESTNET_LIMIT = "Circle testnet deposits are limited to 1,000 USDC per transfer.";
-const REFERRAL_THRESHOLD = "Referral codes cannot be applied after cumulative volume exceeds $10,000.";
-const PENDING_LOCALIZED_NUMBERS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
-	es: { [CCTP_LIMIT]: ["10,000,000"], [TESTNET_LIMIT]: ["1,000"] },
-	fr: {
-		[LEADERBOARD_EXCLUSION]: ["100,000", "10,000,000"],
-		[CCTP_LIMIT]: ["10,000,000"],
-		[TESTNET_LIMIT]: ["1,000"],
-		[REFERRAL_THRESHOLD]: ["10,000"],
-	},
-};
+// An exception would list each message with the source numbers it changes; a listed message that no longer changes
+// them fails as stale. The list is empty since `es` and `fr` took back the source's digits (docs/i18n-presentation.md,
+// task record 2026-11-26 pending item 6).
+const PENDING_LOCALIZED_NUMBERS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {};
 
 const PO_FIELDS = new Set(["msgctxt", "msgid", "msgstr"]);
 

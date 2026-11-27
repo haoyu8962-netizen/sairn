@@ -826,7 +826,7 @@ msgstr "Un ordre accepté a ensuite été annulé. Vérifiez les ordres ouverts 
 
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "Un compte n’est exclu que si sa valeur est inférieure à 100 000 $ et que son volume cumulé est inférieur à 10 000 000 $. Le ROI correspond à la valeur fournie par la source de données actuelle de l’application officielle. Les comptes de coffre sont exclus à l’aide du jeu de données des coffres correspondant au réseau. Aucune politique révisée relative aux adresses du protocole et de la trésorerie n’étant disponible, ce classement ne prétend pas reproduire exactement le classement officiel de Hyperliquid."
+msgstr "Un compte n’est exclu que si sa valeur est inférieure à 100,000 $ et que son volume cumulé est inférieur à 10,000,000 $. Le ROI correspond à la valeur fournie par la source de données actuelle de l’application officielle. Les comptes de coffre sont exclus à l’aide du jeu de données des coffres correspondant au réseau. Aucune politique révisée relative aux adresses du protocole et de la trésorerie n’étant disponible, ce classement ne prétend pas reproduire exactement le classement officiel de Hyperliquid."
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1677,7 +1677,7 @@ msgstr "Choisissez d’autres filtres de marché, de direction, de type ou d’�
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Les dépôts Circle CCTP sont limités à 10 000 000 USDC par transfert."
+msgstr "Les dépôts Circle CCTP sont limités à 10,000,000 USDC par transfert."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1712,7 +1712,7 @@ msgstr "Circle transfère vos USDC vers Hyperliquid. Ne soumettez pas ce dépôt
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Les dépôts sur le testnet Circle sont limités à 1 000 USDC par transfert."
+msgstr "Les dépôts sur le testnet Circle sont limités à 1,000 USDC par transfert."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -5044,12 +5044,9 @@ msgstr "Prix de marque : utilisé pour les calculs de marge, le PnL non réalis�
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
 #: src/components/trade/positions/orders-tab.tsx
-#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-market-filter.tsx
-#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
@@ -5060,7 +5057,10 @@ msgstr "Marché"
 
 #: src/components/trade/components/historical-order-price.tsx
 #: src/components/trade/components/historical-order-price.tsx
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/positions/orders-tab.tsx
 #: src/components/trade/positions/position-inline-actions.tsx
+#: src/components/trade/positions/position-reverse-confirmation-modal.tsx
 #: src/config/trade.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-order-display-labels.ts
@@ -7134,7 +7134,7 @@ msgstr "Code de parrainage créé"
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
 msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "Les codes de parrainage ne peuvent plus être appliqués lorsque le volume cumulé dépasse 10 000 $."
+msgstr "Les codes de parrainage ne peuvent plus être appliqués lorsque le volume cumulé dépasse 10,000 $."
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

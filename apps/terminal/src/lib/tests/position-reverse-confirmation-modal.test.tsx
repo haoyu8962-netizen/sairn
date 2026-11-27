@@ -1,9 +1,15 @@
 /** @vitest-environment jsdom */
 
+import { i18n } from "@lingui/core";
 import { act, createElement, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type CatalogEntry, loadCatalogMessages, readCatalogTranslation } from "./harness/catalog-messages";
 import { createI18nRoot } from "./harness/react";
+
+const MARKET_ORDER_TYPE: CatalogEntry = ["Market", "Order type"];
+const MARKET_NOUN: CatalogEntry = ["Market", ""];
+const PRICE: CatalogEntry = ["Price", ""];
 
 const testState = vi.hoisted(() => ({
 	adaptiveProps: null as Record<string, unknown> | null,
@@ -76,6 +82,7 @@ describe("PositionReverseConfirmationModal", () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+		i18n.loadAndActivate({ locale: "en", messages: {} });
 	});
 
 	it("renders a desktop long-to-short confirmation without inventing a liquidation estimate", () => {
@@ -149,6 +156,47 @@ describe("PositionReverseConfirmationModal", () => {
 			expect(parts).toEqual([from, "→", to]);
 			expect(visual?.children[1]?.classList).toContain("rtl:-scale-x-100");
 			expect(direction?.querySelector(".sr-only")?.textContent).toBe(`${from} to ${to}`);
+		},
+	);
+
+	it.each(["ja", "ko", "zh-TW"])(
+		"shows the %s market order price, not the market noun, after a language switch",
+		(locale) => {
+			const orderType = readCatalogTranslation(locale, MARKET_ORDER_TYPE);
+			const noun = readCatalogTranslation(locale, MARKET_NOUN);
+			const price = readCatalogTranslation(locale, PRICE);
+			expect(orderType).not.toBe(noun);
+
+			act(() =>
+				root.render(
+					<PositionReverseConfirmationModal
+						open
+						marketLabel="AAPL"
+						currentDirection="long"
+						reverseSizeLabel="10.000 AAPL"
+						onOpenChange={vi.fn()}
+						onConfirm={vi.fn()}
+					/>,
+				),
+			);
+			const rowValue = (label: string) =>
+				[...container.querySelectorAll<HTMLElement>("dl > div")]
+					.find((row) => row.querySelector("dt")?.textContent === label)
+					?.querySelector("dd");
+			const englishPrice = rowValue("Price");
+			expect(englishPrice?.textContent).toBe("Market");
+			expect(rowValue("Market")?.textContent).toBe("AAPL");
+
+			act(() =>
+				i18n.loadAndActivate({
+					locale,
+					messages: loadCatalogMessages(locale, [MARKET_ORDER_TYPE, MARKET_NOUN, PRICE]),
+				}),
+			);
+
+			expect(rowValue(price)).toBe(englishPrice);
+			expect(rowValue(price)?.textContent).toBe(orderType);
+			expect(rowValue(noun)?.textContent).toBe("AAPL");
 		},
 	);
 

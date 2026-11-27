@@ -1398,7 +1398,9 @@ function MobileOrderCard({
 	const originalSizeLabel = isClosePositionOrder(order)
 		? t`Close Position`
 		: formatToken(order.origSz, { decimals: szDecimals });
-	const priceLabel = isMarketTriggerOrder(order) ? t`Market` : formatPrice(order.limitPx, { szDecimals, marketType });
+	const priceLabel = isMarketTriggerOrder(order)
+		? t({ message: "Market", context: "Order type" })
+		: formatPrice(order.limitPx, { szDecimals, marketType });
 	const takeProfitPx = order.children.find(isTakeProfitOrder)?.triggerPx;
 	const stopLossPx = order.children.find(isStopOrder)?.triggerPx;
 	const tpSlLabel = `${formatPrice(takeProfitPx, { szDecimals, marketType })} / ${formatPrice(stopLossPx, { szDecimals, marketType })}`;

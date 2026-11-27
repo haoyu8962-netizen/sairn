@@ -433,6 +433,53 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Search folding static-startup re-baseline (2026-11-27)
+
+PR #24 (`claude/compassionate-dewdney-663750`) handles three pending items of the seven-languages review: market
+trigger prices shown as the market order type, search matching that folds case and Latin accents (Turkish İ/ı
+included) in the market search index and the Vault name filter, and the source digits of six Spanish and French
+messages. Its CI build of `8f409af0`, before `main` moved, exceeded the static-startup allowance with pairing on by 38
+bytes. After `main` `7474813c` (PR #22) was merged into the branch, the static startup was measured again.
+
+Paired builds, each run on its own, in two clean detached worktrees on the same machine: `main` `7474813c3` and the
+branch head `36e69cdc3` (the merge commit), both with Node 22.15.0, pnpm 10.21.0,
+`pnpm install --frozen-lockfile --prefer-offline`, the chart library installed from the local copy, no
+`apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=36e69cdc31632aa90bf66cac463141ecc761853f`, `SAIRN_RELEASE_ID=pr24-search-fold-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-27T00:00:00.000Z`). On both sides the installed `node_modules/.pnpm/lock.yaml` differs from
+`pnpm-lock.yaml` by the same few lines of `fdir`/`picomatch` peer metadata. The state file, the build script, every
+build log and a copy of each build's assets are in the Git-ignored `.worklog/2026-11-27/pr24-rebaseline/` of the
+branch worktree.
+
+| Metric | `main` off | Branch off | Change | `main` on | Branch on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,705,676 | 3,706,399 | +723 | 3,708,897 | 3,709,931 | +1,034 |
+| Static trade startup | 1,684,910 | 1,685,769 | +859 | 1,686,070 | 1,687,005 | +935 |
+| Mobile runtime increment | 121,949 | 121,545 | -404 | 121,961 | 121,566 | -395 |
+| Desktop runtime increment | 209,719 | 209,381 | -338 | 209,739 | 209,377 | -362 |
+| `trade-terminal-page` | 131,246 | 131,245 | -1 | 131,241 | 131,238 | -3 |
+| `vaults-page` | 30,877 | 30,871 | -6 | 30,882 | 30,889 | +7 |
+
+The static closure and both runtime profiles keep their asset counts (105, 15, 31). By chunk, compared with Node's
+`gzipSync` with content hashes removed: `vendor-tanstack-router` +767 with pairing on (+669 off) and the lazy `search`
+chunk -413 (-414 off); no other chunk changed by 20 bytes or more, and the remaining +680 with pairing on is spread
+over 274 chunks, none by more than 11 bytes. The Vault filter
+(`components/vaults/domain/vaults.ts`) now imports `foldSearchText` from `lib/search/utils.ts`. Application modules
+have no manual chunk rule, and once that module was shared by the search chunk and the Vault pages, Rollup placed it in
+the startup chunk `vendor-tanstack-router`: the whole module, with `normalize`, `tokenize`, the character masks and
+`levenshtein`, not only the fold. The `search` chunk belongs to both runtime profiles, which is why they shrank.
+
+Change to the baselines, allowances unchanged: static trade startup raised by the larger increment, +935, from
+1,676,706 to 1,677,641. The total (branch pairing on +7,669 against 3,702,262), both runtime increments and every
+named surface stay as they are.
+
+Against the new baseline the branch's pairing-on output reads static startup +9,364 (636 left), the same as `main`
+`7474813c3` reads against its own baseline with this identity. For comparison, CI's pairing-on build of #22's head
+`739f20ca` (the tree `main` `7474813c` merged) read static startup 1,686,224, 154 bytes above the local `main` build
+here, and total 3,709,358 (+461), so CI should read the branch at about +9,518. Not done: moving `foldSearchText` into a
+module of its own, which would probably keep the fuzzy-match helpers in the lazy chunk; it was neither built nor
+measured. The release configuration (production `.env.local`, pairing on) was not built.
+
 ## Multi-model UI review fixes re-baseline (2026-11-27)
 
 PR #21 (`claude/multi-agent-ui-review-phase-1`, head `7d92841d`) carries the fixes of a multi-model UI and UX

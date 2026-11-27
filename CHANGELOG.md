@@ -175,6 +175,16 @@ changes, not evidence that a build has been deployed or accepted on real devices
 - Dialog close buttons and several shared controls are placed and announced correctly in
   right-to-left languages, and the light theme's buy and sell fills have enough contrast for their
   labels.
+- The price of a market trigger order (desktop and phone open orders) and of a position reversal now
+  reads as the market order type in every language, as in the order form: Japanese shows 成行 instead of
+  市場 (market), Korean 시장가 instead of 마켓, Traditional Chinese 市價 instead of 市場. English is
+  unchanged.
+- Market search (token selector and command menu) and the Vault name search ignore case and accents
+  the same way for names and what you type: a Turkish `İNİT` or `ınıt` finds INIT, `istanbul` finds a
+  Vault named İstanbul and `dong` finds Đồng. Addresses are still matched as before.
+- Spanish and French no longer rewrite the numbers fixed in a few messages (the Circle deposit limits,
+  the referral code volume threshold and the leaderboard exclusion rule) in their own separators: they
+  show the same digits as every other language, such as 10,000,000 USDC.
 - Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
   moment, on every page including those that check the terms of use (Trade, Portfolio, Vaults and the
   history pages): while the wallet session is being resolved (at most 10 seconds) the dialog stays
