@@ -7,7 +7,7 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["i18n-runtime"],
-  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线；#22 已合入 main（7474813c3）。待决第 1、5、6 项在分支 claude/compassionate-dewdney-663750 处理，已推送为 PR #24，并合入了新 main。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
+  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线；#22 已合入 main（7474813c3）。待决第 1、5、6 项由 PR #24 处理，第 3 项由 PR #23 处理；#25、#24、#23 依次合入 main（b9f07503d、1bcaaff49、3bd9955c2），CI 与合并核对见 2026-11-27-i18n-prs-merge。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
   "thread": null,
   "baseCommit": "ce3259b68",
   "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "37e6b05b8", "fc251f889", "f0f9bdfcc", "8f409af0f", "0a2afbefc", "c719ee0c9", "f81a5568a", "7575ee004"],
@@ -694,3 +694,8 @@
   - 相对 `main`（配对关 / 开）：`trade-terminal-page` +217 / +223，总量 -485 / -196，静态启动 +6 / -37，两个运行时与其他路由面在 ±58 以内。逐块（去掉文件名哈希）仍只有 `trade-terminal-page` +227 / +225 与 `fees` -195 / -193，所有块合计 +68 / +61，与上一节同一原因。`main` 在它自己的基线 127,408 下读 131,234 / 131,227（余 174 / 181）。
 - 验证（`ff1355c70`）：终端 typecheck 通过；本分支改过的 5 个 ts/tsx 跑 Biome 通过；订单簿组、运行时翻译组与目录相关的 32 个文件 1,042 项通过；#24 用 `harness/catalog-messages.ts` 读目录的 3 个测试文件 104 项通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项、`pnpm memory:check`、`memory:test` 12 项通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
 - 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。
+
+### 四个 PR 合入 main（2026-11-27）
+
+- #22、#25、#24、#23 依次用 merge commit 合入 main，合并提交分别是 `7474813c3`、`b9f07503d`、`1bcaaff49`、`3bd9955c2`。各 PR 合并时的头、CI、两次 CI 失败的处理与包体基线，见 [合并核对记录](2026-11-27-i18n-prs-merge.md)。
+- 没有发布；生产发布配置构建、真机与母语审校仍未做。
