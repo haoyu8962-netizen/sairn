@@ -281,6 +281,7 @@ vi.mock("@/stores/use-order-entry-store", () => ({
 	useTpSlReturnInvalid: () => false,
 	useTriggerPrice: () => testState.triggerPrice,
 	useTwapAdvancedEnabled: () => testState.twapAdvancedEnabled,
+	useTwapDurationDraft: () => null,
 	useTwapMinutes: () => 30,
 	useTwapRandomize: () => false,
 	useTwapStopPrice: () => testState.twapStopPrice,

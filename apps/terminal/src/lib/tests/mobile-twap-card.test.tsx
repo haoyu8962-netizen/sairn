@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { i18n } from "@lingui/core";
+import { createHash } from "node:crypto";
+import { i18n, type Messages } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
 import type { TwapHistoryResponse, UserFillsResponse } from "@nktkas/hyperliquid";
 import { act, useSyncExternalStore } from "react";
@@ -9,14 +10,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MobileDataScrollMode } from "@/components/trade/mobile/mobile-positions-view";
 
 const mocks = vi.hoisted(() => ({
+	activeCoin: "GOOGL",
 	cancelTwap: vi.fn(),
 	exportListeners: new Set<() => void>(),
 	exportTwapFills: vi.fn(async () => undefined),
+	getToolbarTwapMetrics: vi.fn(),
 	hasActiveOrder: true,
 	hasSnapshot: true,
 	status: "active",
 	isStale: false,
-	feedback: null as { message: string; tone: "error" } | null,
+	feedback: null as { message: string; tone: "error" | "warning" } | null,
 	hasMoreTwapFills: false,
 	hasMoreTwapHistory: false,
 	isExportingTwapFills: false,
@@ -79,6 +82,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("boneyard-js/react", () => ({
 	Skeleton: ({ children }: { children: React.ReactNode }) => children,
 }));
+
+vi.mock("@/domain/trade/trading-toolbar-metrics", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/domain/trade/trading-toolbar-metrics")>();
+	return {
+		...actual,
+		getToolbarTwapMetrics: (...args: Parameters<typeof actual.getToolbarTwapMetrics>) => {
+			mocks.getToolbarTwapMetrics(...args);
+			return actual.getToolbarTwapMetrics(...args);
+		},
+	};
+});
 
 vi.mock("@/components/ui/time-ticker", () => ({
 	TimeTicker: () => <>18:24</>,
@@ -149,15 +163,34 @@ vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 
 vi.mock("@/lib/hyperliquid", () => ({
 	useMarkets: () => ({
-		getMarket: () =>
-			mocks.marketMissing
-				? undefined
-				: {
-						kind: "spot",
-						shortName: "GOOGL",
-						szDecimals: 3,
-						tokensInfo: [{ name: "GOOGL" }, { name: "USDH" }],
-					},
+		getMarket: (coin: string) => {
+			if (mocks.marketMissing) return undefined;
+			if (coin === "xyz:TSLA") {
+				return {
+					dex: "xyz",
+					kind: "builderPerp",
+					pairName: "TSLA-USDC",
+					shortName: "TSLA",
+					szDecimals: 3,
+				};
+			}
+			if (coin === "@107") {
+				return {
+					kind: "spot",
+					pairName: "HYPE/USDC",
+					shortName: "HYPE",
+					szDecimals: 2,
+					tokensInfo: [{ name: "HYPE" }, { name: "USDC" }],
+				};
+			}
+			return {
+				kind: "spot",
+				pairName: "GOOGL/USDH",
+				shortName: "GOOGL",
+				szDecimals: 3,
+				tokensInfo: [{ name: "GOOGL" }, { name: "USDH" }],
+			};
+		},
 		getSzDecimals: () => (mocks.marketMissing ? 4 : 3),
 		getTokenDisplayName: (name: string) => (name === "USDT0" ? "USDT" : name),
 	}),
@@ -171,7 +204,7 @@ vi.mock("@/lib/hyperliquid", () => ({
 								[
 									42,
 									{
-										coin: "GOOGL",
+										coin: mocks.activeCoin,
 										executedNtl: "2298.76416",
 										executedSz: "6.132",
 										minutes: 30,
@@ -211,6 +244,7 @@ describe("MobileTwapTab card", () => {
 	let root: Root;
 
 	beforeEach(() => {
+		mocks.activeCoin = "GOOGL";
 		mocks.side = "B";
 		mocks.hasActiveOrder = true;
 		mocks.hasSnapshot = true;
@@ -335,7 +369,7 @@ describe("MobileTwapTab card", () => {
 		expect(progress?.className).toContain("bg-market-close-success");
 		expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("0.4");
 		expect(
-			container.querySelector<HTMLButtonElement>('button[aria-label="Switch to GOOGL market"]')?.className,
+			container.querySelector<HTMLButtonElement>('button[aria-label="Switch to GOOGL/USDH market"]')?.className,
 		).toContain("min-h-11");
 
 		const terminate = container.querySelector<HTMLButtonElement>('button[aria-label="Terminate TWAP order"]');
@@ -566,5 +600,147 @@ describe("MobileTwapTab card", () => {
 		expect(getTwapFillFooter()).toBeNull();
 		expect(container.querySelector("button[disabled]")).toBeNull();
 		expect(container.textContent).not.toContain("Export CSV");
+	});
+
+	it("translates spot buy/sell and flip directions in TWAP fill history", () => {
+		const fills = mocks.twapFills;
+		const zhDirectionMessages: Messages = Object.fromEntries(
+			[
+				["Buy", "买入"],
+				["Sell", "卖出"],
+				["Long > Short", "多转空"],
+				["Short > Long", "空转多"],
+			].map(([english, chinese]) => [
+				createHash("sha256").update(`${english}\x1f`).digest("base64").slice(0, 6),
+				chinese,
+			]),
+		);
+		i18n.loadAndActivate({ locale: "zh", messages: zhDirectionMessages });
+		mocks.twapFills = [
+			{ ...fills[0], tid: 201, dir: "Buy", side: "B" },
+			{ ...fills[0], tid: 202, dir: "Sell", side: "A" },
+			{ ...fills[0], tid: 203, dir: "Long > Short", side: "A" },
+			{ ...fills[0], tid: 204, dir: "Short > Long", side: "B" },
+		] as UserFillsResponse;
+		try {
+			render();
+			selectSubview("Fill History");
+			expect(container.textContent).toContain("买入");
+			expect(container.textContent).toContain("卖出");
+			expect(container.textContent).toContain("多转空");
+			expect(container.textContent).toContain("空转多");
+		} finally {
+			mocks.twapFills = fills;
+			act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
+		}
+	});
+
+	it("shows spot pair names and HIP-3 deployer badges without truncating TWAP card metrics", () => {
+		render();
+		expect(container.querySelectorAll("article .truncate")).toHaveLength(0);
+
+		selectSubview("History");
+		expect(container.querySelectorAll("article .truncate")).toHaveLength(0);
+		expect(container.querySelector("article .grid")?.className).toContain("grid-cols-2");
+
+		selectSubview("Fill History");
+		expect(container.querySelectorAll("article .truncate")).toHaveLength(0);
+		expect(container.querySelector("article .grid")?.className).toContain("grid-cols-2");
+	});
+
+	it("shows HIP-3 deployer badges and spot pair names across all three mobile TWAP lists", () => {
+		const prevHistory = mocks.twapHistory;
+		const prevFills = mocks.twapFills;
+		mocks.twapHistory = [
+			{ ...prevHistory[0], state: { ...prevHistory[0].state, coin: "xyz:TSLA" } },
+			{
+				...prevHistory[0],
+				twapId: 43,
+				time: prevHistory[0].time + 1,
+				state: { ...prevHistory[0].state, coin: "@107" },
+			},
+		] as TwapHistoryResponse;
+		mocks.twapFills = [
+			{ ...prevFills[0], tid: 301, coin: "xyz:TSLA" },
+			{ ...prevFills[0], tid: 302, coin: "@107" },
+		] as UserFillsResponse;
+		try {
+			mocks.activeCoin = "xyz:TSLA";
+			render();
+			const activeDexButton = container.querySelector<HTMLButtonElement>(
+				'button[aria-label="Switch to TSLA (xyz) market"]',
+			);
+			expect(activeDexButton?.textContent).toContain("TSLA");
+			expect(activeDexButton?.textContent).toContain("xyz");
+			expect(container.textContent).not.toContain("xyz:TSLA");
+			act(() => activeDexButton?.click());
+			expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("xyz:TSLA", undefined, { displayedContent: "trade" });
+
+			selectSubview("History");
+			const historyDexButton = container.querySelector<HTMLButtonElement>(
+				'button[aria-label="Switch to TSLA (xyz) market"]',
+			);
+			expect(historyDexButton?.textContent).toContain("TSLA");
+			expect(historyDexButton?.textContent).toContain("xyz");
+			expect(container.textContent).not.toContain("xyz:TSLA");
+			expect(container.querySelector('button[aria-label="Switch to HYPE/USDC market"]')).not.toBeNull();
+			act(() => historyDexButton?.click());
+			expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("xyz:TSLA", undefined, { displayedContent: "trade" });
+
+			selectSubview("Fill History");
+			const fillDexButton = container.querySelector<HTMLButtonElement>(
+				'button[aria-label="Switch to TSLA (xyz) market"]',
+			);
+			expect(fillDexButton?.textContent).toContain("TSLA");
+			expect(fillDexButton?.textContent).toContain("xyz");
+			expect(container.textContent).not.toContain("xyz:TSLA");
+			expect(container.querySelector('button[aria-label="Switch to HYPE/USDC market"]')).not.toBeNull();
+			act(() => fillDexButton?.click());
+			expect(mocks.navigateToMarket).toHaveBeenLastCalledWith("xyz:TSLA", undefined, { displayedContent: "trade" });
+		} finally {
+			mocks.twapHistory = prevHistory;
+			mocks.twapFills = prevFills;
+		}
+	});
+
+	it("keeps delayed inline cancellation feedback visible once after switching to history subviews", () => {
+		render();
+		const terminate = container.querySelector<HTMLButtonElement>('button[aria-label="Terminate TWAP order"]');
+		act(() => terminate?.click());
+		expect(mocks.cancelTwap).toHaveBeenCalledWith("GOOGL", 42);
+
+		selectSubview("History");
+		mocks.feedback = { tone: "error", message: "Cancellation was rejected." };
+		render();
+		const alerts = container.querySelectorAll('[role="alert"]');
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]?.textContent).toBe("Cancellation was rejected.");
+
+		selectSubview("Fill History");
+		mocks.feedback = { tone: "warning", message: "Cancellation could not be confirmed." };
+		render();
+		const statuses = container.querySelectorAll('[role="status"]');
+		expect(statuses).toHaveLength(1);
+		expect(statuses[0]?.textContent).toBe("Cancellation could not be confirmed.");
+	});
+
+	it("does not compute hidden current TWAP rows while viewing history or fill history", () => {
+		render();
+		expect(mocks.getToolbarTwapMetrics).toHaveBeenCalledTimes(1);
+
+		selectSubview("History");
+		mocks.getToolbarTwapMetrics.mockClear();
+		mocks.activeCoin = "xyz:TSLA";
+		render();
+		expect(mocks.getToolbarTwapMetrics).not.toHaveBeenCalled();
+
+		selectSubview("Fill History");
+		mocks.getToolbarTwapMetrics.mockClear();
+		mocks.activeCoin = "GOOGL";
+		render();
+		expect(mocks.getToolbarTwapMetrics).not.toHaveBeenCalled();
+
+		selectSubview("Current");
+		expect(mocks.getToolbarTwapMetrics).toHaveBeenCalledTimes(1);
 	});
 });

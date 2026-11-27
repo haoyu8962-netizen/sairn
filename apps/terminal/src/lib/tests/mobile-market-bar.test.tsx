@@ -278,10 +278,16 @@ describe("MobileMarketBar", () => {
 	});
 
 	it("keeps expanded values complete and associates the disclosure control", () => {
-		renderExpandedBar();
+		renderBar();
+		const expandButton = container.querySelector<HTMLButtonElement>('button[aria-label="Expand market details"]');
+		expect(expandButton?.getAttribute("aria-expanded")).toBe("false");
+		expect(expandButton?.getAttribute("aria-controls")).toBeNull();
+
+		act(() => expandButton?.click());
 
 		const collapseButton = container.querySelector<HTMLButtonElement>('button[aria-label="Collapse market details"]');
 		const detailsId = collapseButton?.getAttribute("aria-controls");
+		expect(collapseButton?.getAttribute("aria-expanded")).toBe("true");
 		expect(detailsId).toBeTruthy();
 		expect(detailsId ? document.getElementById(detailsId) : null).not.toBeNull();
 
@@ -291,6 +297,302 @@ describe("MobileMarketBar", () => {
 		expect(volumeValue?.className).toContain("break-words");
 		expect(volumeValue?.className).toContain("[overflow-wrap:anywhere]");
 		expect(volumeValue?.className).not.toContain("truncate");
+
+		act(() => collapseButton?.click());
+		const collapsedAgain = container.querySelector<HTMLButtonElement>('button[aria-label="Expand market details"]');
+		expect(collapsedAgain?.getAttribute("aria-controls")).toBeNull();
+	});
+
+	it("opens market detail tooltips on keyboard focus, keeps them open when hovering the popup, and closes on Escape", async () => {
+		Object.assign(mocks.selectedMarket, {
+			kind: "perp",
+			name: "HYPE",
+			pairName: "HYPE-USDC",
+			maxLeverage: 10,
+			funding: "0.0001",
+		});
+
+		renderExpandedBar();
+
+		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.includes("Mark/Oracle"),
+		);
+		expect(tooltipTrigger).not.toBeNull();
+		expect(tooltipTrigger?.getAttribute("aria-describedby")).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger?.focus();
+		});
+
+		const focusedTooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
+		expect(focusedTooltip).not.toBeNull();
+		expect(focusedTooltip?.id).toBeTruthy();
+		expect(tooltipTrigger?.getAttribute("aria-describedby")).toBe(focusedTooltip?.id);
+		expect(focusedTooltip?.closest("[data-base-ui-portal]")).not.toBeNull();
+
+		await act(async () => {
+			document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+		expect(tooltipTrigger?.getAttribute("aria-describedby")).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false }));
+		});
+		const hoveredTooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
+		expect(hoveredTooltip).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false, relatedTarget: hoveredTooltip }));
+			hoveredTooltip?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false }));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger?.click();
+			tooltipTrigger?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false }));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+	});
+
+	it("closes an open market detail tooltip on scroll or resize so it does not reappear", async () => {
+		Object.assign(mocks.selectedMarket, {
+			kind: "perp",
+			name: "HYPE",
+			pairName: "HYPE-USDC",
+			maxLeverage: 10,
+			funding: "0.0001",
+		});
+
+		renderExpandedBar();
+
+		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.includes("Mark/Oracle"),
+		);
+		expect(tooltipTrigger).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger?.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+		expect(tooltipTrigger?.getAttribute("aria-describedby")).toBeTruthy();
+
+		const scrollHost = document.createElement("div");
+		document.body.appendChild(scrollHost);
+		try {
+			await act(async () => {
+				scrollHost.dispatchEvent(new Event("scroll", { bubbles: false }));
+			});
+			expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+			expect(tooltipTrigger?.getAttribute("aria-describedby")).toBeNull();
+
+			await act(async () => {
+				tooltipTrigger?.click();
+			});
+			expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+			await act(async () => {
+				window.dispatchEvent(new Event("resize"));
+			});
+			expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+			expect(tooltipTrigger?.getAttribute("aria-describedby")).toBeNull();
+		} finally {
+			scrollHost.remove();
+		}
+	});
+
+	it("does not let a cancelled pointer gesture swallow the next keyboard toggle", async () => {
+		Object.assign(mocks.selectedMarket, {
+			kind: "perp",
+			name: "HYPE",
+			pairName: "HYPE-USDC",
+			maxLeverage: 10,
+			funding: "0.0001",
+		});
+
+		renderExpandedBar();
+
+		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.includes("Mark/Oracle"),
+		);
+		if (!tooltipTrigger) throw new Error("Missing Mark/Oracle tooltip trigger");
+
+		function createPointerEvent(type: string, pointerType: string) {
+			const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+			Object.defineProperty(event, "pointerType", { value: pointerType });
+			return event;
+		}
+
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointercancel", "touch"));
+		});
+
+		await act(async () => {
+			tooltipTrigger.focus();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.blur();
+		});
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "mouse"));
+			tooltipTrigger.focus();
+			document.body.dispatchEvent(createPointerEvent("pointerup", "mouse"));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.blur();
+		});
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.focus();
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerup", "touch"));
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerup", "touch"));
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+	});
+
+	it("clears pointer-press state on pointercancel without relying on keydown or pointerup", async () => {
+		Object.assign(mocks.selectedMarket, {
+			kind: "perp",
+			name: "HYPE",
+			pairName: "HYPE-USDC",
+			maxLeverage: 10,
+			funding: "0.0001",
+		});
+
+		renderExpandedBar();
+
+		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.includes("Mark/Oracle"),
+		);
+		if (!tooltipTrigger) throw new Error("Missing Mark/Oracle tooltip trigger");
+
+		function createPointerEvent(type: string, pointerType: string) {
+			const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+			Object.defineProperty(event, "pointerType", { value: pointerType });
+			return event;
+		}
+
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointercancel", "touch"));
+		});
+		await act(async () => {
+			tooltipTrigger.focus();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.blur();
+		});
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.focus();
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointercancel", "touch"));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+	});
+
+	it("clears pointer-press state independently for outside pointerup, inside pointerup without click, and keydown fallback", async () => {
+		Object.assign(mocks.selectedMarket, {
+			kind: "perp",
+			name: "HYPE",
+			pairName: "HYPE-USDC",
+			maxLeverage: 10,
+			funding: "0.0001",
+		});
+
+		renderExpandedBar();
+
+		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.includes("Mark/Oracle"),
+		);
+		if (!tooltipTrigger) throw new Error("Missing Mark/Oracle tooltip trigger");
+
+		function createPointerEvent(type: string, pointerType: string) {
+			const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+			Object.defineProperty(event, "pointerType", { value: pointerType });
+			return event;
+		}
+
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "mouse"));
+			tooltipTrigger.focus();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+		await act(async () => {
+			document.body.dispatchEvent(createPointerEvent("pointerup", "mouse"));
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.blur();
+		});
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.focus();
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerup", "touch"));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+		await act(async () => {
+			await new Promise((resolve) => window.setTimeout(resolve, 0));
+		});
+		await act(async () => {
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+		await act(async () => {
+			tooltipTrigger.blur();
+		});
+		await act(async () => {
+			tooltipTrigger.dispatchEvent(createPointerEvent("pointerdown", "touch"));
+			tooltipTrigger.focus();
+			tooltipTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+		await act(async () => {
+			tooltipTrigger.click();
+		});
+		expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
 	});
 
 	it("keeps compact controls visually small with 44px mobile hit targets", () => {
@@ -319,7 +621,7 @@ describe("MobileMarketBar", () => {
 		expect(tooltipTrigger?.className).not.toContain("after:size-11");
 	});
 
-	it("keeps market detail tooltips inside both iOS landscape safe-area edges", () => {
+	it("keeps market detail tooltips inside both iOS landscape safe-area edges", async () => {
 		Object.assign(mocks.selectedMarket, {
 			kind: "perp",
 			name: "HYPE",
@@ -328,32 +630,85 @@ describe("MobileMarketBar", () => {
 			funding: "0.0001",
 		});
 		vi.spyOn(window, "innerWidth", "get").mockReturnValue(844);
+		vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(844);
+		vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(390);
 		renderExpandedBar();
 
 		const tooltipTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
 			button.textContent?.includes("Mark/Oracle"),
 		);
 		expect(tooltipTrigger).not.toBeNull();
-		vi.spyOn(tooltipTrigger as HTMLButtonElement, "getBoundingClientRect")
-			.mockReturnValueOnce({ bottom: 70, left: 0, top: 50 } as DOMRect)
-			.mockReturnValueOnce({ bottom: 70, left: 700, top: 50 } as DOMRect);
+		const widthSpy = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+			this: HTMLElement,
+		) {
+			return this === tooltipTrigger ? 80 : 320;
+		});
+		const heightSpy = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (
+			this: HTMLElement,
+		) {
+			return this === tooltipTrigger ? 20 : 96;
+		});
+		const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+			this: HTMLElement,
+		) {
+			if (this === tooltipTrigger) {
+				const isRightEdge = document.documentElement.style.getPropertyValue("--sar") === "59px";
+				const left = isRightEdge ? 700 : 0;
+				return {
+					bottom: 70,
+					height: 20,
+					left,
+					right: left + 80,
+					top: 50,
+					width: 80,
+					x: left,
+					y: 50,
+					toJSON: () => ({}),
+				};
+			}
+			return { bottom: 96, height: 96, left: 0, right: 320, top: 0, width: 320, x: 0, y: 0, toJSON: () => ({}) };
+		});
 
-		document.documentElement.style.setProperty("--sal", "59px");
-		document.documentElement.style.setProperty("--sar", "0px");
-		act(() => tooltipTrigger?.click());
-		let tooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
-		expect(tooltip?.style.left).toBe("59px");
-		expect(tooltip?.style.width).toBe("320px");
+		function readPositionerLeft(tooltip: HTMLElement | null): number {
+			const positioner = tooltip?.parentElement;
+			const transform = positioner?.style.transform ?? "";
+			const match = transform.match(/translate(?:3d)?\(([-.\d]+)px/);
+			if (match) return Number.parseFloat(match[1]);
+			const left = positioner?.style.left ?? "";
+			return left.endsWith("px") ? Number.parseFloat(left) : Number.NaN;
+		}
 
-		act(() => tooltipTrigger?.click());
-		document.documentElement.style.setProperty("--sal", "0px");
-		document.documentElement.style.setProperty("--sar", "59px");
-		act(() => tooltipTrigger?.click());
-		tooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
-		expect(tooltip?.style.left).toBe("465px");
-		expect(Number.parseFloat(tooltip?.style.left ?? "0") + Number.parseFloat(tooltip?.style.width ?? "0")).toBe(
-			844 - 59,
-		);
+		try {
+			document.documentElement.style.setProperty("--sal", "59px");
+			document.documentElement.style.setProperty("--sar", "0px");
+			await act(async () => {
+				tooltipTrigger?.click();
+				await Promise.resolve();
+			});
+			let tooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
+			expect(tooltip?.style.width).toBe("320px");
+			expect(readPositionerLeft(tooltip)).toBe(59);
+
+			await act(async () => {
+				tooltipTrigger?.click();
+				await Promise.resolve();
+			});
+			document.documentElement.style.setProperty("--sal", "0px");
+			document.documentElement.style.setProperty("--sar", "59px");
+			await act(async () => {
+				tooltipTrigger?.click();
+				await Promise.resolve();
+			});
+			tooltip = document.body.querySelector<HTMLElement>('[role="tooltip"]');
+			expect(tooltip?.style.width).toBe("320px");
+			const rightEdgeLeft = readPositionerLeft(tooltip);
+			expect(rightEdgeLeft).toBe(465);
+			expect(rightEdgeLeft + Number.parseFloat(tooltip?.style.width ?? "0")).toBe(844 - 59);
+		} finally {
+			rectSpy.mockRestore();
+			widthSpy.mockRestore();
+			heightSpy.mockRestore();
+		}
 	});
 
 	it("renders address actions without a social row dependency", () => {

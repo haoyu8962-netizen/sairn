@@ -655,25 +655,52 @@ export function useNumberFormat(): NumberFormatters {
 	return rightToLeft ? getRightToLeftNumberFormatters(formatters) : formatters;
 }
 
+export interface FormatDurationOptions {
+	locale?: string;
+}
+
+function resolveDurationIntlLocale(locale: string | undefined): string {
+	if (!locale) return languageToIntlLocale[defaultLocale];
+	return isValidLocale(locale) ? languageToIntlLocale[locale] : locale;
+}
+
+function formatDurationPart(value: number, unit: "day" | "hour" | "minute", intlLocale: string): string {
+	return getFormatter("number", intlLocale, {
+		style: "unit",
+		unit,
+		unitDisplay: intlLocale.startsWith("ja") ? "short" : "narrow",
+		numberingSystem: DATE_NUMBERING_SYSTEM,
+		useGrouping: false,
+	}).format(value);
+}
+
 /**
- * Format duration in minutes to human-readable string
+ * Format duration in minutes to a localized human-readable string.
  * @example formatDuration(5) -> "5m"
  * @example formatDuration(60) -> "1h"
  * @example formatDuration(90) -> "1h 30m"
- * @example formatDuration(1440) -> "24h"
- * @example formatDuration(1500) -> "1d 1h"
+ * @example formatDuration(1440) -> "1d"
+ * @example formatDuration(1441) -> "1d 1m"
+ * @example formatDuration(1501) -> "1d 1h 1m"
  * @example formatDuration(2880) -> "2d"
  */
-export function formatDuration(minutes: number): string {
-	if (minutes < 60) return `${minutes}m`;
+export function formatDuration(minutes: number, opts?: FormatDurationOptions): string {
+	const intlLocale = resolveDurationIntlLocale(opts?.locale);
+	if (minutes < 60) return formatDurationPart(minutes, "minute", intlLocale);
 	if (minutes < 1440) {
 		const hours = Math.floor(minutes / 60);
 		const mins = minutes % 60;
-		return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+		const parts = [formatDurationPart(hours, "hour", intlLocale)];
+		if (mins > 0) parts.push(formatDurationPart(mins, "minute", intlLocale));
+		return parts.join(" ");
 	}
 	const days = Math.floor(minutes / 1440);
 	const remainingHours = Math.floor((minutes % 1440) / 60);
-	return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+	const remainingMinutes = minutes % 60;
+	const parts = [formatDurationPart(days, "day", intlLocale)];
+	if (remainingHours > 0) parts.push(formatDurationPart(remainingHours, "hour", intlLocale));
+	if (remainingMinutes > 0) parts.push(formatDurationPart(remainingMinutes, "minute", intlLocale));
+	return parts.join(" ");
 }
 
 /**

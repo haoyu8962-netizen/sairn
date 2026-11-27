@@ -16,6 +16,7 @@ import { getTifOptionLabel } from "@/lib/trade/tif";
 import { getTwapStopPriceLabel } from "@/lib/trade/twap-labels";
 import type { Side } from "@/lib/trade/types";
 import { formatLimitPriceForOrder, formatPriceForOrder, formatSizeForOrder } from "./orders";
+import type { TwapTriggerDirection } from "./twap-details";
 
 export type OrderConfirmationTone = "up" | "down";
 
@@ -48,6 +49,7 @@ export interface OrderConfirmationDraft {
 	twapMinutes: number | null;
 	twapRandomize: boolean;
 	twapTriggerPrice: number | null;
+	twapTriggerDirection?: TwapTriggerDirection | null;
 	twapStopPrice: number | null;
 	tpSlEnabled: boolean;
 	tpPrice: number | null;
@@ -66,13 +68,14 @@ export function buildOrderConfirmationRows(
 	draft: OrderConfirmationDraft,
 	numberFormat: NumberFormatters,
 	translate: (message: MessageDescriptor) => string = translateOrderMessage,
+	locale: string = i18n.locale,
 ): OrderConfirmationRow[] {
 	const tone: OrderConfirmationTone = draft.side === "buy" ? "up" : "down";
 	return [
 		{ key: "action", label: t`Action`, value: getOrderConfirmationSideLabel(draft, translate), tone },
 		...getOrderTypeRows(draft, translate),
 		{ key: "size", label: t`Size`, value: getSizeValue(draft, numberFormat), tone },
-		...getPriceRows(draft, numberFormat, translate),
+		...getPriceRows(draft, numberFormat, translate, locale),
 		...getTpSlRows(draft, numberFormat),
 		...getReduceOnlyRows(draft),
 		...getLiquidationRows(draft, numberFormat),
@@ -105,6 +108,11 @@ function getOrderTypeRows(
 ): OrderConfirmationRow[] {
 	if (draft.orderType === "market") return [];
 	const label = translate(ORDER_TYPE_MESSAGES[draft.orderType]);
+	if (isScaleOrderType(draft.orderType)) {
+		if (draft.tif === "Gtc") return [{ key: "orderType", label: translate(msg`Type`), value: label }];
+		const tifLabel = getTifOptionLabel(draft.tif, translate(msg`Post Only`));
+		return [{ key: "orderType", label: translate(msg`Type`), value: `${label} · ${tifLabel}` }];
+	}
 	if (draft.orderType !== "limit") return [{ key: "orderType", label: t`Type`, value: label }];
 	if (draft.tif === "Gtc") return [];
 	const tifLabel = getTifOptionLabel(draft.tif, translate(msg`Post Only`));
@@ -125,8 +133,9 @@ function getPriceRows(
 	draft: OrderConfirmationDraft,
 	numberFormat: NumberFormatters,
 	translate: (message: MessageDescriptor) => string,
+	locale: string,
 ): OrderConfirmationRow[] {
-	if (isTwapOrderType(draft.orderType)) return getTwapPriceRows(draft, numberFormat, translate);
+	if (isTwapOrderType(draft.orderType)) return getTwapPriceRows(draft, numberFormat, translate, locale);
 	if (isScaleOrderType(draft.orderType)) return getScalePriceRows(draft, numberFormat);
 	if (isTriggerOrderType(draft.orderType)) return getTriggerPriceRows(draft, numberFormat);
 	if (usesLimitPriceForOrder(draft.orderType)) {
@@ -139,17 +148,18 @@ function getTwapPriceRows(
 	draft: OrderConfirmationDraft,
 	numberFormat: NumberFormatters,
 	translate: (message: MessageDescriptor) => string,
+	locale: string,
 ): OrderConfirmationRow[] {
 	const rows: OrderConfirmationRow[] = [
 		{ key: "price", label: t`Price`, value: getMarketExecutionLabel() },
-		{ key: "twapRuntime", label: t`Runtime`, value: getRuntimeValue(draft.twapMinutes) },
+		{ key: "twapRuntime", label: t`Runtime`, value: getRuntimeValue(draft.twapMinutes, locale) },
 		{ key: "twapRandomize", label: t`Randomize timing`, value: draft.twapRandomize ? t`Yes` : t`No` },
 	];
 	if (isPositive(draft.twapTriggerPrice)) {
 		rows.push({
 			key: "twapTrigger",
 			label: t`Trigger Price`,
-			value: formatSubmittedPrice(draft, draft.twapTriggerPrice, numberFormat),
+			value: formatTwapTriggerValue(draft, draft.twapTriggerPrice, numberFormat, translate),
 		});
 	}
 	if (isPositive(draft.twapStopPrice)) {
@@ -160,6 +170,18 @@ function getTwapPriceRows(
 		});
 	}
 	return rows;
+}
+
+function formatTwapTriggerValue(
+	draft: OrderConfirmationDraft,
+	value: number,
+	numberFormat: NumberFormatters,
+	translate: (message: MessageDescriptor) => string,
+): string {
+	const triggerPrice = formatSubmittedPrice(draft, value, numberFormat);
+	if (draft.twapTriggerDirection === "above") return translate(msg`Activates when mark ≥ ${triggerPrice}`);
+	if (draft.twapTriggerDirection === "below") return translate(msg`Activates when mark ≤ ${triggerPrice}`);
+	return triggerPrice;
 }
 
 function getScalePriceRows(draft: OrderConfirmationDraft, numberFormat: NumberFormatters): OrderConfirmationRow[] {
@@ -226,9 +248,9 @@ function getLiquidationRows(draft: OrderConfirmationDraft, numberFormat: NumberF
 	];
 }
 
-function getRuntimeValue(minutes: number | null): string {
+function getRuntimeValue(minutes: number | null, locale: string): string {
 	if (!isPositive(minutes)) return FALLBACK_VALUE_PLACEHOLDER;
-	return formatDuration(Math.round(minutes));
+	return formatDuration(Math.round(minutes), { locale });
 }
 
 function formatCount(value: number | null, numberFormat: NumberFormatters, maximumFractionDigits = 0): string {

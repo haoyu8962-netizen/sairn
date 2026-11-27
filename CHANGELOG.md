@@ -130,6 +130,24 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- In Arabic, every desktop trading panel is visible again: the grid panels used to start from the
+  right edge and were pushed off the screen.
+- A TWAP order with a trigger price is no longer sent when the mark price crossed the trigger
+  between your confirmation and the submission: nothing is signed and the notification asks you to
+  review the order and submit it again. A trigger, max or min price field that holds something that
+  is not a price (such as a lone `.`) is now marked as invalid, instead of the order being placed
+  without that condition.
+- The TWAP sub-tabs in the account panel use the same tabs as the rest of the panel (arrow keys,
+  right-to-left order) and the phone's second account row no longer scrolls up and down.
+- "Reload terminal" on the route error screen reloads the page. It used to retry inside the page,
+  where a page whose code had failed to download threw the same remembered error again at once.
+- TWAP and bridge durations longer than a day keep their minutes, and their units follow the
+  interface language.
+- The Chinese confirmation for cancelling one order now says the position may no longer be
+  protected, not that it will not be.
+- Dialog close buttons and several shared controls are placed and announced correctly in
+  right-to-left languages, and the light theme's buy and sell fills have enough contrast for their
+  labels.
 - Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
   moment, on every page including those that check the terms of use (Trade, Portfolio, Vaults and the
   history pages): while the wallet session is being resolved (at most 10 seconds) the dialog stays

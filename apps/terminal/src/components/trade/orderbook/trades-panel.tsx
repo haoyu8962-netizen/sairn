@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { getBaseQuoteFromPairName } from "@/domain/market";
 import { cn } from "@/lib/cn";
 import { useSelectedMarketInfo, useSubscription } from "@/lib/hyperliquid";
-import { getInitialTrades, getTradePriceDecimals, type InitialTrades, processTrades } from "@/lib/trade/trades";
+import { getInitialTrades, getTradeRowPriceDecimals, type InitialTrades, processTrades } from "@/lib/trade/trades";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
 import { TradeRow } from "./trade-row";
 
@@ -32,7 +32,6 @@ export function TradesPanel({ compact = false }: Props) {
 
 	const szDecimals = selectedMarket?.szDecimals ?? 4;
 	const marketType = selectedMarket?.kind === "spot" ? "spot" : "perp";
-	const priceDecimals = getTradePriceDecimals(selectedMarket?.markPx, szDecimals, marketType);
 	const hasCurrentSnapshot =
 		!!subscriptionCoin &&
 		status === "active" &&
@@ -74,7 +73,7 @@ export function TradesPanel({ compact = false }: Props) {
 							<TradeRow
 								key={trade.id}
 								trade={trade}
-								priceDecimals={priceDecimals}
+								priceDecimals={getTradeRowPriceDecimals(trade.price, szDecimals, marketType)}
 								szDecimals={szDecimals}
 								isTestnet={isTestnet}
 								compact={compact}

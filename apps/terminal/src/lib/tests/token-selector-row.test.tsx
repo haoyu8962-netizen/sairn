@@ -207,11 +207,13 @@ describe("TokenSelectorRow", () => {
 		expect(favoriteButton?.className).toContain("size-11");
 		expect(favoriteButton?.className).toContain("absolute");
 		expect(favoriteButton?.className).toContain("top-1/2");
-		expect(favoriteButton?.className).toContain("right-0");
+		expect(favoriteButton?.className).toContain("end-0");
+		expect(favoriteButton?.className).not.toContain("right-0");
 		expect(favoriteButton?.className).toContain("-translate-y-1/2");
 		expect(favoriteButton?.className).not.toContain("after:inset-x-0");
 		expect(favoriteButton?.className).not.toContain("right-[-26px]");
-		expect(favoriteButton?.parentElement?.parentElement?.className).toContain("pr-11");
+		expect(favoriteButton?.parentElement?.parentElement?.className).toContain("pe-11");
+		expect(favoriteButton?.parentElement?.parentElement?.className).not.toContain("pr-11");
 		expect(row.className).toContain("grid-cols-[minmax(0,1fr)_74px_72px]");
 		expect(row.className).toContain("min-[390px]:grid-cols-[minmax(0,1fr)_102px_84px]");
 	});
@@ -231,6 +233,7 @@ describe("TokenSelectorRow", () => {
 					{ name: "HYPE", displayName: "HYPE", szDecimals: 2 },
 					{ name: "USDC", displayName: "USDC", szDecimals: 6 },
 				],
+				...livePrice(),
 			} as MarketRow,
 			{ showSpotMarketCap: true },
 		);
@@ -487,7 +490,7 @@ describe("TokenSelectorRow", () => {
 		const favoriteButton = row.querySelector<HTMLButtonElement>('button[aria-pressed="false"]');
 		expect(favoriteButton).not.toBeNull();
 		expect(row.tagName).toBe("LI");
-		expect(marketButton.getAttribute("tabindex")).toBeNull();
+		expect(marketButton.getAttribute("tabindex")).toBe("-1");
 		expect(favoriteButton?.className).toContain(mobile ? "size-11" : "size-6");
 		expect(marketButton.contains(favoriteButton)).toBe(false);
 		act(() => favoriteButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));

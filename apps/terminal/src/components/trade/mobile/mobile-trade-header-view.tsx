@@ -3,7 +3,7 @@ import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export const orderControl =
-	"relative flex h-[35px] min-w-0 items-center gap-3 whitespace-nowrap rounded-none bg-surface px-0 text-xs font-semibold text-trading-panel-fg";
+	"relative flex h-[35px] min-w-0 items-center gap-1 min-[390px]:gap-3 whitespace-nowrap rounded-none bg-surface px-0 text-xs font-semibold text-trading-panel-fg";
 export const orderCaret = "h-1.5 w-[9px] shrink-0 text-trading-panel-subtle";
 
 export const MOBILE_ORDER_CONTROL_CLASS = cn(
@@ -34,7 +34,7 @@ export function MobileTradeHeaderView({
 			<div
 				className={cn(
 					"grid min-w-0 bg-surface",
-					isLeveraged ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" : "grid-cols-1",
+					isLeveraged ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-1 min-[390px]:gap-x-0" : "grid-cols-1",
 				)}
 			>
 				{orderTypeControl}
@@ -52,7 +52,7 @@ export function MobileTradeHeaderView({
 						<button
 							type="button"
 							onClick={onLeverageClick}
-							className={cn(MOBILE_ORDER_CONTROL_CLASS, "justify-start pr-4")}
+							className={cn(MOBILE_ORDER_CONTROL_CLASS, "justify-start pe-2 min-[390px]:pe-4")}
 							aria-haspopup="dialog"
 						>
 							<span className="truncate tabular-nums">{leverage ?? 1}x</span>
@@ -83,7 +83,7 @@ export function MobileOrderTypeTriggerView({
 				className,
 			)}
 		>
-			<span className="inline-flex min-w-0 items-center justify-center gap-3">
+			<span className="inline-flex min-w-0 items-center justify-center gap-1 min-[390px]:gap-3">
 				<span className="truncate" title={label}>
 					{label}
 				</span>

@@ -12,6 +12,7 @@ const ScrollArea = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<typeof Sc
 				{children}
 			</ScrollAreaPrimitive.Viewport>
 			<ScrollBar />
+			<ScrollBar orientation="horizontal" />
 			<ScrollAreaPrimitive.Corner />
 		</ScrollAreaPrimitive.Root>
 	),
@@ -28,13 +29,16 @@ const ScrollBar = forwardRef<
 		orientation={orientation}
 		className={cn(
 			"flex touch-none p-px transition-colors select-none",
-			orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent",
+			orientation === "vertical" && "w-2.5 border-l border-l-transparent",
 			orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent",
 			className,
 		)}
 		{...props}
 	>
-		<ScrollAreaPrimitive.Thumb data-slot="scroll-area-thumb" className="bg-stroke-weak relative flex-1 rounded-full" />
+		<ScrollAreaPrimitive.Thumb
+			data-slot="scroll-area-thumb"
+			className="bg-stroke-strong hover:bg-fg-muted relative flex-1 rounded-full transition-colors"
+		/>
 	</ScrollAreaPrimitive.Scrollbar>
 ));
 ScrollBar.displayName = "ScrollBar";

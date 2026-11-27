@@ -26,7 +26,14 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 
 vi.mock("@/lib/lifi/use-balances", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/lifi/use-balances")>()),
-	useBridgeBalances: () => ({ data: testState.balances, isLoading: false, isError: false, refetch: vi.fn() }),
+	useBridgeBalances: () => ({
+		data: testState.balances,
+		isLoading: false,
+		isError: false,
+		isSnapshotCurrent: true,
+		passiveState: "ready",
+		refetch: vi.fn(),
+	}),
 }));
 
 vi.mock("@/lib/lifi/use-quote", async (importOriginal) => ({

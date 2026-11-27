@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { createHash } from "node:crypto";
+import { i18n } from "@lingui/core";
 import type { ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -194,6 +196,36 @@ describe("Vault action modal", () => {
 
 		act(() => root.render(<VaultActionModal {...props({ stage: "review", result: undefined, amount: "0005" })} />));
 		expect(amount?.nextElementSibling?.textContent).toBe("5 USDC");
+	});
+
+	it("translates submitted deposit and withdrawal descriptions as complete messages without raw protocol values", () => {
+		const depositMsg = "The signed deposit request is dispatched once and will not be retried automatically.";
+		const withdrawMsg = "The signed withdrawal request is dispatched once and will not be retried automatically.";
+		const messageId = (message: string) => createHash("sha256").update(`${message}\x1f`).digest("base64").slice(0, 6);
+
+		act(() => {
+			i18n.loadAndActivate({
+				locale: "zh",
+				messages: {
+					[messageId(depositMsg)]: "已签名的存入请求只会发送一次，不会自动重试。",
+					[messageId(withdrawMsg)]: "已签名的提取请求只会发送一次，不会自动重试。",
+				},
+			});
+		});
+
+		act(() =>
+			root.render(<VaultActionModal {...props({ action: "deposit", stage: "submitted", result: undefined })} />),
+		);
+		expect(container.textContent).toContain("已签名的存入请求只会发送一次，不会自动重试。");
+		expect(container.textContent).not.toContain("deposit");
+
+		act(() =>
+			root.render(<VaultActionModal {...props({ action: "withdraw", stage: "submitted", result: undefined })} />),
+		);
+		expect(container.textContent).toContain("已签名的提取请求只会发送一次，不会自动重试。");
+		expect(container.textContent).not.toContain("withdraw");
+
+		act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
 	});
 });
 

@@ -124,12 +124,12 @@ describe("MobilePositionCard isolated margin entry", () => {
 		});
 		expandPositionDetails();
 		const disclosureControls = container.querySelectorAll(
-			'button[aria-label="Collapse CXMT-USDC position details"][aria-controls]',
+			'button[aria-label="Collapse CXMT (xyz) position details"][aria-controls]',
 		);
 		expect(disclosureControls).toHaveLength(1);
 		expect(disclosureControls[0]?.getAttribute("aria-expanded")).toBe("true");
 
-		const button = container.querySelector('button[aria-label="Adjust isolated margin for CXMT-USDC"]');
+		const button = container.querySelector('button[aria-label="Adjust isolated margin for CXMT (xyz)"]');
 		if (!(button instanceof HTMLButtonElement)) throw new Error("Isolated margin entry was not rendered");
 		expect(button.className).toContain("after:h-11");
 		expect(button.className).toContain("after:min-w-11");
@@ -254,7 +254,7 @@ describe("MobilePositionCard isolated margin entry", () => {
 		});
 
 		const disclosure = container.querySelector<HTMLButtonElement>(
-			'button[aria-label="Collapse CXMT-USDC position details"]',
+			'button[aria-label="Collapse CXMT (xyz) position details"]',
 		);
 		const detailsId = disclosure?.getAttribute("aria-controls");
 		const details = detailsId ? document.getElementById(detailsId) : null;
@@ -403,16 +403,16 @@ describe("MobilePositionCard isolated margin entry", () => {
 		expect(container.textContent).toContain("10x");
 		expect(container.textContent).toContain("Long 10x");
 		expect(container.querySelector('[data-testid="position-asset-logo"]')).toBeNull();
-		expect(container.querySelector('button[aria-label="Adjust isolated margin for CXMT-USDC"]')).toBeNull();
+		expect(container.querySelector('button[aria-label="Adjust isolated margin for CXMT (xyz)"]')).toBeNull();
 
-		const marketButton = container.querySelector('button[aria-label="Switch to CXMT-USDC market, long position"]');
+		const marketButton = container.querySelector('button[aria-label="Switch to CXMT (xyz) market, long position"]');
 		if (!(marketButton instanceof HTMLButtonElement)) throw new Error("Market identity button was not rendered");
 		expect(marketButton.className).toContain("after:h-11");
 		expect(marketButton.className).toContain("after:min-w-11");
 		act(() => marketButton.click());
 		expect(onSelectMarket).toHaveBeenCalledWith("xyz:CXMT", "buy");
 
-		const expandButton = container.querySelector('button[aria-label="Expand CXMT-USDC position details"]');
+		const expandButton = container.querySelector('button[aria-label="Expand CXMT (xyz) position details"]');
 		if (!(expandButton instanceof HTMLButtonElement)) throw new Error("Position details trigger was not rendered");
 
 		act(() => expandButton.click());
@@ -467,7 +467,9 @@ describe("MobilePositionCard isolated margin entry", () => {
 			);
 		});
 
-		const marketButton = container.querySelector('button[aria-label="Switch to BRENTOIL-USDC market, short position"]');
+		const marketButton = container.querySelector(
+			'button[aria-label="Switch to BRENTOIL (xyz) market, short position"]',
+		);
 		if (!(marketButton instanceof HTMLButtonElement)) throw new Error("Long market identity button was not rendered");
 		expect(marketButton.className).toContain("flex-wrap");
 
@@ -505,7 +507,7 @@ describe("MobilePositionCard isolated margin entry", () => {
 		if (!(summary instanceof HTMLDivElement)) throw new Error("Position summary was not rendered");
 		expect(summary.className).toContain("items-start");
 		expect(summary.className).toContain("[&>svg]:self-center");
-		const shareButton = container.querySelector<HTMLButtonElement>('button[aria-label="Share PNL for BRENTOIL-USDC"]');
+		const shareButton = container.querySelector<HTMLButtonElement>('button[aria-label="Share PNL for BRENTOIL (xyz)"]');
 		expect(shareButton).not.toBeNull();
 		expect(shareButton?.className).toContain("size-11");
 		expect(shareButton?.className).not.toContain("after:size-11");
@@ -540,7 +542,7 @@ describe("MobilePositionCard isolated margin entry", () => {
 			);
 		});
 
-		expect(container.querySelector('button[aria-label="Adjust isolated margin for CXMT-USDC"]')).toBeNull();
+		expect(container.querySelector('button[aria-label="Adjust isolated margin for CXMT (xyz)"]')).toBeNull();
 	});
 
 	it("disables every position mutation while a market close is pending", () => {
@@ -574,7 +576,7 @@ describe("MobilePositionCard isolated margin entry", () => {
 			);
 		});
 
-		const namedLabels = ["Adjust isolated margin for CXMT-USDC", "Limit Close", "Market Close", "Reverse"];
+		const namedLabels = ["Adjust isolated margin for CXMT (xyz)", "Limit Close", "Market Close", "Reverse"];
 		const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("button"));
 		for (const label of namedLabels) {
 			const button = buttons.find(
@@ -592,5 +594,114 @@ describe("MobilePositionCard isolated margin entry", () => {
 		expect(onReverse).not.toHaveBeenCalled();
 		expect(onOpenTpSl).not.toHaveBeenCalled();
 		expect(onAdjustMargin).not.toHaveBeenCalled();
+	});
+
+	it("names TP/SL and footer actions with full market and DEX identity across same-symbol positions", () => {
+		const flxPosition: Position = {
+			...isolatedPosition,
+			dex: "flx",
+			coin: "flx:CXMT",
+		};
+		const multiDexMarkets = {
+			getMarket: (coin: string) =>
+				coin === "flx:CXMT"
+					? {
+							kind: "builderPerp",
+							dex: "flx",
+							name: "flx:CXMT",
+							shortName: "CXMT",
+							pairName: "CXMT-USDC",
+							assetId: 130_031,
+							szDecimals: 1,
+							marginMode: "noCross",
+						}
+					: {
+							kind: "builderPerp",
+							dex: "xyz",
+							name: "xyz:CXMT",
+							shortName: "CXMT",
+							pairName: "CXMT-USDC",
+							assetId: 120_031,
+							szDecimals: 1,
+							marginMode: "noCross",
+						},
+		} as unknown as Markets;
+		const onOpenTpSl = vi.fn();
+		const onLimitClose = vi.fn();
+		const onMarketClose = vi.fn();
+		const onReverse = vi.fn();
+
+		act(() => {
+			root.render(
+				<div>
+					<MobilePositionCard
+						position={isolatedPosition}
+						env="Mainnet"
+						isDataStale={false}
+						markets={multiDexMarkets}
+						markPx="7.5759"
+						markPriceStatus="success"
+						tpSlInfo={{ tpPrice: "9.5", slPrice: "6.5" }}
+						isRowClosing={false}
+						expanded
+						onMarketClose={onMarketClose}
+						onShare={vi.fn()}
+						onReverse={onReverse}
+						reverseBlocked={false}
+						onLimitClose={onLimitClose}
+						onOpenTpSl={onOpenTpSl}
+						onAdjustMargin={vi.fn()}
+						onSelectMarket={vi.fn()}
+					/>
+					<MobilePositionCard
+						position={flxPosition}
+						env="Mainnet"
+						isDataStale={false}
+						markets={multiDexMarkets}
+						markPx="7.5759"
+						markPriceStatus="success"
+						tpSlInfo={{ tpPrice: "10.0", slPrice: "6.0" }}
+						isRowClosing={false}
+						expanded
+						onMarketClose={onMarketClose}
+						onShare={vi.fn()}
+						onReverse={onReverse}
+						reverseBlocked={false}
+						onLimitClose={onLimitClose}
+						onOpenTpSl={onOpenTpSl}
+						onAdjustMargin={vi.fn()}
+						onSelectMarket={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		for (const dex of ["xyz", "flx"]) {
+			const tpSl = container.querySelector<HTMLButtonElement>(`button[aria-label="TP/SL for CXMT (${dex})"]`);
+			expect(tpSl, `TP/SL ${dex}`).not.toBeNull();
+			const describedBy = tpSl?.getAttribute("aria-describedby");
+			expect(describedBy, `TP/SL aria-describedby ${dex}`).toBeTruthy();
+			expect(describedBy ? document.getElementById(describedBy)?.textContent : null).toContain("/");
+			expect(container.querySelector(`button[aria-label="Limit Close CXMT (${dex})"]`)).not.toBeNull();
+			expect(container.querySelector(`button[aria-label="Market Close CXMT (${dex})"]`)).not.toBeNull();
+			expect(container.querySelector(`button[aria-label="Reverse CXMT (${dex}) position"]`)).not.toBeNull();
+		}
+
+		act(() => {
+			container.querySelector<HTMLButtonElement>('button[aria-label="TP/SL for CXMT (flx)"]')?.click();
+			container.querySelector<HTMLButtonElement>('button[aria-label="Limit Close CXMT (flx)"]')?.click();
+			container.querySelector<HTMLButtonElement>('button[aria-label="Market Close CXMT (flx)"]')?.click();
+			container.querySelector<HTMLButtonElement>('button[aria-label="Reverse CXMT (flx) position"]')?.click();
+		});
+		expect(onOpenTpSl).toHaveBeenCalledWith(
+			expect.objectContaining({ coin: "flx:CXMT", dex: "flx", assetId: 130_031 }),
+		);
+		expect(onLimitClose).toHaveBeenCalledWith(
+			expect.objectContaining({ coin: "flx:CXMT", dex: "flx", assetId: 130_031 }),
+		);
+		expect(onMarketClose).toHaveBeenCalledWith(
+			expect.objectContaining({ coin: "flx:CXMT", dex: "flx", assetId: 130_031 }),
+		);
+		expect(onReverse).toHaveBeenCalledWith(expect.objectContaining({ coin: "flx:CXMT", dex: "flx", assetId: 130_031 }));
 	});
 });

@@ -32,7 +32,7 @@ export function MobileAccountTransfersTab({ className, scrollMode = "contained" 
 	const isTestnet = useIsTestnet();
 	const isPageScroll = scrollMode === "page";
 	const emptyStateExportFooter = (
-		<div className="flex h-[38px] shrink-0 items-center justify-end px-3">
+		<div className="flex min-h-11 shrink-0 items-center justify-end px-3">
 			<Button
 				variant="ghost"
 				intent="neutral"
@@ -40,6 +40,7 @@ export function MobileAccountTransfersTab({ className, scrollMode = "contained" 
 				disabled={isExporting}
 				onClick={() => void exportCsv()}
 				aria-label={t`Export CSV`}
+				className="-me-2 min-h-11 min-w-11"
 			>
 				<DownloadSimpleIcon className={cn("size-3.5", isExporting && "animate-pulse")} aria-hidden="true" />
 			</Button>
@@ -81,9 +82,9 @@ export function MobileAccountTransfersTab({ className, scrollMode = "contained" 
 
 	return (
 		<div className={cn(isPageScroll ? "min-h-0 flex flex-col" : "flex-1 min-h-0 flex flex-col", className)}>
-			<div className="flex items-center gap-2 px-3 py-2 text-xs text-fg-muted">
-				<span className="uppercase tracking-wider">{t`Deposits & Withdrawals`}</span>
-				<span className="ms-auto tabular-nums text-fg">{rows.length}</span>
+			<div className="flex min-h-11 items-center gap-2 px-3 py-1 text-xs text-fg-muted">
+				<span className="min-w-0 break-words uppercase tracking-wider">{t`Deposits & Withdrawals`}</span>
+				<span className="ms-auto shrink-0 tabular-nums text-fg">{rows.length}</span>
 				<Button
 					variant="ghost"
 					intent="neutral"
@@ -91,6 +92,7 @@ export function MobileAccountTransfersTab({ className, scrollMode = "contained" 
 					disabled={isExporting}
 					onClick={() => void exportCsv()}
 					aria-label={t`Export CSV`}
+					className="-my-1 -me-2 min-h-11 min-w-11 shrink-0"
 				>
 					<DownloadSimpleIcon className={cn("size-3.5", isExporting && "animate-pulse")} aria-hidden="true" />
 				</Button>
@@ -102,37 +104,42 @@ export function MobileAccountTransfersTab({ className, scrollMode = "contained" 
 
 					return (
 						<div key={row.id} className="overflow-hidden rounded-16 border border-stroke-weak bg-surface">
-							<div className="flex items-center justify-between border-b border-stroke-weak px-3 py-1.5">
+							<div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 border-b border-stroke-weak px-3 py-1.5">
 								<div className="min-w-0">
-									<p className="truncate text-xs font-medium text-fg">{getActionLabel(row.action, row.rawType)}</p>
+									<p className="break-words text-xs font-medium text-fg">{getActionLabel(row.action, row.rawType)}</p>
 									<p className="text-3xs text-success">{t`Completed`}</p>
 								</div>
 								<span
 									className={cn(
-										"shrink-0 text-xs font-medium tabular-nums",
+										"min-w-0 max-w-full break-words text-xs font-medium tabular-nums [overflow-wrap:anywhere]",
 										amount !== null && getValueColorClass(amount),
 									)}
 								>
 									{formatAccountLedgerAmount(row, numberFormat, markets.getTokenDisplayName)}
 								</span>
 							</div>
-							<div className="grid grid-cols-3 divide-x divide-stroke-weak">
-								<MetricCell label={t`Source`} value={getLocationLabel(row.source)} />
+							<div className="grid grid-cols-2 border-b border-stroke-weak">
+								<MetricCell
+									label={t`Source`}
+									value={getLocationLabel(row.source)}
+									className="border-e border-stroke-weak"
+								/>
 								<MetricCell label={t`Destination`} value={getLocationLabel(row.destination)} />
 								<MetricCell
 									label={t`Fee`}
 									value={formatAccountLedgerFee(row, numberFormat, markets.getTokenDisplayName)}
 									valueClass={row.fee ? "text-error" : undefined}
+									className="col-span-2 border-t border-stroke-weak"
 								/>
 							</div>
-							<div className="flex items-center justify-between px-3 py-1.5">
+							<div className="flex min-h-11 items-center justify-between gap-2 px-3">
 								<span className="text-xs tabular-nums text-fg-muted">{formatDateTimeShort(row.time, { locale })}</span>
 								{explorerUrl ? (
 									<a
 										href={explorerUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="inline-flex min-h-6 items-center gap-1 text-xs text-fg-muted hover:text-fg active:text-fg"
+										className="inline-flex min-h-11 items-center gap-1 text-xs text-fg-muted hover:text-fg active:text-fg focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus"
 									>
 										{t`Explorer`}
 										<ArrowSquareOutIcon className="size-3" aria-hidden="true" />

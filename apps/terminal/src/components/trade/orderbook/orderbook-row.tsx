@@ -2,9 +2,11 @@ import { useLingui } from "@lingui/react/macro";
 import { memo } from "react";
 import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
+import { getOrderTypeForBookPrice } from "@/lib/trade/order-types";
 import { type BookLevel, getDepthPercentage, getOrderbookQuoteDecimals } from "@/lib/trade/orderbook";
 import { COMPACT_ORDERBOOK_ROW_GRID_CLASS, getCompactOrderbookSizeText } from "@/lib/ui/orderbook-layout";
 import type { OrderbookLevelPulseEvent } from "@/lib/ui/orderbook-level-pulses";
+import { useOrderType } from "@/stores/use-order-entry-store";
 import { useOrderbookActions } from "@/stores/use-orderbook-actions-store";
 import { OrderbookLevelPulse } from "./orderbook-level-pulse";
 import { OrderbookSizeCell } from "./orderbook-size-cell";
@@ -49,6 +51,8 @@ function OrderbookRowComponent({
 	const { t } = useLingui();
 	const { formatNumber } = useNumberFormat();
 	const { setSelectedPrice } = useOrderbookActions();
+	const orderType = useOrderType();
+	const canSelectPrice = !disabled && getOrderTypeForBookPrice(orderType) !== null;
 	const isAsk = side === "ask";
 
 	const sizeValue = showInQuote ? level.quoteSize : level.size;
@@ -72,13 +76,16 @@ function OrderbookRowComponent({
 			: fullSizeText;
 	const totalText = formatNumber(totalValue, totalDecimals);
 	const sideText = isAsk ? t`Ask` : t`Bid`;
-	const ariaLabel = `${sideText}, ${t`Price`} ${priceText}, ${t`Size`} ${fullSizeText}, ${t`Total`} ${totalText}. ${t`Use ${priceText} as limit price`}`;
+	const baseAriaLabel = `${sideText}, ${t`Price`} ${priceText}, ${t`Size`} ${fullSizeText}, ${t`Total`} ${totalText}`;
+	const ariaLabel = canSelectPrice ? `${baseAriaLabel}. ${t`Use ${priceText} as limit price`}` : baseAriaLabel;
 
 	return (
 		<button
 			type="button"
 			disabled={disabled}
+			aria-disabled={!disabled && !canSelectPrice ? true : undefined}
 			onClick={() => {
+				if (!canSelectPrice) return;
 				setSelectedPrice(marketName, level.price);
 			}}
 			data-orderbook-side={side}
@@ -89,7 +96,8 @@ function OrderbookRowComponent({
 			aria-describedby={!disabled && hoverState === "active" ? tooltipId : undefined}
 			aria-label={ariaLabel}
 			className={cn(
-				"orderbook-row group relative block w-full shrink-0 cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus disabled:cursor-default",
+				"orderbook-row group relative block w-full shrink-0 text-start focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus disabled:cursor-default",
+				canSelectPrice ? "cursor-pointer" : "cursor-default",
 				compact ? "h-[var(--orderbook-row-height,24px)]" : "h-[var(--orderbook-row-height,23px)]",
 			)}
 		>

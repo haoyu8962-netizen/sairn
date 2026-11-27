@@ -9,7 +9,7 @@ import {
 	Outlet,
 	RouterProvider,
 } from "@tanstack/react-router";
-import { act, createElement, type ReactNode } from "react";
+import { act, cloneElement, createContext, createElement, type ReactElement, type ReactNode, useContext } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileNavDrawer } from "@/components/trade/mobile/mobile-nav-drawer";
@@ -20,6 +20,8 @@ const drawerState = vi.hoisted(() => ({
 	settingsOpen: vi.fn(),
 	preloadGlobalModal: vi.fn(async (): Promise<void> => undefined),
 }));
+
+const NavDrawerMockContext = createContext<{ open: boolean; onOpenChange?: (open: boolean) => void }>({ open: false });
 
 vi.mock("@sairn/ui", () => {
 	function Button({
@@ -51,16 +53,31 @@ vi.mock("@sairn/ui", () => {
 		}) => {
 			drawerState.complete = onOpenChangeComplete;
 			return createElement(
-				"section",
-				{ "data-drawer-open": String(open) },
-				children,
-				createElement("button", {
-					type: "button",
-					"data-testid": "complete-close",
-					onClick: () => onOpenChangeComplete(false),
-				}),
-				createElement("button", { type: "button", "data-testid": "dismiss", onClick: () => onOpenChange(false) }),
+				NavDrawerMockContext.Provider,
+				{ value: { open, onOpenChange } },
+				createElement(
+					"section",
+					{ "data-drawer-open": String(open) },
+					children,
+					createElement("button", {
+						type: "button",
+						"data-testid": "complete-close",
+						onClick: () => onOpenChangeComplete(false),
+					}),
+					createElement("button", { type: "button", "data-testid": "dismiss", onClick: () => onOpenChange(false) }),
+				),
 			);
+		},
+		DrawerTrigger: ({
+			render,
+			...props
+		}: {
+			render?: ReactElement<Record<string, unknown>>;
+			[key: string]: unknown;
+		}) => {
+			const { onOpenChange } = useContext(NavDrawerMockContext);
+			const triggerProps = { ...props, onClick: () => onOpenChange?.(true) };
+			return render ? cloneElement(render, triggerProps) : createElement("button", { type: "button", ...triggerProps });
 		},
 		DrawerContent: ({ children }: { children: ReactNode }) => createElement("div", { role: "dialog" }, children),
 		DrawerTitle: ({ children }: { children: ReactNode }) => createElement("h2", null, children),

@@ -5,13 +5,18 @@ import { getOrderExecutionSummary, type OrderExecutionSummary } from "@/domain/t
 import { buildOrderPlan } from "@/domain/trade/order-intent";
 import { isOrderBatchResolutionError, type TrackedOrderParams } from "@/domain/trade/order-tracking";
 import { formatLimitPriceForOrder, formatPriceForOrder, formatSizeForOrder } from "@/domain/trade/orders";
-import { buildTwapOrderDetails } from "@/domain/trade/twap-details";
+import {
+	buildTwapOrderDetails,
+	getTwapTriggerDirection,
+	resolveSubmittedTwapPrice,
+	type TwapTriggerDirection,
+} from "@/domain/trade/twap-details";
 import { type ActionFailure, exchangeActionFailure } from "@/lib/errors/action-error";
 import { isInsufficientMarginText } from "@/lib/errors/exchange-error-text";
 import { useHyperliquid } from "@/lib/hyperliquid";
 import { deriveOrderOutcome, extractStatusErrors, extractStatusRejections } from "@/lib/trade/extract-order-status";
 import type { MarginMode } from "@/lib/trade/margin-mode";
-import { isPositive, toBig } from "@/lib/trade/numbers";
+import { isPositive } from "@/lib/trade/numbers";
 import {
 	getOrderPlanSubmissionFeedback,
 	getOrderSubmissionFeedback,
@@ -67,7 +72,10 @@ export interface OrderSubmitInput {
 	twapRandomize: boolean;
 	twapAdvancedEnabled: boolean;
 	twapTriggerPx: string | null;
+	twapTriggerDirection?: TwapTriggerDirection | null;
 	twapStopPx: string | null;
+	twapTriggerPriceInput?: string;
+	twapStopPriceInput?: string;
 	tpSlEnabled: boolean;
 	canUseTpSl: boolean;
 	tpPriceNum: number | null;
@@ -183,7 +191,10 @@ export function useOrderSubmit(options: UseOrderSubmitOptions = {}): UseOrderSub
 			twapRandomize,
 			twapAdvancedEnabled,
 			twapTriggerPx,
+			twapTriggerDirection,
 			twapStopPx,
+			twapTriggerPriceInput,
+			twapStopPriceInput,
 			tpSlEnabled,
 			canUseTpSl,
 			tpPriceNum,
@@ -246,9 +257,34 @@ export function useOrderSubmit(options: UseOrderSubmitOptions = {}): UseOrderSub
 					});
 					return;
 				}
+				let triggerPx: string | null = null;
+				let stopPx: string | null = null;
+				if (twapAdvancedEnabled) {
+					const resolvedTrigger = resolveSubmittedTwapPrice(twapTriggerPriceInput, twapTriggerPx, priceFormat);
+					const resolvedStop = resolveSubmittedTwapPrice(twapStopPriceInput, twapStopPx, priceFormat);
+					if (!resolvedTrigger.ok || !resolvedStop.ok) {
+						updateOrder(orderId, {
+							status: "failed",
+							error: orderSubmissionFeedback("order-conditions-changed"),
+						});
+						return;
+					}
+					triggerPx = resolvedTrigger.price;
+					stopPx = resolvedStop.price;
+				}
+				if (triggerPx !== null) {
+					const liveDirection = getTwapTriggerDirection(triggerPx, markPx);
+					if (!twapTriggerDirection || !liveDirection || liveDirection !== twapTriggerDirection) {
+						updateOrder(orderId, {
+							status: "failed",
+							error: orderSubmissionFeedback("order-conditions-changed"),
+						});
+						return;
+					}
+				}
 				const details = buildTwapOrderDetails({
-					triggerPx: twapAdvancedEnabled && toBig(twapTriggerPx)?.gt(0) ? twapTriggerPx : null,
-					stopPx: twapAdvancedEnabled && toBig(twapStopPx)?.gt(0) ? twapStopPx : null,
+					triggerPx,
+					stopPx,
 					markPx,
 				});
 				const submission = await submitTwap(

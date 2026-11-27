@@ -80,10 +80,6 @@ const REVIEWED_PROGRESS_LABELS: Record<string, { labels: string[]; reason: strin
 		reason: "an input placeholder",
 	},
 	"components/trade/positions/position-pnl-share-modal.tsx": { labels: ["Saving..."], reason: "image export" },
-	"components/trade/tradebox/bridge/asset-selection-screen.tsx": {
-		labels: ["Loading balances across all chains..."],
-		reason: "passive loading",
-	},
 	"components/trade/tradebox/bridge/confirmation-screen.tsx": {
 		labels: ["Preparing your quote..."],
 		reason: "passive loading",

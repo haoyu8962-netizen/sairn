@@ -1,12 +1,34 @@
-import { createColumnHelper, type SortingFn } from "@tanstack/react-table";
-import { getEightHourFundingRate, getMarketCapUsd, getOiUsd } from "@/domain/market";
+import { createColumnHelper, type SortingFn, type SortingState } from "@tanstack/react-table";
 import { getMarketSelectorChange, getMarketSelectorPrice } from "@/domain/market/selector-quote";
 import { type Big, toBig } from "@/lib/trade/numbers";
-import type { MarketRow } from "./token-selector-categories";
+import type { MarketRow, MarketScope } from "./token-selector-categories";
+import {
+	getLiveSelectorFunding,
+	getLiveSelectorOiUsd,
+	getLiveSelectorSpotMarketCapUsd,
+	getLiveSelectorVolume,
+} from "./token-selector-metrics";
 
 export type { MarketRow, MarketScope } from "./token-selector-categories";
 
 export type MarketTableLayout = "default" | "spot";
+
+export const DEFAULT_MARKET_SORT: SortingState = [{ id: "volume", desc: true }];
+
+export function isMarketSortColumnVisible(columnId: string, scope: MarketScope, mobile = false): boolean {
+	if (scope === "spot") {
+		return columnId !== "oi" && columnId !== "funding";
+	}
+	if (columnId === "market-cap") return false;
+	if (mobile && columnId === "funding") return false;
+	return true;
+}
+
+export function resolveVisibleMarketSorting(sorting: SortingState, scope: MarketScope, mobile = false): SortingState {
+	const active = sorting[0];
+	if (!active || isMarketSortColumnVisible(active.id, scope, mobile)) return sorting;
+	return DEFAULT_MARKET_SORT;
+}
 
 const DEFAULT_MARKET_TABLE_GRID_CLASS = "grid-cols-[minmax(150px,1fr)_100px_160px_130px_140px_150px]";
 const SPOT_MARKET_TABLE_GRID_CLASS = "grid-cols-[minmax(150px,1fr)_100px_160px_140px_150px]";
@@ -53,29 +75,25 @@ export const TOKEN_SELECTOR_COLUMNS = [
 		sortUndefined: "last",
 		sortingFn: decimalSortFn,
 	}),
-	columnHelper.accessor((row: MarketRow) => getEightHourFundingRate(row.funding) ?? undefined, {
+	columnHelper.accessor((row: MarketRow) => getLiveSelectorFunding(row) ?? undefined, {
 		id: "funding",
 		size: 112,
 		sortUndefined: "last",
 		sortingFn: numericStringSortFn,
 	}),
-	columnHelper.accessor("dayNtlVlm", {
+	columnHelper.accessor((row: MarketRow) => getLiveSelectorVolume(row), {
 		id: "volume",
 		size: 80,
 		sortUndefined: "last",
 		sortingFn: numericStringSortFn,
 	}),
-	columnHelper.accessor(
-		(row: MarketRow) =>
-			row.kind === "spot" ? (getMarketCapUsd(row.circulatingSupply, row.markPx) ?? undefined) : undefined,
-		{
-			id: "market-cap",
-			size: 160,
-			sortUndefined: "last",
-			sortingFn: numericStringSortFn,
-		},
-	),
-	columnHelper.accessor((row: MarketRow) => getOiUsd(row.openInterest, row.markPx) ?? undefined, {
+	columnHelper.accessor((row: MarketRow) => getLiveSelectorSpotMarketCapUsd(row) ?? undefined, {
+		id: "market-cap",
+		size: 160,
+		sortUndefined: "last",
+		sortingFn: numericStringSortFn,
+	}),
+	columnHelper.accessor((row: MarketRow) => getLiveSelectorOiUsd(row) ?? undefined, {
 		id: "oi",
 		size: 128,
 		sortUndefined: "last",

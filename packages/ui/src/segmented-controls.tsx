@@ -39,7 +39,7 @@ const segmentedControlItemVariants = cva(
 		"transition-colors duration-150 motion-reduce:transition-none",
 		"data-active:text-fg",
 		"hover:text-fg",
-		"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+		"focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stroke-focus",
 		"data-disabled:text-fg-disabled data-disabled:cursor-not-allowed",
 	],
 	{

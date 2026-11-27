@@ -293,6 +293,7 @@ describe("slider quantity through the installed Hyperliquid SDK", () => {
 					twapMinutesNum: minutes,
 					twapAdvancedEnabled: true,
 					twapTriggerPx: "1400",
+					twapTriggerDirection: "above",
 					twapStopPx: "1500",
 					reduceOnly: true,
 				}),

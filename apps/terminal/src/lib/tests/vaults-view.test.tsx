@@ -302,6 +302,7 @@ describe("Vault views", () => {
 				kind="pnl"
 				period="month"
 				compact
+				snapshotCurrent
 			/>,
 		);
 
@@ -325,6 +326,7 @@ describe("Vault views", () => {
 				}}
 				kind="pnl"
 				period="month"
+				snapshotCurrent
 			/>,
 		);
 
@@ -523,6 +525,7 @@ describe("Vault views", () => {
 				}}
 				kind="pnl"
 				period="month"
+				snapshotCurrent
 			/>,
 		);
 		const chart = container.querySelector<HTMLElement>('[data-vault-performance-chart][role="img"]');
@@ -530,6 +533,106 @@ describe("Vault views", () => {
 		expect(descriptionId ? document.getElementById(descriptionId)?.textContent : null).toBe(
 			"Starts at $0,00 and ends at $0,00. The start and end values are unchanged. Minimum $0,00; maximum +$1 234,50.",
 		);
+	});
+
+	it("renders a single valid history point instead of claiming no performance history", () => {
+		const singleSnapshot = {
+			accountValueHistory: [{ timestamp: 1_000, value: "42.5" }],
+			pnlHistory: [{ timestamp: 1_000, value: "12.5" }],
+			volume: "0",
+		};
+		render(<VaultPerformanceChart snapshot={singleSnapshot} kind="pnl" period="month" snapshotCurrent />);
+		expect(container.textContent).not.toContain("No performance history");
+		expect(container.querySelector("[data-single-point]")).not.toBeNull();
+		const chart = container.querySelector<HTMLElement>('[data-vault-performance-chart][role="img"]');
+		const descriptionId = chart?.getAttribute("aria-describedby");
+		const descriptionText = descriptionId ? document.getElementById(descriptionId)?.textContent : null;
+		expect(descriptionText).not.toContain("No performance history");
+		expect(descriptionText).toContain("+$12.50");
+
+		render(<VaultPerformanceChart snapshot={singleSnapshot} kind="pnl" period="month" compact snapshotCurrent />);
+		expect(container.querySelector("[data-single-point]")).not.toBeNull();
+		expect(container.querySelector("[data-vault-chart-summary]")?.textContent).toBe(
+			"PNL over 30 days. Latest value +$12.50. Positive PNL.",
+		);
+	});
+
+	it("reserves focus-outline room on Vault filters and adds touch press feedback to Vault links and chart buttons", () => {
+		render(
+			<VaultsList state="normal" rows={[createListRow()]} account={{ status: "disconnected" }} onRetry={vi.fn()} />,
+		);
+		const filterStrip = container.querySelector("fieldset");
+		expect(filterStrip?.className).toContain("p-1");
+		const mobileCardLink = container.querySelector<HTMLAnchorElement>(".grid.grid-cols-1 a");
+		expect(mobileCardLink?.className).toContain("active:bg-fill-weak");
+
+		render(
+			<VaultDetailView
+				detail={createDetail()}
+				owner={{ status: "disconnected" }}
+				actionAvailability={AVAILABLE_ACTIONS}
+				isTestnet={false}
+			/>,
+		);
+		const backLink = container.querySelector<HTMLAnchorElement>("header a");
+		expect(backLink?.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+		const leaderLink = container.querySelector<HTMLAnchorElement>('a[target="_blank"]');
+		expect(leaderLink?.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+		const chartButtons = [...container.querySelectorAll<HTMLButtonElement>("fieldset button[aria-pressed]")];
+		expect(chartButtons.length).toBeGreaterThan(0);
+		for (const chartButton of chartButtons) {
+			expect(chartButton.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+		}
+	});
+
+	it("renders equal-timestamp valid history samples as a plotted point instead of claiming no performance history", () => {
+		const sameTimestampSnapshot = {
+			accountValueHistory: [
+				{ timestamp: 1_000, value: "100" },
+				{ timestamp: 1_000, value: "105" },
+			],
+			pnlHistory: [
+				{ timestamp: 1_000, value: "1" },
+				{ timestamp: 1_000, value: "2" },
+			],
+			volume: "0",
+		};
+
+		render(<VaultPerformanceChart snapshot={sameTimestampSnapshot} kind="pnl" period="month" snapshotCurrent />);
+		expect(container.textContent).not.toContain("No performance history");
+		expect(container.querySelector("[data-single-point]")).not.toBeNull();
+		const chart = container.querySelector<HTMLElement>('[data-vault-performance-chart][role="img"]');
+		const descriptionId = chart?.getAttribute("aria-describedby");
+		const descriptionText = descriptionId ? document.getElementById(descriptionId)?.textContent : null;
+		expect(descriptionText).not.toContain("No performance history");
+		expect(descriptionText).toContain("+$2.00");
+
+		render(
+			<VaultPerformanceChart snapshot={sameTimestampSnapshot} kind="pnl" period="month" compact snapshotCurrent />,
+		);
+		expect(container.textContent).not.toContain("No performance history");
+		expect(container.querySelector("[data-single-point]")).not.toBeNull();
+		expect(container.querySelector("[data-vault-chart-summary]")?.textContent).toBe(
+			"PNL over 30 days. Latest value +$2.00. Positive PNL.",
+		);
+
+		render(
+			<VaultPerformanceChart
+				snapshot={{
+					accountValueHistory: [],
+					pnlHistory: [
+						{ timestamp: 2_000, value: "1" },
+						{ timestamp: 1_000, value: "2" },
+					],
+					volume: "0",
+				}}
+				kind="pnl"
+				period="month"
+				snapshotCurrent
+			/>,
+		);
+		expect(container.textContent).not.toContain("No performance history");
+		expect(container.querySelector("[data-single-point]")).toBeNull();
 	});
 
 	function render(element: React.ReactNode) {

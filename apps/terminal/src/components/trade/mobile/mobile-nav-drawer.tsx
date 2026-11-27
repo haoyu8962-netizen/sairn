@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { DownloadSimpleIcon, GearIcon, ListIcon, SpinnerGapIcon, XIcon } from "@phosphor-icons/react";
-import { Button, ButtonIcon, Drawer, DrawerContent, DrawerTitle } from "@sairn/ui";
+import { Button, ButtonIcon, Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@sairn/ui";
 import { Link, type RegisteredRouter, useLocation, useRouter, type ValidateLinkOptions } from "@tanstack/react-router";
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -162,183 +162,178 @@ export function MobileNavDrawer() {
 	}
 
 	return (
-		<>
-			<HeaderIconButtonView
-				size="md"
-				className="touch-target"
-				aria-label={t(DESKTOP_NAV_LABELS.openNavigation)}
-				onClick={() => {
-					cancelPendingAction();
-					setOpen(true);
-				}}
-			>
-				<ListIcon className="size-4.5 text-trading-panel-fg" />
-			</HeaderIconButtonView>
+		<Drawer side="left" open={open} onOpenChange={handleOpenChange} onOpenChangeComplete={handleOpenChangeComplete}>
+			<DrawerTrigger
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				render={
+					<HeaderIconButtonView size="md" className="touch-target" aria-label={t(DESKTOP_NAV_LABELS.openNavigation)}>
+						<ListIcon className="size-4.5 text-trading-panel-fg" />
+					</HeaderIconButtonView>
+				}
+			/>
+			<DrawerContent className="w-[80vw] max-w-72 flex flex-col p-0 pl-[env(safe-area-inset-left)]">
+				<DrawerTitle className="sr-only">
+					<Trans>Navigation</Trans>
+				</DrawerTitle>
+				<div className="h-[calc(3rem+env(safe-area-inset-top))] px-3 pt-[env(safe-area-inset-top)] flex items-center justify-between border-b border-stroke-weak/60 shrink-0">
+					<Link
+						{...navigationLinkProps({ to: tradeHomePath, search: { scope: "all" } })}
+						aria-label={BRAND_NAME}
+						data-brand-home-link=""
+						className="flex items-center gap-1.5 rounded-8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+					>
+						<BrandLogo className="h-6 w-auto" />
+					</Link>
+					<ButtonIcon variant="ghost" intent="neutral" size="md" aria-label={t`Close navigation`} onClick={close}>
+						<XIcon className="size-4" />
+					</ButtonIcon>
+				</div>
 
-			<Drawer side="left" open={open} onOpenChange={handleOpenChange} onOpenChangeComplete={handleOpenChangeComplete}>
-				<DrawerContent className="w-[80vw] max-w-72 flex flex-col p-0 pl-[env(safe-area-inset-left)]">
-					<DrawerTitle className="sr-only">
-						<Trans>Navigation</Trans>
-					</DrawerTitle>
-					<div className="h-[calc(3rem+env(safe-area-inset-top))] px-3 pt-[env(safe-area-inset-top)] flex items-center justify-between border-b border-stroke-weak/60 shrink-0">
+				<div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
+					<nav className="flex flex-col p-2" aria-label={t`Primary navigation`}>
 						<Link
 							{...navigationLinkProps({ to: tradeHomePath, search: { scope: "all" } })}
-							aria-label={BRAND_NAME}
-							data-brand-home-link=""
-							className="flex items-center gap-1.5 rounded-8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+							aria-current={tradeActive ? "page" : undefined}
+							className={getNavLinkClass(tradeActive)}
 						>
-							<BrandLogo className="h-6 w-auto" />
+							<Trans>Trade</Trans>
 						</Link>
-						<ButtonIcon variant="ghost" intent="neutral" size="md" aria-label={t`Close navigation`} onClick={close}>
-							<XIcon className="size-4" />
+						<Link
+							{...navigationLinkProps({ to: "/portfolio" })}
+							aria-current={pathname === "/portfolio" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/portfolio")}
+						>
+							<Trans>Portfolio</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/earn" })}
+							aria-current={pathname === "/earn" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/earn")}
+						>
+							<Trans>Earn</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/vaults" })}
+							aria-current={vaultsActive ? "page" : undefined}
+							className={getNavLinkClass(vaultsActive)}
+						>
+							<Trans>Vaults</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/staking" })}
+							aria-current={pathname === "/staking" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/staking")}
+						>
+							<Trans>Staking</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/referrals" })}
+							aria-current={pathname === "/referrals" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/referrals")}
+						>
+							<Trans>Referrals</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/leaderboard" })}
+							aria-current={pathname === "/leaderboard" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/leaderboard")}
+						>
+							<Trans>Leaderboard</Trans>
+						</Link>
+					</nav>
+					<nav className="flex flex-col border-t border-stroke-weak/60 p-2" aria-label={t`More`}>
+						<Link
+							{...navigationLinkProps({ to: "/fundingComparison" })}
+							aria-current={pathname === "/fundingcomparison" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/fundingcomparison")}
+						>
+							<Trans>Funding Comparison</Trans>
+						</Link>
+						<a
+							href={HYPERSCREENER_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+							onClick={close}
+							className={getNavLinkClass(false)}
+						>
+							<Trans>Statistics</Trans>
+						</a>
+						<Link
+							{...navigationLinkProps({ to: "/api-wallet" })}
+							aria-current={pathname === "/api-wallet" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/api-wallet")}
+						>
+							<Trans>API Wallet</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/docs" })}
+							aria-current={pathname === "/docs" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/docs")}
+						>
+							<Trans>Docs</Trans>
+						</Link>
+						<Link
+							{...navigationLinkProps({ to: "/support" })}
+							aria-current={pathname === "/support" ? "page" : undefined}
+							className={getNavLinkClass(pathname === "/support")}
+						>
+							<Trans>Support</Trans>
+						</Link>
+					</nav>
+				</div>
+
+				<div className="shrink-0 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] border-t border-stroke-weak/60 flex flex-col gap-2">
+					{preloadFailed && (
+						<p role="alert" className="text-center text-2xs text-error">
+							<Trans>Try again</Trans>
+						</p>
+					)}
+					{showsDepositEntry && (
+						<>
+							<Button
+								variant="filled"
+								intent="brand"
+								size="sm"
+								onClick={depositAvailability.available ? () => requestGlobalModal("deposit") : undefined}
+								{...(canOpenDeposit ? depositModalIntentProps : undefined)}
+								disabled={!canOpenDeposit}
+								aria-busy={pendingModal === "deposit" || undefined}
+								iconLeft={
+									pendingModal === "deposit" ? (
+										<SpinnerGapIcon className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+									) : (
+										<DownloadSimpleIcon className="size-3.5" />
+									)
+								}
+								className="w-full"
+							>
+								<Trans>Deposit</Trans>
+							</Button>
+							{depositNotice ? <output className="text-center text-2xs text-fg-muted">{depositNotice}</output> : null}
+						</>
+					)}
+					<div className="flex items-center justify-between pt-1">
+						<ThemeToggle />
+						<ButtonIcon
+							variant="ghost"
+							intent="neutral"
+							size="md"
+							aria-label={t`Settings`}
+							onClick={() => requestGlobalModal("settings")}
+							disabled={pendingModal !== null}
+							aria-busy={pendingModal === "settings" || undefined}
+						>
+							{pendingModal === "settings" ? (
+								<SpinnerGapIcon className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+							) : (
+								<GearIcon className="size-4" />
+							)}
 						</ButtonIcon>
 					</div>
-
-					<div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
-						<nav className="flex flex-col p-2" aria-label={t`Primary navigation`}>
-							<Link
-								{...navigationLinkProps({ to: tradeHomePath, search: { scope: "all" } })}
-								aria-current={tradeActive ? "page" : undefined}
-								className={getNavLinkClass(tradeActive)}
-							>
-								<Trans>Trade</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/portfolio" })}
-								aria-current={pathname === "/portfolio" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/portfolio")}
-							>
-								<Trans>Portfolio</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/earn" })}
-								aria-current={pathname === "/earn" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/earn")}
-							>
-								<Trans>Earn</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/vaults" })}
-								aria-current={vaultsActive ? "page" : undefined}
-								className={getNavLinkClass(vaultsActive)}
-							>
-								<Trans>Vaults</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/staking" })}
-								aria-current={pathname === "/staking" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/staking")}
-							>
-								<Trans>Staking</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/referrals" })}
-								aria-current={pathname === "/referrals" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/referrals")}
-							>
-								<Trans>Referrals</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/leaderboard" })}
-								aria-current={pathname === "/leaderboard" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/leaderboard")}
-							>
-								<Trans>Leaderboard</Trans>
-							</Link>
-						</nav>
-						<nav className="flex flex-col border-t border-stroke-weak/60 p-2" aria-label={t`More`}>
-							<Link
-								{...navigationLinkProps({ to: "/fundingComparison" })}
-								aria-current={pathname === "/fundingcomparison" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/fundingcomparison")}
-							>
-								<Trans>Funding Comparison</Trans>
-							</Link>
-							<a
-								href={HYPERSCREENER_URL}
-								target="_blank"
-								rel="noopener noreferrer"
-								onClick={close}
-								className={getNavLinkClass(false)}
-							>
-								<Trans>Statistics</Trans>
-							</a>
-							<Link
-								{...navigationLinkProps({ to: "/api-wallet" })}
-								aria-current={pathname === "/api-wallet" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/api-wallet")}
-							>
-								<Trans>API Wallet</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/docs" })}
-								aria-current={pathname === "/docs" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/docs")}
-							>
-								<Trans>Docs</Trans>
-							</Link>
-							<Link
-								{...navigationLinkProps({ to: "/support" })}
-								aria-current={pathname === "/support" ? "page" : undefined}
-								className={getNavLinkClass(pathname === "/support")}
-							>
-								<Trans>Support</Trans>
-							</Link>
-						</nav>
-					</div>
-
-					<div className="shrink-0 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] border-t border-stroke-weak/60 flex flex-col gap-2">
-						{preloadFailed && (
-							<p role="alert" className="text-center text-2xs text-error">
-								<Trans>Try again</Trans>
-							</p>
-						)}
-						{showsDepositEntry && (
-							<>
-								<Button
-									variant="filled"
-									intent="brand"
-									size="sm"
-									onClick={depositAvailability.available ? () => requestGlobalModal("deposit") : undefined}
-									{...(canOpenDeposit ? depositModalIntentProps : undefined)}
-									disabled={!canOpenDeposit}
-									aria-busy={pendingModal === "deposit" || undefined}
-									iconLeft={
-										pendingModal === "deposit" ? (
-											<SpinnerGapIcon className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-										) : (
-											<DownloadSimpleIcon className="size-3.5" />
-										)
-									}
-									className="w-full"
-								>
-									<Trans>Deposit</Trans>
-								</Button>
-								{depositNotice ? <output className="text-center text-2xs text-fg-muted">{depositNotice}</output> : null}
-							</>
-						)}
-						<div className="flex items-center justify-between pt-1">
-							<ThemeToggle />
-							<ButtonIcon
-								variant="ghost"
-								intent="neutral"
-								size="md"
-								aria-label={t`Settings`}
-								onClick={() => requestGlobalModal("settings")}
-								disabled={pendingModal !== null}
-								aria-busy={pendingModal === "settings" || undefined}
-							>
-								{pendingModal === "settings" ? (
-									<SpinnerGapIcon className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-								) : (
-									<GearIcon className="size-4" />
-								)}
-							</ButtonIcon>
-						</div>
-					</div>
-				</DrawerContent>
-			</Drawer>
-		</>
+				</div>
+			</DrawerContent>
+		</Drawer>
 	);
 }
 

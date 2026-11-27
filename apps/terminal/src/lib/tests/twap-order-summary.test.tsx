@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import { i18n } from "@lingui/core";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -131,5 +132,20 @@ describe("TwapOrderSummary trigger and stop rows", () => {
 		const stopRow = labels.find((label) => label.textContent === "Max Price")?.parentElement;
 		expect(triggerRow?.lastElementChild?.textContent).toBe("$0.123");
 		expect(stopRow?.lastElementChild?.textContent).toBe("$0.456");
+	});
+
+	it("preserves exact minutes above one day and hot-switches duration units with the locale", () => {
+		i18n.loadAndActivate({ locale: "en", messages: {} });
+		act(() => root.render(<TwapOrderSummary {...baseProps} twapMinutesNum={1501} />));
+		expect(getRowValue(container, "Runtime")).toBe("1d 1h 1m");
+
+		act(() => i18n.loadAndActivate({ locale: "zh", messages: {} }));
+		expect(getRowValue(container, "Runtime")).toBe("1天 1小时 1分钟");
+
+		act(() => i18n.loadAndActivate({ locale: "ar", messages: {} }));
+		expect(getRowValue(container, "Runtime")).toBe("1 ي 1 س 1 د");
+
+		act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
+		expect(getRowValue(container, "Runtime")).toBe("1d 1h 1m");
 	});
 });

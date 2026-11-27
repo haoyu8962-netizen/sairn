@@ -1619,7 +1619,7 @@ function PositionTpSlStatus({ open, isMobile, position, message, loading = false
 function PositionHeader({ coin, isLong }: { coin: string; isLong: boolean }) {
 	const { t } = useLingui();
 	return (
-		<ModalHeader className="max-[1000px]:gap-1 max-[1000px]:border-b-0 max-[1000px]:px-4 max-[1000px]:pt-7 max-[1000px]:pr-4 max-[1000px]:pb-0">
+		<ModalHeader className="pe-4 max-[1000px]:gap-1 max-[1000px]:border-b-0 max-[1000px]:pt-7 max-[1000px]:pb-0">
 			<ModalTitle>{t`Manage TP/SL`}</ModalTitle>
 			<div className="flex items-center gap-1.5">
 				<span

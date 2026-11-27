@@ -1,17 +1,21 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LeaderboardApiQuery, LeaderboardApiSuccessResponse } from "@/lib/leaderboard/leaderboard-api";
 import { createI18nRoot } from "@/lib/tests/harness/react";
 import type { LeaderboardRow } from "../leaderboard-domain";
+import { LeaderboardView } from "../leaderboard-view";
 import { useLeaderboardController } from "../use-leaderboard-controller";
 
 interface QueryState {
 	data: LeaderboardApiSuccessResponse | undefined;
+	dataUpdatedAt?: number;
 	fetchStatus: "idle" | "fetching" | "paused";
 	isError: boolean;
+	isStale?: boolean;
 	refetch: ReturnType<typeof vi.fn>;
 }
 
@@ -39,6 +43,19 @@ function Probe() {
 	return null;
 }
 
+function ViewProbe() {
+	controller = useLeaderboardController();
+	return <LeaderboardView {...controller} />;
+}
+
+function setNavigatorOnline(online: boolean) {
+	Object.defineProperty(window.navigator, "onLine", {
+		configurable: true,
+		value: online,
+	});
+	window.dispatchEvent(new Event(online ? "online" : "offline"));
+}
+
 describe("useLeaderboardController", () => {
 	let container: HTMLDivElement;
 	let root: Root;
@@ -56,6 +73,7 @@ describe("useLeaderboardController", () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+		setNavigatorOnline(true);
 		vi.useRealTimers();
 	});
 
@@ -140,6 +158,166 @@ describe("useLeaderboardController", () => {
 		mocks.query = query(response([row("1")]), { fetchStatus: "paused" });
 		act(() => root.render(<Probe />));
 		expect(current()).toMatchObject({ pageState: "normal", dataNotice: "paused", canRetry: false });
+	});
+
+	it("does not report a stale, failed, paused, or refreshing empty snapshot as confirmed empty", () => {
+		mocks.query = query(response([], { stale: true }));
+		render();
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		mocks.query = query(response([], { query: "missing", stale: true }));
+		act(() => root.render(<Probe />));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		mocks.query = query(response([], { query: "missing" }), { isError: true });
+		act(() => root.render(<Probe />));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		mocks.query = query(response([], { query: "missing" }), { fetchStatus: "paused" });
+		act(() => root.render(<Probe />));
+		expect(current()).toMatchObject({ pageState: "paused", dataNotice: null, canRetry: false });
+
+		mocks.query = query(response([], { query: "missing" }), { fetchStatus: "fetching" });
+		act(() => root.render(<Probe />));
+		expect(current()).toMatchObject({ pageState: "loading", dataNotice: null, isRefreshing: false });
+	});
+
+	it("expires an empty or no-results snapshot after the freshness window while keeping non-empty rows", () => {
+		const now = Date.now();
+		mocks.query = query(response([], { query: "missing" }), { dataUpdatedAt: now });
+		render();
+		act(() => current().onQueryChange("missing"));
+		act(() => vi.advanceTimersByTime(250));
+		expect(current()).toMatchObject({ pageState: "noResults", totalRows: 0 });
+
+		act(() => vi.advanceTimersByTime(30_000));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		const nextNow = Date.now();
+		mocks.query = query(response([], { query: "" }), { dataUpdatedAt: nextNow });
+		act(() => current().onClearQuery());
+		act(() => vi.advanceTimersByTime(250));
+		expect(current()).toMatchObject({ pageState: "empty", totalRows: 0 });
+
+		act(() => vi.advanceTimersByTime(30_000));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		mocks.query = query(response([], { query: "missing" }), { dataUpdatedAt: Date.now() - 31_000 });
+		act(() => current().onQueryChange("missing"));
+		act(() => vi.advanceTimersByTime(250));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+
+		mocks.query = query(response([row("1")]), { dataUpdatedAt: Date.now() });
+		act(() => root.render(<Probe />));
+		expect(current()).toMatchObject({ pageState: "normal", dataNotice: null });
+
+		act(() => vi.advanceTimersByTime(30_000));
+		expect(current()).toMatchObject({ pageState: "normal", dataNotice: null });
+	});
+
+	it("replaces an empty search conclusion with a neutral loading placeholder during the 250ms debounce and preserves 250ms debounce", () => {
+		const now = Date.now();
+		mocks.query = query(response([], { query: "missing" }), { dataUpdatedAt: now });
+		act(() => root.render(<ViewProbe />));
+
+		act(() => current().onQueryChange("missing"));
+		act(() => vi.advanceTimersByTime(250));
+		expect(current()).toMatchObject({ pageState: "noResults", totalRows: 0 });
+		expect(container.textContent).toContain("No matching trader");
+
+		act(() => current().onQueryChange("0x1111111111111111111111111111111111111111"));
+		expect(current().query).toBe("0x1111111111111111111111111111111111111111");
+		expect(mocks.request?.query).toBe("missing");
+		expect(current()).toMatchObject({ pageState: "loading", dataNotice: null, isRefreshing: false });
+		expect(container.textContent).not.toContain("No matching trader");
+		expect(container.textContent).not.toContain("No eligible leaderboard accounts");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+
+		act(() => vi.advanceTimersByTime(249));
+		expect(mocks.request?.query).toBe("missing");
+		expect(current().pageState).toBe("loading");
+
+		mocks.query = query(response([row("1")], { query: "0x1111111111111111111111111111111111111111" }), {
+			dataUpdatedAt: Date.now(),
+		});
+		act(() => vi.advanceTimersByTime(1));
+		expect(mocks.request?.query).toBe("0x1111111111111111111111111111111111111111");
+		expect(current()).toMatchObject({ pageState: "normal", totalRows: 1 });
+	});
+
+	it("withholds empty conclusions when response query does not match normalized input or when clearing search", () => {
+		const now = Date.now();
+		mocks.query = query(response([], { query: "missing" }), { dataUpdatedAt: now });
+		act(() => root.render(<ViewProbe />));
+		expect(current().pageState).toBe("loading");
+		expect(container.textContent).not.toContain("No matching trader");
+
+		act(() => current().onQueryChange("  MISSING  "));
+		act(() => vi.advanceTimersByTime(250));
+		expect(current().pageState).toBe("noResults");
+		expect(container.textContent).toContain("No matching trader");
+
+		act(() => current().onClearQuery());
+		expect(current().query).toBe("");
+		expect(current().pageState).toBe("loading");
+		expect(container.textContent).not.toContain("No matching trader");
+		expect(container.textContent).not.toContain("No eligible leaderboard accounts");
+	});
+
+	it("withholds empty and no-results conclusions when offline even if the completed query stays idle", () => {
+		const now = Date.now();
+		mocks.query = query(response([], { query: "missing" }), { dataUpdatedAt: now, fetchStatus: "idle" });
+		act(() => root.render(<ViewProbe />));
+		act(() => current().onQueryChange("missing"));
+		act(() => vi.advanceTimersByTime(250));
+		expect(current().pageState).toBe("noResults");
+		expect(container.textContent).toContain("No matching trader");
+
+		act(() => setNavigatorOnline(false));
+		expect(current()).toMatchObject({ pageState: "loading", dataNotice: null, canRetry: false });
+		expect(container.textContent).not.toContain("No matching trader");
+		expect(container.textContent).not.toContain("No eligible leaderboard accounts");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+
+		act(() => setNavigatorOnline(true));
+		expect(current()).toMatchObject({ pageState: "noResults", canRetry: true });
+		expect(container.textContent).toContain("No matching trader");
+
+		mocks.query = query(response([], { query: "" }), { dataUpdatedAt: Date.now(), fetchStatus: "idle" });
+		act(() => current().onClearQuery());
+		act(() => vi.advanceTimersByTime(250));
+		expect(current().pageState).toBe("empty");
+		expect(container.textContent).toContain("No eligible leaderboard accounts");
+
+		act(() => setNavigatorOnline(false));
+		expect(current()).toMatchObject({ pageState: "loading", dataNotice: null, canRetry: false });
+		expect(container.textContent).not.toContain("No eligible leaderboard accounts");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+
+		act(() => vi.advanceTimersByTime(30_000));
+		act(() => setNavigatorOnline(true));
+		expect(current()).toMatchObject({ pageState: "error", dataNotice: null, canRetry: true });
+	});
+
+	it("keeps non-empty rows visible during debounce and offline idle state", () => {
+		const client = new QueryClient();
+		mocks.query = query(response([row("1")], { query: "" }), { dataUpdatedAt: Date.now(), fetchStatus: "idle" });
+		act(() =>
+			root.render(
+				<QueryClientProvider client={client}>
+					<ViewProbe />
+				</QueryClientProvider>,
+			),
+		);
+		expect(current()).toMatchObject({ pageState: "normal", totalRows: 1 });
+
+		act(() => current().onQueryChange("0x2222"));
+		expect(current()).toMatchObject({ pageState: "normal", totalRows: 1 });
+
+		act(() => setNavigatorOnline(false));
+		expect(current()).toMatchObject({ pageState: "normal", totalRows: 1 });
+		client.clear();
 	});
 
 	function render() {

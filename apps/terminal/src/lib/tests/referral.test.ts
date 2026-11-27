@@ -246,8 +246,9 @@ describe("referral display derivations", () => {
 		expect(buildReferralRewardRows(data, metadata)[0]).not.toHaveProperty("claimableRewards");
 	});
 
-	it("uses an explicit fallback for unknown token ids", () => {
-		expect(buildReferralRewardRows(createReadyReferralResponse(), new Map())[0]?.name).toBe("Token #0");
+	it("preserves token ids without hardcoding an English name for unknown tokens", () => {
+		expect(buildReferralRewardRows(createReadyReferralResponse(), new Map())[0]?.name).toBeNull();
+		expect(buildReferralRewardRows(createReadyReferralResponse(), new Map())[0]?.tokenId).toBe(0);
 		expect(buildReferralRewardRows(createReadyReferralResponse(), new Map())[0]?.weiDecimals).toBeNull();
 	});
 

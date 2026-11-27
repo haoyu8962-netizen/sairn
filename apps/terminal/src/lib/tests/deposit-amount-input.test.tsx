@@ -137,4 +137,28 @@ describe("deposit AmountInput accessibility", () => {
 			expect(container.textContent).toContain("10.00 USDC");
 		},
 	);
+
+	it("allows multi-line amount errors to grow with a top-aligned non-shrinking icon", () => {
+		act(() =>
+			root.render(
+				createElement(AmountInput, {
+					...defaultProps,
+					amount: "20000000",
+					maxAmount: "25000000",
+					balance: "25000000",
+					validation: { valid: false, error: "Limit exceeded" },
+					amountError: "Les dépôts Circle CCTP sont limités à 10 000 000 USDC par transfert.",
+				}),
+			),
+		);
+
+		const alert = container.querySelector<HTMLElement>('[role="alert"]');
+		expect(alert).not.toBeNull();
+		const tokens = (alert?.className ?? "").split(/\s+/);
+		expect(tokens).not.toContain("h-4");
+		expect(tokens).toContain("min-h-4");
+		expect(tokens).toContain("items-start");
+		const icon = alert?.querySelector("svg");
+		expect(icon?.getAttribute("class")).toContain("shrink-0");
+	});
 });

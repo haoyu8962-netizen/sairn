@@ -74,6 +74,15 @@ export function TradeHeader({
 				? t(ORDER_TYPE_MESSAGES.market)
 				: t(TRADE_PANEL_LABELS.limit);
 
+	const advancedOrderLabel =
+		tabsOrderType === "advanced"
+			? getAdvancedOrderLabel(orderType, t(TRADE_PANEL_LABELS.advanced))
+			: t(TRADE_PANEL_LABELS.advanced);
+	const advancedOrderTriggerAriaLabel =
+		tabsOrderType === "advanced"
+			? `${t(TRADE_PANEL_LABELS.advancedOrderTypes)}: ${advancedOrderLabel}`
+			: t(TRADE_PANEL_LABELS.advancedOrderTypes);
+
 	const isSpot = marketKind === "spot";
 	const advancedOrderTypeItems = ADVANCED_ORDER_TYPES.filter((type) => {
 		if (isSpot && !SPOT_ALLOWED_TYPES.includes(type)) return false;
@@ -219,11 +228,7 @@ export function TradeHeader({
 						renderTrigger={
 							<OrderTypeTabView
 								active={tabsOrderType === "advanced"}
-								label={
-									tabsOrderType === "advanced"
-										? getAdvancedOrderLabel(orderType, t(TRADE_PANEL_LABELS.advanced))
-										: t(TRADE_PANEL_LABELS.advanced)
-								}
+								label={advancedOrderLabel}
 								labelCompact={
 									tabsOrderType === "advanced"
 										? getAdvancedOrderLabel(orderType, t(TRADE_PANEL_LABELS.other))
@@ -237,7 +242,7 @@ export function TradeHeader({
 						align="end"
 						hideCaret
 						triggerVariant="minimal"
-						triggerAriaLabel={t(TRADE_PANEL_LABELS.advancedOrderTypes)}
+						triggerAriaLabel={advancedOrderTriggerAriaLabel}
 						popupClassName={tradingPanelDropdownPopupClass}
 						className="min-w-0"
 					/>

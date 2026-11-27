@@ -132,6 +132,55 @@ async function expectHeaderHitTargets(page: Page) {
 			return !!arrow && arrow.width >= 9 && arrow.left >= rect.left && arrow.right <= rect.right;
 		}),
 	).toBe(true);
+	const headerLabels = await orderType.evaluate((node) => {
+		const grid = node.parentElement?.parentElement;
+		if (!grid) throw new Error("Missing header grid");
+		const buttons = [node, grid.children[1], grid.children[2]].map((el) => {
+			if (!(el instanceof HTMLButtonElement)) throw new Error("Missing header control button");
+			return el;
+		});
+		return {
+			viewportWidth: window.innerWidth,
+			items: buttons.map((button) => {
+				const text = button.querySelector<HTMLElement>(".truncate");
+				const arrow = button.querySelector("svg");
+				if (!text || !arrow) throw new Error(`Missing header label or caret in ${button.textContent}`);
+				const buttonRect = button.getBoundingClientRect();
+				const textRect = text.getBoundingClientRect();
+				const arrowRect = arrow.getBoundingClientRect();
+				const container = text.parentElement ?? button;
+				const gap = Number.parseFloat(getComputedStyle(container).columnGap) || 0;
+				const style = getComputedStyle(button);
+				const paddingX = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+				return {
+					text: text.textContent?.trim() ?? "",
+					title: text.getAttribute("title"),
+					scrollWidth: text.scrollWidth,
+					clientWidth: text.clientWidth,
+					overflowPx: text.scrollWidth - text.clientWidth,
+					textWidth: textRect.width,
+					availableWidth: buttonRect.width - paddingX - arrowRect.width - gap,
+				};
+			}),
+		};
+	});
+	const [orderLabel, marginLabel, leverageLabel] = headerLabels.items;
+	expect(orderLabel.text.length).toBeGreaterThan(0);
+	expect(orderLabel.title).toBe(orderLabel.text);
+	expect(marginLabel.overflowPx, `margin label "${marginLabel.text}" truncated`).toBeLessThanOrEqual(1);
+	expect(leverageLabel.overflowPx, `leverage label "${leverageLabel.text}" truncated`).toBeLessThanOrEqual(1);
+	const knownWideEnglishTriggers =
+		headerLabels.viewportWidth < 375
+			? new Set(["Stop Market", "Stop Limit", "Take Profit Market", "Take Profit Limit"])
+			: new Set(["Stop Market", "Take Profit Market", "Take Profit Limit"]);
+	if (knownWideEnglishTriggers.has(orderLabel.text)) {
+		expect(
+			orderLabel.textWidth,
+			`order type label "${orderLabel.text}" narrowed below available column width`,
+		).toBeGreaterThanOrEqual(orderLabel.availableWidth - 2);
+	} else {
+		expect(orderLabel.overflowPx, `order type label "${orderLabel.text}" truncated`).toBeLessThanOrEqual(1);
+	}
 }
 
 async function expectInputHitTarget(page: Page, name: string) {
@@ -514,11 +563,12 @@ for (const desktop of [false, true]) {
 		await page.setViewportSize(desktop ? { width: 1440, height: 1000 } : { width: 393, height: 852 });
 		await openFixture(page, "?quiet-audit");
 		const form = page.locator("[data-fixture-form]");
+		const advancedOrderTrigger = form.getByRole("button", { name: /^Advanced order types(?:: .+)?$/ });
 		async function chooseOrder(order: string) {
 			if (!desktop) return selectOrder(page, order);
 			if (order === "Market" || order === "Limit")
 				return form.getByRole("button", { name: order, exact: true }).click();
-			await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+			await advancedOrderTrigger.click();
 			await page.getByRole("menuitem", { name: order, exact: true }).click();
 		}
 		await chooseOrder("Market");
@@ -544,6 +594,9 @@ for (const desktop of [false, true]) {
 		await mid.click();
 		await expect(price).toHaveValue("100.00");
 		await chooseOrder("TWAP");
+		if (desktop) {
+			await expect(advancedOrderTrigger).toHaveAccessibleName("Advanced order types: TWAP");
+		}
 		await form.getByRole("textbox", { name: "Hour(s)", exact: true }).fill("1");
 		await form.getByRole("textbox", { name: "Minute(s)", exact: true }).fill("0");
 		await expect(form.getByRole("textbox", { name: "Minute(s)", exact: true })).toHaveValue("0");
@@ -551,6 +604,9 @@ for (const desktop of [false, true]) {
 		await expect(page.getByRole("status", { name: "Captured orders", exact: true })).toHaveText("[]");
 		await page.screenshot({ path: test.info().outputPath(`fields-${desktop ? "desktop" : "mobile"}.png`) });
 		await chooseOrder("Scale");
+		if (desktop) {
+			await expect(advancedOrderTrigger).toHaveAccessibleName("Advanced order types: Scale");
+		}
 		const start = form.getByRole("textbox", { name: "Start Price", exact: true });
 		await start.fill("90");
 		const startBounds = await start.boundingBox();
@@ -585,12 +641,13 @@ for (const desktop of [false, true]) {
 			observer.observe(element, { subtree: true, characterData: true, childList: true });
 			Object.assign(window, { quietAudit: { failures, observer } });
 		}, passive.source);
+		const advancedOrderTrigger = form.getByRole("button", { name: /^Advanced order types(?:: .+)?$/ });
 		for (const order of orders) {
 			if (!desktop) await selectOrder(page, order);
 			else if (order === "Market" || order === "Limit")
 				await form.getByRole("button", { name: order, exact: true }).click();
 			else {
-				await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+				await advancedOrderTrigger.click();
 				await page.getByRole("menuitem", { name: order, exact: true }).click();
 			}
 			const size = page.getByRole("textbox", { name: "Size", exact: true });
@@ -612,7 +669,7 @@ for (const desktop of [false, true]) {
 			}
 		}
 		if (desktop) {
-			await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+			await advancedOrderTrigger.click();
 			await page.getByRole("menuitem", { name: "Stop Market", exact: true }).click();
 		} else await selectOrder(page, "Stop Market");
 		const reduceOnly = form.getByRole("checkbox", { name: "Reduce Only", exact: true });

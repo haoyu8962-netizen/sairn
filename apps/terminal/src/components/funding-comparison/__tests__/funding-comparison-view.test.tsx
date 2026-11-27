@@ -11,12 +11,17 @@ import {
 	deriveFundingComparisonPage,
 	type FundingComparisonPeriod,
 } from "@/domain/market/funding-comparison";
+import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { createI18nRoot } from "@/lib/tests/harness/react";
 import { FundingComparisonView, type FundingComparisonViewProps } from "../funding-comparison-view";
 
-const layout = vi.hoisted(() => ({ mobile: false }));
+const layout = vi.hoisted(() => ({ mobile: false, numberFormatLocale: "en-US" }));
 
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => layout.mobile }));
+vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/stores/use-global-settings-store")>()),
+	getResolvedFormatLocale: () => layout.numberFormatLocale,
+}));
 vi.mock("@/lib/hyperliquid/markets/use-markets", () => ({
 	useMarkets: () => ({ getMarket: () => undefined, getToken: () => undefined }),
 }));
@@ -106,6 +111,7 @@ describe("FundingComparisonView", () => {
 
 	beforeEach(() => {
 		layout.mobile = false;
+		layout.numberFormatLocale = "en-US";
 		act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
 		container = document.createElement("div");
 		document.body.appendChild(container);
@@ -289,5 +295,29 @@ describe("FundingComparisonView", () => {
 		expect(buttonByName(container, "资金费率周期").textContent).toContain("每日");
 		expect(buttonByName(container, "清除搜索")).toBeDefined();
 		expect(container.querySelector("thead th")?.textContent?.trim()).toBe("市场");
+	});
+
+	it("allows the mobile sort bar to wrap on narrow screens", () => {
+		layout.mobile = true;
+		render(props());
+		const sortByLabel = [...container.querySelectorAll("p")].find((node) => node.textContent?.trim() === "Sort by");
+		expect(sortByLabel).toBeDefined();
+		const sortBar = sortByLabel?.parentElement;
+		expect(sortBar?.className).toContain("flex-wrap");
+		const controls = sortBar?.querySelector("div");
+		expect(controls?.className).toContain("max-w-full");
+		expect(controls?.className).toContain("min-w-0");
+	});
+
+	it("formats pagination counts with the active number format", () => {
+		render(props({ page: 41, totalPages: 50, start: 1001, end: 1025, totalRows: 1250 }));
+		const rangeBdi = [...container.querySelectorAll<HTMLElement>('bdi[dir="ltr"]')].find((node) =>
+			node.textContent?.includes("/"),
+		);
+		expect(rangeBdi?.textContent).toBe("1,001–1,025 / 1,250");
+
+		layout.numberFormatLocale = "de-DE";
+		act(() => notifyNumberFormatChange());
+		expect(rangeBdi?.textContent).toBe("1.001–1.025 / 1.250");
 	});
 });
