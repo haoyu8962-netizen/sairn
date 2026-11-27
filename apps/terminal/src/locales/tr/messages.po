@@ -1463,7 +1463,7 @@ msgstr "Farklı piyasa, yön, tür veya durum filtreleri seçin."
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Circle CCTP yatırma işlemleri transfer başına 10.000.000 USDC ile sınırlıdır."
+msgstr "Circle CCTP yatırma işlemleri transfer başına 10,000,000 USDC ile sınırlıdır."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1488,7 +1488,7 @@ msgstr "Circle, USDC tutarınızı Hyperliquid'e iletiyor. Bu yatırma işlemini
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Circle Testnet yatırma işlemleri transfer başına 1.000 USDC ile sınırlıdır."
+msgstr "Circle Testnet yatırma işlemleri transfer başına 1,000 USDC ile sınırlıdır."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."

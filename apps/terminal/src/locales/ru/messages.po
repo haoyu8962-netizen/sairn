@@ -1463,7 +1463,7 @@ msgstr "Выберите другие фильтры рынка, направл�
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Лимит пополнения через Circle CCTP — 10 000 000 USDC за один перевод."
+msgstr "Лимит пополнения через Circle CCTP — 10,000,000 USDC за один перевод."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1488,7 +1488,7 @@ msgstr "Circle переводит ваши USDC в Hyperliquid. Не отпра�
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Лимит пополнения через Circle в тестовой сети — 1 000 USDC за один перевод."
+msgstr "Лимит пополнения через Circle в тестовой сети — 1,000 USDC за один перевод."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
