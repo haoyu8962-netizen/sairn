@@ -10,7 +10,9 @@ import type { Page } from "@playwright/test";
  *   its overflow hides the rest (`overflow` other than visible, `text-overflow: ellipsis` or a
  *   line clamp). Content that only wraps is not a finding.
  * - `clipped`: rendered text or a media element (svg, img, canvas) that extends beyond the padding box
- *   of an ancestor whose overflow is `hidden` or `clip`, below the probe root. Ancestors that scroll
+ *   of an ancestor whose overflow is `hidden` or `clip`, below the probe root. On an axis where the
+ *   element hides its own overflow, its text is measured only within its own padding box: the part it
+ *   hides is a `truncated` finding, not something an ancestor clips. Ancestors that scroll
  *   (`auto`, `scroll`) are skipped, because their hidden part is reachable; on an axis where such an
  *   ancestor has more content than room, the ancestors outside it are not compared on that axis
  *   either, since they clip the scrolling box and not the text inside it.
@@ -158,6 +160,23 @@ export async function findLayoutIntegrityIssues(
 				};
 			};
 
+			// A text range measures the whole string even where the element hides part of it. On an axis the
+			// element clips itself, the text can show no further than its own padding box, so an ancestor can
+			// only clip what that box leaves visible; the hidden rest is already a `truncated` finding.
+			const visibleTextRect = (element: Element, style: CSSStyleDeclaration) => {
+				const rect = textRect(element);
+				if (!rect || style.display === "contents") return rect;
+				const clipsX = hidesOverflow(style.overflowX);
+				const clipsY = hidesOverflow(style.overflowY);
+				if (!clipsX && !clipsY) return rect;
+				const own = paddingBox(element);
+				const left = clipsX ? Math.max(rect.left, own.left) : rect.left;
+				const right = clipsX ? Math.min(rect.right, own.right) : rect.right;
+				const top = clipsY ? Math.max(rect.top, own.top) : rect.top;
+				const bottom = clipsY ? Math.min(rect.bottom, own.bottom) : rect.bottom;
+				return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
+			};
+
 			const visit = (element: Element) => {
 				const style = getComputedStyle(element);
 				if (
@@ -193,7 +212,7 @@ export async function findLayoutIntegrityIssues(
 					}
 				}
 				const isMedia = ["svg", "img", "canvas", "video"].includes(element.tagName.toLowerCase());
-				const rect = isMedia ? box : text ? textRect(element) : null;
+				const rect = isMedia ? box : text ? visibleTextRect(element, style) : null;
 				if (rect && (rect.width > 0 || rect.height > 0)) {
 					for (const { ancestor, checkX, checkY } of clippingAncestors(element)) {
 						if (isAllowed(ancestor)) break;
@@ -220,5 +239,78 @@ export async function findLayoutIntegrityIssues(
 			return findings;
 		},
 		{ rootSelector: root, allowSelectors: exceptions.map((exception) => exception.selector), slack: tolerance },
+	);
+}
+
+export interface TableCellSpillFinding {
+	kind: "spilled";
+	path: string;
+	text: string;
+	detail: string;
+	anchor: string;
+}
+
+/**
+ * Text that runs past its table cell into the next column (docs/layout-integrity.md). A `table-fixed` table
+ * with values that do not wrap lets a value wider than its column overlap its neighbour instead of hiding
+ * it, which `findLayoutIntegrityIssues` does not report. Text under an ancestor (up to the cell) that hides
+ * overflow or is not visible is left to that probe. `path` is `cell-spill › «column header» › tag`, and
+ * `anchor` has the same meaning as in `LayoutIntegrityFinding`.
+ */
+export async function findTableCellSpill(
+	page: Page,
+	{ root, tolerance = 1 }: { root: string; tolerance?: number },
+): Promise<TableCellSpillFinding[]> {
+	return page.evaluate(
+		({ rootSelector, slack }) => {
+			const rootElement = document.querySelector(rootSelector);
+			if (!rootElement) throw new Error(`Missing layout-integrity root ${rootSelector}`);
+			const anchorOf = (element: Element) => {
+				const steps: number[] = [];
+				for (let current: Element | null = element; current && current !== rootElement; current = current.parentElement) {
+					const parent: Element | null = current.parentElement;
+					if (!parent) break;
+					steps.unshift(Array.prototype.indexOf.call(parent.children, current));
+				}
+				return steps.join(".");
+			};
+			const hiddenWithin = (element: Element, cell: Element) => {
+				for (let current: Element | null = element; current; current = current.parentElement) {
+					const style = getComputedStyle(current);
+					if (style.overflowX !== "visible" || style.visibility !== "visible" || style.display === "none") return true;
+					if (current === cell) return false;
+				}
+				return false;
+			};
+			const results: { kind: "spilled"; path: string; text: string; detail: string; anchor: string }[] = [];
+			for (const cell of rootElement.querySelectorAll("td, th")) {
+				if (!(cell instanceof HTMLTableCellElement) || cell.getClientRects().length === 0) continue;
+				const box = cell.getBoundingClientRect();
+				const header = cell.closest("table")?.tHead?.rows[0]?.cells[cell.cellIndex]?.textContent?.trim() ?? "";
+				const reported = new Set<Element>();
+				const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+				for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+					const element = node.parentElement;
+					const text = node.textContent?.trim();
+					if (!element || !text || reported.has(element) || hiddenWithin(element, cell)) continue;
+					const range = document.createRange();
+					range.selectNodeContents(node);
+					const rect = range.getBoundingClientRect();
+					if (rect.width === 0) continue;
+					const spill = Math.max(box.left - rect.left, rect.right - box.right);
+					if (spill <= slack) continue;
+					reported.add(element);
+					results.push({
+						kind: "spilled",
+						path: `cell-spill › «${header}» › ${element.tagName.toLowerCase()}`,
+						text,
+						detail: `extends ${Math.round(spill)}px beyond its ${cell.tagName.toLowerCase()}`,
+						anchor: anchorOf(element),
+					});
+				}
+			}
+			return results;
+		},
+		{ rootSelector: root, slack: tolerance },
 	);
 }

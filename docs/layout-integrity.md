@@ -9,9 +9,11 @@
 | 类别 | 判定 | 不算问题 |
 | --- | --- | --- |
 | `truncated` 截断 | 元素有自己的文字，内容比盒子宽或高，且对应轴的溢出被隐藏或省略 | 只是换行；对应轴可滚动（`auto`、`scroll`） |
-| `clipped` 裁切 | 文字范围或 svg、img、canvas、video 超出某个 `overflow: hidden` / `clip` 祖先的内边距盒 | 可滚动容器内在该轴可到达的溢出内容 |
+| `clipped` 裁切 | 文字范围或 svg、img、canvas、video 超出某个 `overflow: hidden` / `clip` 祖先的内边距盒 | 可滚动容器内在该轴可到达的溢出内容；元素在某个轴上自己隐藏溢出时，超出它自己内边距盒的那部分文字（那是 `truncated`，不是祖先裁掉的） |
 
 隐藏元素和读屏专用内容（1px 的裁切盒）连同子树跳过。零尺寸包装仍检查后代。`display: contents` 没有自己的布局盒，探针检查其文字范围与后代，也跳过它的 `overflow` 样式。默认容差 1px，用来吸收亚像素取整。
+
+同一文件的 `findTableCellSpill(page, { root, tolerance })` 补上表格的第三类：`spilled`，单元格里的文字超出所在 `td` / `th` 超过容差，且从文字到单元格之间没有隐藏溢出或不可见的祖先（那种情况归上面两类）。`table-fixed` 表格里不换行的值放不下时会盖到相邻一栏，而不是被隐藏，`findLayoutIntegrityIssues` 看不到这种情况。路径是 `cell-spill › «列标题» › 标签名`。
 
 每条结果给出 `区块 › «字段标签» › 标签名`：区块取最近的 `data-testid` 或 `data-slot`，字段标签取同一区块内前一个可见兄弟元素的短文字，方便直接定位到卡片里的哪一栏。另有 `anchor`：元素从 `root` 起的子元素序号路径（如 `0.3.1`）。同样的数据在每种界面语言下渲染出同样的元素树，所以它能跨语言对准同一个元素；`区块 › «字段标签»` 引用的是译文，做不到这一点。
 
@@ -21,7 +23,7 @@
 2. 覆盖规范要求的宽度（手机至少 320、375、393）、语言（至少 en 与 zh）和主题；数据要包含真实会出现的长值：强平方向文字、订单状态、大额金额、HIP-3 市场、现货交易对。
 3. 断言结果为空。确实要接受的截断（例如设计上就省略的长地址并有完整的可访问名称）用 `exceptions` 按选择器登记，每条写理由。
 
-`layout-integrity.pw.ts` 用 `page.setContent` 验证省略号、行数截断、徽标和图标裁切、单轴滚动、无盒及零尺寸包装、读屏专用、换行、隐藏、例外和容差。改探针时先跑它。
+`layout-integrity.pw.ts` 用 `page.setContent` 验证省略号、行数截断、徽标和图标裁切、单轴滚动、无盒及零尺寸包装、读屏专用、换行、隐藏、例外和容差，以及元素自身隐藏的文字不再对祖先报裁切、`anchor` 的取值和 `findTableCellSpill`。改探针时先跑它。
 
 ## 待处理清单
 
@@ -31,14 +33,14 @@
 
 | 表面 | 测试 | 结果 |
 | --- | --- | --- |
-| 探针自测 | `tests/browser/layout-integrity.pw.ts`（共用配置） | 两项通过 |
+| 探针自测 | `tests/browser/layout-integrity.pw.ts`（共用配置） | 四项通过 |
 | 金库列表与详情，320 / 375 / 1440px，en 与 zh | `tests/browser/vaults-list.pw.ts`（共用配置） | 12 项无发现 |
 | 交易页手机历史卡片（成交、委托、资金费），320 / 375 / 393px，en 与 zh，展开全部 | `tests/browser/mobile-history-cards.pw.ts`（独立配置，`pnpm --dir apps/terminal test:browser:mobile-history-cards`，端口 4191，缓存 `node_modules/.vite-mobile-history-cards`） | 有待处理清单，见下 |
-| 有数据的账户表格：桌面账户面板（持仓、当前委托、TWAP 当前 / 历史 / 成交、成交历史、资金费、委托历史）放在真实桌面网格里，1440 / 1100px；手机账户视图同样七个页签、卡片全部展开，390px；14 种界面语言 | `tests/browser/account-tables.pw.ts`（独立配置，`pnpm --dir apps/terminal test:browser:account-tables`，端口 4192，缓存 `node_modules/.vite-account-tables`，约 5 分钟） | 英文清单 `EN_PENDING` 与各语言独有清单 `LOCALE_ONLY_PENDING`，见下 |
+| 有数据的账户表格：桌面账户面板（持仓、当前委托、TWAP 当前 / 历史 / 成交、成交历史、资金费、委托历史）放在真实桌面网格里，1440 / 1100px；手机账户视图同样六个页签（八个视图，不含余额页签）、卡片全部展开，390px；14 种界面语言 | `tests/browser/account-tables.pw.ts`（独立配置，`pnpm --dir apps/terminal test:browser:account-tables`，端口 4192，缓存 `node_modules/.vite-account-tables`，约 3.5 分钟） | 英文清单 `EN_PENDING` 与各语言独有清单 `LOCALE_ONLY_PENDING`，见下 |
 
-2026-11-21 在手机历史卡片上发现、尚未修复的问题：强平成交的方向文字（如「Market Order Liquidation: Open Long」）在三个宽度都被截断；320px 下订单状态（「Margin Canceled」「保证金不足取消」）被截断、触发价旁的价格被裁掉约 3px；大额的资金费金额、已实现盈亏、手续费与数量在较窄宽度被截断。夹具的金额刻意取大，方向文字与订单状态是普通值。2026-11-24 检查无盒包装中的内容后，清单还记录了市场、时间、类型及数量或仓位的更多命中，具体读数见 `PENDING`。
+2026-11-21 在手机历史卡片上发现、尚未修复的问题：强平成交的方向文字（如「Market Order Liquidation: Open Long」）在三个宽度都被截断；320px 下订单状态（「Margin Canceled」「保证金不足取消」）被截断、触发价旁的价格被裁掉约 3px；大额的资金费金额、已实现盈亏、手续费与数量在较窄宽度被截断。夹具的金额刻意取大，方向文字与订单状态是普通值。2026-11-24 检查无盒包装中的内容后，清单还记录了市场、时间、类型及数量或仓位的更多命中，具体读数见 `PENDING`。2026-11-27 起探针不再用元素自己隐藏掉的文字去对祖先报裁切，清单里数量与仓位的 `clipped` 随之去掉：它们就是同一批已截断的值，不是被卡片裁掉的文字；触发价旁的价格裁切仍在。
 
-账户表格夹具（2026-11-27）先读英文，再逐个读其余 13 种语言，用 `anchor` 与英文逐元素对照：英文在同一元素上也有的结果算既有限制，登记在 `EN_PENDING`；只有该语言有的算新问题，按语言登记在 `LOCALE_ONLY_PENDING`。桌面表格是 `table-fixed`，数值不换行，超宽的内容会盖到相邻一栏而不是被隐藏，探针看不到，所以这个测试另加了一项 `spilled`：单元格内的文字超出所在 `td` / `th` 超过 1px，且路上没有隐藏溢出的祖先（那种情况归探针报告）。读数与按语言的清单见 [任务记录](work-memory/sessions/2026-11-27-account-tables-layout-integrity.md)。
+账户表格夹具（2026-11-27）先读英文，再逐个读其余 13 种语言，用 `anchor` 与英文逐元素对照：英文在同一元素上也有的结果算既有限制，登记在 `EN_PENDING`；只有该语言有的算新问题，按语言登记在 `LOCALE_ONLY_PENDING`。桌面表格另用 `findTableCellSpill` 检查溢出到相邻一栏的文字。为了不让检查空跑，它还断言：浏览器时钟固定在夹具数据的时刻（`page.clock.setFixedTime`，时区 UTC）；每种语言的页签文字与英文不同，证明译文目录生效；每个视图的表格行数或手机卡片数与数据一致，带详情的卡片全部展开；被测区域里用到的每个字符所在的 Inter / IBM Plex 字体子集都已加载、没有加载失败的字体。读数与按语言的清单见 [任务记录](work-memory/sessions/2026-11-27-account-tables-layout-integrity.md)。
 
 CI 的浏览器分片覆盖金库列表与详情。探针自测、手机历史夹具和账户表格夹具目前使用本地命令运行。
 

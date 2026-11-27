@@ -47,13 +47,14 @@ async function waitForFonts(page: Page) {
  * locale and width. The count in `kind region «field» ×count` is the number of findings in that
  * group. One card can contribute more than one finding. The test catches changes in group counts.
  * The same counts can occur on different cards. The fixture's amounts are deliberately large, while
- * the liquidation direction and order status are ordinary values.
+ * the liquidation direction and order status are ordinary values. On 2026-11-27 the probe stopped
+ * measuring text that an element hides itself beyond that element's own box, which removed the
+ * `clipped` entries for the size and position values: they were the same truncated values, not text
+ * cut off by the card.
  */
 const PENDING: Record<string, Record<number, readonly string[]>> = {
 	en: {
 		320: [
-			"clipped funding-history «Position» ×2",
-			"clipped mobile-trade-history-list «Size» ×3",
 			"clipped order-history «Trigger$97,000» ×1",
 			"truncated funding-history «Market» ×1",
 			"truncated funding-history «Payment» ×3",
@@ -70,8 +71,6 @@ const PENDING: Record<string, Record<number, readonly string[]>> = {
 			"truncated order-history «Type» ×1",
 		],
 		375: [
-			"clipped funding-history «Position» ×1",
-			"clipped mobile-trade-history-list «Size» ×1",
 			"truncated funding-history «Market» ×1",
 			"truncated funding-history «Payment» ×3",
 			"truncated funding-history «Position» ×3",
@@ -85,8 +84,6 @@ const PENDING: Record<string, Record<number, readonly string[]>> = {
 			"truncated order-history «Type» ×1",
 		],
 		393: [
-			"clipped funding-history «Position» ×1",
-			"clipped mobile-trade-history-list «Size» ×1",
 			"truncated funding-history «Market» ×1",
 			"truncated funding-history «Payment» ×3",
 			"truncated funding-history «Position» ×3",
@@ -100,8 +97,6 @@ const PENDING: Record<string, Record<number, readonly string[]>> = {
 	},
 	zh: {
 		320: [
-			"clipped funding-history «仓位» ×2",
-			"clipped mobile-trade-history-list «数量» ×3",
 			"truncated funding-history «仓位» ×3",
 			"truncated funding-history «市场» ×1",
 			"truncated funding-history «支付» ×3",
@@ -116,8 +111,6 @@ const PENDING: Record<string, Record<number, readonly string[]>> = {
 			"truncated order-history «状态» ×1",
 		],
 		375: [
-			"clipped funding-history «仓位» ×1",
-			"clipped mobile-trade-history-list «数量» ×1",
 			"truncated funding-history «仓位» ×3",
 			"truncated funding-history «市场» ×1",
 			"truncated funding-history «支付» ×3",
@@ -129,8 +122,6 @@ const PENDING: Record<string, Record<number, readonly string[]>> = {
 			"truncated order-history «时间» ×4",
 		],
 		393: [
-			"clipped funding-history «仓位» ×1",
-			"clipped mobile-trade-history-list «数量» ×1",
 			"truncated funding-history «仓位» ×3",
 			"truncated funding-history «市场» ×1",
 			"truncated funding-history «支付» ×3",

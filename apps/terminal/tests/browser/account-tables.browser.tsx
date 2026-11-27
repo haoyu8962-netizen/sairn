@@ -1,6 +1,7 @@
 import type { FrontendOpenOrdersResponse, MetaResponse, PerpDexsResponse, SpotMetaResponse } from "@nktkas/hyperliquid";
 import { buildHistoricalOrderEntries } from "@/lib/trade/order-history";
 import { createMarkets } from "../../src/lib/hyperliquid/markets/use-markets";
+import { ACCOUNT_TABLES_NOW } from "./account-tables-clock";
 
 /**
  * Fixed account data for the account-table layout fixture (docs/layout-integrity.md). Every value is
@@ -9,7 +10,7 @@ import { createMarkets } from "../../src/lib/hyperliquid/markets/use-markets";
  * and TWAP orders, every TWAP status and the longer order statuses and directions.
  */
 export const OWNER = "0x1111111111111111111111111111111111111111";
-const NOW = Date.UTC(2026, 10, 20, 9, 30, 0);
+const NOW = ACCOUNT_TABLES_NOW;
 const HOUR = 3_600_000;
 
 function perpAsset(name: string, szDecimals: number, maxLeverage: number, onlyIsolated = false) {
@@ -78,20 +79,8 @@ const catalog = createMarkets({
 	error: null,
 });
 
-type CatalogMarket = NonNullable<ReturnType<typeof catalog.getMarket>>;
-
-function withoutIcons<T extends CatalogMarket | undefined>(market: T): T {
-	if (!market) return market;
-	const local = { ...market, iconUrl: undefined } as CatalogMarket;
-	if ("tokensInfo" in local) local.tokensInfo = local.tokensInfo.map((info) => ({ ...info, iconUrl: undefined }));
-	if ("quoteToken" in local && local.quoteToken) local.quoteToken = { ...local.quoteToken, iconUrl: undefined };
-	return local as T;
-}
-
 const marketsValue = {
 	...catalog,
-	getMarket: (name: string) => withoutIcons(catalog.getMarket(name)),
-	getMarketByName: (name: string) => withoutIcons(catalog.getMarketByName(name)),
 	catalogState: { status: "ready" },
 	catalogQueries: {},
 	retryMarketCatalog: async () => undefined,
@@ -302,33 +291,31 @@ function twapState(
 		side: options.side,
 		stopPx: options.stopPx ?? null,
 		sz: options.sz,
-		timestamp: Date.now() - options.ageHours * HOUR,
+		timestamp: NOW - options.ageHours * HOUR,
 		trigger: options.trigger ?? null,
 		user: OWNER,
 	};
 }
 
-function twapStates() {
-	return [
-		[
-			101,
-			twapState("BTC", { side: "B", sz: "12.34567", executedSz: "4.12345", minutes: 1440, randomize: true, ageHours: 3 }),
-		],
-		[
-			102,
-			twapState("xyz:SMALL2000", {
-				side: "B",
-				sz: "1234.567",
-				executedSz: "617.283",
-				minutes: 30,
-				reduceOnly: true,
-				ageHours: 0.25,
-				stopPx: "2600.25",
-				trigger: { px: "2300.5", above: false },
-			}),
-		],
-	] as const;
-}
+const TWAP_STATES = [
+	[
+		101,
+		twapState("BTC", { side: "B", sz: "12.34567", executedSz: "4.12345", minutes: 1440, randomize: true, ageHours: 3 }),
+	],
+	[
+		102,
+		twapState("xyz:SMALL2000", {
+			side: "B",
+			sz: "1234.567",
+			executedSz: "617.283",
+			minutes: 30,
+			reduceOnly: true,
+			ageHours: 0.25,
+			stopPx: "2600.25",
+			trigger: { px: "2300.5", above: false },
+		}),
+	],
+] as const;
 
 const TWAP_HISTORY = (
 	[
@@ -537,8 +524,8 @@ function marketInfo(coin: string) {
 		midPx: markPx,
 		oraclePx: markPx,
 		markPriceStatus: "success" as const,
-		markPriceReceivedAt: Date.now(),
-		midPriceReceivedAt: Date.now(),
+		markPriceReceivedAt: NOW,
+		midPriceReceivedAt: NOW,
 		marginMetadataReady: true,
 		assetContextLive: true,
 	};
@@ -562,7 +549,7 @@ export function useUserPositions() {
 		isLoading: false,
 		hasError: false,
 		isStale: false,
-		receivedAt: Date.now(),
+		receivedAt: NOW,
 	};
 }
 
@@ -571,7 +558,7 @@ export function useSubscription(method: string) {
 		return { data: { user: OWNER, dex: "ALL_DEXS", orders: OPEN_ORDERS }, status: "active", isStale: false, error: null };
 	}
 	if (method === "twapStates") {
-		return { data: { user: OWNER, dex: "ALL_DEXS", states: twapStates() }, status: "active", isStale: false, error: null };
+		return { data: { user: OWNER, dex: "ALL_DEXS", states: TWAP_STATES }, status: "active", isStale: false, error: null };
 	}
 	return { data: undefined, status: "active", isStale: false, error: null };
 }

@@ -1337,9 +1337,12 @@ the shared config excludes its page and test file. It mounts the real desktop ac
 history, fills), trade, funding and order history read fixed local data: the market catalog comes from
 the real `createMarkets` over synthetic metadata, and the data hooks, wallet session and geo verdict
 are stubs. Coin icon URLs are answered inside the browser with a local SVG and any other non-loopback
-request fails the test. Run it with `pnpm --dir apps/terminal test:browser:account-tables`; it compares
-every interface language with English by element (`docs/layout-integrity.md`) and takes about five
-minutes. It is not yet part of the CI browser shards.
+request fails the test. The browser clock is pinned to the data's instant (`account-tables-clock.ts`,
+time zone UTC), and the test asserts that each language renders its own catalog, that every table row or
+phone card the data implies is present and expanded, and that every webfont subset the measured text uses
+has loaded. Run it with `pnpm --dir apps/terminal test:browser:account-tables`; it compares every interface
+language with English by element (`docs/layout-integrity.md`) and takes about three and a half minutes. It
+is not yet part of the CI browser shards.
 
 The brand surface fixture uses the sibling cache `node_modules/.vite-brand-surfaces` and also
 serves its page from memory (`/brand-surfaces.html`). Run it with

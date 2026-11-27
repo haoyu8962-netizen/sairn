@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, type Page, type TestInfo, test } from "@playwright/test";
-import { findLayoutIntegrityIssues, type LayoutIntegrityFinding } from "./layout-integrity";
+import { ACCOUNT_TABLES_NOW } from "./account-tables-clock";
+import { findLayoutIntegrityIssues, findTableCellSpill, type LayoutIntegrityFinding } from "./layout-integrity";
 
 /**
  * Account tables with data (positions, open orders, TWAP, trade history, funding, order history) in every
@@ -25,18 +26,24 @@ interface View {
 	name: string;
 	tab: string;
 	subview?: "current" | "history" | "fills";
+	/** Rows in the desktop table and cards on the phone that the fixture data must produce. */
+	items: number;
+	/** Whether every phone card of this view has a details disclosure to expand. */
+	disclosures: boolean;
 }
 
 const VIEWS: readonly View[] = [
-	{ name: "positions", tab: "positions" },
-	{ name: "orders", tab: "orders" },
-	{ name: "twap-current", tab: "twap", subview: "current" },
-	{ name: "twap-history", tab: "twap", subview: "history" },
-	{ name: "twap-fills", tab: "twap", subview: "fills" },
-	{ name: "history", tab: "history" },
-	{ name: "funding", tab: "funding" },
-	{ name: "orders-history", tab: "orders-history" },
+	{ name: "positions", tab: "positions", items: 5, disclosures: true },
+	{ name: "orders", tab: "orders", items: 8, disclosures: true },
+	{ name: "twap-current", tab: "twap", subview: "current", items: 2, disclosures: false },
+	{ name: "twap-history", tab: "twap", subview: "history", items: 6, disclosures: false },
+	{ name: "twap-fills", tab: "twap", subview: "fills", items: 3, disclosures: false },
+	{ name: "history", tab: "history", items: 8, disclosures: true },
+	{ name: "funding", tab: "funding", items: 5, disclosures: true },
+	{ name: "orders-history", tab: "orders-history", items: 17, disclosures: true },
 ];
+
+const PHONE_CARD = ":is(article, [data-account-card])";
 
 const LOCAL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#888"/></svg>`;
 
@@ -49,7 +56,6 @@ const LOCAL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="1
 const EN_PENDING: Record<Width, readonly string[]> = {
 	1440: [
 		"history spilled cell-spill «Direction» ×1",
-		"orders clipped table-scroll-container «Price» ×1",
 		"orders spilled cell-spill «Price» ×2",
 		"orders spilled cell-spill «TP/SL» ×1",
 		"orders truncated table-scroll-container «Price» ×1",
@@ -63,7 +69,6 @@ const EN_PENDING: Record<Width, readonly string[]> = {
 	],
 	1100: [
 		"history spilled cell-spill «Direction» ×1",
-		"orders clipped table-scroll-container «Price» ×1",
 		"orders spilled cell-spill «Price» ×2",
 		"orders spilled cell-spill «TP/SL» ×1",
 		"orders truncated table-scroll-container «Price» ×1",
@@ -76,11 +81,9 @@ const EN_PENDING: Record<Width, readonly string[]> = {
 		"positions spilled cell-spill «Size» ×3",
 	],
 	390: [
-		"funding clipped «Position» ×1",
 		"funding truncated «Market» ×1",
 		"funding truncated «Payment» ×5",
 		"funding truncated «Position» ×4",
-		"history clipped mobile-trade-history-list «Size» ×1",
 		"history truncated mobile-trade-history-list «Direction» ×1",
 		"history truncated mobile-trade-history-list «Market» ×1",
 		"history truncated mobile-trade-history-list «Realized PNL» ×1",
@@ -91,6 +94,7 @@ const EN_PENDING: Record<Width, readonly string[]> = {
 		"orders-history truncated «Market» ×2",
 		"orders-history truncated «Time» ×6",
 		"orders-history truncated «Type» ×3",
+		"positions clipped «87,000» ×1",
 		"twap-fills truncated mobile-twap-fill-history-list «Closed PNL» ×1",
 		"twap-fills truncated mobile-twap-fill-history-list «Fee» ×3",
 		"twap-fills truncated mobile-twap-fill-history-list «Size» ×2",
@@ -125,7 +129,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 		390: [
 			"history truncated mobile-trade-history-list «方向» ×1",
-			"orders-history clipped «タイプ» ×1",
 			"orders-history truncated «タイプ» ×1",
 			"orders-history truncated «状態» ×1",
 		],
@@ -145,13 +148,11 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 			"twap-current spilled cell-spill «Thao tác» ×2",
 		],
 		390: [
-			"orders-history clipped «Loại» ×1",
 			"orders-history truncated «Loại» ×2",
 		],
 	},
 	id: {
 		390: [
-			"orders-history clipped «Jenis» ×1",
 			"orders-history truncated «Jenis» ×1",
 		],
 	},
@@ -188,7 +189,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 			"orders truncated «Precio$95,000» ×1",
 			"orders truncated «PrecioMercado» ×2",
 			"orders truncated «Tipo» ×1",
-			"orders-history clipped «Tipo» ×2",
 			"orders-history truncated «Estado» ×1",
 			"orders-history truncated «Tipo» ×2",
 			"twap-history truncated «Precio de disparo$2,300.5» ×1",
@@ -210,7 +210,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 		390: [
 			"orders truncated «Tipo» ×1",
-			"orders-history clipped «Tipo» ×1",
 			"orders-history truncated «Tipo» ×1",
 		],
 	},
@@ -241,7 +240,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 			"orders truncated «Taille d'origine123.456» ×1",
 			"orders truncated «Taille d'origine2.50000» ×1",
 			"orders truncated «Taille d'origine617.283» ×1",
-			"orders-history clipped «Type» ×2",
 			"orders-history truncated «Statut» ×1",
 			"orders-history truncated «Type» ×2",
 			"twap-fills truncated mobile-twap-fill-history-list «Taille0.41234 BTC» ×1",
@@ -252,34 +250,28 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 	},
 	tr: {
-		390: [
-			"orders-history clipped «Tür» ×1",
+		1440: [
+			"positions spilled cell-spill «İşlemlerTüm pozisyonları kapat» ×5",
+		],
+		1100: [
+			"positions spilled cell-spill «İşlemlerTüm pozisyonları kapat» ×5",
 		],
 	},
 	ru: {
 		390: [
 			"orders truncated «Тип» ×2",
-			"orders-history clipped «Тип» ×4",
 			"orders-history truncated «Тип» ×2",
 		],
 	},
 	ar: {
 		390: [
-			"orders-history clipped «النوع» ×1",
 			"orders-history truncated «النوع» ×1",
 			"orders-history truncated «الوقت» ×10",
 		],
 	},
 };
 
-/**
- * `spilled`: text that runs past its table cell into the next column. The desktop tables are `table-fixed`
- * with `white-space: nowrap` values, so a value wider than its column overlaps its neighbour instead of being
- * hidden, which `findLayoutIntegrityIssues` does not report. Text under an ancestor that hides overflow is
- * left to the probe.
- */
-type FindingKind = LayoutIntegrityFinding["kind"] | "spilled";
-type ViewFinding = Omit<LayoutIntegrityFinding, "kind"> & { kind: FindingKind; view: string };
+type ViewFinding = Omit<LayoutIntegrityFinding, "kind"> & { kind: LayoutIntegrityFinding["kind"] | "spilled"; view: string };
 
 function isDesktop(width: number) {
 	return width > 1000;
@@ -300,12 +292,55 @@ async function guardNetwork(page: Page, outside: string[]) {
 	);
 }
 
-async function settle(page: Page) {
+/**
+ * Every webfont face (Inter, IBM Plex) whose unicode range covers a character drawn in that family under
+ * `root` must have loaded, none may have failed, and some text under `root` must use one of them. `document.fonts.status` alone reads `loaded` after a failed or
+ * never-requested face.
+ */
+async function webFontProblems(page: Page, root: string) {
+	return page.evaluate((rootSelector) => {
+		const rootElement = document.querySelector(rootSelector);
+		if (!rootElement) throw new Error(`Missing account table root ${rootSelector}`);
+		const unquote = (family: string) => family.trim().replace(/^["']|["']$/g, "");
+		const faces = [...document.fonts].map((face) => ({
+			face,
+			family: unquote(face.family),
+			ranges: face.unicodeRange.split(",").map((part) => {
+				const [start, end = start] = part.trim().replace(/^U\+/i, "").split("-");
+				return [Number.parseInt(start.replace(/\?/g, "0"), 16), Number.parseInt(end.replace(/\?/g, "F"), 16)];
+			}),
+		}));
+		const problems = new Set<string>();
+		for (const { face, family } of faces) if (face.status === "error") problems.add(`${family} ${face.unicodeRange} failed`);
+		const used = new Set<string>();
+		const walker = document.createTreeWalker(rootElement, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			const element = node.parentElement;
+			if (!element || element.getClientRects().length === 0) continue;
+			const family = unquote(getComputedStyle(element).fontFamily.split(",")[0] ?? "");
+			const declared = faces.filter((entry) => entry.family === family);
+			if (declared.length === 0) continue;
+			used.add(family);
+			for (const character of node.textContent ?? "") {
+				const code = character.codePointAt(0) ?? 0;
+				if (code <= 0x20) continue;
+				const covering = declared.filter(({ ranges }) => ranges.some(([start, end]) => code >= start && code <= end));
+				if (covering.length > 0 && !covering.some(({ face }) => face.status === "loaded")) {
+					problems.add(`${family} has not loaded U+${code.toString(16).toUpperCase()} (${character})`);
+				}
+			}
+		}
+		if (used.size === 0) problems.add("no text under the root is set in a declared webfont");
+		return [...problems];
+	}, root);
+}
+
+async function settle(page: Page, root: string) {
 	await page.evaluate(async () => {
 		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 		await document.fonts.ready;
 	});
-	await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe("loaded");
+	await expect.poll(() => webFontProblems(page, root)).toEqual([]);
 }
 
 async function openView(page: Page, width: number, view: View) {
@@ -324,76 +359,34 @@ async function openView(page: Page, width: number, view: View) {
 	}
 	await expect(panel.getByText("SMALL2000").first()).toBeVisible();
 	await expect(page.locator(`${root} [aria-busy="true"]`)).toHaveCount(0);
-	if (!isDesktop(width)) {
-		const collapsed = panel.locator('article button[aria-expanded="false"][aria-controls]');
+	if (isDesktop(width)) {
+		await expect(panel.locator("tbody tr")).toHaveCount(view.items);
+	} else {
+		await expect(panel.locator(PHONE_CARD)).toHaveCount(view.items);
+		const disclosures = panel.locator(`${PHONE_CARD} button[aria-expanded][aria-controls]`);
+		await expect(disclosures).toHaveCount(view.disclosures ? view.items : 0);
+		const collapsed = panel.locator(`${PHONE_CARD} button[aria-expanded="false"][aria-controls]`);
 		while ((await collapsed.count()) > 0) await collapsed.first().click();
+		await expect(panel.locator(`${PHONE_CARD} button[aria-expanded="true"][aria-controls]`)).toHaveCount(
+			view.disclosures ? view.items : 0,
+		);
 	}
-	await settle(page);
+	await settle(page, root);
 	return root;
 }
 
-async function findCellSpill(page: Page, root: string): Promise<Omit<ViewFinding, "view">[]> {
-	return page.evaluate((rootSelector) => {
-		const rootElement = document.querySelector(rootSelector);
-		if (!rootElement) throw new Error(`Missing account table root ${rootSelector}`);
-		const anchorOf = (element: Element) => {
-			const steps: number[] = [];
-			for (let current: Element | null = element; current && current !== rootElement; current = current.parentElement) {
-				const parent: Element | null = current.parentElement;
-				if (!parent) break;
-				steps.unshift(Array.prototype.indexOf.call(parent.children, current));
-			}
-			return steps.join(".");
-		};
-		const hidesOverflow = (element: Element, cell: Element) => {
-			for (let current: Element | null = element; current; current = current.parentElement) {
-				const style = getComputedStyle(current);
-				if (style.overflowX !== "visible" || style.visibility !== "visible" || style.display === "none") return true;
-				if (current === cell) return false;
-			}
-			return false;
-		};
-		const results: { kind: "spilled"; path: string; text: string; detail: string; anchor: string }[] = [];
-		for (const cell of rootElement.querySelectorAll("td, th")) {
-			if (!(cell instanceof HTMLTableCellElement) || cell.getClientRects().length === 0) continue;
-			const box = cell.getBoundingClientRect();
-			const header = cell.closest("table")?.tHead?.rows[0]?.cells[cell.cellIndex]?.textContent?.trim() ?? "";
-			const reported = new Set<Element>();
-			const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
-			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-				const element = node.parentElement;
-				const text = node.textContent?.trim();
-				if (!element || !text || reported.has(element) || hidesOverflow(element, cell)) continue;
-				const range = document.createRange();
-				range.selectNodeContents(node);
-				const rect = range.getBoundingClientRect();
-				if (rect.width === 0) continue;
-				const spill = Math.max(box.left - rect.left, rect.right - box.right);
-				if (spill <= 1) continue;
-				reported.add(element);
-				results.push({
-					kind: "spilled",
-					path: `cell-spill › «${header}» › ${element.tagName.toLowerCase()}`,
-					text,
-					detail: `extends ${Math.round(spill)}px beyond its ${cell.tagName.toLowerCase()}`,
-					anchor: anchorOf(element),
-				});
-			}
-		}
-		return results;
-	}, root);
-}
-
-async function readLocale(page: Page, width: number, locale: Locale): Promise<ViewFinding[]> {
+async function readLocale(page: Page, width: number, locale: Locale) {
 	await page.goto(`/account-tables.html?locale=${locale}`);
 	await expect(page.locator("html")).toHaveAttribute("lang", locale);
+	const root = isDesktop(width) ? '[data-panel="accountTable"]' : '[data-panel="mobileAccount"]';
+	const tabs = await page.locator(`${root} [role="tablist"]`).first().innerText();
 	const findings: ViewFinding[] = [];
 	for (const view of VIEWS) {
-		const root = await openView(page, width, view);
+		await openView(page, width, view);
 		for (const finding of await findLayoutIntegrityIssues(page, { root })) findings.push({ ...finding, view: view.name });
-		for (const finding of await findCellSpill(page, root)) findings.push({ ...finding, view: view.name });
+		for (const finding of await findTableCellSpill(page, { root })) findings.push({ ...finding, view: view.name });
 	}
-	return findings;
+	return { findings, tabs };
 }
 
 function key(finding: ViewFinding) {
@@ -420,13 +413,15 @@ for (const viewport of VIEWPORTS) {
 	test(`compares account tables at ${viewport.width}px in every language with English`, async ({ page }, testInfo) => {
 		const outside: string[] = [];
 		await guardNetwork(page, outside);
+		await page.clock.setFixedTime(ACCOUNT_TABLES_NOW);
 		await page.setViewportSize(viewport);
-		const english = await readLocale(page, viewport.width, "en");
+		const { findings: english, tabs: englishTabs } = await readLocale(page, viewport.width, "en");
 		const englishKeys = new Set(english.map(key));
 		const report: Record<string, unknown> = { en: english };
 		expect.soft(summarize(english), "en").toEqual([...EN_PENDING[viewport.width]].sort());
 		for (const locale of LOCALES) {
-			const findings = await readLocale(page, viewport.width, locale);
+			const { findings, tabs } = await readLocale(page, viewport.width, locale);
+			expect.soft(tabs, `${locale} renders its own catalog`).not.toBe(englishTabs);
 			const localeOnly = findings.filter((finding) => !englishKeys.has(key(finding)));
 			const localeKeys = new Set(findings.map(key));
 			report[locale] = {
