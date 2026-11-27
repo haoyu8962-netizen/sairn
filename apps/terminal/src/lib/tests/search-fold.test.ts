@@ -14,7 +14,10 @@ const ITEMS: Item[] = [
 	{ symbol: "UBTC", name: "比特币" },
 	{ symbol: "KAS", name: "カス" },
 	{ symbol: "GAS", name: "ガス" },
+	{ symbol: "DONG", name: "Quỹ Đồng" },
 ];
+
+const COMBINING_ACUTE = String.fromCharCode(0x301);
 
 const CONFIG: SearchConfig<Item> = {
 	fields: {
@@ -40,19 +43,35 @@ describe("search text folding", () => {
 		expect(foldSearchText("ISTANBUL")).toBe("istanbul");
 	});
 
-	it("lowercases ASCII and strips Latin diacritics only", () => {
+	it("lowercases ASCII exactly as toLowerCase does", () => {
+		const ascii = String.fromCharCode(...Array.from({ length: 128 }, (_, code) => code));
+		expect(foldSearchText(ascii)).toBe(ascii.toLowerCase());
 		expect(foldSearchText("BTC-PERP")).toBe("btc-perp");
-		expect(foldSearchText("Ağ Kasası")).toBe("ag kasasi");
-		expect(foldSearchText("Quỹ Ёлка")).toBe("quy елка");
 		expect(normalize("  Alpha  ")).toBe("alpha");
 	});
 
-	it("leaves Chinese, Korean, Japanese voicing marks and Devanagari vowel signs intact", () => {
+	it("strips the combining diacritical marks of Latin, Greek and Cyrillic letters and folds đ to d", () => {
+		expect(foldSearchText("Ağ Kasası")).toBe("ag kasasi");
+		expect(foldSearchText("Quỹ Ёлка")).toBe("quy елка");
+		expect(foldSearchText("Đồng ĐÔ")).toBe("dong do");
+		expect(foldSearchText("Май")).toBe("маи");
+		expect(foldSearchText("Άλφα")).toBe("αλφα");
+		expect(foldSearchText("Straße")).toBe("straße");
+	});
+
+	it("trims after folding, so a query of marks alone is empty", () => {
+		expect(foldSearchText(COMBINING_ACUTE)).toBe("");
+		expect(normalize(` ${COMBINING_ACUTE} İNİT `)).toBe("init");
+	});
+
+	it("leaves Chinese, Korean, Japanese voicing marks, Devanagari vowel signs and Arabic harakat intact", () => {
 		expect(foldSearchText("比特币")).toBe("比特币");
 		expect(foldSearchText("한국")).toBe("한국");
 		expect(foldSearchText("ガス")).toBe("ガス");
 		expect(foldSearchText("ガス")).not.toBe(foldSearchText("カス"));
 		expect(foldSearchText("बाजार")).toBe("बाजार");
+		const arabic = "السُّوق".normalize("NFC");
+		expect(foldSearchText(arabic)).toBe(arabic);
 	});
 
 	it("matches a Turkish query against an ASCII symbol and an ASCII query against a Turkish name", () => {
@@ -61,6 +80,7 @@ describe("search text folding", () => {
 		expect(symbols("init")[0]).toBe("INIT");
 		expect(symbols("istanbul")).toEqual(["IST"]);
 		expect(symbols("İSTANBUL")).toEqual(["IST"]);
+		expect(symbols("dong")).toEqual(["DONG"]);
 	});
 
 	it("keeps ASCII, Chinese and kana matches as before", () => {
@@ -71,5 +91,6 @@ describe("search text folding", () => {
 		expect(symbols("カ")).toEqual(["KAS"]);
 		expect(symbols("missing")).toEqual([]);
 		expect(symbols("   ")).toEqual([]);
+		expect(symbols(COMBINING_ACUTE)).toEqual([]);
 	});
 });

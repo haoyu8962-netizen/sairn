@@ -184,6 +184,34 @@ describe("Vault list domain", () => {
 		});
 	});
 
+	it("folds the query before trimming and never treats a query of marks alone as empty", () => {
+		const combiningAcute = String.fromCharCode(0x301);
+		const rows = [
+			createListItem({ vaultAddress: VAULT_A, name: "İstanbul Kasası", tvl: "1", classification: "user" }),
+			createListItem({ vaultAddress: VAULT_B, name: "Quỹ Đồng", tvl: "1", classification: "user" }),
+		];
+		const select = (query: string) => selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+		expect(select(combiningAcute)).toMatchObject({ rows: [], isSearchNoResults: true });
+		expect(select(` ${combiningAcute} `)).toMatchObject({ rows: [], isSearchNoResults: true });
+		const prefixed = select(`${combiningAcute} istanbul`);
+		expect(prefixed.status === "ready" ? prefixed.rows.map((row) => row.name) : []).toEqual(["İstanbul Kasası"]);
+		const vietnamese = select("dong");
+		expect(vietnamese.status === "ready" ? vietnamese.rows.map((row) => row.name) : []).toEqual(["Quỹ Đồng"]);
+	});
+
+	it("refolds a row's name when the row or its name changes", () => {
+		const row = createListItem({ vaultAddress: VAULT_A, name: "Alpha", tvl: "1", classification: "user" });
+		const names = (rows: readonly VaultListItem[], query: string) => {
+			const result = selectVaultRows({ rows, filter: "all", query, account: EMPTY_ACCOUNT });
+			return result.status === "ready" ? result.rows.map((item) => item.name) : [];
+		};
+		expect(names([row], "alpha")).toEqual(["Alpha"]);
+		expect(names([{ ...row, name: "İstanbul" }], "istanbul")).toEqual(["İstanbul"]);
+		row.name = "Beta";
+		expect(names([row], "alpha")).toEqual([]);
+		expect(names([row], "beta")).toEqual(["Beta"]);
+	});
+
 	it("keeps address search on the address's own lowercase comparison", () => {
 		const vault = "0x00000000000000000000000000000000000000ab" as const;
 		const rows = [createListItem({ vaultAddress: vault, name: "Hex", tvl: "1", classification: "user" })];

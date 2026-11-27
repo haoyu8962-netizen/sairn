@@ -288,6 +288,17 @@ export function deriveVaultActionsAvailability({
 	return { deposit, withdraw };
 }
 
+const foldedVaultNames = new WeakMap<VaultListItem, { name: string; folded: string }>();
+
+// The list filters every row on each keystroke, so a row keeps its folded name until the row or its name changes.
+function getFoldedVaultName(row: VaultListItem): string {
+	const cached = foldedVaultNames.get(row);
+	if (cached?.name === row.name) return cached.folded;
+	const folded = foldSearchText(row.name);
+	foldedVaultNames.set(row, { name: row.name, folded });
+	return folded;
+}
+
 export function selectVaultRows({ rows, filter, query, account }: VaultListSelectionInput): VaultListSelection {
 	const classificationAvailable = rows.every((row) => row.classification !== null);
 	if ((filter === "official" || filter === "user") && !classificationAvailable) {
@@ -300,7 +311,7 @@ export function selectVaultRows({ rows, filter, query, account }: VaultListSelec
 	}
 
 	const trimmedQuery = query.trim();
-	const nameQuery = foldSearchText(trimmedQuery);
+	const nameQuery = foldSearchText(trimmedQuery).trim();
 	const addressQuery = trimmedQuery.toLowerCase();
 	const filtered = rows.filter((row) => {
 		if (row.isClosed) return false;
@@ -318,7 +329,7 @@ export function selectVaultRows({ rows, filter, query, account }: VaultListSelec
 
 		return (
 			!trimmedQuery ||
-			foldSearchText(row.name).includes(nameQuery) ||
+			(nameQuery !== "" && getFoldedVaultName(row).includes(nameQuery)) ||
 			row.vaultAddress.toLowerCase().includes(addressQuery) ||
 			row.leader.toLowerCase().includes(addressQuery)
 		);

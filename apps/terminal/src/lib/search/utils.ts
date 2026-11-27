@@ -1,12 +1,29 @@
-const LATIN_COMBINING_MARKS = /[\u0300-\u036f]/g;
+const COMBINING_DIACRITICAL_MARKS = /[\u0300-\u036f]/g;
+const UNDECOMPOSED_LETTERS = /[ıđ]/g;
+
+function isAscii(value: string): boolean {
+	for (let index = 0; index < value.length; index++) {
+		if (value.charCodeAt(index) > 0x7f) return false;
+	}
+	return true;
+}
 
 // Case and accent folding for search matching only: a name or symbol and the typed query both pass through it, so
-// "İNİT" finds INIT and "istanbul" finds "İstanbul". `toLowerCase()` turns "İ" into "i" plus a combining dot, so the
-// combining diacritics block (U+0300–U+036F) is removed after decomposition and the dotless "ı" is folded to "i".
-// Marks outside that block (Japanese voicing marks, Devanagari vowel signs) carry meaning and are kept. Protocol
-// comparisons (asset symbols, addresses, cloids) never use this.
+// "İNİT" finds INIT, "istanbul" finds "İstanbul" and "dong" finds "Đồng". `toLowerCase()` turns "İ" into "i" plus a
+// combining dot, so the Combining Diacritical Marks block (U+0300–U+036F) is removed after decomposition. That block
+// carries the accents of Latin, Greek and Cyrillic letters, so Russian "ё" and "й" also fold to "е" and "и". The
+// dotless "ı" and the Vietnamese "đ" do not decompose and are folded to "i" and "d"; other such letters (ß, ø, æ, œ, ł)
+// stay as they are. Marks outside the block (Japanese voicing marks, Devanagari vowel signs, Arabic harakat) change
+// the word and are kept. ASCII text only needs lowercasing. Protocol comparisons (asset symbols, addresses, cloids)
+// never use this.
 export function foldSearchText(value: string): string {
-	return value.toLowerCase().normalize("NFD").replace(LATIN_COMBINING_MARKS, "").normalize("NFC").replace(/ı/g, "i");
+	const lower = value.toLowerCase();
+	if (isAscii(lower)) return lower;
+	return lower
+		.normalize("NFD")
+		.replace(COMBINING_DIACRITICAL_MARKS, "")
+		.normalize("NFC")
+		.replace(UNDECOMPOSED_LETTERS, (letter) => (letter === "ı" ? "i" : "d"));
 }
 
 export function normalize(str: string): string {

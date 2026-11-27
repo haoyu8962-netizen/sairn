@@ -458,6 +458,16 @@
 - 第 5 项（`fc251f889`）：`lib/search/utils.ts` 新增 `foldSearchText`（小写 → NFD → 去掉 U+0300–U+036F 的组合附加符号 → NFC → `ı` 折为 `i`），搜索库的 `normalize` 与金库名称筛选都用它；金库地址与领投人地址仍用原来的 `toLowerCase()`，市场查找、地址、cloid 等协议比较不经过它。没有去掉全部 `\p{M}`：日语浊点（U+3099）和天城文元音符号也是组合符号，去掉会改变词义（「ガ」会等于「カ」）。规则写进 `docs/i18n-presentation.md`（Turkish 一条之后），`search-fold.test.ts` 加入 AGENTS.md 的运行时翻译回归组。
 - 第 6 项（本节所在提交）：只改 `es`、`fr` 目录里这 6 条译文的数字（`10.000.000`、`1.000`、`10 000 000`、`1 000`、`100 000`、`10 000` 恢复为源文的 `,` 分组），货币符号位置与其他文字不动，所以法语读作「10,000 $」；`catalog-literal-number-contract` 的例外表清空（保留空表与过期检查），`docs/i18n-presentation.md` 的静态数字一条改为「没有例外」。
 
+### PR #24 审查修复（2026-11-27）
+
+运营方授权后分支已推送并对 `main` 开了 PR haoyu8962-netizen/sairn#24。Gemini 4 Neon 的只读对抗审查给 8/10（P2 两项、P3 两项；它的提示词后半段被截断，结论已按完整代码逐条核实）。运营方要求转给本会话修复。
+
+- P2 只含组合符号的查询（成立）：金库筛选先 `trim()` 再折叠，查询「U+0301」折成空串后 `.includes("")` 命中全部金库，而改动前是无结果；「U+0301 istanbul」折叠后留下前导空格，匹配不到「İstanbul」。改为折叠后再 `trim()`，名称查询为空串时不参与匹配；`isSearchNoResults` 仍按原查询判断，所以只含组合符号的查询显示「无结果」，与改动前相同。市场搜索的 `normalize` 本来就是先折叠后 `trim()`，空查询返回空结果，与改动前一致。
+- P2 金库筛选的热路径（成立）：金库列表每次按键对每行折叠一次。Node 实测 1 万行、每 10 行有 1 行非 ASCII，每次按键约 23–25 ms，原来的 `toLowerCase()` 约 1.4–2.6 ms（读数随预热顺序浮动）。修法有两处：一是 `foldSearchText` 对纯 ASCII 直接返回小写（与完整折叠逐字相同，测试对 0–127 全部字符核对）；二是金库筛选按行对象缓存折叠后的名称（`WeakMap`，名称变了就重算）。加缓存后，按键时的开销回到原来 `toLowerCase()` 的量级（约 1.5 ms）。市场搜索在建索引时折叠一次，按键只折叠查询，不在热路径上。高亮偏移的担心不成立：搜索结果的 `matches` 没有调用方用来切片或高亮，`highlightedIndex` 是键盘选中的行号。
+- P3 命名与范围（成立）：U+0300–U+036F 是 Combining Diacritical Marks 块，也承载希腊字母与西里尔字母的附加符号，俄语「ё」「й」会折成「е」「и」。常量改名为 `COMBINING_DIACRITICAL_MARKS`，测试标题与 `docs/i18n-presentation.md` 写明实际范围。决定保留西里尔的折叠：它只让搜索更宽松（「май」仍能搜到「май」），不会漏掉结果。越南语「đ」不分解：已与「ı」一起显式折叠（`đ` → `d`），「dong」能搜到「Đồng」。其他不分解的字母（`ß`、`ø`、`æ`、`œ`、`ł`）不折叠，文档写明。补了俄语「й」、希腊语、阿拉伯语符号保留、`ß` 不折叠的用例。
+- P3 记录与 PR 正文（成立）：上面的验证小节补记了 `pnpm memory:test`。PR 正文混用了两套编号：#22 正文里是待决第 1、4、5 项，本记录是第 1、5、6 项，因为本记录还把已决定的越南语字体列为第 2 项。新正文统一用 #22 的编号，并注明与本记录编号的对应关系。按编排会话的要求，新正文只备好，没有改到 PR 上。
+- 第 1 项的补充核实：其余仍用无上下文 `Market` 的地方（`mobile-position-card.tsx`、`positions-tab.tsx`、`mobile-order-modification-modal.tsx`、`position-market-filter.tsx`、各历史表与 TWAP 表的列头）都是「市场」名词的列名或行名，不是价格值。
+
 ## 验证与限制
 
 以下都在工作树 `ce3259b68` 加上对应语言的未提交改动上实际运行。
@@ -543,10 +553,22 @@
 
 - 变异：三处价格值改回无上下文的 ``t`Market` ``，三个文件的 9 条按语言测试全部失败；`foldSearchText` 改回只 `toLowerCase()`，4 条失败；只把金库名称改回 `toLowerCase()`，1 条失败；把地址查询也改成折叠，地址用例（查询「ÀB」不得命中）失败；`es` 的「1,000」改回「1.000」、`fr` 的「10,000 $」改回「10 000 $」，两个目录的数字契约各自失败。全部已还原。
 - `pnpm i18n:extract`：第 1 项后 14 个目录各只有 3 行 `#:` 引用移动；第 2、3 项后没有任何 `.po` 差异（第 3 项的 6 行 `msgstr` 是手改的）。`pnpm i18n:compile` 通过。
-- Biome 对改过的 ts/tsx 通过；`pnpm --filter @sairn/terminal typecheck` 通过（图表库用 `scripts/fetch-chart-library.mjs --from` 从本机另一工作树的已安装副本装入，Git 忽略）；`pnpm memory:check` 通过。
+- Biome 对改过的 ts/tsx 通过；`pnpm --filter @sairn/terminal typecheck` 通过（图表库用 `scripts/fetch-chart-library.mjs --from` 从本机另一工作树的已安装副本装入，Git 忽略）；`pnpm memory:check` 通过；`pnpm memory:test` 12 项通过（第 3 项提交前运行，原先漏记，2026-11-27 审查后补记）。
 - 相关测试：第 1 项后 26 个文件 935 项通过（三个组件的测试、确认弹窗与订单列表的契约、i18n 与数字/日期格式契约、`catalog-completeness-contract`、`catalog-literal-number-contract`）；第 2 项后搜索与金库相关 11 个文件 177 项通过。
 - 终端全量 Vitest（沙箱外，`pnpm --filter @sairn/terminal test --maxWorkers=4`，在 `fc251f889` 加上未提交的第 3 项改动上运行）：779 个文件中 778 通过、1 跳过，12,235 项中 12,234 通过、1 跳过，0 失败，约 350 秒。
 - 没有运行：生产构建与包体预算（第 2 项给搜索库与金库筛选加了一个小函数，第 1、3 项只改消息的引用与 6 条译文的几个字符，预计在余量内，未量）、浏览器套件、真机与真人查看。没有做 Codex 审查。
+
+### PR #24 审查修复的验证（2026-11-27）
+
+- 变异（都已还原）：
+  - 去掉空名称查询的守卫：失败 1 条。
+  - 去掉折叠后的 `trim()`：失败 1 条。
+  - 不折叠 `đ`：失败 2 条。
+  - 缓存不核对名称：失败 1 条。
+  - ASCII 路径返回未小写的原文：失败 7 条。
+- 相关测试：16 个文件 619 项通过，包括 `search-fold`、`vaults-domain`、金库列表与控制器、命令菜单、代币选择器，以及 i18n、目录完整性、静态数字、数字与日期格式的契约。
+- 其他检查：Biome 对改过的 4 个文件通过，`pnpm --filter @sairn/terminal typecheck` 通过，`pnpm memory:check` 通过，`pnpm memory:test` 12 项通过。
+- 没有运行：这一轮没跑终端全量 Vitest、浏览器套件、生产构建与包体测量。性能读数来自 Node 微基准，不是浏览器里的按键实测。
 
 ## 后续与替代关系
 
