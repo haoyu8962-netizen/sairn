@@ -1643,7 +1643,9 @@ function OrderRow({
 					) : (
 						<>
 							<span className="font-semibold leading-tight tabular-nums">
-								{isMarketTriggerOrder(order) ? t`Market` : formatPrice(order.limitPx, { szDecimals, marketType })}
+								{isMarketTriggerOrder(order)
+									? t({ message: "Market", context: "Order type" })
+									: formatPrice(order.limitPx, { szDecimals, marketType })}
 							</span>
 							{modifyCapabilities.limitPrice.supported ? (
 								<button

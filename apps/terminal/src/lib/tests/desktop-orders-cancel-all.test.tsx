@@ -22,6 +22,7 @@ import {
 	getPendingTradingActionSnapshot,
 	getPendingTradingActionToastId,
 } from "@/stores/use-pending-trading-action-store";
+import { type CatalogEntry, loadCatalogMessages, readCatalogTranslation } from "./harness/catalog-messages";
 import { createI18nRoot } from "./harness/react";
 
 const GEO_QUERY_KEY = ["geo", null];
@@ -530,6 +531,29 @@ describe("desktop cancel all orders confirmation", () => {
 		expect(timeIn("zh")).not.toBe(timeIn("en"));
 		expect(row?.querySelector("td")?.textContent).toContain(timeIn("zh"));
 	});
+
+	it.each(["ja", "ko", "zh-TW"])(
+		"prices a market trigger order with the %s market order type, not the market noun",
+		(locale) => {
+			const marketOrderType: CatalogEntry = ["Market", "Order type"];
+			const marketNoun: CatalogEntry = ["Market", ""];
+			const orderType = readCatalogTranslation(locale, marketOrderType);
+			const noun = readCatalogTranslation(locale, marketNoun);
+			expect(orderType).not.toBe(noun);
+			mocks.orders = [triggerOrder];
+			act(() => root.render(<ReviewedOrders />));
+			const header = () => container.querySelectorAll("thead th")[2]?.textContent?.trim();
+			const priceCell = container.querySelectorAll("tbody tr td")[7];
+			expect(header()).toBe("Market");
+			expect(priceCell?.textContent?.trim()).toBe("Market");
+
+			act(() => i18n.loadAndActivate({ locale, messages: loadCatalogMessages(locale, [marketOrderType, marketNoun]) }));
+
+			expect(container.querySelectorAll("tbody tr td")[7]).toBe(priceCell);
+			expect(priceCell?.textContent?.trim()).toBe(orderType);
+			expect(header()).toBe(noun);
+		},
+	);
 
 	it("shows edit controls only for fields supported by the order capability", () => {
 		mocks.orders = [{ ...order, cloid: "0x1234" } as OpenOrder];

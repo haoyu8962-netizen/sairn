@@ -154,6 +154,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- The price of a market trigger order (desktop and phone open orders) and of a position reversal now
+  reads as the market order type in every language, as in the order form: Japanese shows 成行 instead of
+  市場 (market), Korean 시장가 instead of 마켓, Traditional Chinese 市價 instead of 市場. English is
+  unchanged.
 - Deposit, Transfer, Send and Swap no longer reset what you typed when the wallet reconnects for a
   moment, on every page including those that check the terms of use (Trade, Portfolio, Vaults and the
   history pages): while the wallet session is being resolved (at most 10 seconds) the dialog stays

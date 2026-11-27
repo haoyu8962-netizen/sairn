@@ -79,7 +79,7 @@ export function PositionReverseConfirmationModal({
 						}
 					/>
 					<ReverseDetailRow label={t`Reverse quantity (2× position)`} value={reverseSizeLabel} numeric />
-					<ReverseDetailRow label={t`Price`} value={t`Market`} />
+					<ReverseDetailRow label={t`Price`} value={t({ message: "Market", context: "Order type" })} />
 					<ReverseDetailRow
 						label={t`Estimated Liquidation Price`}
 						value={
