@@ -20,6 +20,8 @@
     {"path": "docs/i18n-presentation.md"},
     {"path": "apps/terminal/src/lib/fonts/font-readiness.ts"},
     {"path": "docs/adr/0059-language-aware-startup-fonts.md"},
+    {"path": "apps/terminal/src/config/orderbook-labels.ts"},
+    {"path": "docs/orderbook-layout.md"},
     {"path": "docs/work-memory/sessions/2026-10-28-japanese-interface-language.md"}
   ],
   "supersedes": []
@@ -531,13 +533,24 @@
 - 没有运行：生产构建与包体预算（留到终验）、`pnpm typecheck` 的全仓版本（只跑了终端的 typecheck）、交易页以外页面的弹窗与有数据状态的截断检查、真机。
 - 扫描用的 `apps/terminal/.env.local` 是从本机 sairn 克隆复制的，扫描结束后已删除；`apps/terminal/public/charting_library/` 由 `scripts/fetch-chart-library.mjs` 安装，Git 忽略，不入库。
 
+### 订单簿数量列头（2026-11-27，待决定第 3 项）
+
+- 改法：`ORDERBOOK_LABELS.size` 改为 `msg({ message: "Size", context: "Order book column" })`，只有桌面订单簿列头（`orderbook-panel.tsx`）用它；`TRADE_PANEL_LABELS.size` 原来直接引用这条，改为自己的 `msg\`Size\``，下单表单与其他处的 `Size` 译文不变。`pnpm i18n:extract` 后每个目录只多这一条，另有一行来源注释从 `orderbook-labels.ts` 换成 `trade-panel-labels.ts`；新增的 7 个目录 Missing 0，原有目录的 Missing 数与改动前相同。
+- 译文：12 个目录沿用各自的 `Size`；越南语「Lượng」（锁定术语表的 `Số lượng` 去掉「Số」），没用编排建议的「KL」，因为它是「Khối lượng」的缩写，而术语表把「Khối lượng」留给 Volume；葡萄牙语「Tam.」，同目录已有「Tam. original」。
+- 实测（开发服务器 3015，填好译文后启动；Playwright 无头 Chromium；`/trade/BTC?lang=…`，逐组核对页面 `lang` 与列头文字；Inter Variable 12px；草稿脚本 `orderbook-size-probe.cjs`，不入库）：
+  - 1440×900：面板 267px，三列各 81px，单位 `(BTC)` 32px、间距 2px，文字预算 47px。改前复现了报告：越南语「Số lượng」50.23px、单位 29/32；葡萄牙语「Tamanho」52.25px、单位 27/32（正向对照）。改后越南语 35.84px、葡萄牙语 27.58px；英文「Size」24.06px，俄语「Размер」43.92px。
+  - 1100×900：面板 310px，列宽 57.19/114.41/114.41，改前改后都不裁切。
+  - 14 种语言在两种宽度下都不裁切数量与累计两列的单位；各语言列宽相同，列头几何不变（`orderbook-layout.md` 已补规则）。截图只给越南语和葡萄牙语看过。
+  - 另把面板强制设为 279px 与 240px（用户手动收窄列边界才会出现，239px 以下单位隐藏）：279px 全部不裁切；240px（每列 72px，文字预算 38px）时西语「Tamaño」（单位 25/32）、俄语（26/32）、印尼语「Ukuran」（29/32）的数量单位与土耳其语「Toplam」的累计单位（28/32）被裁切，英文与新的越南语、葡萄牙语不裁切。这是既有限制，默认布局不出现，本次未改；要修可以给这些语言的这条消息同样写短形式（累计列要另加上下文）。
+- 测试：`orderbook-catalogs.test.ts` 新增两组断言——两个标签不是同一条消息，14 个目录里共用 `Size` 与列头 `Size` 各一条且译文如上；恢复旧的引用关系与越南语旧译文时这两项失败（变异检查）。
+
 ## 后续与替代关系
 
 ### 待运营方决定（都需要改共享源码，本批次没有改）
 
 1. 三处价格值仍用无上下文的 `Market`（反向开仓确认的价格、桌面与手机市价触发单的价格单元格：`position-reverse-confirmation-modal.tsx`、`orders-tab.tsx`、`mobile-orders-tab.tsx`），表达的是「按市价」，却显示成「市场」：日语「市場」、韩语「마켓」、繁中「市場」；越南语「Thị trường」两义皆可，影响较小。修法是源码改用已有的 `Order type` 上下文，所有语言的显示都会变。
 2. 越南语字体：已决定（2026-11-27 运营方选方案 A），按 ADR 0059 实施，见「字体方案」。
-3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。
+3. 订单簿 `Size` 列头在 1440 宽越南语下溢出 3px（「Số lượng (BTC)」的「(BTC)」），巴西葡萄牙语同样溢出 5px（「Tamanho (BTC)」，32/27）。订单簿用的是全站共用、无上下文的 `Size`，修法是给订单簿列加消息上下文后单独译短，或调整列头布局。（已处理，2026-11-27：订单簿列头改用 `Order book column` 上下文，越南语「Lượng」、葡萄牙语「Tam.」，见「订单簿数量列头」。）
 4. 繁中界面的现货资产描述：本批次选择不显示简体描述（沿用不支持语言的回退）；另一选项是直接显示 Hyperliquid 的简体描述。
 5. 搜索对土耳其语 İ 失配（土耳其语审查发现的既有缺陷）：`lib/search/utils.ts` 与 `components/vaults/domain/vaults.ts` 用不带语言参数的 `toLowerCase()`，用户输入「İNİT」会变成带组合点的「i̇ni̇t」而搜不到 `INIT`，金库名「İstanbul」与查询「istanbul」也不匹配。修法要为展示名称与搜索输入定一条统一的大小写规则（资产符号与地址仍按协议规则），属于改共享源码。
 6. 原有目录的数字写法（印尼语审查时发现）：`es` 与 `fr` 把两条存款限额（`10,000,000 USDC`、`1,000 USDC`）改成了本地分隔符，`fr` 另有两条消息（排行榜账户排除说明里的 `100,000` 与 `10,000,000`、推荐码门槛的 `10,000`），共 6 条消息 7 个数字。这些静态数字不经过数字格式器，会随界面语言变写法，与「数字跟随数字格式设置」的规则不符；彻底的修法是把限额改成由数字格式器填入的占位符（改共享源码），或在这两个目录里恢复源文写法（本任务不改原有目录）。

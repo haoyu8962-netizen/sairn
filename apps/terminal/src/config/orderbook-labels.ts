@@ -12,7 +12,7 @@ export const ORDERBOOK_LABELS = {
 	trades: msg`Trades`,
 	recentTrades: msg`Recent Trades`,
 	price: msg`Price`,
-	size: msg`Size`,
+	size: msg({ message: "Size", context: "Order book column" }),
 	total: msg`Total`,
 	spread: msg`Spread`,
 	priceGrouping: msg`Price grouping`,

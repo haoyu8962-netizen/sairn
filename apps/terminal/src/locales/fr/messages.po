@@ -8190,9 +8190,14 @@ msgstr "Signature..."
 #: src/components/trade/positions/positions-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/tradebox/order-toast.tsx
-#: src/config/orderbook-labels.ts
+#: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
+msgid "Size"
+msgstr "Taille"
+
+#: src/config/orderbook-labels.ts
+msgctxt "Order book column"
 msgid "Size"
 msgstr "Taille"
 

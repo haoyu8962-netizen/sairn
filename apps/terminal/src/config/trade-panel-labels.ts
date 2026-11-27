@@ -1,5 +1,4 @@
 import { msg } from "@lingui/core/macro";
-import { ORDERBOOK_LABELS } from "./orderbook-labels";
 
 export const TRADE_PANEL_LABELS = {
 	estimatedFee: msg`Est. Fee`,
@@ -31,7 +30,7 @@ export const TRADE_PANEL_LABELS = {
 	advancedOrderTypes: msg`Advanced order types`,
 	orderType: msg`Order type`,
 	cross: msg`Cross`,
-	size: ORDERBOOK_LABELS.size,
+	size: msg`Size`,
 };
 
 export const SIDE_LABELS = {
