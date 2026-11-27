@@ -615,3 +615,16 @@
 - 待决第 3 项（订单簿 `Size` 列头）与第 4 项（繁中现货描述）仍待运营方决定，本次未动。
 - 同类的搜索大小写问题还有两处，不在本次范围：资金费率对比的搜索（`domain/market/funding-comparison.ts` 的 `normalizeFundingComparisonQuery` 与 `row.coin.toLowerCase()`）同样搜不到「İNİT」；排行榜的搜索（`components/leaderboard/leaderboard-domain.ts`）用不带参数的 `toLocaleLowerCase()`，结果取决于浏览器的默认语言，在土耳其语系统上「I」会变成「ı」。两处都可以改用 `foldSearchText`（地址部分保持原样）。
 - 静态数字仍以 `,` 分组显示，不跟随数字格式设置；要跟随，需要把这些数字改成由数字格式器填入的占位符（改共享源码与所有目录）。
+- 包体（见下一节）：`foldSearchText` 和模糊匹配辅助函数一起进了静态启动块。把它拆成单独的模块（如 `lib/search/fold.ts`）很可能让 `levenshtein` 等函数留在懒加载的 `search` 块里，没有构建，也没有量。
+
+### 合入 main 7474813c 与静态启动重定基线（2026-11-27，PR #24）
+
+- 起因：#22 已合入 `main`（`7474813c3`）。编排会话要求把新 `main` 合入 PR #24 的分支，需要时重定包体基线后推送。之前 `8f409af0f` 的 CI 在配对开时，静态启动比当时的基线 1,668,662 超出 38 字节（+10,038）。
+- 合并：`36e69cdc3` 用合并提交把 `main` `7474813c3` 合入本分支，没有 rebase。冲突只有两处：本记录（保留 `main` 的版本，包括「合入 main 4548175e 与第二次重定基线」一节，本分支的提交号、摘要和这一节接在后面）和 `CHANGELOG.md`（Fixed 下先放 `main` 的条目，再放本分支的三条）。`catalog-literal-number-contract.test.ts` 自动合并，`main` 没有改它，待处理表仍是空表，`main` 新增的 25 条消息里也没有被改写的数字。14 个 `.po` 自动合并，`pnpm i18n:extract` 没有再改动任何目录，新增 7 个目录都是 Missing 0；ar/es/fr/hi 各缺 35 条、zh 缺 3 条，与 `main` 相同。`pnpm i18n:compile` 通过。与 `main` 相比，es 和 fr 只差本分支改的数字与引用行，ja、ko、zh-TW 只差三处引用行。
+- 包体：按 `docs/terminal-performance-baseline.md` 做配对构建，`main` `7474813c3` 对比合并后的分支头 `36e69cdc3`。条件：Node 22.15.0，没有 `.env.local`，`NITRO_PRESET=node-server`，固定标识 `SAIRN_RELEASE_ID=pr24-search-fold-rebaseline`，配对关、开各一次，四次构建逐个运行。日志、状态和产物副本在 `.worklog/2026-11-27/pr24-rebaseline/`。
+  - 增量（配对关 / 配对开）：静态启动 +859 / +935，总量 +723 / +1,034，手机运行时 -404 / -395，桌面运行时 -338 / -362，其他面都在 ±7 以内。
+  - 逐块：`vendor-tanstack-router` 增加 669（配对关）/ 767（配对开），懒加载的 `search` 块减少 414 / 413。原因：金库筛选从 `lib/search/utils.ts` 导入 `foldSearchText`，这个模块变成 search 块与金库页共用后，Rollup 把整个模块放进了启动块。
+  - 只有静态启动超出：配对开 +10,299，对比基线 1,676,706。按较大的增量 +935 上调到 1,677,641，余量不变。上调后分支配对开读 +9,364（余 636），与 `main` 在同一构建标识下的读数相同。总量（配对开 +7,669）、两个运行时增量和各命名面都没有改。
+  - 预估 CI：#22 的头 `739f20ca`（与 `main` `7474813c` 同树）在 CI 上配对开读到静态启动 1,686,224，比这里的本地 `main` 高 154 字节。照此推算，CI 对本分支应读到约 +9,518。
+- 验证：终端 typecheck 通过；本分支改过的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件，加上本分支的 4 个测试文件（金库领域测试、反手确认、桌面与手机委托），共 16 个文件 698 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过；`pnpm memory:check` 通过。终端全量 Vitest 没有在本机重跑，交给 PR 的 CI。
+- 没有做：生产发布配置的构建、浏览器套件、真机。
