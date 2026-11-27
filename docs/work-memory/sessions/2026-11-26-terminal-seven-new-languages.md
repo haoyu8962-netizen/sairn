@@ -628,3 +628,20 @@
   - 预估 CI：#22 的头 `739f20ca`（与 `main` `7474813c` 同树）在 CI 上配对开读到静态启动 1,686,224，比这里的本地 `main` 高 154 字节。照此推算，CI 对本分支应读到约 +9,518。
 - 验证：终端 typecheck 通过；本分支改过的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件，加上本分支的 4 个测试文件（金库领域测试、反手确认、桌面与手机委托），共 16 个文件 698 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过；`pnpm memory:check` 通过。终端全量 Vitest 没有在本机重跑，交给 PR 的 CI。
 - 没有做：生产发布配置的构建、浏览器套件、真机。
+
+### 再次合入 main b9f07503 与 CI 偶发失败（2026-11-27，PR #24）
+
+- 合并：#26（只新增一份任务记录）和 #25（账户表格夹具与 Playwright、layout-integrity、五个新目录的少量译文、文档、`apps/terminal/package.json` 一个脚本）合入 `main` 后，`dbe34da61` 用合并提交把 `main` `b9f07503d` 合入本分支，没有冲突。合并后的分支与 `main` 只差本分支的 32 个文件。`pnpm i18n:extract` 没有改动任何目录，新增 7 个目录都是 Missing 0；`pnpm i18n:compile` 通过。锁文件没变，没有重装依赖。
+- 包体检查：`main` `b9f07503d` 对比 `dbe34da61`，条件与上一节相同，构建标识为 `SAIRN_RELEASE_ID=pr24-search-fold-check-2`，日志在 `.worklog/2026-11-27/pr24-rebaseline-2/`。四次构建都通过预算检查，基线不变。
+  - 分支配对开：静态启动 1,686,865（+9,224，余 776），总量 3,709,439（+7,177，余 2,823），手机运行时 +8,833（余 1,167），桌面运行时 +6,631。
+  - 分支配对关：静态启动 +8,093，总量 +4,187。
+  - 相对 `main`（配对开 / 配对关）：静态启动 +800 / +624，总量 +579 / +395。
+  - `bb7e92968` 的 CI（run 45985443731）配对开读到静态启动 1,686,828（+9,187）、总量 3,709,304（+7,042），两个构建作业都通过。
+- CI 偶发失败：`bb7e92968` 的「Test terminal and release tooling (2/2)」（run 45985443732）只有一项失败，`src/lib/tests/mobile-agent-sync-modal.test.tsx > MobileAgentSyncModal > reveals the QR after a two-second hold and closes the dialog after sixty seconds`，报 `AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times`，位置 `:362:55`。
+  - 失败的断言是 `vi.waitFor(() => expect(testState.qrToCanvas).toHaveBeenCalledTimes(1))`：组件按住两秒后先 `await import("qrcode")` 再画码，`vi.waitFor` 默认只等 1 秒真实时间。
+  - 本分支与它无关：没有改这个组件和它的测试；组件的导入链不经过 `lib/search`、金库领域或 `harness/catalog-messages`；Vitest 用默认的按文件隔离，模块状态不跨文件共享。
+  - 本机重跑：先单独连跑 5 次，3 次通过，2 次 29 项全部失败。后来又单独连跑 9 次，全部通过。6 个副本并行跑两轮，12 次都是 29 项全部失败；3 个副本并行跑三轮，9 次全部通过。
+  - 全部失败的那几次都发生在后台生产构建期间，错误相同：第一个用例在用例计时内冷加载组件，超过 5 秒（`Test timed out in 5000ms`），后面的用例跟着失败。第 362 行这种失败在本机没有复现。
+  - 合并后在 `dbe34da61` 上与其他测试文件一起再跑一次，通过。
+  - 结论：负载导致的偶发失败。`docs/agent-handbook.md` 已列出这个文件，多模型 UI 审查记录（`2026-11-27-multi-agent-ui-review-phase-1.md` 后续第 5 项）也把它列为本批之前就有的稳定性问题。按要求没有改测试。
+- 验证（`dbe34da61`）：终端 typecheck 通过；本分支的 12 个 ts/tsx 跑 Biome 通过；运行时翻译组 12 个文件、本分支的 4 个测试文件和 `mobile-agent-sync-modal`，共 17 个文件 727 项全部通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
