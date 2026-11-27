@@ -1,4 +1,5 @@
 import type { ComponentPropsWithRef, ReactNode } from "react";
+import { TOUCH_PRESS_CLASS, TOUCH_PRESS_FADE_CLASS } from "@/components/ui/touch-press";
 import { cn } from "@/lib/cn";
 
 export const book =
@@ -57,7 +58,7 @@ export function MobileBookChromeView({
 						({priceToken ?? "USDC"})
 					</span>
 				</div>
-				<div className="min-w-0 truncate text-right" title={sizeToken ? `${labels.size} (${sizeToken})` : labels.size}>
+				<div className="min-w-0 truncate text-end" title={sizeToken ? `${labels.size} (${sizeToken})` : labels.size}>
 					{labels.size}{" "}
 					<span
 						data-slot="compact-orderbook-size-token"
@@ -141,10 +142,10 @@ export function MobileBookModeControlsView({ mode, label, options, onModeChange 
 						data-mode={option.mode}
 						onClick={() => onModeChange?.(option.mode)}
 						className={cn(
-							"grid h-[22px] w-6 place-items-center rounded-[5px] text-trading-panel-muted transition-colors motion-reduce:transition-none",
+							"grid size-6 cursor-pointer place-items-center rounded-[5px] text-trading-panel-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-stroke-focus motion-reduce:transition-none",
 							selected
-								? "bg-trading-panel-card text-trading-panel-fg"
-								: "hover:bg-trading-panel-hover hover:text-trading-panel-fg",
+								? cn("bg-trading-panel-card text-trading-panel-fg", TOUCH_PRESS_FADE_CLASS)
+								: cn("hover:bg-trading-panel-hover hover:text-trading-panel-fg", TOUCH_PRESS_CLASS),
 						)}
 					>
 						<OrderbookModeIcon bars={option.bars} />

@@ -42,7 +42,8 @@ describe("balances table visual contract", () => {
 	});
 
 	it("uses a flat total-first asset hierarchy while preserving real funds actions", () => {
-		expect(BALANCES_TAB_SOURCE).toContain("min-w-[52rem]");
+		expect(BALANCES_TAB_SOURCE).toContain("min-w-[66rem]");
+		expect(BALANCES_TAB_SOURCE).toContain('containerClassName="overflow-visible"');
 		expect(balancesTableActionClass).toContain("rounded-[7px]");
 		expect(balancesTableActionClass).toContain("border-market-close-stroke-input");
 		expect(balancesTableActionClass).toContain("duration-[120ms]");

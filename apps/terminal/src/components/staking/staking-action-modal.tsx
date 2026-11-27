@@ -439,9 +439,9 @@ function ActionRisk({ action, isTestnet }: { action: StakingActionRequest; isTes
 
 function ReviewRow({ label, value, ltr = false }: { label: string; value: string; ltr?: boolean }) {
 	return (
-		<div className="flex items-center justify-between gap-3">
-			<span className="text-fg-muted">{label}</span>
-			<span className="min-w-0 truncate font-semibold text-fg tabular-nums">
+		<div className="flex flex-col gap-0.5 min-[1001px]:flex-row min-[1001px]:items-start min-[1001px]:justify-between min-[1001px]:gap-3">
+			<span className="shrink-0 text-fg-muted">{label}</span>
+			<span className="min-w-0 break-words font-semibold text-fg tabular-nums min-[1001px]:text-end">
 				{ltr ? <bdi dir="ltr">{value}</bdi> : value}
 			</span>
 		</div>

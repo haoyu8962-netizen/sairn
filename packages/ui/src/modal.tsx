@@ -113,7 +113,7 @@ const ModalPopup = React.forwardRef<HTMLDivElement, ModalPopupProps>(
 						{showClose && (
 							<Dialog.Close
 								className={cn(
-									"absolute top-4 right-4 z-10",
+									"absolute top-4 end-4 z-10",
 									"flex items-center justify-center size-8 rounded-8",
 									"text-icon cursor-pointer",
 									"hover:bg-fill-hover active:bg-fill-press",
@@ -140,7 +140,7 @@ interface ModalHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 const ModalHeader = React.forwardRef<HTMLDivElement, ModalHeaderProps>(
 	({ className, divider = true, ...props }, ref) => (
 		<div
-			className={cn("flex flex-col gap-1 p-4 pr-14", divider && "border-b border-stroke-weak", className)}
+			className={cn("flex flex-col gap-1 p-4 pe-14", divider && "border-b border-stroke-weak", className)}
 			ref={ref}
 			{...props}
 		/>
@@ -257,7 +257,7 @@ function AdaptiveModal({
 					{showClose && (
 						<DrawerClose
 							className={cn(
-								"absolute top-4 right-4 z-10",
+								"absolute top-4 end-4 z-10",
 								"flex items-center justify-center size-8 rounded-8",
 								"text-icon cursor-pointer",
 								"hover:bg-fill-hover active:bg-fill-press",

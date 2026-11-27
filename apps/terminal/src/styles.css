@@ -465,8 +465,8 @@
     --trading-panel-success: #067a57;
     --trading-panel-error: #c73a3a;
     --trading-panel-warning: #7f5c0e;
-    --trading-panel-success-fill: #1f8a5a;
-    --trading-panel-error-fill: #d6453d;
+    --trading-panel-success-fill: #0e633e;
+    --trading-panel-error-fill: #ad2720;
     --trading-panel-neutral-disabled-fill: #c6cfd9;
     --trading-panel-success-disabled-fill: #b9dccb;
     --trading-panel-error-disabled-fill: #efc3bf;
@@ -1424,6 +1424,8 @@
   }
 
   .desktop-terminal-grid > .react-grid-item {
+    top: 0;
+    left: 0;
     min-width: 0;
     transition-property: none !important;
   }

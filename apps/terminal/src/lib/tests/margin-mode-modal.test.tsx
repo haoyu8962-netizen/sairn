@@ -335,13 +335,67 @@ describe("MarginModeModal", () => {
 		expect(container.textContent).not.toContain("This market only supports isolated margin mode.");
 	});
 
-	it("disables cross-to-isolated switching while position data is unavailable", () => {
+	it("disables cross-to-isolated switching quietly while position data is not ready", () => {
 		renderModal({ positionStateReady: false });
 
 		act(() => getButton(container, "Isolated").click());
 
+		const confirm = getButton(container, "Confirm");
+		expect(confirm.disabled).toBe(true);
+		expect(container.textContent).not.toContain("Position data is unavailable");
+		expect(container.textContent).not.toContain("recover");
+		expect(container.querySelector(".text-warning")).toBeNull();
+		expect(container.querySelector('[class*="bg-warning"]')).toBeNull();
+		expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+		const reasonId = confirm.getAttribute("aria-describedby");
+		expect(reasonId).toBeTruthy();
+		const reason = reasonId ? document.getElementById(reasonId) : null;
+		expect(reason?.className).toContain("sr-only");
+		expect(reason?.textContent).toBe("Loading position data. Switching to Isolated mode is temporarily unavailable.");
+		expect(onApply).not.toHaveBeenCalled();
+	});
+
+	it("distinguishes stale or failed position state from loading in screen-reader description without visible error text", () => {
+		renderModal({ positionStateReady: false, positionStateLoading: false });
+
+		act(() => getButton(container, "Isolated").click());
+
+		const confirm = getButton(container, "Confirm");
+		expect(confirm.disabled).toBe(true);
+		expect(container.querySelector(".text-warning")).toBeNull();
+		expect(container.querySelector('[class*="bg-warning"]')).toBeNull();
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+		const reasonId = confirm.getAttribute("aria-describedby");
+		expect(reasonId).toBeTruthy();
+		const reason = reasonId ? document.getElementById(reasonId) : null;
+		expect(reason?.className).toContain("sr-only");
+		expect(reason?.textContent).toBe(
+			"Unable to verify current positions. Switching to Isolated mode is temporarily unavailable.",
+		);
+		expect(reason?.textContent).not.toContain("Loading");
+		expect(onApply).not.toHaveBeenCalled();
+	});
+
+	it("wires positionStateLoading on desktop and mobile callers so error and stale override loading", async () => {
+		const { readFileSync } = await import("node:fs");
+		const { resolve } = await import("node:path");
+		for (const file of ["components/trade/tradebox/trade-panel.tsx", "components/trade/mobile/mobile-trade-view.tsx"]) {
+			const source = readFileSync(resolve(process.cwd(), "src", file), "utf8");
+			expect(source, file).toMatch(
+				/positionStateLoading=\{\s*!positionStateReady && userPositions\.isLoading && !userPositions\.hasError && !userPositions\.isStale\s*\}/,
+			);
+		}
+	});
+
+	it("suppresses the open-position warning until position data is ready", () => {
+		renderModal({ positionStateReady: false, hasPosition: true });
+
+		act(() => getButton(container, "Isolated").click());
+
 		expect(getButton(container, "Confirm").disabled).toBe(true);
-		expect(container.textContent).toContain("Position data is unavailable.");
+		expect(container.textContent).not.toContain("Cannot switch to Isolated mode with an open position.");
+		expect(container.querySelector(".text-warning")).toBeNull();
 		expect(onApply).not.toHaveBeenCalled();
 	});
 

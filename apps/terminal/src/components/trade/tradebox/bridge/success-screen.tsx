@@ -3,8 +3,10 @@ import { CaretDownIcon, CaretUpIcon, CheckCircleIcon, WalletIcon } from "@phosph
 import { Button } from "@sairn/ui";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { InfoRow, InfoRowGroup } from "@/components/ui/info-row";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
 import { LIFI_EXPLORER_URL } from "@/config/bridge";
 import { formatTokenAmount, processTypeLabel } from "@/lib/bridge/format";
+import { cn } from "@/lib/cn";
 import { formatDateTimeShort, shortenAddress, useNumberFormat } from "@/lib/format";
 import type { ProcessDetail } from "@/lib/lifi/use-bridge";
 import { HyperCoreUsdcIcon } from "../hypercore-usdc-icon";
@@ -102,7 +104,12 @@ export function SuccessScreen({
 
 			{processDetails.length > 0 ? (
 				<Collapsible>
-					<CollapsibleTrigger className="flex w-full items-center justify-between rounded-8 px-2 py-1.5 text-xs text-fg-muted hover:bg-fill-hover transition-colors group">
+					<CollapsibleTrigger
+						className={cn(
+							"flex w-full items-center justify-between rounded-8 px-2 py-1.5 text-xs text-fg-muted hover:bg-fill-hover group",
+							TOUCH_PRESS_CLASS,
+						)}
+					>
 						<Trans>More details</Trans>
 						<CaretDownIcon className="size-3 group-data-[state=open]:hidden" />
 						<CaretUpIcon className="size-3 hidden group-data-[state=open]:block" />

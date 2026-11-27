@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOnlineStatus } from "@/hooks/use-mobile";
 import { getExplorerAddressUrl, useHyperliquid } from "@/lib/hyperliquid";
 import {
 	LEADERBOARD_API_MAX_QUERY_LENGTH,
@@ -13,6 +14,11 @@ import {
 	normalizeLeaderboardQuery,
 	toggleLeaderboardSort,
 } from "./leaderboard-domain";
+import {
+	LEADERBOARD_STALE_TIME_MS,
+	type LeaderboardEmptySnapshotReceipt,
+	useLeaderboardEmptySnapshotFreshness,
+} from "./leaderboard-freshness";
 import { useLeaderboardData } from "./use-leaderboard-data";
 
 const LEADERBOARD_SEARCH_DEBOUNCE_MS = 250;
@@ -24,8 +30,45 @@ function isLeaderboardPageSize(value: number): value is LeaderboardApiPageSize {
 	return LEADERBOARD_API_PAGE_SIZES.some((pageSize) => pageSize === value);
 }
 
+function deriveLeaderboardPageState(
+	result: ReturnType<typeof useLeaderboardData>["data"],
+	fetchStatus: ReturnType<typeof useLeaderboardData>["fetchStatus"],
+	isError: boolean,
+	isEmptySnapshotCurrent: boolean,
+	normalizedQuery: string,
+	isQueryPending: boolean,
+	isOnline: boolean,
+): LeaderboardPageState {
+	const isPaused = fetchStatus === "paused";
+	if (result === undefined) {
+		if (fetchStatus === "fetching") return "loading";
+		return isPaused ? "paused" : "error";
+	}
+	if (result.totalRows > 0) return "normal";
+	if (fetchStatus === "fetching" || isQueryPending) return "loading";
+	if (isPaused) return "paused";
+	if (!isOnline) return "loading";
+	if (isError || result.stale || !isEmptySnapshotCurrent) return "error";
+	if (normalizeLeaderboardQuery(result.query) !== normalizedQuery) return "loading";
+	return normalizedQuery ? "noResults" : "empty";
+}
+
+function deriveLeaderboardDataNotice(
+	hasVisibleRows: boolean,
+	fetchStatus: ReturnType<typeof useLeaderboardData>["fetchStatus"],
+	isError: boolean,
+	stale: boolean,
+): LeaderboardDataNotice {
+	if (!hasVisibleRows) return null;
+	if (fetchStatus === "paused") return "paused";
+	if (isError) return "refreshError";
+	if (stale) return "stale";
+	return null;
+}
+
 export function useLeaderboardController() {
 	const { isTestnet } = useHyperliquid();
+	const isOnline = useOnlineStatus();
 	const [period, setPeriodState] = useState<LeaderboardPeriod>("month");
 	const [sortKey, setSortKey] = useState<LeaderboardSortKey>("pnl");
 	const [sortDirection, setSortDirection] = useState<LeaderboardSortDirection>("descending");
@@ -42,39 +85,50 @@ export function useLeaderboardController() {
 		[],
 	);
 
+	const normalizedQuery = normalizeLeaderboardQuery(query);
+	const normalizedRequestedQuery = normalizeLeaderboardQuery(requestedQuery);
+	const isQueryPending = normalizedQuery !== normalizedRequestedQuery;
 	const leaderboardQuery = useLeaderboardData({
 		env: isTestnet ? "Testnet" : "Mainnet",
 		period,
 		sortKey,
 		sortDirection,
-		query: normalizeLeaderboardQuery(requestedQuery),
+		query: normalizedRequestedQuery,
 		page,
 		pageSize: rowsPerPage,
 	});
 	const result = leaderboardQuery.data;
+	const dataUpdatedAt = leaderboardQuery.dataUpdatedAt;
+	const emptySnapshotReceipt = useMemo((): LeaderboardEmptySnapshotReceipt | undefined => {
+		if (result === undefined || result.totalRows > 0 || result.stale) return undefined;
+		const wallNow = Date.now();
+		const monotonicNow = performance.now();
+		const receivedAt = typeof dataUpdatedAt === "number" && dataUpdatedAt > 0 ? dataUpdatedAt : wallNow;
+		const elapsedWallMs = Math.max(0, wallNow - receivedAt);
+		return {
+			receivedAt,
+			monotonicReceivedAt: monotonicNow - elapsedWallMs,
+		};
+	}, [result, dataUpdatedAt]);
+	const emptySnapshotFresh = useLeaderboardEmptySnapshotFreshness(emptySnapshotReceipt, LEADERBOARD_STALE_TIME_MS);
+	const isEmptySnapshotCurrent = emptySnapshotFresh && leaderboardQuery.isStale !== true;
 	const isPaused = leaderboardQuery.fetchStatus === "paused";
-	const isInitialFetching = result === undefined && leaderboardQuery.fetchStatus === "fetching";
-	const pageState: LeaderboardPageState = isInitialFetching
-		? "loading"
-		: result === undefined && isPaused
-			? "paused"
-			: result === undefined
-				? "error"
-				: result.totalRows === 0
-					? result.query
-						? "noResults"
-						: "empty"
-					: "normal";
-	const dataNotice: LeaderboardDataNotice =
-		result === undefined
-			? null
-			: isPaused
-				? "paused"
-				: leaderboardQuery.isError
-					? "refreshError"
-					: result.stale
-						? "stale"
-						: null;
+	const hasVisibleRows = result !== undefined && result.totalRows > 0;
+	const pageState = deriveLeaderboardPageState(
+		result,
+		leaderboardQuery.fetchStatus,
+		leaderboardQuery.isError,
+		isEmptySnapshotCurrent,
+		normalizedQuery,
+		isQueryPending,
+		isOnline,
+	);
+	const dataNotice = deriveLeaderboardDataNotice(
+		hasVisibleRows,
+		leaderboardQuery.fetchStatus,
+		leaderboardQuery.isError,
+		result?.stale ?? false,
+	);
 
 	function setPeriod(nextPeriod: LeaderboardPeriod) {
 		setPeriodState(nextPeriod);
@@ -128,8 +182,8 @@ export function useLeaderboardController() {
 		page: result?.page ?? page,
 		start: result?.start ?? 0,
 		end: result?.end ?? 0,
-		isRefreshing: result !== undefined && leaderboardQuery.fetchStatus === "fetching",
-		canRetry: !isPaused,
+		isRefreshing: hasVisibleRows && leaderboardQuery.fetchStatus === "fetching",
+		canRetry: !isPaused && isOnline,
 		onPeriodChange: setPeriod,
 		onQueryChange: setQuery,
 		onClearQuery: () => setQuery(""),

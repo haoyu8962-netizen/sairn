@@ -40,6 +40,7 @@ interface Props {
 	markPx: string | undefined;
 	markPriceStatus: MarkPriceStatus;
 	tpSlInfo: TpSlOrderInfo | undefined;
+	isTpSlReady?: boolean;
 	isRowClosing: boolean;
 	isEven: boolean;
 	pnlMode: PositionPnlMode;
@@ -61,6 +62,7 @@ export function PositionRow({
 	markPx: markPxRaw,
 	markPriceStatus,
 	tpSlInfo,
+	isTpSlReady = true,
 	isRowClosing,
 	isEven,
 	pnlMode,
@@ -119,7 +121,7 @@ export function PositionRow({
 
 	const pnlClass = isDataStale ? "text-market-close-subtle" : getValueColorClass(p.unrealizedPnl);
 	const fundingClass = isDataStale || fundingPayment === null ? "text-fg-muted" : getValueColorClass(fundingPayment);
-	const hasTpSl = !!(tpSlInfo?.tpPrice || tpSlInfo?.slPrice);
+	const hasTpSl = isTpSlReady && !!(tpSlInfo?.tpPrice || tpSlInfo?.slPrice);
 	const sideClass = isLong ? "text-market-close-success" : "text-market-close-danger";
 	const directionLabel = isLong ? t`Long` : t`Short`;
 	const sizeDisplay = formatToken(absSize, { decimals: szDecimals, symbol: sizeSymbol });
@@ -146,7 +148,11 @@ export function PositionRow({
 	const marginTypeLabel = p.leverage.type === "isolated" ? t`Isolated` : t`Cross`;
 	const tpSlValueId = useId();
 	const marginValueId = useId();
+	const tpSlLabel = !isTpSlReady ? t`TP/SL` : hasTpSl ? t`Edit TP/SL` : t`Add TP/SL`;
 	function renderTpSlContent() {
+		if (!isTpSlReady) {
+			return <span className="text-xs text-market-close-subtle tabular-nums">—</span>;
+		}
 		if (hasTpSl) {
 			return (
 				<span className="flex flex-col items-end gap-px text-xs leading-4 tabular-nums">
@@ -363,12 +369,12 @@ export function PositionRow({
 				</span>
 			</TableCell>
 			<TableCell size="dense" className={positionTableCellClass}>
-				<Tooltip content={hasTpSl ? t`Edit TP/SL` : t`Add TP/SL`} side="left">
+				<Tooltip content={tpSlLabel} side="left">
 					<button
 						type="button"
 						onClick={handleOpenTpSl}
 						disabled={!canManage || isRowClosing}
-						aria-label={hasTpSl ? t`Edit TP/SL` : t`Add TP/SL`}
+						aria-label={tpSlLabel}
 						aria-describedby={hasTpSl ? tpSlValueId : undefined}
 						className={cn(
 							"group inline-flex min-h-[26px] items-center justify-end rounded-[6px] transition-all duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50",

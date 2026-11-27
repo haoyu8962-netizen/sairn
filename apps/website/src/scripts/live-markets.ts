@@ -95,9 +95,22 @@ export function startLiveMarkets(root: Document): void {
 	const statsBlock = root.querySelector<HTMLElement>("[data-live-stats]");
 	const statsDexes = readStatsDexes(statsBlock);
 	const regions = [strip, ...root.querySelectorAll<HTMLElement>("[data-live-region]")];
+	const cards = new Map(
+		[...strip.querySelectorAll<HTMLElement>("[data-live-card]")].map((card) => [card.dataset.liveCard ?? "", card]),
+	);
 	const mirrors = new Map(
 		[...root.querySelectorAll<HTMLElement>("[data-live-mirror]")].map((mirror) => [mirror.dataset.liveMirror ?? "", mirror]),
 	);
+	for (const [coin, mirror] of mirrors) {
+		mirror.addEventListener("mousedown", (event) => {
+			if (event.button !== 2) event.preventDefault();
+		});
+		mirror.addEventListener("focus", () => {
+			const primary = cards.get(coin);
+			if (primary?.isConnected) primary.focus({ preventScroll: true });
+			else mirror.blur();
+		});
+	}
 
 	const inputByCoin = new Map(inputs.map((input) => [input.coin, input]));
 	const plan = createRequestPlan(inputs.map((input) => input.coin), statsDexes);

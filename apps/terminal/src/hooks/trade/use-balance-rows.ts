@@ -22,11 +22,14 @@ interface BalanceRowsState {
 	accountModeReady: boolean;
 	accountModeSetup: AccountModeSetupKind;
 	balances: BalanceRow[];
+	hasAllDexsSnapshot: boolean;
 	hasError: boolean;
 	internalTransfersEnabled: boolean;
 	isConnected: boolean;
+	isDataReady: boolean;
 	isDataStale: boolean;
 	isLoading: boolean;
+	isPending: boolean;
 	perpFundsActionsEnabled: boolean;
 	perpBalances: BalanceRow[];
 	showBalanceAccountType: boolean;
@@ -39,6 +42,7 @@ export function useBalanceRows(): BalanceRowsState {
 	const { data: activeAssetData, market, status: activeAssetStatus } = useActiveAssetData();
 	const {
 		dex,
+		hasAllDexsSnapshot,
 		marginSummary,
 		perpSummary,
 		spotBalances,
@@ -63,6 +67,13 @@ export function useBalanceRows(): BalanceRowsState {
 	const accountModeReady = isSupportedAccountAbstraction(accountAbstraction);
 	const accountModeSetup = useAccountModeSetupKind(accountAbstraction, address);
 	const accountDataReady = perpStateStatus === "success" && spotStateStatus === "success" && !hasError;
+	const isDataReady =
+		!hasError &&
+		!isLoading &&
+		!isDataStale &&
+		(accountModeReady || accountModeSetup === "awaiting-funds") &&
+		accountDataReady;
+	const isPending = isLoading || (!accountModeReady && accountModeSetup === "pending");
 	const quoteBalanceShared = isQuoteBalanceSharedWithPerps(accountAbstraction);
 
 	const perpBalances = useMemo(
@@ -97,11 +108,14 @@ export function useBalanceRows(): BalanceRowsState {
 		accountModeReady,
 		accountModeSetup,
 		balances,
+		hasAllDexsSnapshot: Boolean(hasAllDexsSnapshot),
 		hasError,
 		internalTransfersEnabled: accountDataReady && accountModeReady && !quoteBalanceShared,
 		isConnected,
+		isDataReady,
 		isDataStale,
 		isLoading,
+		isPending,
 		perpFundsActionsEnabled: accountDataReady && accountModeReady && (quoteBalanceShared || dex === ""),
 		perpBalances,
 		showBalanceAccountType: accountModeReady && !quoteBalanceShared,

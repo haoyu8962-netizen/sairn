@@ -69,4 +69,30 @@ describe("bridge success screen dates", () => {
 			formatDateTimeShort(STARTED_AT, { locale: "en" }),
 		);
 	});
+
+	it("gives the More details collapsible trigger shared touch press feedback", () => {
+		act(() =>
+			root.render(
+				<SuccessScreen
+					address={`0x${"a".repeat(40)}`}
+					receivedAmount="12.5"
+					txHash={null}
+					startTime={STARTED_AT}
+					endTime={DONE_AT}
+					processDetails={[
+						{ type: "CROSS_CHAIN", txHash: `0x${"b".repeat(64)}`, txLink: "", startedAt: STARTED_AT, doneAt: DONE_AT },
+					]}
+					onDone={() => {}}
+					onNewDeposit={() => {}}
+				/>,
+			),
+		);
+
+		const trigger = [...container.querySelectorAll("button")].find((button) =>
+			button.textContent?.includes("More details"),
+		);
+		expect(trigger).toBeDefined();
+		expect(trigger?.className).toContain("active:bg-fill-weak");
+		expect(trigger?.className).toContain("duration-[120ms]");
+	});
 });

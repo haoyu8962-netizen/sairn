@@ -157,11 +157,35 @@ describe("buildOrderConfirmationRows", () => {
 			numberFormat,
 		);
 
+		expect(byKey(rows, "orderType")?.value).toBe("Scale");
 		expect(byKey(rows, "scaleStart")?.value).toBe("$90,000");
 		expect(byKey(rows, "scaleEnd")?.value).toBe("$100,000");
 		expect(byKey(rows, "scaleLevels")?.value).toBe("5");
 		expect(byKey(rows, "scaleSkew")?.value).toBe("2");
 		expect(byKey(rows, "price")).toBeUndefined();
+	});
+
+	it("shows Post Only in the scale confirmation type row when ALO is selected", () => {
+		const rows = buildOrderConfirmationRows(
+			draft({
+				orderType: "scale",
+				tif: "Alo",
+				scaleStartPrice: 90_000,
+				scaleEndPrice: 100_000,
+				scaleLevels: 5,
+				scaleSkew: 2,
+			}),
+			numberFormat,
+		);
+
+		expect(byKey(rows, "orderType")?.value).toBe("Scale · Post Only");
+
+		const translatedRows = buildOrderConfirmationRows(
+			draft({ orderType: "scale", tif: "Alo" }),
+			numberFormat,
+			(message) => `translated:${message.message}`,
+		);
+		expect(byKey(translatedRows, "orderType")?.value).toBe("translated:Scale · translated:Post Only");
 	});
 
 	it("writes the scale size skew with every allowed decimal and the number-format separators", () => {
@@ -201,6 +225,49 @@ describe("buildOrderConfirmationRows", () => {
 		expect(byKey(rows, "twapTrigger")?.value).toBe("$101,000");
 		expect(byKey(rows, "twapStop")).toEqual({ key: "twapStop", label: "Max Price", value: "$102,000" });
 	});
+
+	it("preserves exact minutes above one day and localizes the TWAP runtime", () => {
+		const buildWithLocale = buildOrderConfirmationRows as (
+			draft: OrderConfirmationDraft,
+			numberFormat: ReturnType<typeof getNumberFormatters>,
+			translate?: Parameters<typeof buildOrderConfirmationRows>[2],
+			locale?: string,
+		) => OrderConfirmationRow[];
+		expect(
+			byKey(buildWithLocale(draft({ orderType: "twap", twapMinutes: 1499 }), numberFormat), "twapRuntime")?.value,
+		).toBe("1d 59m");
+		expect(
+			byKey(buildWithLocale(draft({ orderType: "twap", twapMinutes: 1501 }), numberFormat), "twapRuntime")?.value,
+		).toBe("1d 1h 1m");
+		expect(
+			byKey(
+				buildWithLocale(draft({ orderType: "twap", twapMinutes: 1501 }), numberFormat, undefined, "zh"),
+				"twapRuntime",
+			)?.value,
+		).toBe("1天 1小时 1分钟");
+	});
+
+	it.each([
+		{ direction: "above", expected: "Activates when mark ≥ $101,000" },
+		{ direction: "below", expected: "Activates when mark ≤ $101,000" },
+	] as const)(
+		"shows the TWAP trigger activation direction ($direction) in confirmation rows",
+		({ direction, expected }) => {
+			const rows = buildOrderConfirmationRows(
+				{
+					...draft({
+						orderType: "twap",
+						twapMinutes: 30,
+						twapTriggerPrice: 101_000,
+					}),
+					twapTriggerDirection: direction,
+				} as OrderConfirmationDraft,
+				numberFormat,
+			);
+
+			expect(byKey(rows, "twapTrigger")?.value).toBe(expected);
+		},
+	);
 
 	it.each([
 		{ side: "buy", label: "Max Price" },

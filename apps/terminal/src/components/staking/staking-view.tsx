@@ -18,9 +18,11 @@ import {
 } from "@sairn/ui";
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TOUCH_PRESS_FADE_CLASS } from "@/components/ui/touch-press";
 import { FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
 import { useMasterWalletRequiredMessage } from "@/hooks/trade/use-master-wallet-action-reason";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/cn";
 import { describeActionFailure } from "@/lib/errors/action-error";
 import { formatDateTime, shortenAddress, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl } from "@/lib/hyperliquid";
@@ -92,7 +94,7 @@ export function StakingView(props: StakingViewProps) {
 						href={getExplorerTxUrl(hash, props.env === "Testnet")}
 						target="_blank"
 						rel="noopener"
-						className="text-signal hover:text-signal-hover hover:underline"
+						className={cn("text-signal hover:text-signal-hover hover:underline", TOUCH_PRESS_FADE_CLASS)}
 					>
 						<bdi dir="ltr">{shortenAddress(hash, 6, 6)}</bdi>
 					</a>
@@ -562,11 +564,11 @@ function ValidatorContent({
 					);
 					return (
 						<TableRow key={validator.validator}>
-							<TableCell size="dense" className="max-w-64">
-								<p className="truncate font-semibold text-fg">
+							<TableCell size="dense" className="min-w-52 max-w-72 align-top">
+								<p className="break-words font-semibold text-fg">
 									{validator.name || <bdi dir="ltr">{shortenAddress(validator.validator)}</bdi>}
 								</p>
-								<p className="mt-0.5 truncate text-2xs text-fg-muted">{validator.description}</p>
+								<p className="mt-0.5 break-words text-2xs leading-4 text-fg-muted">{validator.description}</p>
 							</TableCell>
 							<TableCell size="dense">
 								<ValidatorStatusBadge status={validator.status} />
@@ -782,7 +784,10 @@ function HistoryContent({
 									href={getExplorerTxUrl(entry.hash, isTestnet)}
 									target="_blank"
 									rel="noopener"
-									className="inline-flex items-center gap-1 text-signal hover:text-signal-hover hover:underline"
+									className={cn(
+										"inline-flex items-center gap-1 text-signal hover:text-signal-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+										TOUCH_PRESS_FADE_CLASS,
+									)}
 								>
 									<bdi dir="ltr">{shortenAddress(entry.hash, 6, 6)}</bdi>
 									<ArrowRightIcon aria-hidden="true" className="size-3" />

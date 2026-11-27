@@ -7,6 +7,7 @@ import { TRADE_PANEL_LABELS } from "@/config/trade-panel-labels";
 import { getOrderEntryReferencePrice } from "@/domain/trade/market-price";
 import { getSizeInputMaxDecimals, getSliderValue } from "@/domain/trade/order/size";
 import { isOrderSizeValidationError } from "@/domain/trade/order-size-validation";
+import { getTwapPriceFieldErrorMessage } from "@/domain/trade/twap-details";
 import type { useOrderEntryData } from "@/hooks/trade/use-order-entry-data";
 import { useSizeSliderInteraction } from "@/hooks/trade/use-size-slider-interaction";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
@@ -172,8 +173,10 @@ export function TradeFormFields({
 		visibleValidationErrors.some((error) => error.id === "limit-price-tick");
 	const triggerErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "trigger");
 	const limitErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "limit");
-	const twapTriggerHasError = visibleValidationErrors.some((error) => error.id === "twap-trigger-price-tick");
-	const twapStopHasError = visibleValidationErrors.some((error) => error.id === "twap-stop-price-tick");
+	const twapTriggerErrorMessage = getTwapPriceFieldErrorMessage(visibleValidationErrors, "trigger");
+	const twapStopErrorMessage = getTwapPriceFieldErrorMessage(visibleValidationErrors, "stop");
+	const twapTriggerHasError = twapTriggerErrorMessage !== "";
+	const twapStopHasError = twapStopErrorMessage !== "";
 
 	const sliderValue = getSliderValue(sizeValue, maxSize);
 	const sliderInteractionIdentity = `${leverageInteractionIdentity}:${side}:${orderType}:${reduceOnly}:${sizeMode}:${szDecimals}`;
@@ -469,6 +472,8 @@ export function TradeFormFields({
 							disabled={isFormDisabled}
 							triggerPriceInvalid={twapTriggerHasError}
 							stopPriceInvalid={twapStopHasError}
+							triggerPriceErrorMessage={twapTriggerErrorMessage}
+							stopPriceErrorMessage={twapStopErrorMessage}
 							side={side}
 							quoteToken={quoteToken}
 							markPx={markPx}

@@ -1,6 +1,8 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowSquareOutIcon, CaretDownIcon, InfoIcon } from "@phosphor-icons/react";
 import { Button } from "@sairn/ui";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
+import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import type { ReferralRewardRow } from "@/lib/trade/referral";
 
@@ -12,6 +14,7 @@ interface Props {
 
 export function ReferralRewardsCard({ rewards, snapshotCurrent, onRetry }: Props) {
 	const { formatToken } = useNumberFormat();
+	const { t } = useLingui();
 	return (
 		<article className="h-full rounded-16 border border-stroke-weak bg-surface px-3 py-3 min-[1001px]:px-4 min-[1001px]:py-3.5">
 			<div className="flex items-start justify-between gap-3">
@@ -28,44 +31,50 @@ export function ReferralRewardsCard({ rewards, snapshotCurrent, onRetry }: Props
 			<div className="mt-3 divide-y divide-stroke-weak border-y border-stroke-weak">
 				{rewards.length ? (
 					rewards.map((reward) => {
+						const { tokenId } = reward;
+						const tokenLabel = reward.name ?? t`Token #${tokenId}`;
 						return (
 							<div
-								key={reward.tokenId}
-								className="grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-2.5 min-[1200px]:grid-cols-4"
+								key={tokenId}
+								className="grid grid-cols-1 gap-x-3 gap-y-2 px-3 py-2.5 min-[420px]:grid-cols-2 min-[1200px]:grid-cols-4"
 							>
-								<div className="col-span-2 min-[1200px]:col-span-1">
-									<p className="text-xs font-semibold text-fg min-[1001px]:text-2sm">{reward.name}</p>
-									<p className="text-2xs text-fg-muted">Token #{reward.tokenId}</p>
+								<div className="min-w-0 min-[420px]:col-span-2 min-[1200px]:col-span-1">
+									<p className="break-words [overflow-wrap:anywhere] text-xs font-semibold text-fg min-[1001px]:text-2sm">
+										{tokenLabel}
+									</p>
+									<p className="text-2xs text-fg-muted">
+										<Trans>Token #{tokenId}</Trans>
+									</p>
 								</div>
-								<div>
+								<div className="min-w-0">
 									<p className="text-2xs text-fg-muted">
 										<Trans>Unclaimed</Trans>
 									</p>
-									<p className="mt-0.5 text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
+									<p className="mt-0.5 break-words [overflow-wrap:anywhere] text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
 										{formatToken(reward.unclaimedRewards, {
-											symbol: reward.name,
+											symbol: tokenLabel,
 											maximumFractionDigits: reward.weiDecimals ?? 8,
 										})}
 									</p>
 								</div>
-								<div>
+								<div className="min-w-0">
 									<p className="text-2xs text-fg-muted">
 										<Trans>Claimed</Trans>
 									</p>
-									<p className="mt-0.5 text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
+									<p className="mt-0.5 break-words [overflow-wrap:anywhere] text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
 										{formatToken(reward.claimedRewards, {
-											symbol: reward.name,
+											symbol: tokenLabel,
 											maximumFractionDigits: reward.weiDecimals ?? 8,
 										})}
 									</p>
 								</div>
-								<div className="col-span-2 min-[1200px]:col-span-1">
+								<div className="min-w-0 min-[420px]:col-span-2 min-[1200px]:col-span-1">
 									<p className="text-2xs text-fg-muted">
 										<Trans>Builder rewards (cumulative)</Trans>
 									</p>
-									<p className="mt-0.5 text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
+									<p className="mt-0.5 break-words [overflow-wrap:anywhere] text-xs font-medium tabular-nums text-fg min-[1001px]:text-2sm">
 										{formatToken(reward.builderRewards, {
-											symbol: reward.name,
+											symbol: tokenLabel,
 											maximumFractionDigits: reward.weiDecimals ?? 8,
 										})}
 									</p>
@@ -88,7 +97,12 @@ export function ReferralRewardsCard({ rewards, snapshotCurrent, onRetry }: Props
 			</p>
 
 			<details className="group mt-3">
-				<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-semibold text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus">
+				<summary
+					className={cn(
+						"flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-semibold text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+						TOUCH_PRESS_CLASS,
+					)}
+				>
 					<InfoIcon className="size-4 text-info" />
 					<span className="flex-1">
 						<Trans>How Hyperliquid referrals work</Trans>

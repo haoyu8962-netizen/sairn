@@ -360,6 +360,119 @@ describe("TradesPanel", () => {
 		expect(container.querySelector('.recent-trade-row[href$="/0x8"]')?.hasAttribute("data-initial")).toBe(false);
 	});
 
+	it("keeps exact historical trade prices when markPx crosses a power of ten", () => {
+		mocks.market = { kind: "perp", markPx: "101", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
+		mocks.result.status = "active";
+		mocks.result.data = [
+			{
+				coin: "HYPE",
+				hash: "0xold",
+				px: "99.999",
+				side: "B",
+				sz: "1.25",
+				tid: 99,
+				time: Date.UTC(2026, 6, 22, 12, 0, 0),
+				users: ["0xbuyer", "0xseller"],
+			},
+			{
+				coin: "HYPE",
+				hash: "0xnew",
+				px: "101",
+				side: "A",
+				sz: "2.50",
+				tid: 100,
+				time: Date.UTC(2026, 6, 22, 12, 0, 1),
+				users: ["0xbuyer", "0xseller"],
+			},
+		];
+
+		renderPanel();
+
+		const oldRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xold"]');
+		const newRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xnew"]');
+		expect(oldRow?.children[0]?.textContent).toBe("99.999");
+		expect(oldRow?.children[0]?.getAttribute("title")).toBe("99.999");
+		expect(newRow?.children[0]?.textContent).toBe("101.00");
+
+		mocks.market = { kind: "perp", markPx: "99.5", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
+		renderPanel();
+		expect(
+			container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xold"]')?.children[0]?.textContent,
+		).toBe("99.999");
+	});
+
+	it("caps per-trade price precision at Hyperliquid market limits and preserves large integers", () => {
+		mocks.market = { kind: "perp", markPx: "101", name: "HYPE", pairName: "HYPE-USDC", szDecimals: 2 };
+		mocks.result.status = "active";
+		mocks.result.data = [
+			{
+				coin: "HYPE",
+				hash: "0xvalid",
+				px: "99.999",
+				side: "B",
+				sz: "1.25",
+				tid: 1,
+				time: Date.UTC(2026, 6, 22, 12, 0, 0),
+				users: ["0xbuyer", "0xseller"],
+			},
+			{
+				coin: "HYPE",
+				hash: "0xsigfig",
+				px: "99.9995",
+				side: "A",
+				sz: "1.25",
+				tid: 2,
+				time: Date.UTC(2026, 6, 22, 12, 0, 1),
+				users: ["0xbuyer", "0xseller"],
+			},
+			{
+				coin: "HYPE",
+				hash: "0xcap",
+				px: "0.12345",
+				side: "B",
+				sz: "1.25",
+				tid: 3,
+				time: Date.UTC(2026, 6, 22, 12, 0, 2),
+				users: ["0xbuyer", "0xseller"],
+			},
+			{
+				coin: "HYPE",
+				hash: "0xint",
+				px: "9007199254740993",
+				side: "A",
+				sz: "1.25",
+				tid: 4,
+				time: Date.UTC(2026, 6, 22, 12, 0, 3),
+				users: ["0xbuyer", "0xseller"],
+			},
+		];
+
+		for (const compact of [false, true]) {
+			renderPanel(compact);
+
+			const validRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xvalid"]');
+			const sigFigRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xsigfig"]');
+			const capRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xcap"]');
+			const intRow = container.querySelector<HTMLAnchorElement>('a[href="https://example.test/tx/0xint"]');
+
+			expect(validRow?.children[0]?.textContent).toBe("99.999");
+			expect(validRow?.children[0]?.getAttribute("title")).toBe("99.999");
+			expect(validRow?.getAttribute("aria-label")).toContain("99.999");
+
+			expect(sigFigRow?.children[0]?.textContent).toBe("100.00");
+			expect(sigFigRow?.children[0]?.getAttribute("title")).toBe("100.00");
+			expect(sigFigRow?.getAttribute("aria-label")).toContain("100.00");
+
+			expect(capRow?.children[0]?.textContent).toBe("0.1235");
+			expect(capRow?.children[0]?.getAttribute("title")).toBe("0.1235");
+			expect(capRow?.getAttribute("aria-label")).toContain("0.1235");
+
+			expect(intRow?.children[0]?.textContent).toBe("9,007,199,254,740,993");
+			expect(intRow?.children[0]?.getAttribute("title")).toBe("9,007,199,254,740,993");
+			expect(intRow?.getAttribute("aria-label")).toContain("9,007,199,254,740,993");
+		}
+	});
+
 	it("does not call a stale empty snapshot an empty market", () => {
 		mocks.result.status = "active";
 		mocks.result.isStale = true;

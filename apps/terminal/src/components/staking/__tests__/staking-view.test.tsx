@@ -569,6 +569,26 @@ describe("StakingView", () => {
 		act(() => (retry as HTMLButtonElement | undefined)?.click());
 		expect(retryAccount).toHaveBeenCalledOnce();
 	});
+
+	it("wraps validator names and descriptions instead of truncating them, and adds press feedback to explorer links", () => {
+		const onActionClose = vi.fn();
+		act(() => root.render(<StakingView {...props({ actionSession: settledSession("success"), onActionClose })} />));
+
+		const firstCell = container.querySelector("tbody tr td:first-child");
+		const paragraphs = [...(firstCell?.querySelectorAll("p") ?? [])];
+		expect(paragraphs).toHaveLength(2);
+		for (const paragraph of paragraphs) {
+			expect(paragraph.className).not.toContain("truncate");
+			expect(paragraph.className).toContain("break-words");
+		}
+
+		const toastOptions = toastMocks.success.mock.calls[0]?.[1] as { description?: { props?: { className?: string } } };
+		expect(toastOptions?.description?.props?.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+
+		act(() => button(container, "Staking actions").click());
+		const explorerLink = container.querySelector<HTMLAnchorElement>(`a[href*="${HASH}"]`);
+		expect(explorerLink?.className).toMatch(/active:(opacity-60|bg-fill-weak)/);
+	});
 });
 
 function mockValidatorTableWidths({ clientWidth, scrollWidth }: { clientWidth: number; scrollWidth: number }) {

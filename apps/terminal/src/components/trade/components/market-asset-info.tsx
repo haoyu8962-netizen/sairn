@@ -326,9 +326,12 @@ export function MarketAssetInfo({ market }: Props) {
 				closeLabel={t`Close`}
 				presentation={isMobile ? "drawer" : "modal"}
 				handleClassName="top-2.5 h-1 w-9 !rounded-[2px] bg-trading-panel-stroke-input"
-				className="min-h-[166px] max-h-[calc(100dvh-1rem)] border-trading-panel-stroke-card font-market-close min-[1001px]:min-h-0 min-[1001px]:max-w-[30rem] min-[1001px]:[&>button]:top-[14px] min-[1001px]:[&>button]:right-[14px] min-[1001px]:[&>button]:size-[30px]"
+				className="min-h-[166px] max-h-[calc(100dvh-1rem)] border-trading-panel-stroke-card font-market-close min-[1001px]:min-h-0 min-[1001px]:max-w-[30rem] min-[1001px]:[&>button]:top-[14px] min-[1001px]:[&>button]:end-[14px] min-[1001px]:[&>button]:size-[30px]"
 			>
-				<ModalHeader divider={false} className="items-center px-12 pt-9 pb-0 min-[1001px]:px-6 min-[1001px]:pt-8">
+				<ModalHeader
+					divider={false}
+					className="items-center ps-12 pe-12 pt-9 pb-0 min-[1001px]:ps-6 min-[1001px]:pe-6 min-[1001px]:pt-8"
+				>
 					<div
 						data-testid="market-asset-info-header"
 						className="flex min-w-0 max-w-full flex-col items-center gap-3 text-center"

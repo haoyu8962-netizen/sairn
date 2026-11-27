@@ -11,7 +11,7 @@ const radioIndicatorVariants = cva(
 		"rounded-full border-2 transition-colors duration-150",
 		"border-stroke-strong",
 		"data-checked:bg-fill-selected data-checked:border-stroke-selected",
-		"[&:has(:focus-visible)]:outline-2 [&:has(:focus-visible)]:outline-offset-2 [&:has(:focus-visible)]:outline-stroke-focus",
+		"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
 		"after:content-[''] after:absolute after:top-1/2 after:left-1/2 after:-translate-1/2 after:size-11",
 	],
 	{

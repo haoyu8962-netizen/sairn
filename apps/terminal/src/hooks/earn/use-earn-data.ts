@@ -1,5 +1,6 @@
 import type { InfoClient } from "@nktkas/hyperliquid";
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useSyncExternalStore } from "react";
 import {
 	buildEarnSnapshot,
 	type EarnInterestEntry,
@@ -19,7 +20,8 @@ import {
 	isTokenSpotBalance,
 	useDefaultDexBalances,
 } from "@/hooks/trade/use-account-balances";
-import { useAccountLedger } from "@/hooks/trade/use-account-ledger";
+import { accountLedgerQueryKey, useAccountLedger } from "@/hooks/trade/use-account-ledger";
+import { useOnlineStatus } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { type HyperliquidEnv, infoQueryOptions, useHyperliquid, useInfo, useSpotTokens } from "@/lib/hyperliquid";
 import type { AccountLedgerRow } from "@/lib/trade/account-ledger";
@@ -51,7 +53,10 @@ export interface EarnData {
 	publicStatus: EarnDataStatus;
 	accountStatus: EarnDataStatus;
 	interestStatus: EarnDataStatus;
+	canConfirmEmptyInterest: boolean;
 	historyStatus: EarnDataStatus;
+	historyRefreshFailed: boolean;
+	historyRefreshing: boolean;
 	canConfirmEmptyHistory: boolean;
 	snapshot: EarnSnapshot | null;
 	snapshotInputs: EarnSnapshotInputs;
@@ -70,6 +75,96 @@ export interface EarnData {
 export interface EarnFreshState {
 	reserves: EarnReserve[];
 	userState: EarnUserState;
+}
+
+interface EmptyInterestReceipt {
+	monotonicReceivedAt: number;
+	receivedAt: number;
+}
+
+function getEmptyInterestRemainingMs(
+	receipt: EmptyInterestReceipt,
+	wallNow: number,
+	monotonicNow: number,
+	maxAgeMs: number,
+): number {
+	const wallAgeMs = wallNow - receipt.receivedAt;
+	const monotonicAgeMs = monotonicNow - receipt.monotonicReceivedAt;
+	if (!Number.isFinite(wallAgeMs) || !Number.isFinite(monotonicAgeMs) || wallAgeMs < 0) return 0;
+	return Math.max(0, maxAgeMs - Math.max(wallAgeMs, monotonicAgeMs));
+}
+
+function createEmptyInterestFreshnessClock(receipt: EmptyInterestReceipt | undefined, maxAgeMs: number) {
+	let fresh =
+		receipt !== undefined && getEmptyInterestRemainingMs(receipt, Date.now(), performance.now(), maxAgeMs) > 0;
+	return {
+		getSnapshot: () => fresh,
+		subscribe(onExpired: () => void) {
+			if (receipt === undefined || !fresh) return () => {};
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+			function checkFreshness() {
+				if (!fresh || receipt === undefined) return;
+				if (timeout !== undefined) clearTimeout(timeout);
+				timeout = undefined;
+				const remainingMs = getEmptyInterestRemainingMs(receipt, Date.now(), performance.now(), maxAgeMs);
+				if (remainingMs > 0) {
+					timeout = setTimeout(checkFreshness, remainingMs);
+					return;
+				}
+				fresh = false;
+				onExpired();
+			}
+			checkFreshness();
+			window.addEventListener("focus", checkFreshness);
+			document.addEventListener("visibilitychange", checkFreshness);
+			return () => {
+				if (timeout !== undefined) clearTimeout(timeout);
+				window.removeEventListener("focus", checkFreshness);
+				document.removeEventListener("visibilitychange", checkFreshness);
+			};
+		},
+	};
+}
+
+function useEmptyInterestFreshness(receipt: EmptyInterestReceipt | undefined): boolean {
+	const clock = useMemo(() => createEmptyInterestFreshnessClock(receipt, EARN_PUBLIC_REFRESH_MS), [receipt]);
+	return useSyncExternalStore(clock.subscribe, clock.getSnapshot, clock.getSnapshot);
+}
+
+function useAccountLedgerQueryError(
+	queryClient: QueryClient,
+	env: HyperliquidEnv,
+	ownerAddress: `0x${string}` | undefined,
+): boolean {
+	const queryKey = useMemo(() => (ownerAddress ? accountLedgerQueryKey(env, ownerAddress) : null), [env, ownerAddress]);
+	return useSyncExternalStore(
+		(onStoreChange) => {
+			if (!queryKey) return () => {};
+			return queryClient.getQueryCache().subscribe(() => {
+				onStoreChange();
+			});
+		},
+		() => (queryKey ? queryClient.getQueryState(queryKey)?.status === "error" : false),
+		() => false,
+	);
+}
+
+function useAccountLedgerQueryFetching(
+	queryClient: QueryClient,
+	env: HyperliquidEnv,
+	ownerAddress: `0x${string}` | undefined,
+): boolean {
+	const queryKey = useMemo(() => (ownerAddress ? accountLedgerQueryKey(env, ownerAddress) : null), [env, ownerAddress]);
+	return useSyncExternalStore(
+		(onStoreChange) => {
+			if (!queryKey) return () => {};
+			return queryClient.getQueryCache().subscribe(() => {
+				onStoreChange();
+			});
+		},
+		() => (queryKey ? queryClient.getQueryState(queryKey)?.fetchStatus === "fetching" : false),
+		() => false,
+	);
 }
 
 export function getEarnInterestStartTime(now: number): number {
@@ -155,6 +250,7 @@ export function useEarnData(): EarnData {
 	const ownerAddress = isConnected ? address : undefined;
 	const user = ownerAddress ?? EMPTY_USER;
 	const { env, info } = useHyperliquid();
+	const isOnline = useOnlineStatus();
 	const queryClient = useQueryClient();
 	const balances = useDefaultDexBalances();
 	const { tokens: spotTokens } = useSpotTokens();
@@ -236,12 +332,37 @@ export function useEarnData(): EarnData {
 		if (interestQuery.isError || (interestQuery.data !== undefined && interest === null)) interestStatus = "error";
 		else interestStatus = interest ? "ready" : "loading";
 	}
+	const isEmptyInterest = Boolean(ownerAddress) && interest !== null && interest.length === 0;
+	const interestDataUpdatedAt = interestQuery.dataUpdatedAt;
+	const emptyInterestReceipt = useMemo((): EmptyInterestReceipt | undefined => {
+		if (!isEmptyInterest || interestDataUpdatedAt <= 0) return undefined;
+		const wallNow = Date.now();
+		const monotonicNow = performance.now();
+		const elapsedWallMs = Math.max(0, wallNow - interestDataUpdatedAt);
+		return {
+			receivedAt: interestDataUpdatedAt,
+			monotonicReceivedAt: monotonicNow - elapsedWallMs,
+		};
+	}, [isEmptyInterest, interestDataUpdatedAt]);
+	const emptyInterestFresh = useEmptyInterestFreshness(emptyInterestReceipt);
+	const canConfirmEmptyInterest =
+		interestStatus === "ready" &&
+		Boolean(ownerAddress) &&
+		isOnline &&
+		!interestQuery.isError &&
+		interestQuery.fetchStatus === "idle" &&
+		interest !== null &&
+		(interest.length > 0 || emptyInterestFresh);
 
 	let historyStatus: EarnDataStatus = "idle";
 	if (ownerAddress) {
 		if (ledger.status === "error") historyStatus = "error";
 		else historyStatus = ledger.status === "ready" ? "ready" : "loading";
 	}
+	const ledgerQueryFailed = useAccountLedgerQueryError(queryClient, env, ownerAddress);
+	const ledgerQueryFetching = useAccountLedgerQueryFetching(queryClient, env, ownerAddress);
+	const historyRefreshing = Boolean(ownerAddress) && (ledger.isRefreshing || ledgerQueryFetching);
+	const historyRefreshFailed = Boolean(ownerAddress) && (historyStatus === "error" || ledgerQueryFailed);
 
 	const snapshot =
 		reserves && tokens.size > 0
@@ -257,13 +378,27 @@ export function useEarnData(): EarnData {
 		return fetchFreshEarnState(queryClient, info, env, ownerAddress, signal);
 	}
 
+	function retryHistory() {
+		if (!ownerAddress) return;
+		const queryKey = accountLedgerQueryKey(env, ownerAddress);
+		if (ledger.isRefreshing || queryClient.getQueryState(queryKey)?.fetchStatus === "fetching") return;
+		if (queryClient.getQueryCache().find({ exact: true, queryKey })) {
+			void queryClient.refetchQueries({ exact: true, queryKey }, { cancelRefetch: false });
+			return;
+		}
+		ledger.retry();
+	}
+
 	return {
 		ownerAddress,
 		isConnected,
 		publicStatus,
 		accountStatus,
 		interestStatus,
+		canConfirmEmptyInterest,
 		historyStatus,
+		historyRefreshFailed,
+		historyRefreshing,
 		canConfirmEmptyHistory: ledger.canConfirmEmpty,
 		snapshot,
 		snapshotInputs,
@@ -281,7 +416,7 @@ export function useEarnData(): EarnData {
 		retryInterest: () => {
 			void interestQuery.refetch();
 		},
-		retryHistory: ledger.retry,
+		retryHistory,
 		fetchFreshState,
 	};
 }

@@ -2,6 +2,8 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@sairn/ui";
 import { useState } from "react";
 import { MobileProgressiveList } from "@/components/trade/mobile/mobile-progressive-list";
+import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
+import { cn } from "@/lib/cn";
 import { formatDateTime, shortenAddress, useNumberFormat } from "@/lib/format";
 import type { ReferralTokenMetadata, ReferredTrader } from "@/lib/trade/referral";
 
@@ -13,18 +15,27 @@ interface Props {
 const DESKTOP_PAGE_SIZE = 25;
 
 export function ReferredTraders({ traders, tokenMetadata }: Props) {
-	const { formatToken, formatUSD } = useNumberFormat();
+	const { formatNumber, formatToken, formatUSD } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const [currentPage, setCurrentPage] = useState(1);
-	const totalPages = Math.max(1, Math.ceil(traders.length / DESKTOP_PAGE_SIZE));
-	const visiblePage = Math.min(currentPage, totalPages);
-	const desktopTraders = traders.slice((visiblePage - 1) * DESKTOP_PAGE_SIZE, visiblePage * DESKTOP_PAGE_SIZE);
-	const getTokenName = (tokenId: number) => tokenMetadata?.get(tokenId)?.name ?? `Token #${tokenId}`;
+	const totalPagesCount = Math.max(1, Math.ceil(traders.length / DESKTOP_PAGE_SIZE));
+	const visiblePageIndex = Math.min(currentPage, totalPagesCount);
+	const visiblePage = formatNumber(visiblePageIndex, { decimals: 0 });
+	const totalPages = formatNumber(totalPagesCount, { decimals: 0 });
+	const desktopTraders = traders.slice(
+		(visiblePageIndex - 1) * DESKTOP_PAGE_SIZE,
+		visiblePageIndex * DESKTOP_PAGE_SIZE,
+	);
+	const getTokenName = (tokenId: number) => tokenMetadata?.get(tokenId)?.name ?? t`Token #${tokenId}`;
 
 	return (
 		<>
-			<Table className="hidden min-[1001px]:table" containerClassName="hidden min-[1001px]:block">
+			<Table
+				scrollableRegionLabel={t`Referred traders`}
+				className="hidden min-[1001px]:table"
+				containerClassName="hidden min-[1001px]:block"
+			>
 				<TableHeader>
 					<TableRow className="h-[30px]">
 						<TableHead size="dense" className="text-xs">
@@ -77,7 +88,7 @@ export function ReferredTraders({ traders, tokenMetadata }: Props) {
 					))}
 				</TableBody>
 			</Table>
-			{totalPages > 1 ? (
+			{totalPagesCount > 1 ? (
 				<nav
 					aria-label={t`Referred traders pages`}
 					className="hidden items-center justify-between border-t border-stroke-weak px-6 py-3 min-[1001px]:flex"
@@ -92,8 +103,8 @@ export function ReferredTraders({ traders, tokenMetadata }: Props) {
 							variant="outline"
 							intent="neutral"
 							size="xs"
-							disabled={visiblePage === 1}
-							onClick={() => setCurrentPage(visiblePage - 1)}
+							disabled={visiblePageIndex === 1}
+							onClick={() => setCurrentPage(visiblePageIndex - 1)}
 						>
 							<Trans>Previous</Trans>
 						</Button>
@@ -101,8 +112,8 @@ export function ReferredTraders({ traders, tokenMetadata }: Props) {
 							variant="outline"
 							intent="neutral"
 							size="xs"
-							disabled={visiblePage === totalPages}
-							onClick={() => setCurrentPage(visiblePage + 1)}
+							disabled={visiblePageIndex === totalPagesCount}
+							onClick={() => setCurrentPage(visiblePageIndex + 1)}
 						>
 							<Trans>Next</Trans>
 						</Button>
@@ -135,13 +146,18 @@ export function ReferredTraders({ traders, tokenMetadata }: Props) {
 								</div>
 								{trader.tokenToState.length ? (
 									<details className="mt-2 py-2">
-										<summary className="cursor-pointer text-2xs font-medium text-fg-muted">
+										<summary
+											className={cn(
+												"cursor-pointer py-1 text-2xs font-medium text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+												TOUCH_PRESS_CLASS,
+											)}
+										>
 											<Trans>Reward assets</Trans>
 										</summary>
 										<div className="mt-2 space-y-2">
 											{trader.tokenToState.map(([tokenId, state]) => {
 												const metadata = tokenMetadata?.get(tokenId);
-												const tokenName = metadata?.name ?? `Token #${tokenId}`;
+												const tokenName = getTokenName(tokenId);
 												return (
 													<div key={tokenId} className="flex items-center justify-between gap-3 text-2xs">
 														<span className="font-medium text-fg">{tokenName}</span>

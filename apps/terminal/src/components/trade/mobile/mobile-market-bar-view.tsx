@@ -83,7 +83,7 @@ export function MobileMarketBarView({
 									: "border-trading-panel-stroke-input text-trading-panel-muted",
 							)}
 							aria-expanded={expanded}
-							aria-controls={detailsId}
+							aria-controls={expanded ? detailsId : undefined}
 							aria-label={expandLabel}
 						>
 							<CaretDownIcon

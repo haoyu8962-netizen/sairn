@@ -6,7 +6,7 @@ export const bookColumn = "relative min-w-0 flex-1 self-stretch";
 export const tradeScroll = "flex flex-1 flex-col";
 export const tradeEmbeddedContent =
 	"trade-panel-container flex-1 min-h-min flex flex-col gap-2 px-2.5 py-1.5 font-market-close";
-export const tradeColumn = "flex-[1.53] min-w-0 border-r border-stroke-weak/60";
+export const tradeColumn = "flex-[1.53] min-w-0 border-e border-stroke-weak/60";
 export const tradeView = "flex min-h-0 flex-col self-stretch";
 
 interface Props {

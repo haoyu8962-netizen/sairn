@@ -110,12 +110,12 @@
 - 命令（只读、非交互）：
 
   ```bash
-  codex exec -m gpt-6-astra -s read-only \
-    -c approval_policy='"never"' -c model_reasoning_effort='"medium"' \
+  codex exec -m gpt-6.2-sol -s read-only \
+    -c approval_policy='"never"' -c model_reasoning_effort='"low"' \
     --output-last-message <报告文件> - < prompt.md
   ```
 
-  本机 `~/.codex/config.toml` 的默认值会变，曾经是 `gpt-6.1-sol`、`xhigh` 或 `ultra`、`danger-full-access`、`on-failure`，所以模型、沙箱、审批方式和推理强度每次都在命令行显式写出。`gpt-6.1-sol` 和裸 `gpt-6` 在 ChatGPT 账号下返回 400；`gpt-6-astra` 需要 codex-cli 0.154 或更新。推理强度默认 medium（运营方要求节省额度），只有运营方点名或结果明显不够时才升到 high；中途改强度要整轮重跑。
+  运营方 2026-11-26 决定不再使用 `gpt-6` 系列，只选用两个模型：`gpt-6.2-sol` 用于例行、窄范围复审；`gpt-6.2-astra` 用于复杂、高风险或未收敛的复审。本机 `~/.codex/config.toml` 的默认值会变，曾经是 `gpt-6.1-sol`、`xhigh` 或 `ultra`、`danger-full-access`、`on-failure`，所以模型、沙箱、审批方式和推理强度每次都在命令行显式写出。两者默认推理强度都是 `low`（命令行仍显式传入），只有运营方点名或结果明显不够时才升到 `medium` 或 `high`；中途改强度要整轮重跑。
 - **提示词**：AGENTS.md 的自动提交规则会让 Codex 提交，所以要写明「只读审查，不修改文件，不提交」。结构是：通用说明（约束、要审的提交清单、相关开发文档、SDK 打包产物的具体位置、已记录的限制、严重度与评分口径，例如「有 major 不得高于 8.5」）、本轮上下文（上一轮的每条发现及处理，要求逐条证伪）、分路说明。写出「作者意图（需要你去证伪）」再附攻击面清单，效果较好。
 - **分路**：三路并行比单路全面，分别负责行为证伪、规范与记录（按规则出处评分）、遗漏与变异（给出测试钉不住的变异表）。每路约 5–25 分钟、8–15 万 token。修复提交本身也要复审；窄范围复审（只审上一轮之后的差异）能省下近一半用量。
 - **核实结果**：逐条对照代码，拿它给出的变异去打测试。`-s read-only` 下它跑不了 vitest（写 `node_modules/.vite-temp` 被拒绝），测试和变异要自己跑。审查期间不要修改被审的工作树，也不要同时跑全量 vitest。它对记录原文的引用也要核对。

@@ -25,6 +25,7 @@ import {
 	TableRow,
 } from "@sairn/ui";
 import type { ReactNode } from "react";
+import { TOUCH_PRESS_FADE_CLASS } from "@/components/ui/touch-press";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/cn";
 import { shortenAddress, useNumberFormat } from "@/lib/format";
@@ -106,13 +107,7 @@ export function LeaderboardView(props: LeaderboardViewProps) {
 
 			{props.dataNotice ? <LeaderboardDataNoticeBanner notice={props.dataNotice} /> : null}
 
-			{props.pageState === "loading" ? (
-				<LeaderboardSkeleton isMobile={isMobile} />
-			) : props.pageState === "error" || props.pageState === "paused" ? (
-				<LeaderboardError isPaused={props.pageState === "paused"} canRetry={props.canRetry} onRetry={props.onRetry} />
-			) : props.pageState === "empty" || props.pageState === "noResults" ? (
-				<LeaderboardEmpty hasQuery={props.pageState === "noResults"} />
-			) : isMobile ? (
+			{isMobile ? (
 				<MobileLeaderboard
 					{...props}
 					periodLabel={periodLabel}
@@ -225,9 +220,11 @@ interface CommonLeaderboardProps extends LeaderboardViewProps {
 
 function DesktopLeaderboard(props: CommonLeaderboardProps) {
 	const { formatPercent, formatUSD } = useNumberFormat();
+	const { t } = useLingui();
+	const showRows = props.pageState === "normal";
 	return (
 		<div className="flex flex-1 flex-col">
-			<Table containerClassName="overflow-visible">
+			<Table scrollableRegionLabel={t`Leaderboard`}>
 				<TableHeader>
 					<TableRow>
 						<TableHead size="dense" className="w-[var(--earn-rank-column)] ps-5">
@@ -242,23 +239,26 @@ function DesktopLeaderboard(props: CommonLeaderboardProps) {
 						<SortableHead label={props.volumeLabel} targetSortKey="volume" {...props} />
 					</TableRow>
 				</TableHeader>
-				<TableBody>
-					{props.rows.map((row) => (
-						<TableRow key={row.address} className="transition-colors hover:bg-fill-hover">
-							<TableCell size="dense" className="ps-5 font-semibold tabular-nums text-fg">
-								<Rank rank={row.rank} />
-							</TableCell>
-							<TableCell size="dense">
-								<TraderLink href={row.href} address={row.address} displayName={row.displayName} />
-							</TableCell>
-							<NumericCell>{formatUSD(row.accountValue, { compact: false })}</NumericCell>
-							<NumericCell tone={row.pnlTone}>{formatUSD(row.pnl, { compact: false })}</NumericCell>
-							<NumericCell tone={row.roiTone}>{formatPercent(row.roi)}</NumericCell>
-							<NumericCell>{formatUSD(row.volume, { compact: false })}</NumericCell>
-						</TableRow>
-					))}
-				</TableBody>
+				{showRows ? (
+					<TableBody>
+						{props.rows.map((row) => (
+							<TableRow key={row.address} className="transition-colors hover:bg-fill-hover">
+								<TableCell size="dense" className="ps-5 font-semibold tabular-nums text-fg">
+									<Rank rank={row.rank} />
+								</TableCell>
+								<TableCell size="dense">
+									<TraderLink href={row.href} address={row.address} displayName={row.displayName} />
+								</TableCell>
+								<NumericCell>{formatUSD(row.accountValue, { compact: false })}</NumericCell>
+								<NumericCell tone={row.pnlTone}>{formatUSD(row.pnl, { compact: false })}</NumericCell>
+								<NumericCell tone={row.roiTone}>{formatPercent(row.roi)}</NumericCell>
+								<NumericCell>{formatUSD(row.volume, { compact: false })}</NumericCell>
+							</TableRow>
+						))}
+					</TableBody>
+				) : null}
 			</Table>
+			{showRows ? null : <LeaderboardStateBody {...props} isMobile={false} />}
 			<LeaderboardPagination {...props} />
 		</div>
 	);
@@ -320,26 +320,28 @@ function MobileLeaderboard(props: CommonLeaderboardProps) {
 		{ value: "roi", label: t`ROI` },
 		{ value: "volume", label: t`Volume` },
 	];
+	const showRows = props.pageState === "normal";
 	return (
 		<div className="flex flex-1 flex-col px-4">
-			<div className="mb-3 flex items-center justify-between gap-3">
-				<p className="text-2sm font-semibold text-fg">
+			<div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+				<p className="min-w-0 text-2sm font-semibold text-fg">
 					<Trans>Ranked by</Trans>
 				</p>
-				<div className="flex items-center gap-1.5">
+				<div className="flex max-w-full min-w-0 items-center gap-1.5">
 					<Select
 						size="md"
 						value={props.sortKey}
 						onValueChange={(value) => value && props.onSort(value as LeaderboardSortKey)}
 						options={sortOptions}
 						triggerAriaLabel={t`Sort leaderboard`}
-						className="min-w-[var(--earn-mobile-sort-width)]"
+						className="min-w-[var(--earn-mobile-sort-width)] max-w-full flex-1"
 					/>
 					<ButtonIcon
 						type="button"
 						variant="outline"
 						intent="neutral"
 						size="md"
+						className="shrink-0"
 						onClick={() => props.onSort(props.sortKey)}
 						aria-label={
 							props.sortDirection === "descending" ? t`Change to ascending order` : t`Change to descending order`
@@ -353,23 +355,27 @@ function MobileLeaderboard(props: CommonLeaderboardProps) {
 					</ButtonIcon>
 				</div>
 			</div>
-			<div className="space-y-2.5">
-				{props.rows.map((row) => (
-					<article key={row.address} className="rounded-16 border border-stroke-weak bg-fill-weaker p-3">
-						<div className="mb-3 flex items-center justify-between gap-3 border-b border-stroke-weak pb-3">
-							<TraderLink href={row.href} address={row.address} displayName={row.displayName} />
-							<Rank rank={row.rank} />
-						</div>
-						<MobileMetric
-							label={<Trans>Account Value</Trans>}
-							value={formatUSD(row.accountValue, { compact: false })}
-						/>
-						<MobileMetric label={props.pnlLabel} value={formatUSD(row.pnl, { compact: false })} tone={row.pnlTone} />
-						<MobileMetric label={props.roiLabel} value={formatPercent(row.roi)} tone={row.roiTone} />
-						<MobileMetric label={props.volumeLabel} value={formatUSD(row.volume, { compact: false })} />
-					</article>
-				))}
-			</div>
+			{showRows ? (
+				<div className="space-y-2.5">
+					{props.rows.map((row) => (
+						<article key={row.address} className="rounded-16 border border-stroke-weak bg-fill-weaker p-3">
+							<div className="mb-3 flex items-center justify-between gap-3 border-b border-stroke-weak pb-3">
+								<TraderLink href={row.href} address={row.address} displayName={row.displayName} />
+								<Rank rank={row.rank} />
+							</div>
+							<MobileMetric
+								label={<Trans>Account Value</Trans>}
+								value={formatUSD(row.accountValue, { compact: false })}
+							/>
+							<MobileMetric label={props.pnlLabel} value={formatUSD(row.pnl, { compact: false })} tone={row.pnlTone} />
+							<MobileMetric label={props.roiLabel} value={formatPercent(row.roi)} tone={row.roiTone} />
+							<MobileMetric label={props.volumeLabel} value={formatUSD(row.volume, { compact: false })} />
+						</article>
+					))}
+				</div>
+			) : (
+				<LeaderboardStateBody {...props} isMobile />
+			)}
 			<LeaderboardPagination {...props} />
 		</div>
 	);
@@ -411,7 +417,10 @@ function TraderLink({ href, address, displayName }: TraderLinkProps) {
 			target="_blank"
 			rel="noopener"
 			title={visibleName ? undefined : address}
-			className="inline-flex min-w-0 items-center gap-2 rounded-8 font-semibold text-fg hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+			className={cn(
+				"inline-flex min-w-0 items-center gap-2 rounded-8 font-semibold text-fg hover:text-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+				TOUCH_PRESS_FADE_CLASS,
+			)}
 		>
 			<span className="grid size-6 shrink-0 place-items-center rounded-full bg-fill-weak text-icon">
 				{visibleName ? <UserCircleIcon className="size-4" /> : <TrophyIcon className="size-4" />}
@@ -423,25 +432,56 @@ function TraderLink({ href, address, displayName }: TraderLinkProps) {
 }
 
 function Rank({ rank }: { rank: number }) {
+	const { formatNumber } = useNumberFormat();
 	return (
-		<span className={cn("tabular-nums", rank <= 3 ? "font-bold text-warning" : "font-semibold text-fg")}>#{rank}</span>
+		<span className={cn("tabular-nums", rank <= 3 ? "font-bold text-warning" : "font-semibold text-fg")}>
+			<bdi dir="ltr">#{formatNumber(rank, { decimals: 0 })}</bdi>
+		</span>
 	);
 }
 
+interface LeaderboardStateBodyProps extends CommonLeaderboardProps {
+	isMobile: boolean;
+}
+
+function LeaderboardStateBody(props: LeaderboardStateBodyProps) {
+	if (props.pageState === "loading") {
+		return <LeaderboardSkeleton isMobile={props.isMobile} />;
+	}
+	if (props.pageState === "error" || props.pageState === "paused") {
+		return (
+			<LeaderboardError isPaused={props.pageState === "paused"} canRetry={props.canRetry} onRetry={props.onRetry} />
+		);
+	}
+	if (props.pageState === "empty" || props.pageState === "noResults") {
+		return <LeaderboardEmpty hasQuery={props.pageState === "noResults"} />;
+	}
+	return null;
+}
+
 function LeaderboardPagination(props: CommonLeaderboardProps) {
+	const { formatNumber } = useNumberFormat();
 	const { t } = useLingui();
+	const isBusy = props.pageState === "loading" || props.isRefreshing;
 	return (
 		<div className="flex flex-wrap items-center justify-end gap-3 px-1 py-3">
 			<Select
 				size="sm"
 				value={String(props.rowsPerPage)}
 				onValueChange={(value) => value && props.onRowsPerPageChange(Number(value))}
-				options={[5, 10, 25, 50].map((value) => ({ value: String(value), label: String(value) }))}
+				options={[5, 10, 25, 50].map((value) => ({
+					value: String(value),
+					label: formatNumber(value, { decimals: 0 }),
+				}))}
 				triggerAriaLabel={t`Rows per page`}
 				className="w-[var(--earn-rows-select-width)]"
 			/>
 			<span className="text-xs tabular-nums text-fg-muted">
-				{props.start}–{props.end} / {props.totalRows}
+				<bdi dir="ltr">
+					{props.totalRows > 0
+						? `${formatNumber(props.start, { decimals: 0 })}–${formatNumber(props.end, { decimals: 0 })} / ${formatNumber(props.totalRows, { decimals: 0 })}`
+						: "--"}
+				</bdi>
 			</span>
 			<div className="flex gap-1.5">
 				<ButtonIcon
@@ -450,7 +490,8 @@ function LeaderboardPagination(props: CommonLeaderboardProps) {
 					intent="neutral"
 					size="sm"
 					onClick={props.onPreviousPage}
-					disabled={props.isRefreshing || props.page <= 1}
+					disabled={isBusy || props.page <= 1}
+					focusableWhenDisabled
 					aria-label={t`Previous page`}
 				>
 					<CaretLeftIcon className="size-4 rtl:rotate-180" />
@@ -461,7 +502,8 @@ function LeaderboardPagination(props: CommonLeaderboardProps) {
 					intent="neutral"
 					size="sm"
 					onClick={props.onNextPage}
-					disabled={props.isRefreshing || props.page >= props.totalPages}
+					disabled={isBusy || props.page >= props.totalPages}
+					focusableWhenDisabled
 					aria-label={t`Next page`}
 				>
 					<CaretRightIcon className="size-4 rtl:rotate-180" />
@@ -473,7 +515,7 @@ function LeaderboardPagination(props: CommonLeaderboardProps) {
 
 function LeaderboardSkeleton({ isMobile }: { isMobile: boolean }) {
 	return (
-		<div className={cn("flex-1 animate-pulse", isMobile ? "space-y-2.5 px-4" : "px-5")} aria-busy="true">
+		<div className={cn("flex-1 animate-pulse", isMobile ? "space-y-2.5" : "px-5 pt-2")} aria-busy="true">
 			<span className="sr-only">
 				<Trans>Loading leaderboard</Trans>
 			</span>

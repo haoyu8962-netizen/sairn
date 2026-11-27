@@ -308,7 +308,7 @@ describe("desktop TWAP toolbar", () => {
 			'button[aria-label="Pause unavailable: Hyperliquid does not support pausing active TWAP orders."]',
 		);
 		expect(pause?.textContent).toBe("Pause");
-		expect(pause?.disabled).toBe(true);
+		expect(pause?.getAttribute("aria-disabled")).toBe("true");
 		const terminate = container.querySelector<HTMLButtonElement>('button[aria-label="Terminate TWAP order"]');
 		expect(terminate?.textContent).toBe("Terminate");
 
@@ -582,5 +582,39 @@ describe("desktop TWAP toolbar", () => {
 		expect(container.textContent).toContain("Connect your wallet to view TWAP fill history.");
 		expect(getTwapFillFooter()).toBeNull();
 		expect(testState.exportTwapFills).not.toHaveBeenCalled();
+	});
+
+	it("gives keyboard users focusable access to the pause explanation and TWAP failure reason", () => {
+		const history = testState.twapHistory;
+		testState.twapHistory = [
+			{
+				...history[0],
+				status: { status: "error", description: "Insufficient margin for slice" },
+			},
+		] as TwapHistoryResponse;
+		try {
+			render();
+			const pause = container.querySelector<HTMLButtonElement>(
+				'button[aria-label="Pause unavailable: Hyperliquid does not support pausing active TWAP orders."]',
+			);
+			expect(pause).not.toBeNull();
+			expect(pause?.disabled).toBe(false);
+			expect(pause?.getAttribute("aria-disabled")).toBe("true");
+			act(() => pause?.focus());
+			expect(document.activeElement).toBe(pause);
+			act(() => pause?.click());
+			expect(testState.cancelTwap).not.toHaveBeenCalled();
+
+			selectSubview("History");
+			const statusButton = Array.from(container.querySelectorAll<HTMLButtonElement>("tbody button")).find((button) =>
+				button.textContent?.includes("Insufficient margin for slice"),
+			);
+			expect(statusButton).toBeDefined();
+			expect(statusButton?.closest("td")?.hasAttribute("title")).toBe(false);
+			act(() => statusButton?.focus());
+			expect(document.activeElement).toBe(statusButton);
+		} finally {
+			testState.twapHistory = history;
+		}
 	});
 });

@@ -17,6 +17,7 @@ import {
 	useTpSlEnabled,
 	useTpSlReturnInvalid,
 	useTwapAdvancedEnabled,
+	useTwapDurationDraft,
 	useTwapStopPrice,
 	useTwapTriggerPrice,
 } from "@/stores/use-order-entry-store";
@@ -231,6 +232,42 @@ describe("order entry store persistence", () => {
 		});
 		act(() => actions.resetFormIfCurrent(getOrderEntryDraftResetToken()));
 		expect(snapshot).toEqual({ enabled: false, trigger: "", stop: "" });
+	});
+
+	it("keeps TWAP duration draft transient across order-type switches and clears it on reset or explicit minute updates", () => {
+		let draft: ReturnType<typeof useTwapDurationDraft> = null;
+		function Probe() {
+			draft = useTwapDurationDraft();
+			return null;
+		}
+		act(() => root.render(createElement(Probe)));
+		expect(draft).toBeNull();
+
+		const invalidDraft = { hours: "0", minutes: "60", expectedMinutes: 0 };
+		act(() => {
+			actions.setOrderType("twap");
+			actions.setTwapMinutes(0);
+			actions.setTwapDurationDraft(invalidDraft);
+		});
+		expect(draft).toEqual(invalidDraft);
+
+		act(() => {
+			actions.setOrderType("limit");
+			actions.setOrderType("twap");
+		});
+		expect(draft).toEqual(invalidDraft);
+
+		act(() => actions.setTwapMinutes(0));
+		expect(draft).toBeNull();
+
+		act(() => actions.setTwapDurationDraft(invalidDraft));
+		act(() => actions.resetFormForMarket("mainnet:twap-duration:ETH"));
+		expect(draft).toBeNull();
+
+		act(() => actions.setTwapDurationDraft(invalidDraft));
+		act(() => actions.resetFormIfCurrent(getOrderEntryDraftResetToken()));
+		expect(draft).toBeNull();
+		expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDER_ENTRY) ?? "{}").state?.twapDurationDraft).toBeUndefined();
 	});
 
 	it("clears linked TP/SL amount errors when their price or form state resets", () => {

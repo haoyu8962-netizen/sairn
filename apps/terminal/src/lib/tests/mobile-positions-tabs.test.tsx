@@ -74,17 +74,25 @@ vi.mock("@/lib/hyperliquid", () => ({
 	}),
 }));
 
-vi.mock("@/hooks/trade/use-account-balances", () => ({
-	isSupportedAccountAbstraction: (value: unknown) =>
-		value === "disabled" || value === "unifiedAccount" || value === "portfolioMargin",
-	useDefaultDexBalances: () => ({
+vi.mock("@/hooks/trade/use-balance-rows", () => ({
+	useBalanceRows: () => ({
 		accountAbstraction: "disabled",
-		perpSummary: { accountValue: "0" },
-		spotBalances: [],
+		accountDataReady: storeState.snapshotsReady,
+		accountModeReady: true,
+		accountModeSetup: null,
+		balances: [],
 		hasAllDexsSnapshot: storeState.snapshotsReady,
-		hasSpotStateSnapshot: storeState.snapshotsReady,
 		hasError: false,
+		internalTransfersEnabled: storeState.snapshotsReady,
+		isConnected: storeState.isConnected,
+		isDataReady: storeState.snapshotsReady,
+		isDataStale: false,
 		isLoading: !storeState.snapshotsReady,
+		isPending: !storeState.snapshotsReady,
+		perpFundsActionsEnabled: storeState.snapshotsReady,
+		perpBalances: [],
+		showBalanceAccountType: true,
+		spotBalanceRows: [],
 	}),
 }));
 
@@ -278,10 +286,15 @@ describe("MobilePositionsView tabs", () => {
 
 		const fade = container.querySelector<HTMLElement>('[data-testid="mobile-account-tabs-fade"]');
 		expect(fade?.className).toContain("w-7");
+		expect(fade?.className).toContain("end-0");
+		expect(fade?.className).not.toContain("right-0");
+		expect(fade?.className).toContain("rtl:bg-linear-to-l");
 		expect(fade?.className).toContain("pointer-events-none");
 		expect(fade?.className).toContain("from-transparent");
 		expect(fade?.className).toContain("to-modal");
 		expect(fade?.getAttribute("aria-hidden")).toBe("true");
+		expect(tabList?.className).toContain("pe-7");
+		expect(tabList?.className).not.toContain("pr-7");
 	});
 
 	it("gives every tab a minimum 44px touch target", () => {
@@ -535,5 +548,82 @@ describe("MobilePositionsView tabs", () => {
 		expect(setPositionsActiveTab).toHaveBeenCalledWith("history");
 		act(() => vi.runAllTimers());
 		expect(setPositionsActiveTab).toHaveBeenCalledOnce();
+	});
+
+	it("clears the left edge fade when restoring a trailing tab in RTL without touching vertical scroll", () => {
+		const previousDir = document.documentElement.dir;
+		const previousLocale = i18n.locale || "en";
+		document.documentElement.dir = "rtl";
+		i18n.load("ar", {});
+		i18n.activate("ar");
+		storeState.activeTab = "orders-history";
+		const scrollBy = vi.fn();
+		Object.defineProperty(HTMLElement.prototype, "scrollBy", {
+			configurable: true,
+			value: scrollBy,
+		});
+		const getBoundingClientRect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+		getBoundingClientRect.mockImplementation(function (this: HTMLElement) {
+			if (this.dataset.testid === "mobile-account-tabs-scroll") {
+				return { bottom: 47, height: 47, left: 0, right: 320, top: 0, width: 320, x: 0, y: 0, toJSON() {} };
+			}
+			if (this.dataset.mobileAccountTab === "orders-history") {
+				return { bottom: 44, height: 44, left: 8, right: 108, top: 0, width: 100, x: 8, y: 0, toJSON() {} };
+			}
+			return { bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0, toJSON() {} };
+		});
+		try {
+			render();
+			expect(scrollBy).toHaveBeenCalledWith({ behavior: "auto", left: -20, top: 0 });
+			expect(scrollIntoView).not.toHaveBeenCalled();
+		} finally {
+			document.documentElement.dir = previousDir;
+			i18n.load(previousLocale, {});
+			act(() => {
+				i18n.activate(previousLocale);
+			});
+		}
+	});
+
+	it("re-aligns the selected tab to clear the RTL edge fade when switching language in place", () => {
+		const previousDir = document.documentElement.dir;
+		const previousLocale = i18n.locale || "en";
+		document.documentElement.dir = "ltr";
+		i18n.load("en", {});
+		i18n.activate("en");
+		storeState.activeTab = "orders-history";
+		const scrollBy = vi.fn();
+		Object.defineProperty(HTMLElement.prototype, "scrollBy", {
+			configurable: true,
+			value: scrollBy,
+		});
+		const getBoundingClientRect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+		getBoundingClientRect.mockImplementation(function (this: HTMLElement) {
+			if (this.dataset.testid === "mobile-account-tabs-scroll") {
+				return { bottom: 47, height: 47, left: 0, right: 320, top: 0, width: 320, x: 0, y: 0, toJSON() {} };
+			}
+			if (this.dataset.mobileAccountTab === "orders-history") {
+				return { bottom: 44, height: 44, left: 8, right: 108, top: 0, width: 100, x: 8, y: 0, toJSON() {} };
+			}
+			return { bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0, toJSON() {} };
+		});
+		try {
+			render();
+			expect(scrollBy).not.toHaveBeenCalled();
+
+			document.documentElement.dir = "rtl";
+			i18n.load("ar", {});
+			act(() => {
+				i18n.activate("ar");
+			});
+			expect(scrollBy).toHaveBeenCalledWith({ behavior: "auto", left: -20, top: 0 });
+			expect(scrollIntoView).not.toHaveBeenCalled();
+		} finally {
+			document.documentElement.dir = previousDir;
+			i18n.load(previousLocale, {});
+			act(() => {
+				i18n.activate(previousLocale);
+			});
+		}
 	});
 });
