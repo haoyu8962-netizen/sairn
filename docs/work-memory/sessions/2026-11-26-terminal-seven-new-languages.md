@@ -7,10 +7,10 @@
   "kind": "task",
   "status": "recorded",
   "topics": ["i18n-runtime"],
-  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，未推送。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。进行中。",
+  "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061"],
+  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -558,3 +558,15 @@
 - 全量验证：`pnpm i18n:extract`（14 个目录，新增 7 个 Missing 0，原有 7 个无差异）、`pnpm i18n:compile`、`pnpm typecheck`（hl-react、ui、terminal）通过；Biome 对分支改过的 34 个 ts/tsx/mjs 通过；`pnpm memory:check`、`memory:test`（12 项）通过；终端全量 Vitest（沙箱外，`--maxWorkers=4`，在 `020469061` 加上未提交的预算脚本与文档改动上运行）：778 个文件中 777 通过、1 跳过，12,218 项中 12,217 通过、1 跳过，0 失败。
 - 包体：按 `docs/terminal-performance-baseline.md` 配对构建（`main` `ce3259b6` 与分支 `02046906`，Node 22.15.0，无 `.env.local`，固定标识，两种配对状态，日志在 `.worklog/2026-11-27/i18n-languages-rebaseline/`）。总量 +273,149 / +273,270，其中 271,353 是 13 个非英文目录块（7 个新目录各 34–48 kB gzip，用户只下载所选语言的一个）；静态启动 +1,940 / +1,768（`vendor-router` +1,469）；其他面不变。总量基线上调 +273,270 到 3,677,509，静态启动上调 +1,940 到 1,668,662，余量不变；新基线下分支配对开读数为总量 +6,887（余 3,113，与 `main` 相同）、静态启动 +9,392（余 608）、手机运行时 +9,254（余 746）。`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。未构建生产发布配置（生产 `.env.local`、配对开）。
 - 文档：`docs/i18n-presentation.md`（语言清单、各语言规则、字体样例、静态数字规则）、`CHANGELOG.md`（七种语言各一条、字体与 IBM Plex 子集一条）、ADR 0059、`docs/terminal-performance-baseline.md`、AGENTS.md 回归清单已随各提交同步。各语言的锁定术语表仍只在草稿目录；若以后要长期对照，可整理成一份规范文档（未做）。
+
+### 合入 main 4548175e 与第二次重定基线（2026-11-27）
+
+- 起因：PR #21（多模型 UI 审查修复，含它自己的包体重定基线）先合入 main，#22 与 main 冲突，无法合并。运营方要求先合 #22，再合另外三个跟进 PR。
+- 合并：`c363643b1` 把 `main` `4548175e` 合入本分支，冲突只在 `scripts/check-client-bundle-budget.mjs` 与 `docs/terminal-performance-baseline.md`，两边的说明都保留了。#21 新增 25 条消息，由 Gemini 4 Neon 补译到 7 个新目录（共 175 条）。Codex 只读审查这批补译，7.0 分：P1 是 vi `Market Close {displayName}`，译成了「Đóng thị trường」（读作「关闭市场」），改为「Đóng theo giá thị trường」；P2 是 vi `Limit Close {displayName}`，改为「Đóng theo giá giới hạn」；另有 4 项 P3，把 vi 与 tr 的 `Modify Order for {marketLabel}`（含带原因的一条）统一成既有的「Sửa lệnh」和「değiştir」。6 项都已改进合并提交。
+- 合并后的机器闸门：`pnpm i18n:extract` 没有改动任何目录，新增 7 个都是 Missing 0；原有 7 个目录、`apps/website` 和 `brand/` 与 `main` `4548175e` 逐字节相同（ar/es/fr/hi 各缺 35 条、zh 缺 3 条，是 main 的现状）。`pnpm i18n:compile` 通过，终端 typecheck 通过。运行时翻译、字体、看门狗、品牌目录、进度标签、顶栏等 12 个测试文件共 489 项通过。终端全量 Vitest 没有在本机重跑，交给 PR 的 CI。
+- 包体：合并后，配对开的总量超出余量 920 字节（`+10,920`），其他面都在余量内。按 `docs/terminal-performance-baseline.md` 重新做配对构建：`main` `4548175e` 对比分支 `c363643b`，日志在 `.worklog/2026-11-27/i18n-languages-rebaseline-2/`。
+  - 增量（配对关 / 配对开）：总量 +275,955 / +276,703，其中目录块 +274,483、`vendor-tanstack-router` +1,403；静态启动 +1,641 / +1,877；`trade-terminal-page` +88 / +87；其他面变化都在 ±51 以内。
+  - 新基线（在 main 的基线上取两种配对状态中较大的增量）：总量 3,425,559 + 276,703 = 3,702,262，静态启动 1,674,829 + 1,877 = 1,676,706，余量不变。
+  - 新基线下分支配对开读数：总量 +7,487（余 2,513）、静态启动 +9,589（余 411），与 main 相同；手机运行时 +9,249（余 751）。`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
+  - 第一次重定基线（对比 `ce3259b6`）的数据作为历史保留在性能文档里。
+- 没有做：生产发布配置的构建、真机、母语审校（同前）。
