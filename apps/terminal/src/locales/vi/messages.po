@@ -3580,7 +3580,7 @@ msgstr "Đòn bẩy cao làm tăng đáng kể rủi ro thanh lý. Hãy sử d�
 #: src/components/trade/mobile/mobile-twap-history-list.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 msgid "Highest / Lowest Price"
-msgstr "Giá cao nhất / thấp nhất"
+msgstr "Giá cao / thấp nhất"
 
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "HIP-3"
@@ -4075,11 +4075,11 @@ msgstr "Mua giới hạn"
 #: src/components/trade/positions/position-limit-close-modal.tsx
 #: src/hooks/trade/use-position-limit-close-submit.ts
 msgid "Limit Close"
-msgstr "Đóng theo giá giới hạn"
+msgstr "Đóng theo giới hạn"
 
 #: src/components/trade/mobile/mobile-position-card.tsx
 msgid "Limit Close {displayName}"
-msgstr "Đóng theo giá giới hạn {displayName}"
+msgstr "Đóng theo giới hạn {displayName}"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
@@ -4368,7 +4368,7 @@ msgstr "Tổng quan ký quỹ và rủi ro tài khoản"
 
 #: src/hooks/trade/use-order-display-labels.ts
 msgid "Margin Canceled"
-msgstr "Hủy do thiếu ký quỹ"
+msgstr "Hủy do ký quỹ"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 #: src/components/trade/tradebox/margin-mode-modal.tsx
@@ -4476,11 +4476,11 @@ msgstr "Nhấp vào \"Thị trường\" hiện sẽ đóng toàn bộ vị thế
 #: src/components/trade/positions/position-market-close-modal.tsx
 #: src/lib/trade/order-notification-copy.ts
 msgid "Market Close"
-msgstr "Đóng theo giá thị trường"
+msgstr "Đóng theo thị trường"
 
 #: src/components/trade/mobile/mobile-position-card.tsx
 msgid "Market Close {displayName}"
-msgstr "Đóng theo giá thị trường {displayName}"
+msgstr "Đóng theo thị trường {displayName}"
 
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
@@ -5537,7 +5537,7 @@ msgstr "Lịch sử lệnh thông thường của <0>{0}</0>"
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
 msgid "Original Size"
-msgstr "Số lượng ban đầu"
+msgstr "Số lượng gốc"
 
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
@@ -8298,7 +8298,7 @@ msgstr "Nhà cung cấp thanh toán vẫn đang xử lý. USDC sẽ vào ví c�
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "The position grew after you confirmed, so nothing was closed. Reopen Market Close to review the new size."
-msgstr "Vị thế đã tăng sau khi bạn xác nhận nên chưa có phần nào được đóng. Hãy mở lại Đóng theo giá thị trường để kiểm tra số lượng mới."
+msgstr "Vị thế đã tăng sau khi bạn xác nhận nên chưa có phần nào được đóng. Hãy mở lại Đóng theo thị trường để kiểm tra số lượng mới."
 
 #: src/components/trade/positions/position-market-close-modal.tsx
 msgid "The position size has changed since you opened this dialog. Review the close size before submitting."

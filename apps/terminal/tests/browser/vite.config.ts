@@ -21,6 +21,7 @@ export default defineConfig({
 			"!position-close-all.html",
 			"!notifications.html",
 			"!mobile-history-cards.html",
+			"!account-tables.html",
 		],
 	},
 	define: { "process.env.DRAGGABLE_DEBUG": "false" },

@@ -116,7 +116,7 @@ describe("locale font subset contract", () => {
 	});
 
 	it("reads the catalogs it checks", () => {
-		expect(readCatalogText("vi")).toContain("Đóng theo giá thị trường");
+		expect(readCatalogText("vi")).toContain("Đóng theo thị trường");
 		expect(readCatalogText("en")).toContain("Market Close");
 	});
 
