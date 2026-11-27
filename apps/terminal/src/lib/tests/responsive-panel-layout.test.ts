@@ -154,7 +154,7 @@ describe("responsive panel layout contract", () => {
 			/\.desktop-terminal-grid\.react-grid-layout\s*{\s*background-color:\s*transparent;\s*transition-property:\s*none\s*!important;/,
 		);
 		expect(TERMINAL_STYLES).toMatch(
-			/\.desktop-terminal-grid\s*>\s*\.react-grid-item\s*{\s*min-width:\s*0;\s*transition-property:\s*none\s*!important;/,
+			/\.desktop-terminal-grid\s*>\s*\.react-grid-item\s*{\s*top:\s*0;\s*left:\s*0;\s*min-width:\s*0;\s*transition-property:\s*none\s*!important;/,
 		);
 	});
 });

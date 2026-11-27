@@ -57,7 +57,7 @@ async function chooseOrder(page: Page, order: number, locale: keyof typeof label
 	const header = page.locator('[data-slot="trade-panel-header"]');
 	if (order < 2) await header.getByRole("button", { name: labels[locale].orders[order], exact: true }).click();
 	else {
-		await header.getByRole("button", { name: labels[locale].advanced, exact: true }).click();
+		await header.getByRole("button", { name: new RegExp(`^${labels[locale].advanced}(?:: .+)?$`) }).click();
 		await page.getByRole("menuitem", { name: labels[locale].orders[order], exact: true }).click();
 	}
 }

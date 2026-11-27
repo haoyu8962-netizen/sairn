@@ -5,6 +5,7 @@ import { Suspense, useCallback, useId, useState } from "react";
 import { DashboardHeader, FooterBar, GlobalModals } from "@/components/dashboard/dashboard-chrome";
 import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view";
 import { depositModalIntentProps } from "@/components/trade/components/deposit-modal-intent";
+import { DEFAULT_MARKET_NAME } from "@/config/app";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
 import { isQuoteBalanceSharedWithPerps } from "@/domain/trade/balances";
 import { getFundsAvailabilityNotice, isFundsActionRestricted } from "@/domain/trade/data-presentation";
@@ -15,6 +16,7 @@ import {
 import { isSupportedAccountAbstraction, useDefaultDexBalances } from "@/hooks/trade/use-account-balances";
 import { useDepositAvailability } from "@/hooks/trade/use-deposit-availability";
 import { useFundsActionAvailability } from "@/hooks/trade/use-funds-action-availability";
+import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
@@ -27,6 +29,7 @@ import {
 	useTransferModalActions,
 } from "@/stores/use-global-modal-store";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
+import { useSelectedMarket } from "@/stores/use-market-store";
 import { AccountActivityFeedOwner } from "../trade/account-activity-feed-owner";
 import { MobileAccountTransfersTab } from "../trade/mobile/mobile-account-transfers-tab";
 import { MobileBalancesTab } from "../trade/mobile/mobile-balances-tab";
@@ -42,6 +45,8 @@ export function PortfolioPage() {
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const isMobile = useIsMobile();
+	const navigateToMarket = useMarketNavigation();
+	const selectedMarket = useSelectedMarket();
 	const unavailableActionsId = useId();
 	const isTestnet = useIsTestnet();
 	const { hasWalletAccess, isConnected } = useWalletSession();
@@ -120,6 +125,10 @@ export function PortfolioPage() {
 		},
 		[accountModeControl.setAccountAbstraction],
 	);
+
+	function handleGoToTrade() {
+		navigateToMarket(selectedMarket || DEFAULT_MARKET_NAME, undefined, { displayedContent: "trade" });
+	}
 
 	return (
 		<>
@@ -260,6 +269,7 @@ export function PortfolioPage() {
 									includeBottomNavSpacer={false}
 									balancesContent={<MobileBalancesTab />}
 									transfersContent={<MobileAccountTransfersTab scrollMode="page" />}
+									onGoToTrade={handleGoToTrade}
 								/>
 							) : (
 								<div className={cn(!isConnected && "h-24")}>

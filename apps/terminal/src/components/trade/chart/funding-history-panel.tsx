@@ -37,7 +37,7 @@ export function FundingHistoryPanel({ active, market }: Props) {
 
 	return (
 		<div data-funding-history-panel data-status={history.status} className="flex h-full min-h-0 flex-col bg-surface">
-			<div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 max-[1000px]:pt-4 max-[1000px]:pb-2.5">
 				<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-fg-muted">
 					<span className="flex min-w-0 items-center gap-1.5">
 						<span aria-hidden="true" className="flex h-0.5 w-3 shrink-0 overflow-hidden rounded-full">

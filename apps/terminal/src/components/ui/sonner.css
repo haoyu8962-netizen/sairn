@@ -2,6 +2,36 @@
 	opacity: 0;
 }
 
+.toaster[data-sonner-toaster]:focus-within
+	[data-sonner-toast][data-mounted="true"][data-removed="false"][data-expanded="false"][data-visible="true"] {
+	--y: translateY(calc(var(--lift) * var(--offset)));
+	height: var(--initial-height);
+}
+
+.toaster[data-sonner-toaster]:focus-within
+	[data-sonner-toast][data-expanded="false"][data-front="false"][data-visible="true"]
+	> * {
+	opacity: 1;
+}
+
+.toaster[data-sonner-toaster] [data-sonner-toast][data-visible="false"] {
+	visibility: hidden;
+}
+
+.toaster[data-sonner-toaster] [data-sonner-toast][data-visible="false"] [role="alert"],
+.toaster[data-sonner-toaster] [data-sonner-toast][data-visible="false"] [role="status"] {
+	visibility: visible;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
 .toaster[data-sonner-toaster] [data-sonner-toast][data-styled="false"] {
 	border-radius: var(--radius-8);
 	background: var(--bg-overlay);

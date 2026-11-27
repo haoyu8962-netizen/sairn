@@ -38,6 +38,8 @@ vi.mock("@/components/trade/tradebox/account-mode-modal", () => ({ AccountModeMo
 vi.mock("@/components/portfolio/portfolio-overview", () => ({ PortfolioOverview: () => null }));
 vi.mock("@/lib/lazy", () => ({ createLazyComponent: () => () => null }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => testState.isMobile }));
+vi.mock("@/hooks/trade/use-market-navigation", () => ({ useMarketNavigation: () => vi.fn() }));
+vi.mock("@/stores/use-market-store", () => ({ useSelectedMarket: () => "BTC" }));
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 	useWalletSession: () => ({ hasWalletAccess: false, isConnected: true, sessionMode: "agent-only" }),
 	useReconnectWallet: () => ({ reconnectWallet: vi.fn(), isReconnecting: false }),

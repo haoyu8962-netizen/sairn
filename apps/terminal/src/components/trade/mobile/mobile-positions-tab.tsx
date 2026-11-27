@@ -51,6 +51,7 @@ import { useMobileTerminalTab } from "./use-mobile-terminal-tab";
 interface Props {
 	scrollMode?: MobileDataScrollMode;
 	disclosureState: MobileDisclosureSetState;
+	onGoToTrade?: () => void;
 }
 
 interface PositionFiltersState {
@@ -65,7 +66,7 @@ interface OwnedPositionPnlShare {
 	position: PositionPnlShareData;
 }
 
-export function MobilePositionsTab({ scrollMode = "contained", disclosureState }: Props) {
+export function MobilePositionsTab({ scrollMode = "contained", disclosureState, onGoToTrade }: Props) {
 	const { t } = useLingui();
 	const { address, isConnected } = useWalletSession();
 	const { clientKey, env } = useHyperliquid();
@@ -101,12 +102,17 @@ export function MobilePositionsTab({ scrollMode = "contained", disclosureState }
 	const { getMarketInfo } = useMarketsInfo();
 	const { data: selectedMarket } = useSelectedMarketInfo();
 
-	const { data: openOrdersEvent } = useSubscription(
+	const {
+		data: openOrdersEvent,
+		status: openOrdersStatus,
+		isStale: openOrdersStale,
+	} = useSubscription(
 		"openOrders",
 		{ user: address ?? "0x0", dex: HL_ALL_DEXS },
 		{ enabled: isConnected && !!address },
 	);
-	const openOrders = openOrdersEvent?.orders ?? [];
+	const isOpenOrdersReady = openOrdersStatus === "active" && openOrdersEvent !== undefined && !openOrdersStale;
+	const openOrders = isOpenOrdersReady ? openOrdersEvent.orders : [];
 
 	const tpSlOrdersByCoin = useMemo(() => buildTpSlOrdersByCoin(openOrders), [openOrders]);
 	const isPageScroll = scrollMode === "page";
@@ -220,7 +226,7 @@ export function MobilePositionsTab({ scrollMode = "contained", disclosureState }
 				className="flex h-9 shrink-0 items-center justify-between gap-3 border-b border-market-close-stroke-card px-3.5"
 			>
 				<div
-					className="min-w-0 flex-1 overflow-x-auto py-2 scrollbar-none"
+					className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-2 scrollbar-none"
 					data-testid="mobile-position-filters-scroll"
 				>
 					<div className="w-max">
@@ -282,7 +288,7 @@ export function MobilePositionsTab({ scrollMode = "contained", disclosureState }
 						intent="neutral"
 						size="sm"
 						iconLeft={<TrendUpIcon className="size-4" />}
-						onClick={() => setActiveTab("trade")}
+						onClick={() => (onGoToTrade ? onGoToTrade() : setActiveTab("trade"))}
 					>
 						{t`Go to Trade`}
 					</Button>

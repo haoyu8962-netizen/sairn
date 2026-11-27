@@ -390,7 +390,7 @@ export function ApiWalletActionModal({
 				isMobile ? "rounded-t-32" : "max-w-[var(--api-wallet-modal-width)] rounded-32",
 			)}
 		>
-			<ModalHeader divider={false} className="px-4 pt-6 pb-2">
+			<ModalHeader divider={false} className="ps-4 pe-4 pt-6 pb-2 min-[1001px]:pe-14">
 				<ModalTitle
 					className={cn(
 						"font-bold text-api-wallet-fg",

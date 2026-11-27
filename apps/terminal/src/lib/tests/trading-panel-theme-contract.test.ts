@@ -72,6 +72,30 @@ describe("trading panel theme contract", () => {
 		}
 	});
 
+	it("keeps light buy and sell active side-toggle fills at WCAG AA contrast against white text", () => {
+		const onSuccess = resolveCssColor(":root", "--trading-panel-on-success");
+		const successFill = resolveCssColor(":root", "--trading-panel-success-fill");
+		const onError = resolveCssColor(":root", "--trading-panel-on-error");
+		const errorFill = resolveCssColor(":root", "--trading-panel-error-fill");
+
+		expect(getContrastRatio(onSuccess, successFill)).toBeGreaterThanOrEqual(4.5);
+		expect(getContrastRatio(onError, errorFill)).toBeGreaterThanOrEqual(4.5);
+	});
+
+	it("keeps light buy and sell order CTA hover fills at WCAG AA contrast over modal and panel surfaces", () => {
+		const onSuccess = resolveCssColor(":root", "--trading-panel-on-success");
+		const successFill = resolveCssColor(":root", "--trading-panel-success-fill");
+		const onError = resolveCssColor(":root", "--trading-panel-on-error");
+		const errorFill = resolveCssColor(":root", "--trading-panel-error-fill");
+		const modalSurface = resolveCssColor(":root", "--bg-modal");
+		const panelSurface = resolveCssColor(":root", "--bg-raised");
+
+		expect(getContrastRatio(onSuccess, compositeHexOver(successFill, modalSurface, 0.9))).toBeGreaterThanOrEqual(4.5);
+		expect(getContrastRatio(onError, compositeHexOver(errorFill, modalSurface, 0.9))).toBeGreaterThanOrEqual(4.5);
+		expect(getContrastRatio(onSuccess, compositeHexOver(successFill, panelSurface, 0.81))).toBeGreaterThanOrEqual(4.5);
+		expect(getContrastRatio(onError, compositeHexOver(errorFill, panelSurface, 0.81))).toBeGreaterThanOrEqual(4.5);
+	});
+
 	it("keeps the neutral market text readable in both themes", () => {
 		expect(
 			getContrastRatio(resolveCssColor(":root", "--market-neutral"), resolveCssColor(":root", "--bg-raised")),
@@ -164,6 +188,17 @@ function resolveCssColor(selector: string, variable: string): string {
 		throw new Error(`Could not resolve ${variable} in ${selector} to a hex color, got: ${value}`);
 	}
 	return value;
+}
+
+function compositeHexOver(foreground: string, background: string, alpha: number): string {
+	const channels = [1, 3, 5].map((offset) => {
+		const fg = Number.parseInt(foreground.slice(offset, offset + 2), 16);
+		const bg = Number.parseInt(background.slice(offset, offset + 2), 16);
+		return Math.round(fg * alpha + bg * (1 - alpha))
+			.toString(16)
+			.padStart(2, "0");
+	});
+	return `#${channels.join("")}`;
 }
 
 function getContrastRatio(foreground: string, background: string): number {

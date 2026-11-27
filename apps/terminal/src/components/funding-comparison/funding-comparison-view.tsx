@@ -340,24 +340,25 @@ function MobileFundingComparison(props: ContentProps) {
 
 	return (
 		<div className="flex flex-1 flex-col px-4">
-			<div className="mb-3 flex items-center justify-between gap-3">
-				<p className="text-2sm font-semibold text-fg">
+			<div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+				<p className="min-w-0 text-2sm font-semibold text-fg">
 					<Trans>Sort by</Trans>
 				</p>
-				<div className="flex items-center gap-1.5">
+				<div className="flex max-w-full min-w-0 items-center gap-1.5">
 					<Select
 						size="md"
 						value={props.sortKey}
 						onValueChange={handleSortChange}
 						options={sortOptions}
 						triggerAriaLabel={t`Sort markets`}
-						className="min-w-[var(--earn-mobile-sort-width)]"
+						className="min-w-[var(--earn-mobile-sort-width)] max-w-full flex-1"
 					/>
 					<ButtonIcon
 						type="button"
 						variant="outline"
 						intent="neutral"
 						size="md"
+						className="shrink-0"
 						onClick={() => props.onSort(props.sortKey)}
 						aria-label={
 							props.sortDirection === "descending" ? t`Change to ascending order` : t`Change to descending order`
@@ -448,6 +449,7 @@ function MobileMetric({ label, children }: MobileMetricProps) {
 }
 
 function FundingComparisonPagination(props: ContentProps) {
+	const { formatNumber } = useNumberFormat();
 	const { t } = useLingui();
 	return (
 		<div className={cn("flex flex-wrap items-center justify-end gap-3 py-3", props.isMobile ? "px-1" : "px-5")}>
@@ -457,14 +459,15 @@ function FundingComparisonPagination(props: ContentProps) {
 				onValueChange={(value) => value && props.onRowsPerPageChange(Number(value))}
 				options={FUNDING_COMPARISON_ROWS_PER_PAGE_OPTIONS.map((value) => ({
 					value: String(value),
-					label: String(value),
+					label: formatNumber(value, { decimals: 0 }),
 				}))}
 				triggerAriaLabel={t`Rows per page`}
 				className="w-[var(--earn-rows-select-width)]"
 			/>
 			<span className="text-xs tabular-nums text-fg-muted">
 				<bdi dir="ltr">
-					{props.start}–{props.end} / {props.totalRows}
+					{formatNumber(props.start, { decimals: 0 })}–{formatNumber(props.end, { decimals: 0 })} /{" "}
+					{formatNumber(props.totalRows, { decimals: 0 })}
 				</bdi>
 			</span>
 			<div className="flex gap-1.5">

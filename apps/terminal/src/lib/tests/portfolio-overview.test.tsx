@@ -51,8 +51,22 @@ vi.mock("@sairn/ui", () => ({
 			{children}
 		</button>
 	),
-	Select: ({ value, triggerAriaLabel }: { value?: string; triggerAriaLabel?: string }) => (
-		<button type="button" role="combobox" aria-expanded="false" aria-label={triggerAriaLabel}>
+	Select: ({
+		value,
+		triggerAriaLabel,
+		triggerClassName,
+	}: {
+		value?: string;
+		triggerAriaLabel?: string;
+		triggerClassName?: string;
+	}) => (
+		<button
+			type="button"
+			role="combobox"
+			aria-expanded="false"
+			aria-label={triggerAriaLabel}
+			className={triggerClassName}
+		>
 			{value}
 		</button>
 	),
@@ -218,11 +232,25 @@ describe("PortfolioOverview", () => {
 	it("gives each portfolio selector a purpose-specific accessible name", () => {
 		renderOverview(root);
 
-		expect(
+		const selectors = [
 			container.querySelector('[role="combobox"][aria-label="Fee market for taker and maker rates"]'),
-		).not.toBeNull();
-		expect(container.querySelector('[role="combobox"][aria-label="Portfolio account scope"]')).not.toBeNull();
-		expect(container.querySelector('[role="combobox"][aria-label="Portfolio performance period"]')).not.toBeNull();
+			container.querySelector('[role="combobox"][aria-label="Portfolio account scope"]'),
+			container.querySelector('[role="combobox"][aria-label="Portfolio performance period"]'),
+		];
+		for (const selector of selectors) {
+			expect(selector).not.toBeNull();
+			expect(selector?.className).toContain("min-h-6");
+		}
+	});
+
+	it("uses minimum height on the portfolio summary card so wrapped multi-line rows do not overflow", () => {
+		renderOverview(root);
+		const summary = container.querySelector<HTMLElement>('section[aria-label="Portfolio summary"]');
+		expect(summary).not.toBeNull();
+		expect(summary?.className).toContain("min-h-60");
+		expect(summary?.className).toContain("min-[1001px]:min-h-[249px]");
+		expect(summary?.className).not.toMatch(/(?:^|\s)h-60(?:\s|$)/);
+		expect(summary?.className).not.toMatch(/(?:^|\s)min-\[1001px\]:h-\[249px\](?:\s|$)/);
 	});
 
 	it("shows zero placeholders until complete account snapshots arrive", () => {

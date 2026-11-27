@@ -265,6 +265,26 @@ describe("TradeHeader mobile margin actions", () => {
 		const manualButton = container.querySelector<HTMLButtonElement>('button[aria-label="Account mode"]');
 		expect(manualButton?.title).not.toBe("Unified");
 	});
+
+	it("gives the mobile order-type trigger compact spacing on narrow widths and logical end padding on leverage", () => {
+		renderHeader({ layout: "mobile" });
+		const controlGrid = container.querySelector(".grid");
+		expect(controlGrid?.className).toContain("grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]");
+		expect(controlGrid?.className).not.toContain("1.25fr");
+		expect(controlGrid?.className).toContain("gap-x-1");
+		expect(controlGrid?.className).toContain("min-[390px]:gap-x-0");
+
+		const orderTypeButton = controlGrid?.querySelector<HTMLButtonElement>('button[aria-label="Order type"]');
+		expect(orderTypeButton?.className).toContain("gap-1");
+		expect(orderTypeButton?.className).toContain("min-[390px]:gap-3");
+		expect(orderTypeButton?.firstElementChild?.className).toContain("gap-1");
+		expect(orderTypeButton?.firstElementChild?.className).toContain("min-[390px]:gap-3");
+
+		const leverageButton = getButton(container, "10x");
+		expect(leverageButton.className).not.toContain("pr-4");
+		expect(leverageButton.className).toContain("pe-2");
+		expect(leverageButton.className).toContain("min-[390px]:pe-4");
+	});
 });
 
 function getButton(container: HTMLElement, label: string): HTMLButtonElement {

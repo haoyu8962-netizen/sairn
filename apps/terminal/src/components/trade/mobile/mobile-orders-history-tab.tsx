@@ -2,6 +2,7 @@ import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Button, Select } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { MOBILE_ACCOUNT_SUBROW_CLASS } from "@/components/trade/mobile/mobile-account-subrow";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
 import { DataPendingState } from "@/components/ui/data-pending-state";
 import { FALLBACK_VALUE_PLACEHOLDER } from "@/config/app";
@@ -259,10 +260,7 @@ function MobileOrdersHistoryTabContent({
 
 	function renderFilterRow(disabled: boolean) {
 		return (
-			<div
-				data-testid="mobile-order-history-filter-row"
-				className="flex h-9 shrink-0 items-center overflow-x-auto border-b border-market-close-stroke-card px-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-			>
+			<div data-testid="mobile-order-history-filter-row" className={MOBILE_ACCOUNT_SUBROW_CLASS}>
 				<span className="sr-only" aria-live="polite">
 					{headerCount}
 				</span>
@@ -409,50 +407,50 @@ function MobileOrdersHistoryTabContent({
 											}
 											controls={detailsId}
 											onToggle={handleToggle}
-											className="h-[54px] grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_16px] gap-2.5 px-3.5"
+											className="min-h-[54px] grid-cols-[minmax(0,1fr)_16px] gap-2.5 px-3.5 py-2"
 										>
-											<button
-												type="button"
-												onClick={() => handleSelectMarket(entry.coin)}
-												aria-label={t`Switch to ${marketName} market, ${sideLabel} order`}
-												className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-left focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
-											>
-												<span className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
-												<span className="flex min-w-0 items-center gap-1">
-													<span className="truncate text-xs font-bold leading-[17px] text-market-close-fg">
-														{marketLabel}
-													</span>
-													{marketDex ? (
-														<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
-															{marketDex}
+											<div className="pointer-events-none grid min-w-0 grid-cols-2 gap-x-2.5 gap-y-1.5">
+												<button
+													type="button"
+													onClick={() => handleSelectMarket(entry.coin)}
+													aria-label={t`Switch to ${marketName} market, ${sideLabel} order`}
+													className="pointer-events-auto relative z-10 flex min-h-11 min-w-0 flex-col justify-center text-start focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-market-close-focus"
+												>
+													<span className="text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</span>
+													<span className="flex min-w-0 flex-wrap items-center gap-1">
+														<span className="min-w-0 break-words text-xs font-bold leading-[17px] text-market-close-fg [overflow-wrap:anywhere]">
+															{marketLabel}
 														</span>
-													) : null}
-												</span>
-											</button>
-											<div className="min-w-0">
-												<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Time`}</div>
-												<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-													{formatDateTime(entry.createdAt, { locale, dateStyle: "short", timeStyle: "short" })}
+														{marketDex ? (
+															<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+																{marketDex}
+															</span>
+														) : null}
+													</span>
+												</button>
+												<div className="flex min-w-0 flex-col justify-center">
+													<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Time`}</div>
+													<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
+														{formatDateTime(entry.createdAt, { locale, dateStyle: "short", timeStyle: "short" })}
+													</div>
 												</div>
-											</div>
-											<div className="min-w-0">
-												<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Type`}</div>
-												<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg">
-													{orderTypeLabel}
+												<div className="col-span-2 min-w-0">
+													<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Type`}</div>
+													<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg">
+														{orderTypeLabel}
+													</div>
 												</div>
 											</div>
 										</MobileDisclosureHeader>
 
 										{isExpanded ? (
 											<div id={detailsId} className="flex flex-col gap-2.5 px-3.5 py-3">
-												<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-x-2.5 gap-y-3">
+												<div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
 													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">
-															{t`Direction`}
-														</div>
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Direction`}</div>
 														<div
 															className={cn(
-																"truncate whitespace-nowrap text-xs font-semibold leading-[17px]",
+																"break-words text-xs font-semibold leading-[17px]",
 																isBuy ? "text-market-close-success" : "text-market-close-danger",
 															)}
 														>
@@ -460,22 +458,22 @@ function MobileOrdersHistoryTabContent({
 														</div>
 													</div>
 													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Price`}</div>
-														<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Size`}</div>
+														<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums [overflow-wrap:anywhere]">
+															{formatToken(entry.size, market?.szDecimals)}
+														</div>
+													</div>
+													<div className="col-span-2 min-w-0">
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Price`}</div>
+														<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
 															<HistoricalOrderPrice align="start" market={market} order={entry.order.order} />
 														</div>
 													</div>
 													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Size`}</div>
-														<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
-															{formatToken(entry.size, market?.szDecimals)}
-														</div>
-													</div>
-													<div className="min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Status`}</div>
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Status`}</div>
 														<div
 															className={cn(
-																"inline-flex max-w-full truncate rounded-[4px] px-[7px] py-0.5 text-[10px] font-bold",
+																"inline-flex max-w-full break-words rounded-[4px] px-[7px] py-0.5 text-[10px] font-bold",
 																statusCategory === "filled"
 																	? "bg-success-soft text-success"
 																	: statusCategory === "canceled" || statusCategory === "rejected"
@@ -486,14 +484,14 @@ function MobileOrdersHistoryTabContent({
 															{statusPresentation.label}
 														</div>
 														{statusPresentation.reason ? (
-															<div className="mt-0.5 text-3xs leading-[14px] text-market-close-subtle">
+															<div className="mt-0.5 break-words text-3xs leading-[14px] text-market-close-subtle">
 																{statusPresentation.reason}
 															</div>
 														) : null}
 													</div>
-													<div className="col-span-2 min-w-0">
-														<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Updated`}</div>
-														<div className="truncate whitespace-nowrap text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
+													<div className="min-w-0">
+														<div className="text-3xs leading-[14px] text-market-close-subtle">{t`Updated`}</div>
+														<div className="break-words text-xs font-semibold leading-[17px] text-market-close-fg tabular-nums">
 															{formatDateTime(entry.updatedAt, { locale, dateStyle: "short", timeStyle: "short" })}
 														</div>
 													</div>

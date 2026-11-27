@@ -56,8 +56,14 @@ describe("order submission wiring", () => {
 			const source = readFileSync(resolve(SOURCE_ROOT, path), "utf8");
 
 			expect(source).toMatch(
-				/resolveTwapPriceInputs\(\s*twapAdvancedEnabled,\s*twapTriggerPriceInput,\s*twapStopPriceInput,\s*twapPriceFormat,?\s*\)/,
+				/const \{ trigger: twapTriggerPriceState, stop: twapStopPriceState \} = resolveTwapPriceStates\(\s*twapAdvancedEnabled,\s*twapTriggerPriceInput,\s*twapStopPriceInput,\s*twapPriceFormat,?\s*\);/,
 			);
+			expect(source).toContain("const twapTriggerPx = twapTriggerPriceState.price;");
+			expect(source).toContain("const twapStopPx = twapStopPriceState.price;");
+			expect(source).toMatch(
+				/twapTriggerPriceState\.status === "invalid" \|\| twapStopPriceState\.status === "invalid"/,
+			);
+			expect(source).not.toContain("resolveTwapPriceInputs(");
 			expect(source).not.toContain("formatTwapPriceInput(");
 			expect(source).not.toContain("spotBuyTwapOrder");
 			expect(source).toMatch(
@@ -176,7 +182,230 @@ describe("order submission wiring", () => {
 
 		expect(mobileTradeView).toContain("async function executeSubmit(input: OrderSubmitDraftInput) {");
 	});
+
+	it("passes raw TWAP trigger and stop price inputs alongside normalized prices into confirmation.requestSubmit on both surfaces", () => {
+		for (const path of ORDER_ENTRY_SURFACES) {
+			const source = readFileSync(resolve(SOURCE_ROOT, path), "utf8");
+			expect(() => verifyTwapRawPriceSubmissionWiring(source, path), path).not.toThrow();
+		}
+	});
+
+	it("rejects mutations that drop or rewrite raw TWAP price inputs in confirmation.requestSubmit on either surface", () => {
+		for (const path of ORDER_ENTRY_SURFACES) {
+			const source = readFileSync(resolve(SOURCE_ROOT, path), "utf8");
+			const targetBlock = "twapStopPx,\n\t\t\t\ttwapTriggerPriceInput,\n\t\t\t\ttwapStopPriceInput,";
+			expect(source, path).toContain(targetBlock);
+
+			const droppedTriggerInput = source.replace(targetBlock, "twapStopPx,\n\t\t\t\ttwapStopPriceInput,");
+			expect(droppedTriggerInput).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(droppedTriggerInput, path), path).toThrow(
+				/requestSubmit first argument.*twapTriggerPriceInput/,
+			);
+
+			const droppedStopInput = source.replace(targetBlock, "twapStopPx,\n\t\t\t\ttwapTriggerPriceInput,");
+			expect(droppedStopInput).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(droppedStopInput, path), path).toThrow(
+				/requestSubmit first argument.*twapStopPriceInput/,
+			);
+
+			const droppedBothRawInputs = source.replace(targetBlock, "twapStopPx,");
+			expect(droppedBothRawInputs).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(droppedBothRawInputs, path), path).toThrow(
+				/requestSubmit first argument.*twapTriggerPriceInput/,
+			);
+
+			const undefinedTriggerInput = source.replace(
+				targetBlock,
+				"twapStopPx,\n\t\t\t\ttwapTriggerPriceInput: undefined,\n\t\t\t\ttwapStopPriceInput,",
+			);
+			expect(undefinedTriggerInput).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(undefinedTriggerInput, path), path).toThrow(
+				/requestSubmit first argument.*twapTriggerPriceInput/,
+			);
+
+			const normalizedAsRawStopInput = source.replace(
+				targetBlock,
+				'twapStopPx,\n\t\t\t\ttwapTriggerPriceInput,\n\t\t\t\ttwapStopPriceInput: twapStopPx ?? "",',
+			);
+			expect(normalizedAsRawStopInput).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(normalizedAsRawStopInput, path), path).toThrow(
+				/requestSubmit first argument.*twapStopPriceInput/,
+			);
+
+			const droppedStopPx = source.replace(targetBlock, "twapTriggerPriceInput,\n\t\t\t\ttwapStopPriceInput,");
+			expect(droppedStopPx).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(droppedStopPx, path), path).toThrow(
+				/requestSubmit first argument.*twapStopPx/,
+			);
+
+			const strippedInExecute = source.replace(
+				"await submitOrder({ ...input, price, executionReferencePx, markPx });",
+				"await submitOrder({ ...input, twapTriggerPriceInput: undefined, price, executionReferencePx, markPx });",
+			);
+			expect(strippedInExecute).not.toBe(source);
+			expect(() => verifyTwapRawPriceSubmissionWiring(strippedInExecute, path), path).toThrow(
+				/execute callback.*twapTriggerPriceInput/,
+			);
+		}
+	});
 });
+
+function unwrapExpression(expr: ts.Expression): ts.Expression {
+	let current = expr;
+	while (
+		ts.isParenthesizedExpression(current) ||
+		ts.isAsExpression(current) ||
+		ts.isSatisfiesExpression(current) ||
+		ts.isNonNullExpression(current)
+	) {
+		current = current.expression;
+	}
+	return current;
+}
+
+function getPropertyNameText(name: ts.PropertyName): string | null {
+	if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text;
+	return null;
+}
+
+function getObjectPropertyExpression(obj: ts.ObjectLiteralExpression, key: string): ts.Expression | null {
+	for (const prop of obj.properties) {
+		if (ts.isShorthandPropertyAssignment(prop) && prop.name.text === key) {
+			return prop.name;
+		}
+		if (ts.isPropertyAssignment(prop) && getPropertyNameText(prop.name) === key) {
+			return unwrapExpression(prop.initializer);
+		}
+	}
+	return null;
+}
+
+function isIdentifierNamed(node: ts.Node | undefined, name: string): boolean {
+	return Boolean(node && ts.isIdentifier(node) && node.text === name);
+}
+
+function isPropertyAccess(node: ts.Node | undefined, rootName: string, propName: string): boolean {
+	if (!node || !ts.isPropertyAccessExpression(node)) return false;
+	return isIdentifierNamed(node.expression, rootName) && node.name.text === propName;
+}
+
+function findNode<T extends ts.Node>(root: ts.Node, predicate: (node: ts.Node) => node is T): T | null {
+	let found: T | null = null;
+	function visit(node: ts.Node) {
+		if (found) return;
+		if (predicate(node)) {
+			found = node;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	}
+	visit(root);
+	return found;
+}
+
+function verifyTwapRawPriceSubmissionWiring(source: string, fileName: string): void {
+	const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+	for (const [variableName, hookName] of [
+		["twapTriggerPriceInput", "useTwapTriggerPrice"],
+		["twapStopPriceInput", "useTwapStopPrice"],
+	] as const) {
+		const decl = findNode(
+			sf,
+			(node): node is ts.VariableDeclaration =>
+				ts.isVariableDeclaration(node) && isIdentifierNamed(node.name, variableName),
+		);
+		const init = decl?.initializer ? unwrapExpression(decl.initializer) : null;
+		if (!init || !ts.isCallExpression(init) || !isIdentifierNamed(init.expression, hookName)) {
+			throw new Error(`Expected ${variableName} to come from ${hookName}() in ${fileName}`);
+		}
+	}
+
+	const handleSubmitFn = findNode(
+		sf,
+		(node): node is ts.FunctionDeclaration =>
+			ts.isFunctionDeclaration(node) && isIdentifierNamed(node.name, "handleSubmit"),
+	);
+	if (!handleSubmitFn?.body) {
+		throw new Error(`Missing handleSubmit function in ${fileName}`);
+	}
+
+	const requestSubmitCall = findNode(
+		handleSubmitFn.body,
+		(node): node is ts.CallExpression =>
+			ts.isCallExpression(node) && isPropertyAccess(node.expression, "confirmation", "requestSubmit"),
+	);
+	if (!requestSubmitCall || requestSubmitCall.arguments.length < 2) {
+		throw new Error(`Missing confirmation.requestSubmit(input, draft) call in ${fileName}`);
+	}
+	const submitInputArg = unwrapExpression(requestSubmitCall.arguments[0]);
+	if (!ts.isObjectLiteralExpression(submitInputArg)) {
+		throw new Error(`Expected confirmation.requestSubmit first argument to be an object literal in ${fileName}`);
+	}
+
+	for (const field of [
+		"twapAdvancedEnabled",
+		"twapTriggerPx",
+		"twapStopPx",
+		"twapTriggerPriceInput",
+		"twapStopPriceInput",
+	] as const) {
+		if (!isIdentifierNamed(getObjectPropertyExpression(submitInputArg, field) ?? undefined, field)) {
+			throw new Error(`Expected confirmation.requestSubmit first argument to bind ${field} in ${fileName}`);
+		}
+	}
+
+	const useOrderConfirmationCall = findNode(
+		sf,
+		(node): node is ts.CallExpression =>
+			ts.isCallExpression(node) && isIdentifierNamed(node.expression, "useOrderConfirmation"),
+	);
+	const confirmationOptions =
+		useOrderConfirmationCall && useOrderConfirmationCall.arguments.length >= 1
+			? unwrapExpression(useOrderConfirmationCall.arguments[0])
+			: null;
+	if (!confirmationOptions || !ts.isObjectLiteralExpression(confirmationOptions)) {
+		throw new Error(`Missing useOrderConfirmation options object in ${fileName}`);
+	}
+	const executeExpr = getObjectPropertyExpression(confirmationOptions, "execute");
+	if (!executeExpr || !ts.isIdentifier(executeExpr)) {
+		throw new Error(`Expected useOrderConfirmation to pass a named execute callback in ${fileName}`);
+	}
+	const executeFn = findNode(
+		sf,
+		(node): node is ts.FunctionDeclaration =>
+			ts.isFunctionDeclaration(node) && isIdentifierNamed(node.name, executeExpr.text),
+	);
+	if (!executeFn?.body) {
+		throw new Error(`Missing execute callback declaration ${executeExpr.text} in ${fileName}`);
+	}
+	const submitOrderCall = findNode(
+		executeFn.body,
+		(node): node is ts.CallExpression => ts.isCallExpression(node) && isIdentifierNamed(node.expression, "submitOrder"),
+	);
+	const submitOrderArg =
+		submitOrderCall && submitOrderCall.arguments.length >= 1 ? unwrapExpression(submitOrderCall.arguments[0]) : null;
+	if (!submitOrderArg || !ts.isObjectLiteralExpression(submitOrderArg)) {
+		throw new Error(`Expected execute callback to forward an object literal to submitOrder in ${fileName}`);
+	}
+	const spreadsInput = submitOrderArg.properties.some(
+		(prop) => ts.isSpreadAssignment(prop) && isIdentifierNamed(unwrapExpression(prop.expression), "input"),
+	);
+	if (!spreadsInput) {
+		throw new Error(`Expected execute callback to spread ...input into submitOrder in ${fileName}`);
+	}
+	for (const protectedField of [
+		"twapAdvancedEnabled",
+		"twapTriggerPx",
+		"twapStopPx",
+		"twapTriggerPriceInput",
+		"twapStopPriceInput",
+	] as const) {
+		if (getObjectPropertyExpression(submitOrderArg, protectedField) !== null) {
+			throw new Error(`Expected execute callback not to override ${protectedField} in ${fileName}`);
+		}
+	}
+}
 
 function collectSourceFiles(directory: string): string[] {
 	return readdirSync(directory).flatMap((entry) => {

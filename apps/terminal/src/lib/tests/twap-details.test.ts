@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildTwapDurationDraft,
 	buildTwapOrderDetails,
 	formatTwapPriceInput,
 	getTwapSuborderSize,
 	getTwapTriggerDirection,
+	parseTwapPriceInput,
+	resolveSubmittedTwapPrice,
+	resolveTwapDurationState,
 	resolveTwapPriceInputs,
+	resolveTwapPriceStates,
 } from "@/domain/trade/twap-details";
 
 describe("buildTwapOrderDetails", () => {
@@ -144,5 +149,93 @@ describe("getTwapSuborderSize", () => {
 		expect(getTwapSuborderSize("", 30, 100)).toBeNull();
 		expect(getTwapSuborderSize("1", null, 100)).toBeNull();
 		expect(getTwapSuborderSize("1", 0, 100)).toBeNull();
+	});
+});
+
+describe("parseTwapPriceInput and resolveTwapPriceStates", () => {
+	const format = { assetId: 0, szDecimals: 5 };
+
+	it("separates empty, valid, and non-empty invalid TWAP price inputs", () => {
+		expect(parseTwapPriceInput("", format)).toEqual({ status: "empty", price: null });
+		expect(parseTwapPriceInput("   ", format)).toEqual({ status: "empty", price: null });
+		expect(parseTwapPriceInput(".", format)).toEqual({ status: "invalid", price: null });
+		expect(parseTwapPriceInput("-", format)).toEqual({ status: "invalid", price: null });
+		expect(parseTwapPriceInput("-.", format)).toEqual({ status: "invalid", price: null });
+		expect(parseTwapPriceInput("0", format)).toEqual({ status: "invalid", price: null });
+		expect(parseTwapPriceInput("-5", format)).toEqual({ status: "invalid", price: null });
+		expect(parseTwapPriceInput("117312.6", format)).toEqual({ status: "valid", price: "117313" });
+		expect(parseTwapPriceInput(".5", { assetId: 0, szDecimals: 2 })).toEqual({ status: "valid", price: "0.5" });
+	});
+
+	it("returns empty states while advanced settings are disabled", () => {
+		expect(resolveTwapPriceStates(false, ".", "0", format)).toEqual({
+			trigger: { status: "empty", price: null },
+			stop: { status: "empty", price: null },
+		});
+		expect(resolveTwapPriceStates(true, ".", "118000", format)).toEqual({
+			trigger: { status: "invalid", price: null },
+			stop: { status: "valid", price: "118000" },
+		});
+	});
+});
+
+describe("resolveSubmittedTwapPrice", () => {
+	const format = { assetId: 0, szDecimals: 5 };
+
+	it("accepts raw drafts that match the normalized payload price", () => {
+		expect(resolveSubmittedTwapPrice("", null, format)).toEqual({ ok: true, price: null });
+		expect(resolveSubmittedTwapPrice("   ", null, format)).toEqual({ ok: true, price: null });
+		expect(resolveSubmittedTwapPrice("101", "101", format)).toEqual({ ok: true, price: "101" });
+		expect(resolveSubmittedTwapPrice("101.00", "101", format)).toEqual({ ok: true, price: "101" });
+		expect(resolveSubmittedTwapPrice("117312.6", "117313", format)).toEqual({ ok: true, price: "117313" });
+	});
+
+	it("fails closed when a raw draft is invalid or contradicts the payload price", () => {
+		expect(resolveSubmittedTwapPrice(".", null, format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice(".", "101", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("0", "0", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("101", "102", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("110", "120", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("101", null, format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("101", "0", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("117312.6", "117312.6", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("", "102", format)).toEqual({ ok: false });
+		expect(resolveSubmittedTwapPrice("", "0", format)).toEqual({ ok: false });
+	});
+
+	it("preserves legacy payload-only semantics when the raw draft is omitted", () => {
+		expect(resolveSubmittedTwapPrice(undefined, null, format)).toEqual({ ok: true, price: null });
+		expect(resolveSubmittedTwapPrice(undefined, "", format)).toEqual({ ok: true, price: null });
+		expect(resolveSubmittedTwapPrice(undefined, "0", format)).toEqual({ ok: true, price: null });
+		expect(resolveSubmittedTwapPrice(undefined, "101", format)).toEqual({ ok: true, price: "101" });
+		expect(resolveSubmittedTwapPrice(undefined, ".", format)).toEqual({ ok: false });
+	});
+});
+
+describe("resolveTwapDurationState", () => {
+	it("retains an active invalid draft and clears it when the stored minutes diverge", () => {
+		const invalidDraft = buildTwapDurationDraft("0", "60");
+		expect(invalidDraft).toEqual({ hours: "0", minutes: "60", expectedMinutes: 0 });
+		expect(resolveTwapDurationState(0, invalidDraft)).toMatchObject({
+			hoursValue: "0",
+			minutesValue: "60",
+			hoursInvalid: false,
+			minutesInvalid: true,
+			hasInlineError: true,
+		});
+		expect(resolveTwapDurationState(30, invalidDraft)).toMatchObject({
+			hoursValue: "0",
+			minutesValue: "30",
+			hoursInvalid: false,
+			minutesInvalid: false,
+			hasInlineError: false,
+		});
+		expect(resolveTwapDurationState(0, null)).toMatchObject({
+			hoursValue: "0",
+			minutesValue: "0",
+			hoursInvalid: false,
+			minutesInvalid: false,
+			hasInlineError: false,
+		});
 	});
 });

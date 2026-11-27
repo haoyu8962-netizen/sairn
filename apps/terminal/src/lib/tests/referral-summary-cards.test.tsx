@@ -58,4 +58,17 @@ describe("ReferralSummaryCards", () => {
 
 		expect(getValues()).toEqual(["1 234", "4 321,50 USDC", "98 765,40 USDC", "12,50%"]);
 	});
+
+	it("protects long reward figures with min-w-0 and word-wrapping classes", () => {
+		act(() =>
+			root.render(<ReferralSummaryCards data={DATA} discountPercent="12.5" usdcRewardsEarned="123456789.12345678" />),
+		);
+		const articles = Array.from(container.querySelectorAll("article"));
+		expect(articles).toHaveLength(4);
+		for (const article of articles) {
+			expect(article.className).toContain("min-w-0");
+			const valueNode = article.lastElementChild;
+			expect(valueNode?.className).toMatch(/break-words|wrap-anywhere|overflow-wrap:anywhere/);
+		}
+	});
 });

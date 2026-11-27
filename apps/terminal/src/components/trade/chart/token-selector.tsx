@@ -84,7 +84,6 @@ export function TokenSelector({
 		return (
 			<Drawer side="bottom" modal="trap-focus" open={open} onOpenChange={handleOpenChange}>
 				<DrawerTrigger
-					role="combobox"
 					aria-expanded={open}
 					aria-label={t`Select token`}
 					onPointerEnter={preloadPopup}
@@ -113,7 +112,6 @@ export function TokenSelector({
 					showAssetIcon={showAssetIcon}
 					showMetadataBadge={showMetadataBadge}
 					type="button"
-					role="combobox"
 					aria-expanded={open}
 					aria-label={t`Select token`}
 					onPointerEnter={preloadPopup}

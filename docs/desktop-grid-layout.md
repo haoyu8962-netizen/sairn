@@ -6,6 +6,11 @@ Default spans live in `apps/terminal/src/config/desktop-grid-layout.ts`. The 16-
 
 The grid underlay is the `bg-grid-container` token (`#F1F3F6` behind white panels in the light theme, `#1B2429` behind `#0F1A1F` panels in the dark theme). React Grid Layout itself stays transparent so the underlay shows through every gutter; do not replace that separation with panel borders.
 
+## RTL direction
+
+- Every `.desktop-terminal-grid > .react-grid-item` explicitly sets `top: 0; left: 0;` in `apps/terminal/src/styles.css`. React Grid Layout positions items with positive `translate(x, y)` offsets computed from the container's left edge; under `dir="rtl"`, an absolutely positioned item without explicit `left: 0` takes its static position at the container's right edge, so applying the same positive `translate(x, y)` pushes panels out of bounds past the right edge.
+- Panel placement and persisted grid geometry stay identical to LTR (panel columns, saved coordinates, and resize handles are not mirrored), while content inside each panel follows the document's RTL direction.
+
 The real desktop surface uses `DesktopTerminalFrameView`: a `min-h-dvh` flex column
 with horizontal overflow hidden, `pb-8` for the fixed footer and `pt-14` (or the
 testnet banner offset) for the fixed header. Before the market is ready, real

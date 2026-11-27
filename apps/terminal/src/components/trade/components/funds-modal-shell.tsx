@@ -40,14 +40,14 @@ export function FundsModalShell({ children, headerStart, isPending, onOpenChange
 			className={cn(
 				FUNDS_MODAL_POPUP_CLASS,
 				usesFundsRedesign &&
-					"font-market-close !bg-modal !shadow-none max-[1000px]:!rounded-t-[20px] [&>button]:!top-5 [&>button]:!right-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:!max-w-[28rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!right-6 min-[1001px]:[&>button>svg]:size-[18px]",
+					"font-market-close !bg-modal !shadow-none max-[1000px]:!rounded-t-[20px] [&>button]:!top-5 [&>button]:!end-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:!max-w-[28rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!end-6 min-[1001px]:[&>button>svg]:size-[18px]",
 			)}
 		>
 			<ModalHeader
 				divider={!usesFundsRedesign}
 				className={cn(
 					FUNDS_MODAL_HEADER_CLASS,
-					usesFundsRedesign && "px-4 pt-7 pr-14 pb-0 text-start min-[1001px]:px-6 min-[1001px]:pr-14 min-[1001px]:pt-6",
+					usesFundsRedesign && "ps-4 pe-14 pt-7 pb-0 text-start min-[1001px]:ps-6 min-[1001px]:pe-14 min-[1001px]:pt-6",
 				)}
 			>
 				{headerStart}

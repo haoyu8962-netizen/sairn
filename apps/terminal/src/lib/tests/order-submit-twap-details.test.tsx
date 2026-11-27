@@ -160,16 +160,30 @@ describe("useOrderSubmit TWAP details", () => {
 	});
 
 	it("derives the trigger direction from the live mark, not the execution reference price", async () => {
-		await submit(twapInput({ twapTriggerPx: "100.2", markPx: 100, executionReferencePx: 100.5 }));
+		await submit(
+			twapInput({
+				twapTriggerPx: "100.2",
+				twapTriggerDirection: "above",
+				markPx: 100,
+				executionReferencePx: 100.5,
+			}),
+		);
 		expect(mocks.submitTwap.mock.calls[0]?.[0]).toMatchObject({ details: { t: { p: "100.2", a: true }, s: null } });
 
 		mocks.submitTwap.mockClear();
-		await submit(twapInput({ twapTriggerPx: "99", markPx: 100 }));
+		await submit(twapInput({ twapTriggerPx: "99", twapTriggerDirection: "below", markPx: 100 }));
 		expect(mocks.submitTwap.mock.calls[0]?.[0]).toMatchObject({ details: { t: { p: "99", a: false }, s: null } });
 	});
 
 	it("sends the already tick-rounded trigger and stop strings verbatim", async () => {
-		await submit(twapInput({ twapTriggerPx: "117313", twapStopPx: "118000", markPx: 117312 }));
+		await submit(
+			twapInput({
+				twapTriggerPx: "117313",
+				twapTriggerDirection: "above",
+				twapStopPx: "118000",
+				markPx: 117312,
+			}),
+		);
 
 		expect(mocks.submitTwap.mock.calls[0]?.[0]).toEqual({
 			twap: { a: 0, b: true, s: "1", r: false, m: 30, t: true },
@@ -203,6 +217,57 @@ describe("useOrderSubmit TWAP details", () => {
 		expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
 	});
 
+	it("fails closed when the live mark crossed the trigger and inverted the confirmed trigger direction", async () => {
+		await submit(
+			twapInput({
+				twapTriggerPx: "101",
+				twapTriggerDirection: "above",
+				markPx: 102,
+			}),
+		);
+
+		expect(mocks.submitTwap).not.toHaveBeenCalled();
+		expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+			status: "failed",
+			error: { kind: "order-submission", code: "order-conditions-changed" },
+		});
+		expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+	});
+
+	it("submits with the confirmed trigger direction when the live mark remains on the same side", async () => {
+		await submit(
+			twapInput({
+				twapTriggerPx: "101",
+				twapTriggerDirection: "above",
+				markPx: 100.5,
+			}),
+		);
+
+		expect(mocks.submitTwap).toHaveBeenCalledOnce();
+		expect(mocks.submitTwap.mock.calls[0]?.[0]).toMatchObject({ details: { t: { p: "101", a: true }, s: null } });
+	});
+
+	it("fails closed when a TWAP trigger price is submitted without a confirmed trigger direction", async () => {
+		await submit(twapInput({ twapTriggerPx: "101", markPx: 100 }));
+
+		expect(mocks.submitTwap).not.toHaveBeenCalled();
+		expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+			status: "failed",
+			error: { kind: "order-submission", code: "order-conditions-changed" },
+		});
+		expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+
+		mocks.updateOrder.mockClear();
+		await submit(twapInput({ twapTriggerPx: "101", twapTriggerDirection: null, markPx: 100 }));
+
+		expect(mocks.submitTwap).not.toHaveBeenCalled();
+		expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+			status: "failed",
+			error: { kind: "order-submission", code: "order-conditions-changed" },
+		});
+		expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+	});
+
 	it("stores a tracked-TWAP client failure as a locale-independent descriptor", async () => {
 		mocks.submitTwap.mockRejectedValueOnce(orderSubmissionFeedbackCause("market-context-mismatch"));
 
@@ -211,6 +276,180 @@ describe("useOrderSubmit TWAP details", () => {
 		expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
 			status: "failed",
 			error: { kind: "order-submission", code: "market-context-mismatch" },
+		});
+	});
+
+	it("fails closed without calling submitTwap when an enabled advanced trigger or stop input is non-empty and unparseable", async () => {
+		for (const overrides of [
+			{ twapTriggerPriceInput: ".", twapTriggerPx: null },
+			{ twapStopPriceInput: ".", twapStopPx: null },
+			{ twapTriggerPriceInput: "-", twapTriggerPx: null },
+			{ twapTriggerPx: "." },
+			{ twapStopPx: "." },
+			{ twapTriggerPriceInput: "101", twapTriggerPx: null },
+		] satisfies Partial<OrderSubmitInput>[]) {
+			mocks.submitTwap.mockClear();
+			mocks.updateOrder.mockClear();
+			mocks.resetFormIfCurrent.mockClear();
+
+			await submit(twapInput(overrides));
+
+			expect(mocks.submitTwap).not.toHaveBeenCalled();
+			expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+				status: "failed",
+				error: { kind: "order-submission", code: "order-conditions-changed" },
+			});
+			expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+		}
+	});
+
+	it("ignores unparseable raw advanced price drafts when advanced settings are disabled", async () => {
+		await submit(twapInput({ twapAdvancedEnabled: false, twapTriggerPriceInput: ".", twapStopPriceInput: "." }));
+
+		expect(mocks.submitTwap).toHaveBeenCalledTimes(1);
+		expect(mocks.submitTwap.mock.calls[0]?.[0]).not.toHaveProperty("details");
+	});
+
+	it("fails closed when an enabled raw trigger draft contradicts twapTriggerPx", async () => {
+		for (const overrides of [
+			{
+				markPx: 100,
+				twapTriggerPriceInput: "101",
+				twapTriggerPx: "102",
+				twapTriggerDirection: "above",
+			},
+			{
+				markPx: 117312,
+				twapTriggerPriceInput: "117312.6",
+				twapTriggerPx: "117314",
+				twapTriggerDirection: "above",
+			},
+			{
+				markPx: 117312,
+				twapTriggerPriceInput: "117312.6",
+				twapTriggerPx: "117312.6",
+				twapTriggerDirection: "above",
+			},
+			{
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: "102",
+				twapTriggerDirection: "above",
+			},
+			{
+				markPx: 100,
+				twapTriggerPriceInput: "101",
+				twapTriggerPx: "0",
+				twapTriggerDirection: "above",
+			},
+		] satisfies Partial<OrderSubmitInput>[]) {
+			mocks.submitTwap.mockClear();
+			mocks.updateOrder.mockClear();
+			mocks.resetFormIfCurrent.mockClear();
+
+			await submit(twapInput(overrides));
+
+			expect(mocks.submitTwap).not.toHaveBeenCalled();
+			expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+				status: "failed",
+				error: { kind: "order-submission", code: "order-conditions-changed" },
+			});
+			expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+		}
+	});
+
+	it("fails closed when an enabled raw stop draft contradicts twapStopPx", async () => {
+		for (const overrides of [
+			{
+				side: "buy",
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: null,
+				twapStopPriceInput: "110",
+				twapStopPx: "120",
+			},
+			{
+				side: "sell",
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: null,
+				twapStopPriceInput: "90",
+				twapStopPx: "85",
+			},
+			{
+				side: "buy",
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: null,
+				twapStopPriceInput: "",
+				twapStopPx: "120",
+			},
+			{
+				side: "buy",
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: null,
+				twapStopPriceInput: "110",
+				twapStopPx: null,
+			},
+			{
+				side: "buy",
+				markPx: 100,
+				twapTriggerPriceInput: "101",
+				twapTriggerPx: "101",
+				twapTriggerDirection: "above",
+				twapStopPriceInput: "110",
+				twapStopPx: "120",
+			},
+		] satisfies Partial<OrderSubmitInput>[]) {
+			mocks.submitTwap.mockClear();
+			mocks.updateOrder.mockClear();
+			mocks.resetFormIfCurrent.mockClear();
+
+			await submit(twapInput(overrides));
+
+			expect(mocks.submitTwap).not.toHaveBeenCalled();
+			expect(mocks.updateOrder).toHaveBeenCalledWith("queue-1", {
+				status: "failed",
+				error: { kind: "order-submission", code: "order-conditions-changed" },
+			});
+			expect(mocks.resetFormIfCurrent).not.toHaveBeenCalled();
+		}
+	});
+
+	it("submits when enabled raw trigger and stop drafts match their normalized payload prices", async () => {
+		await submit(
+			twapInput({
+				markPx: 100,
+				twapTriggerPriceInput: "101.00",
+				twapTriggerPx: "101",
+				twapTriggerDirection: "above",
+				twapStopPriceInput: "110.00",
+				twapStopPx: "110",
+			}),
+		);
+
+		expect(mocks.submitTwap).toHaveBeenCalledOnce();
+		expect(mocks.submitTwap.mock.calls[0]?.[0]).toEqual({
+			twap: { a: 0, b: true, s: "1", r: false, m: 30, t: true },
+			details: { t: { p: "101", a: true }, s: "110" },
+		});
+
+		mocks.submitTwap.mockClear();
+		await submit(
+			twapInput({
+				markPx: 100,
+				twapTriggerPriceInput: "",
+				twapTriggerPx: null,
+				twapStopPriceInput: "110.00",
+				twapStopPx: "110",
+			}),
+		);
+
+		expect(mocks.submitTwap).toHaveBeenCalledOnce();
+		expect(mocks.submitTwap.mock.calls[0]?.[0]).toEqual({
+			twap: { a: 0, b: true, s: "1", r: false, m: 30, t: true },
+			details: { t: null, s: "110" },
 		});
 	});
 });

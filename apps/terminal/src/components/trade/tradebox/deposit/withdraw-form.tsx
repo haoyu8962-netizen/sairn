@@ -170,8 +170,9 @@ export function WithdrawForm({
 				</div>
 				<div
 					className={cn(
-						"min-h-11 rounded-8 border border-market-close-stroke-input bg-modal",
-						validation.error && "border-market-close-danger",
+						"min-h-11 rounded-8 border border-market-close-stroke-input bg-modal transition-[color,box-shadow,border-color] focus-within:border-market-close-focus focus-within:ring-2 focus-within:ring-market-close-focus/20",
+						validation.error &&
+							"border-market-close-danger focus-within:border-market-close-danger focus-within:ring-market-close-danger/20",
 					)}
 				>
 					<div className="min-w-0 [&_button]:right-3 [&_button]:min-h-11 [&_button]:text-market-close-success [&_button]:active:scale-100">

@@ -6,7 +6,7 @@ async function chooseOrder(page: Page, width: number, name: string) {
 	else if (name === "Market" || name === "Limit") {
 		await form.getByRole("button", { name, exact: true }).click();
 		return;
-	} else await form.getByRole("button", { name: "Advanced order types", exact: true }).click();
+	} else await form.getByRole("button", { name: /^Advanced order types(?:: .+)?$/ }).click();
 	await page.getByRole("menuitem", { name, exact: true }).click();
 }
 for (const width of [1440, 1108, 375]) {

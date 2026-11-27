@@ -7,9 +7,11 @@ import { type ReactNode, Suspense, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { DashboardHeader, FooterBar, GlobalModals } from "@/components/dashboard/dashboard-chrome";
 import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view";
+import { TOUCH_PRESS_FADE_CLASS } from "@/components/ui/touch-press";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
 import { FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/cn";
 import { type ActionFailure, describeActionFailure } from "@/lib/errors/action-error";
 import { shortenAddress, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl } from "@/lib/hyperliquid";
@@ -118,7 +120,7 @@ function VaultDetailLive({ vaultAddress, onRequestAction }: VaultDetailPageProps
 								href={getExplorerTxUrl(receipt.hash, isTestnet)}
 								target="_blank"
 								rel="noopener"
-								className="text-signal hover:text-signal-hover hover:underline"
+								className={cn("text-signal hover:text-signal-hover hover:underline", TOUCH_PRESS_FADE_CLASS)}
 							>
 								<bdi dir="ltr">{shortenAddress(receipt.hash, 6, 6)}</bdi>
 							</a>
@@ -162,6 +164,7 @@ function VaultDetailLive({ vaultAddress, onRequestAction }: VaultDetailPageProps
 			{controller.state === "normal" && controller.detail ? (
 				<VaultDetailView
 					detail={controller.detail}
+					detailCurrent={controller.detailCurrent}
 					owner={controller.owner}
 					actionAvailability={vaultAction.actionAvailability}
 					isTestnet={isTestnet}

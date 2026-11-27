@@ -17,13 +17,16 @@ import { PassiveDataPlaceholder } from "./passive-data-placeholder";
 import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import { positionsPanelTableShellClass } from "./positions-panel-table-styles";
 
-const twapFillGridClass =
-	"grid min-w-[1230px] grid-cols-[150px_120px_130px_130px_150px_170px_150px_150px] gap-x-4 px-5";
+const TWAP_FILL_TABLE_MIN_WIDTH_CLASS = "min-w-[1302px]";
+const twapFillGridClass = cn(
+	"grid grid-cols-[150px_120px_130px_130px_150px_170px_150px_150px] gap-x-4 px-5",
+	TWAP_FILL_TABLE_MIN_WIDTH_CLASS,
+);
 const twapFillFooterButtonClass =
 	"h-auto min-h-0 rounded-none p-0 text-xs font-normal text-market-close-muted shadow-none transition-colors duration-[120ms] hover:bg-transparent hover:text-market-close-fg active:not-data-disabled:scale-100 data-disabled:text-market-close-subtle";
 
 export function TwapFillHistoryTable() {
-	const { formatNumber, formatPrice, formatToken } = useNumberFormat();
+	const { formatDecimalString, formatNumber, formatPrice, formatToken } = useNumberFormat();
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { canConfirmEmpty, fills, hasMore, isConnected, isRealtimeDegraded, loadMore, retryRealtime, status } =
@@ -58,7 +61,10 @@ export function TwapFillHistoryTable() {
 				{isRealtimeDegraded ? <TwapRealtimeRetry onRetry={retryRealtime} /> : null}
 				{placeholder ?? (
 					<ScrollArea className="min-h-0 flex-1 w-full">
-						<table aria-label={t`TWAP fill history`} className="block min-w-[1230px] border-collapse">
+						<table
+							aria-label={t`TWAP fill history`}
+							className={cn("block border-collapse", TWAP_FILL_TABLE_MIN_WIDTH_CLASS)}
+						>
 							<thead className="block">
 								<tr
 									className={cn(
@@ -80,7 +86,6 @@ export function TwapFillHistoryTable() {
 								{fills.map((fill) => {
 									const market = markets.getMarket(fill.coin);
 									const marketLabel = market?.shortName ?? fill.coin;
-									const szDecimals = markets.getSzDecimals(fill.coin);
 									const isBuy = fill.side === "B";
 									const notional = getUserFillNotional(fill);
 									const quoteToken = getMarketQuoteToken(market);
@@ -120,7 +125,7 @@ export function TwapFillHistoryTable() {
 												{formatPrice(fill.px, getMarketPriceFormatOptions(market))}
 											</td>
 											<td className="p-0 text-right text-market-close-fg tabular-nums">
-												{formatNumber(fill.sz, szDecimals)} {marketLabel}
+												{market ? formatNumber(fill.sz, market.szDecimals) : formatDecimalString(fill.sz)} {marketLabel}
 											</td>
 											<td className="p-0 text-right text-market-close-fg tabular-nums">
 												{formatToken(notional, { compact: false, decimals: 2, symbol: quoteToken })}
@@ -146,7 +151,7 @@ export function TwapFillHistoryTable() {
 								})}
 							</tbody>
 						</table>
-						{hasMore ? <TwapHistoryLoadMore className="min-w-[1230px]" onLoadMore={loadMore} /> : null}
+						{hasMore ? <TwapHistoryLoadMore className={TWAP_FILL_TABLE_MIN_WIDTH_CLASS} onLoadMore={loadMore} /> : null}
 					</ScrollArea>
 				)}
 			</div>

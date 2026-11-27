@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import Big from "big.js";
 import { useId } from "react";
@@ -17,9 +19,16 @@ interface VaultPerformanceChartProps {
 	kind: "accountValue" | "pnl";
 	period: VaultPeriod;
 	compact?: boolean;
+	snapshotCurrent: boolean;
 }
 
-export function VaultPerformanceChart({ snapshot, kind, period, compact = false }: VaultPerformanceChartProps) {
+export function VaultPerformanceChart({
+	snapshot,
+	kind,
+	period,
+	compact = false,
+	snapshotCurrent,
+}: VaultPerformanceChartProps) {
 	const { t } = useLingui();
 	const numberFormat = useNumberFormat();
 	const accessibleNameId = useId();
@@ -28,81 +37,41 @@ export function VaultPerformanceChart({ snapshot, kind, period, compact = false 
 	const latest = getLatestVaultHistoryValue(snapshot, kind);
 	const tone = kind === "pnl" ? getVaultValueTone(latest) : "neutral";
 	const path = createChartPath(history);
+	const singlePoint = path ? null : getSingleChartPoint(history);
+	const hasPlottableHistory = Boolean(path || singlePoint);
+	const isConfirmedEmptyHistory = snapshotCurrent && history.length === 0;
 	const historySummary = path ? summarizeChartHistory(history) : null;
 	const label = kind === "accountValue" ? t`Account value` : t`PNL`;
-	const periodLabel =
-		period === "day" ? t`24 hours` : period === "week" ? t`7 days` : period === "month" ? t`30 days` : t`all time`;
-	const direction = tone === "positive" ? t`Positive PNL` : tone === "negative" ? t`Negative PNL` : t`PNL is zero`;
+	const translate = (descriptor: MessageDescriptor) => t(descriptor);
+	const periodLabel = getPeriodLabel(period, translate);
+	const direction = getDirectionLabel(tone, translate);
 	const latestValue =
 		kind === "pnl" ? formatVaultSignedUsd(latest, numberFormat) : formatVaultUsd(latest, numberFormat);
-	const compactSummary = path ? (
-		kind === "pnl" ? (
-			<Trans>
-				{label} over {periodLabel}. Latest value <bdi dir="ltr">{latestValue}</bdi>. {direction}.
-			</Trans>
-		) : (
-			<Trans>
-				{label} over {periodLabel}. Latest value <bdi dir="ltr">{latestValue}</bdi>.
-			</Trans>
-		)
-	) : (
-		<Trans>
-			{label} over {periodLabel}. No performance history.
-		</Trans>
-	);
+	const compactSummary = renderCompactSummary({
+		hasPlottableHistory,
+		isConfirmedEmptyHistory,
+		kind,
+		label,
+		periodLabel,
+		latestValue,
+		direction,
+	});
 	const formattedHistorySummary = historySummary ? formatChartHistorySummary(historySummary, kind, numberFormat) : null;
-	const trendDescription =
-		historySummary?.trend === "increased"
-			? t`The value increased overall.`
-			: historySummary?.trend === "decreased"
-				? t`The value decreased overall.`
-				: t`The start and end values are unchanged.`;
-	const accessibleDescription = formattedHistorySummary ? (
-		<>
-			<Trans>
-				Starts at <bdi dir="ltr">{formattedHistorySummary.start}</bdi> and ends at{" "}
-				<bdi dir="ltr">{formattedHistorySummary.end}</bdi>.
-			</Trans>{" "}
-			{trendDescription}{" "}
-			<Trans>
-				Minimum <bdi dir="ltr">{formattedHistorySummary.minimum}</bdi>; maximum{" "}
-				<bdi dir="ltr">{formattedHistorySummary.maximum}</bdi>.
-			</Trans>
-		</>
-	) : (
-		<Trans>No performance history is available for the selected period.</Trans>
-	);
-	const chartVisual = path ? (
-		<svg
-			aria-hidden="true"
-			focusable="false"
-			viewBox="0 0 100 36"
-			preserveAspectRatio="none"
-			className={cn(
-				"size-full",
-				tone === "positive" ? "text-market-up" : tone === "negative" ? "text-market-down" : "text-chart-accent",
-			)}
-		>
-			{compact ? null : (
-				<g className="text-stroke-weak">
-					<path d="M0 9 H100 M0 18 H100 M0 27 H100" stroke="currentColor" strokeWidth="0.3" />
-				</g>
-			)}
-			<path
-				d={path}
-				fill="none"
-				stroke="currentColor"
-				strokeWidth={compact ? 1.5 : 1}
-				vectorEffect="non-scaling-stroke"
-				strokeLinejoin="round"
-				strokeLinecap="round"
-			/>
-		</svg>
-	) : (
-		<div className="grid size-full place-items-center text-xs text-fg-muted">
-			<Trans>No performance history</Trans>
-		</div>
-	);
+	const trendDescription = getTrendDescription(historySummary?.trend, translate);
+	const accessibleDescription = renderAccessibleDescription({
+		formattedHistorySummary,
+		trendDescription,
+		hasSinglePoint: Boolean(singlePoint),
+		latestValue,
+		isConfirmedEmptyHistory,
+	});
+	const chartVisual = renderChartVisual({
+		hasPlottableHistory,
+		isConfirmedEmptyHistory,
+		compact,
+		tone,
+		path,
+	});
 
 	if (compact) {
 		return (
@@ -197,6 +166,194 @@ function formatChartHistorySummary(
 		minimum: formatValue(summary.minimum, numberFormat),
 		maximum: formatValue(summary.maximum, numberFormat),
 	};
+}
+
+type Translate = (descriptor: MessageDescriptor) => string;
+
+function getPeriodLabel(period: VaultPeriod, translate: Translate): string {
+	if (period === "day") return translate(msg`24 hours`);
+	if (period === "week") return translate(msg`7 days`);
+	if (period === "month") return translate(msg`30 days`);
+	return translate(msg`all time`);
+}
+
+function getDirectionLabel(tone: "positive" | "negative" | "neutral", translate: Translate): string {
+	if (tone === "positive") return translate(msg`Positive PNL`);
+	if (tone === "negative") return translate(msg`Negative PNL`);
+	return translate(msg`PNL is zero`);
+}
+
+function getTrendDescription(trend: ChartHistorySummary["trend"] | undefined, translate: Translate): string {
+	if (trend === "increased") return translate(msg`The value increased overall.`);
+	if (trend === "decreased") return translate(msg`The value decreased overall.`);
+	return translate(msg`The start and end values are unchanged.`);
+}
+
+function renderCompactSummary({
+	hasPlottableHistory,
+	isConfirmedEmptyHistory,
+	kind,
+	label,
+	periodLabel,
+	latestValue,
+	direction,
+}: {
+	hasPlottableHistory: boolean;
+	isConfirmedEmptyHistory: boolean;
+	kind: "accountValue" | "pnl";
+	label: string;
+	periodLabel: string;
+	latestValue: string;
+	direction: string;
+}) {
+	if (hasPlottableHistory) {
+		if (kind === "pnl") {
+			return (
+				<Trans>
+					{label} over {periodLabel}. Latest value <bdi dir="ltr">{latestValue}</bdi>. {direction}.
+				</Trans>
+			);
+		}
+		return (
+			<Trans>
+				{label} over {periodLabel}. Latest value <bdi dir="ltr">{latestValue}</bdi>.
+			</Trans>
+		);
+	}
+	if (isConfirmedEmptyHistory) {
+		return (
+			<Trans>
+				{label} over {periodLabel}. No performance history.
+			</Trans>
+		);
+	}
+	return (
+		<Trans>
+			{label} over {periodLabel}.
+		</Trans>
+	);
+}
+
+function renderAccessibleDescription({
+	formattedHistorySummary,
+	trendDescription,
+	hasSinglePoint,
+	latestValue,
+	isConfirmedEmptyHistory,
+}: {
+	formattedHistorySummary: ReturnType<typeof formatChartHistorySummary> | null;
+	trendDescription: string;
+	hasSinglePoint: boolean;
+	latestValue: string;
+	isConfirmedEmptyHistory: boolean;
+}) {
+	if (formattedHistorySummary) {
+		return (
+			<>
+				<Trans>
+					Starts at <bdi dir="ltr">{formattedHistorySummary.start}</bdi> and ends at{" "}
+					<bdi dir="ltr">{formattedHistorySummary.end}</bdi>.
+				</Trans>{" "}
+				{trendDescription}{" "}
+				<Trans>
+					Minimum <bdi dir="ltr">{formattedHistorySummary.minimum}</bdi>; maximum{" "}
+					<bdi dir="ltr">{formattedHistorySummary.maximum}</bdi>.
+				</Trans>
+			</>
+		);
+	}
+	if (hasSinglePoint) {
+		return (
+			<Trans>
+				Single data point at <bdi dir="ltr">{latestValue}</bdi>.
+			</Trans>
+		);
+	}
+	if (isConfirmedEmptyHistory) {
+		return <Trans>No performance history is available for the selected period.</Trans>;
+	}
+	return null;
+}
+
+function renderChartVisual({
+	hasPlottableHistory,
+	isConfirmedEmptyHistory,
+	compact,
+	tone,
+	path,
+}: {
+	hasPlottableHistory: boolean;
+	isConfirmedEmptyHistory: boolean;
+	compact: boolean;
+	tone: "positive" | "negative" | "neutral";
+	path: string | null;
+}) {
+	if (hasPlottableHistory) {
+		return (
+			<svg
+				aria-hidden="true"
+				focusable="false"
+				viewBox="0 0 100 36"
+				preserveAspectRatio="none"
+				className={cn(
+					"size-full",
+					tone === "positive" ? "text-market-up" : tone === "negative" ? "text-market-down" : "text-chart-accent",
+				)}
+			>
+				{compact ? null : (
+					<g className="text-stroke-weak">
+						<path d="M0 9 H100 M0 18 H100 M0 27 H100" stroke="currentColor" strokeWidth="0.3" />
+					</g>
+				)}
+				{path ? (
+					<path
+						d={path}
+						fill="none"
+						stroke="currentColor"
+						strokeWidth={compact ? 1.5 : 1}
+						vectorEffect="non-scaling-stroke"
+						strokeLinejoin="round"
+						strokeLinecap="round"
+					/>
+				) : (
+					<path
+						d="M50 18 L50 18"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth={compact ? 4 : 6}
+						strokeLinecap="round"
+						vectorEffect="non-scaling-stroke"
+						data-single-point
+					/>
+				)}
+			</svg>
+		);
+	}
+	if (isConfirmedEmptyHistory) {
+		return (
+			<div className="grid size-full place-items-center text-xs text-fg-muted">
+				<Trans>No performance history</Trans>
+			</div>
+		);
+	}
+	return <div className="size-full" />;
+}
+
+function getSingleChartPoint(
+	points: readonly { timestamp: number; value: string }[],
+): { timestamp: number; value: string } | null {
+	if (points.length === 0) return null;
+	const firstTimestamp = points[0]?.timestamp;
+	if (!Number.isSafeInteger(firstTimestamp) || firstTimestamp < 0) return null;
+	for (const point of points) {
+		if (point.timestamp !== firstTimestamp) return null;
+		try {
+			Big(point.value);
+		} catch {
+			return null;
+		}
+	}
+	return points[points.length - 1] ?? null;
 }
 
 /** Financial inputs remain decimal strings until this chart-rendering boundary. */

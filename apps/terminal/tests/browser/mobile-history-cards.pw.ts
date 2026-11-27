@@ -41,117 +41,15 @@ async function waitForFonts(page: Page) {
 	});
 }
 
-/**
- * Cut-off text the probe found that is not fixed yet (first read 2026-11-21; re-read 2026-11-24 after
- * the probe began to look inside `display: contents` wrappers, which added the card headers), per
- * locale and width. The count in `kind region «field» ×count` is the number of findings in that
- * group. One card can contribute more than one finding. The test catches changes in group counts.
- * The same counts can occur on different cards. The fixture's amounts are deliberately large, while
- * the liquidation direction and order status are ordinary values. On 2026-11-27 the probe stopped
- * measuring text that an element hides itself beyond that element's own box, which removed the
- * `clipped` entries for the size and position values: they were the same truncated values, not text
- * cut off by the card.
- */
-const PENDING: Record<string, Record<number, readonly string[]>> = {
-	en: {
-		320: [
-			"clipped order-history «Trigger$97,000» ×1",
-			"truncated funding-history «Market» ×1",
-			"truncated funding-history «Payment» ×3",
-			"truncated funding-history «Position» ×3",
-			"truncated mobile-trade-history-list «Direction» ×1",
-			"truncated mobile-trade-history-list «Fee» ×5",
-			"truncated mobile-trade-history-list «Market» ×1",
-			"truncated mobile-trade-history-list «Realized PNL» ×1",
-			"truncated mobile-trade-history-list «Size» ×7",
-			"truncated order-history «Market» ×1",
-			"truncated order-history «Size» ×1",
-			"truncated order-history «Status» ×1",
-			"truncated order-history «Time» ×4",
-			"truncated order-history «Type» ×1",
-		],
-		375: [
-			"truncated funding-history «Market» ×1",
-			"truncated funding-history «Payment» ×3",
-			"truncated funding-history «Position» ×3",
-			"truncated mobile-trade-history-list «Direction» ×1",
-			"truncated mobile-trade-history-list «Fee» ×5",
-			"truncated mobile-trade-history-list «Market» ×1",
-			"truncated mobile-trade-history-list «Realized PNL» ×1",
-			"truncated mobile-trade-history-list «Size» ×5",
-			"truncated order-history «Market» ×1",
-			"truncated order-history «Time» ×4",
-			"truncated order-history «Type» ×1",
-		],
-		393: [
-			"truncated funding-history «Market» ×1",
-			"truncated funding-history «Payment» ×3",
-			"truncated funding-history «Position» ×3",
-			"truncated mobile-trade-history-list «Direction» ×1",
-			"truncated mobile-trade-history-list «Market» ×1",
-			"truncated mobile-trade-history-list «Realized PNL» ×1",
-			"truncated mobile-trade-history-list «Size» ×5",
-			"truncated order-history «Market» ×1",
-			"truncated order-history «Time» ×1",
-		],
-	},
-	zh: {
-		320: [
-			"truncated funding-history «仓位» ×3",
-			"truncated funding-history «市场» ×1",
-			"truncated funding-history «支付» ×3",
-			"truncated mobile-trade-history-list «已实现盈亏» ×1",
-			"truncated mobile-trade-history-list «市场» ×1",
-			"truncated mobile-trade-history-list «手续费» ×5",
-			"truncated mobile-trade-history-list «数量» ×7",
-			"truncated mobile-trade-history-list «方向» ×1",
-			"truncated order-history «市场» ×1",
-			"truncated order-history «数量» ×1",
-			"truncated order-history «时间» ×4",
-			"truncated order-history «状态» ×1",
-		],
-		375: [
-			"truncated funding-history «仓位» ×3",
-			"truncated funding-history «市场» ×1",
-			"truncated funding-history «支付» ×3",
-			"truncated mobile-trade-history-list «已实现盈亏» ×1",
-			"truncated mobile-trade-history-list «市场» ×1",
-			"truncated mobile-trade-history-list «手续费» ×5",
-			"truncated mobile-trade-history-list «数量» ×5",
-			"truncated order-history «市场» ×1",
-			"truncated order-history «时间» ×4",
-		],
-		393: [
-			"truncated funding-history «仓位» ×3",
-			"truncated funding-history «市场» ×1",
-			"truncated funding-history «支付» ×3",
-			"truncated mobile-trade-history-list «已实现盈亏» ×1",
-			"truncated mobile-trade-history-list «市场» ×1",
-			"truncated mobile-trade-history-list «数量» ×5",
-			"truncated order-history «市场» ×1",
-		],
-	},
-};
-
-function summarize(findings: Awaited<ReturnType<typeof findLayoutIntegrityIssues>>) {
-	const counts = new Map<string, number>();
-	for (const finding of findings) {
-		const [region, field] = finding.path.split(" › ");
-		const key = `${finding.kind} ${region} ${field?.startsWith("«") ? field : ""}`.trim();
-		counts.set(key, (counts.get(key) ?? 0) + 1);
-	}
-	return [...counts].map(([key, count]) => `${key} ×${count}`).sort();
-}
-
 for (const locale of ["en", "zh"]) {
 	for (const viewport of VIEWPORTS) {
-		test(`matches the pending phone history card findings at ${viewport.width}px in ${locale}`, async ({ page }) => {
+		test(`keeps all phone history cards whole at ${viewport.width}px in ${locale}`, async ({ page }) => {
 			await page.setViewportSize(viewport);
 			await open(page, locale);
 			await expandAll(page);
 			await waitForFonts(page);
 			const findings = await findLayoutIntegrityIssues(page, { root: "#root" });
-			expect(summarize(findings)).toEqual([...(PENDING[locale]?.[viewport.width] ?? [])].sort());
+			expect(findings).toEqual([]);
 		});
 	}
 }

@@ -110,7 +110,7 @@ export function ReferralActionModal({ action, unclaimedRewards, initialCode, onC
 			layer="blocking"
 			className="max-h-[calc(100dvh-1rem)] rounded-t-32 min-[1001px]:max-w-[25rem] min-[1001px]:rounded-32"
 		>
-			<ModalHeader divider={false} className="px-4 pt-6 pb-2 min-[1001px]:px-6">
+			<ModalHeader divider={false} className="ps-4 pe-4 pt-6 pb-2 min-[1001px]:ps-6 min-[1001px]:pe-14">
 				<ModalTitle className="text-base font-bold">{title}</ModalTitle>
 				<ModalDescription>
 					{action === "apply" ? (
@@ -147,17 +147,21 @@ export function ReferralActionModal({ action, unclaimedRewards, initialCode, onC
 					<div className="space-y-3">
 						{action === "claim" ? (
 							<div className="divide-y divide-stroke-weak">
-								{unclaimedRewards.map((reward) => (
-									<div key={reward.tokenId} className="flex items-center justify-between gap-4 px-4 py-3">
-										<span className="text-sm text-fg-muted">{reward.name}</span>
-										<span className="text-sm font-semibold tabular-nums text-fg">
-											{formatToken(reward.unclaimedRewards, {
-												symbol: reward.name,
-												maximumFractionDigits: reward.weiDecimals ?? 8,
-											})}
-										</span>
-									</div>
-								))}
+								{unclaimedRewards.map((reward) => {
+									const { tokenId } = reward;
+									const tokenLabel = reward.name ?? t`Token #${tokenId}`;
+									return (
+										<div key={tokenId} className="flex items-center justify-between gap-4 px-4 py-3">
+											<span className="text-sm text-fg-muted">{tokenLabel}</span>
+											<span className="text-sm font-semibold tabular-nums text-fg">
+												{formatToken(reward.unclaimedRewards, {
+													symbol: tokenLabel,
+													maximumFractionDigits: reward.weiDecimals ?? 8,
+												})}
+											</span>
+										</div>
+									);
+								})}
 							</div>
 						) : (
 							<div className="py-4">

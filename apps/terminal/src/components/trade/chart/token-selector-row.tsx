@@ -1,16 +1,22 @@
 import { useLingui } from "@lingui/react/macro";
 import { ArrowsClockwiseIcon, StarIcon } from "@phosphor-icons/react";
 import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
-import { getEightHourFundingRate, getMarketCapUsd, getOiUsd } from "@/domain/market";
 import { getMarketSelectorQuote } from "@/domain/market/selector-quote";
 import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import { AssetDisplay } from "../components/asset-display";
 import { getMarketSelectorPairName } from "./token-selector-categories";
 import { getMarketTableGridClass, type MarketRow, type MarketTableLayout } from "./token-selector-columns";
+import {
+	getLiveSelectorFunding,
+	getLiveSelectorOiUsd,
+	getLiveSelectorSpotMarketCapUsd,
+	getLiveSelectorVolume,
+} from "./token-selector-metrics";
 
 interface Props {
 	market: MarketRow;
+	optionId?: string;
 	mobile: boolean;
 	showDerivativesMetrics: boolean;
 	showSpotMarketCap: boolean;
@@ -21,6 +27,9 @@ interface Props {
 	height: number;
 	onSelect: (name: string) => void;
 	onToggleFavorite: (name: string) => void;
+	onFavoriteFocus?: (name: string) => void;
+	onFavoriteBlur?: (name: string) => void;
+	onFavoriteButtonRef?: (name: string, node: HTMLButtonElement | null) => void;
 }
 
 function getSzDecimals(market: MarketRow): number {
@@ -46,6 +55,7 @@ function getMarketValueColorClass(value: number): string {
 
 export function TokenSelectorRow({
 	market,
+	optionId,
 	mobile,
 	showDerivativesMetrics,
 	showSpotMarketCap,
@@ -56,6 +66,9 @@ export function TokenSelectorRow({
 	height,
 	onSelect,
 	onToggleFavorite,
+	onFavoriteFocus,
+	onFavoriteBlur,
+	onFavoriteButtonRef,
 }: Props) {
 	const { formatNumber, formatPercent, formatUSD } = useNumberFormat();
 	const { t } = useLingui();
@@ -92,7 +105,7 @@ export function TokenSelectorRow({
 	const isHip3 = market.kind === "builderPerp";
 	const spotApiToken = spotBaseToken?.name;
 
-	const oiValue = getOiUsd(market.openInterest, market.markPx);
+	const oiValue = getLiveSelectorOiUsd(market);
 	const oiText = formatUSD(oiValue, {
 		compact: false,
 		minimumFractionDigits: 0,
@@ -103,18 +116,19 @@ export function TokenSelectorRow({
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 2,
 	});
-	const volumeText = formatUSD(market.dayNtlVlm, {
+	const liveVolume = getLiveSelectorVolume(market);
+	const volumeText = formatUSD(liveVolume, {
 		compact: false,
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 0,
 	});
-	const mobileVolumeText = formatUSD(market.dayNtlVlm, {
+	const mobileVolumeText = formatUSD(liveVolume, {
 		compact: true,
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 2,
 	});
-	const eightHourFunding = getEightHourFundingRate(market.funding);
-	const spotMarketCap = isSpot ? getMarketCapUsd(market.circulatingSupply, market.markPx) : null;
+	const eightHourFunding = getLiveSelectorFunding(market);
+	const spotMarketCap = getLiveSelectorSpotMarketCapUsd(market);
 	const tableLayout: MarketTableLayout = showSpotMarketCap ? "spot" : "default";
 	const spotMarketCapText =
 		spotMarketCap && spotQuoteToken
@@ -134,15 +148,18 @@ export function TokenSelectorRow({
 				});
 	const favoriteButton = (
 		<button
+			ref={onFavoriteButtonRef ? (node) => onFavoriteButtonRef(market.name, node) : undefined}
 			type="button"
 			onClick={(e) => {
 				e.stopPropagation();
 				onToggleFavorite(market.name);
 			}}
+			onFocus={() => onFavoriteFocus?.(market.name)}
+			onBlur={() => onFavoriteBlur?.(market.name)}
 			className={cn(
 				"pointer-events-auto z-10 flex shrink-0 cursor-pointer items-center justify-center rounded-[4px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
 				mobile
-					? "absolute top-1/2 right-0 size-11 -translate-y-1/2"
+					? "absolute top-1/2 end-0 size-11 -translate-y-1/2"
 					: "relative size-6 after:absolute after:inset-x-0 after:inset-y-[-10px] after:content-['']",
 			)}
 			aria-label={isFav ? t`Remove ${displayPairName} from favorites` : t`Add ${displayPairName} to favorites`}
@@ -160,6 +177,10 @@ export function TokenSelectorRow({
 	const marketButton = (
 		<button
 			type="button"
+			tabIndex={-1}
+			id={optionId}
+			role="option"
+			aria-selected={isHighlighted}
 			data-index={market.name}
 			onClick={() => onSelect(market.name)}
 			aria-label={displayPairName}
@@ -180,6 +201,7 @@ export function TokenSelectorRow({
 	if (mobile) {
 		return (
 			<li
+				role="none"
 				className={cn(
 					"absolute top-0 left-0 grid w-full grid-cols-[minmax(0,1fr)_74px_72px] items-center gap-x-2 border-b border-trading-panel-stroke-row px-4 transition-colors duration-[120ms] hover:bg-trading-panel-card min-[390px]:grid-cols-[minmax(0,1fr)_102px_84px]",
 					isSelected && !isHighlighted && "bg-trading-panel-hover",
@@ -190,7 +212,7 @@ export function TokenSelectorRow({
 				{marketButton}
 				<div className="pointer-events-none relative z-[1] flex min-w-0 items-center gap-[9px]">
 					<AssetDisplay coin={market.name} iconUrl={market.iconUrl} hideName iconClassName="size-[26px] shrink-0" />
-					<div className="min-w-0 flex-1 pr-11">
+					<div className="min-w-0 flex-1 pe-11">
 						<div className="flex min-w-0 items-center gap-1">
 							<span
 								title={displayPairName}
@@ -251,6 +273,7 @@ export function TokenSelectorRow({
 
 	return (
 		<li
+			role="none"
 			className={cn(
 				"absolute top-0 left-0 grid w-full items-center gap-x-3 border-b border-trading-panel-stroke-row px-4 transition-colors duration-[120ms] hover:bg-trading-panel-card",
 				getMarketTableGridClass(tableLayout),

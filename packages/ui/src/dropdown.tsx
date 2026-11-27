@@ -114,6 +114,7 @@ interface DropdownBaseProps extends VariantProps<typeof dropdownTriggerVariants>
 	triggerClassName?: string;
 	popupClassName?: string;
 	hideCaret?: boolean;
+	triggerAriaDescription?: string;
 }
 
 type DropdownProps =
@@ -135,6 +136,7 @@ const Dropdown = React.forwardRef<HTMLDivElement, DropdownProps>(
 			alignOffset,
 			triggerVariant = "default",
 			triggerAriaLabel,
+			triggerAriaDescription,
 			triggerClassName,
 			popupClassName,
 			hideCaret = false,
@@ -224,10 +226,15 @@ const Dropdown = React.forwardRef<HTMLDivElement, DropdownProps>(
 			<div className={className} ref={ref}>
 				<Menu.Root disabled={disabled}>
 					{renderTrigger ? (
-						<Menu.Trigger aria-label={triggerAriaLabel} render={renderTrigger} />
+						<Menu.Trigger
+							aria-label={triggerAriaLabel}
+							{...(triggerAriaDescription !== undefined ? { "aria-description": triggerAriaDescription } : undefined)}
+							render={renderTrigger}
+						/>
 					) : (
 						<Menu.Trigger
 							aria-label={triggerAriaLabel}
+							{...(triggerAriaDescription !== undefined ? { "aria-description": triggerAriaDescription } : undefined)}
 							className={cn(
 								isMinimalTrigger ? dropdownMinimalTriggerVariants({ size }) : dropdownTriggerVariants({ size }),
 								!isMinimalTrigger && "text-fg",
