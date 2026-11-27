@@ -81,14 +81,20 @@ function buildTokenList(
 	return tokens;
 }
 
+interface StaleRefreshState {
+	key: string;
+	status: "in-flight" | "settled";
+}
+
 export function useBridgeBalances(walletAddress: string | undefined) {
 	const normalizedAddress = walletAddress?.toLowerCase() ?? "";
 	const queryClient = useQueryClient();
 	const isOnline = useOnlineStatus();
 	const isForeground = useSyncExternalStore(subscribeForeground, isDocumentForeground, () => true);
 	const mountedRef = useRef(true);
-	const attemptedRefreshKeysRef = useRef<Set<string>>(new Set());
-	const [refreshStatusByKey, setRefreshStatusByKey] = useState<Record<string, "in-flight" | "settled">>({});
+	const activeSnapshotKeyRef = useRef<string | null>(null);
+	const attemptedRefreshKeyRef = useRef<string | null>(null);
+	const [staleRefreshState, setStaleRefreshState] = useState<StaleRefreshState | null>(null);
 	const query = useQuery({
 		queryKey: ["lifi-balances", normalizedAddress],
 		queryFn: async () => {
@@ -131,26 +137,37 @@ export function useBridgeBalances(walletAddress: string | undefined) {
 	}, []);
 
 	useEffect(() => {
+		activeSnapshotKeyRef.current = snapshotKey;
+		if (attemptedRefreshKeyRef.current !== snapshotKey) {
+			attemptedRefreshKeyRef.current = null;
+		}
+		setStaleRefreshState((prev) => (prev && prev.key === snapshotKey ? prev : null));
+	}, [snapshotKey]);
+
+	useEffect(() => {
 		if (!staleFetchingKey) return;
-		attemptedRefreshKeysRef.current.add(staleFetchingKey);
-		setRefreshStatusByKey((prev) => (prev[staleFetchingKey] ? prev : { ...prev, [staleFetchingKey]: "settled" }));
+		attemptedRefreshKeyRef.current = staleFetchingKey;
+		setStaleRefreshState((prev) =>
+			prev?.key === staleFetchingKey ? prev : { key: staleFetchingKey, status: "settled" },
+		);
 	}, [staleFetchingKey]);
 
 	useEffect(() => {
 		if (!staleRefreshKey) return;
-		if (attemptedRefreshKeysRef.current.has(staleRefreshKey)) return;
-		attemptedRefreshKeysRef.current.add(staleRefreshKey);
+		if (attemptedRefreshKeyRef.current === staleRefreshKey) return;
+		attemptedRefreshKeyRef.current = staleRefreshKey;
 		const refreshKey = staleRefreshKey;
-		setRefreshStatusByKey((prev) => ({ ...prev, [refreshKey]: "in-flight" }));
+		setStaleRefreshState({ key: refreshKey, status: "in-flight" });
 		void queryClient
 			.refetchQueries({ exact: true, queryKey: ["lifi-balances", normalizedAddress] }, { cancelRefetch: false })
 			.finally(() => {
-				if (!mountedRef.current) return;
-				setRefreshStatusByKey((prev) => ({ ...prev, [refreshKey]: "settled" }));
+				if (!mountedRef.current || activeSnapshotKeyRef.current !== refreshKey) return;
+				setStaleRefreshState((prev) => (prev?.key === refreshKey ? { key: refreshKey, status: "settled" } : prev));
 			});
 	}, [normalizedAddress, queryClient, staleRefreshKey]);
 
-	const needsStaleRetry = staleRefreshKey !== null && refreshStatusByKey[staleRefreshKey] === "settled";
+	const needsStaleRetry =
+		staleRefreshKey !== null && staleRefreshState?.key === staleRefreshKey && staleRefreshState.status === "settled";
 	const isSnapshotCurrent =
 		Boolean(walletAddress) &&
 		isOnline &&

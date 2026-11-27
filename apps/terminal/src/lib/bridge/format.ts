@@ -17,6 +17,21 @@ export function formatTokenAmount(amount: string, decimals: number, numberFormat
 	return numberFormat.formatDecimalString(value.toFixed(2));
 }
 
+const EXACT_DECIMAL_PATTERN = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))$/u;
+
+export function formatExactSendAmount(amount: string, numberFormat: NumberFormatters): string {
+	const trimmed = amount.trim();
+	const match = EXACT_DECIMAL_PATTERN.exec(trimmed);
+	if (!match) return amount;
+	const [, rawSign, rawInt = "0", fracA = "", fracB = ""] = match;
+	const integer = rawInt.replace(/^0+(?=\d)/u, "");
+	const fraction = (fracA || fracB).replace(/0+$/u, "");
+	if (integer === "0" && fraction === "") return "0";
+	const sign = rawSign === "-" ? "-" : "";
+	const normalized = fraction ? `${sign}${integer}.${fraction}` : `${sign}${integer}`;
+	return numberFormat.formatDecimalString(normalized);
+}
+
 /**
  * Up to `maxSigFigs` significant digits, without rounding away integer digits: Big's toPrecision
  * would write 123456.789 as "1.2346e+5". Amounts of 1 or more round at the same digit as

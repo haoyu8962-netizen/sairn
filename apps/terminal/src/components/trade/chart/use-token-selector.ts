@@ -25,7 +25,7 @@ import {
 	resolveVisibleMarketSorting,
 	TOKEN_SELECTOR_COLUMNS,
 } from "./token-selector-columns";
-import { resolveMarketCatalogDisplayState } from "./token-selector-metrics";
+import { resolveMarketCatalogDisplayState, resolveTokenSelectorDisplayState } from "./token-selector-metrics";
 
 const PERP_ANNOTATIONS_STALE_TIME_MS = 5 * 60 * 1_000;
 
@@ -228,6 +228,7 @@ export function useTokenSelector({
 	const {
 		data: perpAnnotations,
 		isPending: annotationsPending,
+		isFetching: annotationsFetching,
 		isError: annotationsError,
 		refetch: refetchAnnotations,
 	} = useInfo("perpConciseAnnotations", undefined, {
@@ -251,7 +252,7 @@ export function useTokenSelector({
 			: getDefaultMarketSubcategory(scope);
 	const selectorMarkets = useMemo(() => createMarketRows(markets, perpAnnotations), [markets, perpAnnotations]);
 	const classificationState = getMarketClassificationState(scope, perpAnnotations, {
-		isPending: annotationsPending,
+		isPending: annotationsPending || (perpAnnotations === undefined && Boolean(annotationsFetching)),
 		isError: annotationsError,
 	});
 
@@ -357,14 +358,16 @@ export function useTokenSelector({
 	});
 
 	const isSearchStale = isSearchPending || search !== deferredSearch;
-	const hasCatalogError = open && !isSearchStale && catalogDisplayState === "error";
-	const hasClassificationError =
-		open && !isSearchStale && catalogDisplayState === "ready" && classificationState === "error";
-	const isSelectorLoading =
-		open &&
-		(isSearchStale ||
-			catalogDisplayState === "loading" ||
-			(catalogDisplayState === "ready" && classificationState === "pending"));
+	const {
+		isLoading: isSelectorLoading,
+		hasCatalogError,
+		hasClassificationError,
+	} = resolveTokenSelectorDisplayState({
+		open,
+		isSearchStale,
+		catalogDisplayState,
+		classificationState,
+	});
 	const isResultSetAvailable = open && !isSelectorLoading && !hasCatalogError && !hasClassificationError;
 	const isListReady = isResultSetAvailable && rows.length > 0;
 	const effectiveHighlightedIndex = isListReady
@@ -468,6 +471,16 @@ export function useTokenSelector({
 			return;
 		}
 
+		if (
+			hasInitializedRef.current &&
+			scope === "favorites" &&
+			highlightedMarketName !== null &&
+			!favoriteSet.has(highlightedMarketName)
+		) {
+			setHighlightedMarketName(null);
+			if (!isResultSetAvailable) return;
+		}
+
 		if (!isResultSetAvailable) return;
 
 		if (!hasInitializedRef.current) {
@@ -499,7 +512,18 @@ export function useTokenSelector({
 		if (highlightedMarketName !== null && !rows.some((row) => row.original.name === highlightedMarketName)) {
 			setHighlightedMarketName(null);
 		}
-	}, [open, isResultSetAvailable, isListReady, rows, value, virtualizer, resetHighlightToFirst, highlightedMarketName]);
+	}, [
+		open,
+		scope,
+		favoriteSet,
+		isResultSetAvailable,
+		isListReady,
+		rows,
+		value,
+		virtualizer,
+		resetHighlightToFirst,
+		highlightedMarketName,
+	]);
 
 	useLayoutEffect(() => {
 		if (!open) return;

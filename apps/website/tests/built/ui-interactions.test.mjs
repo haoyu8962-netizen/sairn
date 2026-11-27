@@ -122,6 +122,7 @@ test("G-03: coarse-pointer touch devices at 640px and 768px keep at least 44px h
 			assert.equal(report.coarse, true, `${width}px: test context must match (pointer: coarse)`);
 			assert.deepEqual(report.missing, [], `${width}px coarse-pointer: every target class must have at least one visible control`);
 			assert.deepEqual(report.failures, [], `${width}px coarse-pointer targets below 44px`);
+			await assertRealTapDelivery(page, "header Open terminal (.btn-md)", "header a.btn-md", `${width}px coarse-pointer`);
 		} finally {
 			await context.close();
 		}
@@ -306,22 +307,67 @@ test("I-06: hybrid fine+coarse input devices keep >=44px touch targets and direc
 		await desktop.page.goto("https://site.test/", { waitUntil: "load" });
 		await assertActivePressFeedback(desktop.context, desktop.page, "1280px desktop");
 
-		// F-06 self-check: pointer-events: none on .stats-method summary must fail the real press check.
-		await desktop.page.evaluate(() => {
-			document.querySelector(".stats-method summary").style.pointerEvents = "none";
-		});
-		await assert.rejects(
-			() => assertRealPointerPress(desktop.page, "stats method summary", ".stats-method summary", "pointer-events-none mutation"),
-			/hit|active|toggle/i,
-			"the real press check must fail when pointer-events: none blocks the control",
-		);
-		await desktop.page.evaluate(() => {
-			document.querySelector(".stats-method summary").style.pointerEvents = "";
-		});
+		// F-06 self-check: pointer-events: none on .stats-method summary or header CTA must fail the real press check.
+		for (const [label, selector] of [
+			["stats method summary", ".stats-method summary"],
+			["header Open terminal (.btn-md)", "header a.btn-md"],
+		]) {
+			await desktop.page.evaluate((sel) => {
+				document.querySelector(sel).style.pointerEvents = "none";
+			}, selector);
+			await assert.rejects(
+				() => assertRealPointerPress(desktop.page, label, selector, "pointer-events-none mutation"),
+				/hit|active|toggle|click/i,
+				`the real press check must fail when pointer-events: none blocks ${label}`,
+			);
+			await desktop.page.evaluate((sel) => {
+				document.querySelector(sel).style.pointerEvents = "";
+			}, selector);
+		}
 	} finally {
 		await desktop.context.close();
 	}
 });
+
+async function assertRealTapDelivery(page, label, selector, viewportLabel) {
+	const locator = page.locator(selector).first();
+	const prepared = await locator.evaluate((el) => {
+		if (!el.checkVisibility()) return { visible: false };
+		if (!el.closest("header")) el.scrollIntoView({ block: "center", inline: "center" });
+		const rect = el.getBoundingClientRect();
+		const cx = rect.left + rect.width / 2;
+		const cy = rect.top + rect.height / 2;
+		const hit = document.elementFromPoint(cx, cy);
+		window.__tapClicks = 0;
+		el.addEventListener(
+			"click",
+			(event) => {
+				event.preventDefault();
+				window.__tapClicks += 1;
+			},
+			{ once: true },
+		);
+		return {
+			visible: true,
+			cx,
+			cy,
+			width: rect.width,
+			height: rect.height,
+			hitSelf: Boolean(hit && el.contains(hit)),
+			hitTag: hit?.tagName ?? null,
+		};
+	});
+	assert.equal(prepared.visible, true, `${viewportLabel} ${label}: control must be visible`);
+	assert.ok(prepared.width > 0 && prepared.height > 0, `${viewportLabel} ${label}: control must have non-zero size`);
+	assert.equal(
+		prepared.hitSelf,
+		true,
+		`${viewportLabel} ${label}: touch hit test at center must reach the control (hit ${prepared.hitTag})`,
+	);
+	await page.touchscreen.tap(prepared.cx, prepared.cy);
+	const clicks = await page.evaluate(() => window.__tapClicks);
+	assert.equal(clicks, 1, `${viewportLabel} ${label}: real tap must deliver a click to the control`);
+}
 
 async function assertRealPointerPress(page, label, selector, viewportLabel) {
 	const locator = page.locator(selector).first();
@@ -425,6 +471,7 @@ async function assertActivePressFeedback(context, page, viewportLabel) {
 	await cdp.send("CSS.enable");
 	const { root } = await cdp.send("DOM.getDocument");
 	for (const [label, selector] of [
+		["header Open terminal (.btn-md)", "header a.btn-md"],
 		["header anchor link", "header nav ul a"],
 		["footer column link", "footer ul a"],
 		["stats method summary", ".stats-method summary"],

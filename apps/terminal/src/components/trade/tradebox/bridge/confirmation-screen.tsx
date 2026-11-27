@@ -14,7 +14,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { InfoRow, InfoRowGroup } from "@/components/ui/info-row";
 import { TOUCH_PRESS_CLASS } from "@/components/ui/touch-press";
-import { formatSendAmount, formatTokenAmount } from "@/lib/bridge/format";
+import { formatExactSendAmount, formatTokenAmount } from "@/lib/bridge/format";
 import { cn } from "@/lib/cn";
 import { formatDuration, shortenAddress, useNumberFormat } from "@/lib/format";
 import type { BridgeToken } from "@/lib/lifi/use-balances";
@@ -236,11 +236,18 @@ export function ConfirmationScreen({ token, tokenAmount, address, onBack, onConf
 
 				<InfoRowGroup className="text-xs mt-3">
 					<InfoRow
+						className="items-start gap-3"
+						labelClassName="shrink-0 leading-5"
+						valueClassName="min-w-0 text-end"
 						label={<Trans>You send</Trans>}
 						value={
-							<span className="flex items-center gap-1.5">
+							<span className="flex max-w-full items-start justify-end gap-1.5">
 								<TokenIcon token={token} size="sm" />
-								{formatSendAmount(tokenAmount, numberFormat)} {token.symbol}
+								<span className="min-w-0 leading-5 [overflow-wrap:anywhere]">
+									<bdi dir="ltr">
+										{formatExactSendAmount(tokenAmount, numberFormat)} {token.symbol}
+									</bdi>
+								</span>
 							</span>
 						}
 					/>

@@ -1032,4 +1032,245 @@ describe("token selector G3a regression suite", () => {
 		expect(mkt36Star).not.toBeNull();
 		expect(document.activeElement).toBe(mkt36Star);
 	});
+
+	// r7 C-01
+	it("keeps classified scopes busy while annotations are pending on an incomplete idle catalog and retries both when both fail", () => {
+		const validPerpMetas = [
+			{
+				universe: [{ name: "BTC", szDecimals: 5, maxLeverage: 40, marginTableId: 0 }],
+				marginTables: [],
+				collateralToken: 0,
+			},
+		] as MetaResponse[];
+		const validPerpDexs = [null] as unknown as PerpDexsResponse;
+		const invalidSpotQuery = {
+			data: { tokens: [null], universe: [] } as unknown as SpotMetaResponse,
+			status: "success" as const,
+			fetchStatus: "idle" as const,
+			error: null,
+			isStale: false,
+			refetch: vi.fn(async () => undefined),
+		};
+		const invalidSpotCatalogState = createMarketCatalogState({
+			isRestoring: false,
+			hasUsableMarkets: true,
+			queries: {
+				spotMeta: invalidSpotQuery,
+				perpDexs: {
+					data: validPerpDexs,
+					status: "success",
+					fetchStatus: "idle",
+					error: null,
+					isStale: false,
+					refetch: vi.fn(async () => undefined),
+				},
+				allPerpMetas: {
+					data: validPerpMetas,
+					status: "success",
+					fetchStatus: "idle",
+					error: null,
+					isStale: false,
+					refetch: vi.fn(async () => undefined),
+				},
+			},
+		});
+
+		testState.markets = [
+			liveMarket({ name: "xyz:AAPL", kind: "builderPerp", shortName: "AAPL", pairName: "AAPL-USDC", dex: "xyz" }),
+			liveMarket({
+				name: "para:UNITREE",
+				kind: "builderPerp",
+				shortName: "UNITREE",
+				pairName: "UNITREE-USDC",
+				dex: "para",
+			}),
+		];
+		testState.catalogState = invalidSpotCatalogState;
+		testState.annotations = undefined;
+		testState.annotationsPending = true;
+		testState.annotationsError = false;
+		renderHarness();
+
+		for (const scopeLabel of ["Traditional Finance", "Pre-launch"]) {
+			const scopeBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+				(b) => b.textContent === scopeLabel,
+			);
+			expect(scopeBtn).toBeDefined();
+			act(() => scopeBtn?.click());
+
+			expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+			expect(
+				[...container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Retry"),
+			).toBeUndefined();
+			expect(container.textContent).not.toContain("No markets found.");
+			expect(container.textContent).not.toContain("0 markets");
+		}
+
+		// Non-annotation scope still keeps idle incomplete catalog retry behavior even while annotations are pending.
+		const spotScopeBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Spot",
+		);
+		act(() => spotScopeBtn?.click());
+		expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+		const spotRetryBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Retry",
+		);
+		expect(spotRetryBtn).toBeDefined();
+		act(() => spotRetryBtn?.click());
+		expect(testState.retryMarketCatalog).toHaveBeenCalledTimes(1);
+		expect(testState.refetchAnnotations).not.toHaveBeenCalled();
+
+		// When annotations fail while catalog is still incomplete, Retry must refetch both annotations and catalog.
+		testState.retryMarketCatalog.mockClear();
+		testState.refetchAnnotations.mockClear();
+		testState.annotationsPending = false;
+		testState.annotationsError = true;
+		renderHarness();
+
+		const tradBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Traditional Finance",
+		);
+		act(() => tradBtn?.click());
+
+		expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(container.querySelector(".text-trading-panel-error")).toBeNull();
+		const combinedRetryBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Retry",
+		);
+		expect(combinedRetryBtn).toBeDefined();
+		act(() => combinedRetryBtn?.click());
+		expect(testState.refetchAnnotations).toHaveBeenCalledTimes(1);
+		expect(testState.retryMarketCatalog).toHaveBeenCalledTimes(1);
+
+		// When catalog is complete and only annotations failed, Retry only refetches annotations.
+		testState.retryMarketCatalog.mockClear();
+		testState.refetchAnnotations.mockClear();
+		testState.catalogState = makeCatalogState("ready");
+		renderHarness();
+
+		const annotationsOnlyRetryBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Retry",
+		);
+		expect(annotationsOnlyRetryBtn).toBeDefined();
+		act(() => annotationsOnlyRetryBtn?.click());
+		expect(testState.refetchAnnotations).toHaveBeenCalledTimes(1);
+		expect(testState.retryMarketCatalog).not.toHaveBeenCalled();
+	});
+
+	// r7 C-02
+	it("clears the active market id when unfavoriting the last favorite on an idle stale catalog so cross-tab restore cannot revive it", () => {
+		const validSpotMeta = {
+			tokens: [
+				{
+					name: "USDC",
+					szDecimals: 2,
+					weiDecimals: 6,
+					index: 0,
+					tokenId: "0x00000000000000000000000000000000",
+					isCanonical: true,
+					evmContract: null,
+					fullName: "USD Coin",
+					deployerTradingFeeShare: "0",
+				},
+			],
+			universe: [],
+		} as SpotMetaResponse;
+		const validPerpMetas = [
+			{
+				universe: [{ name: "ETH", szDecimals: 4, maxLeverage: 40, marginTableId: 0 }],
+				marginTables: [],
+				collateralToken: 0,
+			},
+		] as MetaResponse[];
+		const validPerpDexs = [null] as unknown as PerpDexsResponse;
+
+		testState.markets = [liveMarket({ name: "ETH", dayNtlVlm: "2000000", markPx: "3000", midPx: "3000" })];
+		testState.favorites = ["ETH"];
+		testState.catalogState = createMarketCatalogState({
+			isRestoring: false,
+			hasUsableMarkets: true,
+			queries: {
+				spotMeta: {
+					data: validSpotMeta,
+					status: "success",
+					fetchStatus: "idle",
+					error: null,
+					isStale: false,
+					refetch: vi.fn(async () => undefined),
+				},
+				perpDexs: {
+					data: validPerpDexs,
+					status: "success",
+					fetchStatus: "idle",
+					error: null,
+					isStale: true,
+					refetch: vi.fn(async () => undefined),
+				},
+				allPerpMetas: {
+					data: validPerpMetas,
+					status: "success",
+					fetchStatus: "idle",
+					error: null,
+					isStale: false,
+					refetch: vi.fn(async () => undefined),
+				},
+			},
+		});
+		testState.toggleFavoriteMarket.mockImplementation((name: string) => {
+			testState.favorites = testState.favorites.includes(name)
+				? testState.favorites.filter((item) => item !== name)
+				: [...testState.favorites, name];
+		});
+		renderHarness();
+
+		const favScopeBtn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(b) => b.textContent === "Favorites",
+		);
+		act(() => favScopeBtn?.click());
+
+		const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+		const initialActiveId = input?.getAttribute("aria-activedescendant");
+		expect(initialActiveId).toBeTruthy();
+		expect(initialActiveId ? document.getElementById(initialActiveId)?.getAttribute("data-index") : null).toBe("ETH");
+
+		const ethStar = container.querySelector<HTMLButtonElement>('button[aria-label="Remove ETH-USDC from favorites"]');
+		expect(ethStar).not.toBeNull();
+		act(() => {
+			ethStar?.focus();
+			ethStar?.click();
+		});
+		renderHarness();
+
+		expect(document.activeElement).toBe(input);
+		expect(
+			[...container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Retry"),
+		).toBeDefined();
+
+		// Simulate cross-tab sync re-adding ETH to favorites while the selector remains open.
+		testState.favorites = ["ETH"];
+		renderHarness();
+
+		expect(container.querySelector('[role="option"][data-index="ETH"]')).not.toBeNull();
+		expect(input?.getAttribute("aria-activedescendant")).toBeNull();
+
+		act(() => {
+			input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		});
+		expect(testState.onValueChange).not.toHaveBeenCalled();
+
+		act(() => {
+			input?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+		});
+		const recoveredActiveId = input?.getAttribute("aria-activedescendant");
+		expect(recoveredActiveId).toBeTruthy();
+		expect(recoveredActiveId ? document.getElementById(recoveredActiveId)?.getAttribute("data-index") : null).toBe(
+			"ETH",
+		);
+
+		act(() => {
+			input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		});
+		expect(testState.onValueChange).toHaveBeenCalledWith("ETH", expect.objectContaining({ name: "ETH" }));
+	});
 });

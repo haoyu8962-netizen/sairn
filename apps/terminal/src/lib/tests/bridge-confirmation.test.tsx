@@ -892,7 +892,7 @@ describe("bridge quote confirmation", () => {
 				</I18nProvider>,
 			);
 		});
-		expect(container.textContent).toContain("1.0000 WHOLE");
+		expect(container.textContent).toContain("1 WHOLE");
 		expect(container.textContent).toContain("$2.00");
 		expect(testState.lastQuoteParams).toEqual({
 			fromChainId: wholeToken.chainId,
@@ -916,5 +916,75 @@ describe("bridge quote confirmation", () => {
 			);
 		});
 		expect(container.textContent).toContain("10.006 USDC");
+	});
+
+	it("displays exact send amounts without rounding up across the display boundary and allows wrapping without truncation", () => {
+		const nearTenDai: BridgeToken = {
+			...TOKEN,
+			symbol: "DAI",
+			name: "Dai Stablecoin",
+			decimals: 18,
+			priceUSD: "1",
+			amount: "9999999999999999999",
+			amountUSD: 10,
+		};
+		testState.query = {
+			data: createQuote({ fromAmount: "9999999999999999999", fromAmountUSD: "10" }),
+			isLoading: false,
+			isError: false,
+			error: null,
+			dataUpdatedAt: Date.now(),
+			refetch: vi.fn(),
+		};
+		act(() => {
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<ConfirmationScreen
+						token={nearTenDai}
+						tokenAmount="9.999999999999999999"
+						address="0x1111111111111111111111111111111111111111"
+						onBack={vi.fn()}
+						onConfirm={onConfirm}
+					/>
+				</I18nProvider>,
+			);
+		});
+
+		const sendRow = [...container.querySelectorAll('[data-slot="info-row"]')].find(
+			(row) => row.querySelector('[data-slot="info-row-label"]')?.textContent?.trim() === "You send",
+		);
+		expect(sendRow).toBeDefined();
+		const sendValue = sendRow?.querySelector('[data-slot="info-row-value"]');
+		expect(sendValue?.textContent?.trim()).toBe("9.999999999999999999 DAI");
+		expect(sendValue?.textContent).not.toContain("10.000");
+		expect(sendValue?.className).toContain("min-w-0");
+		expect(sendValue?.innerHTML).toContain("[overflow-wrap:anywhere]");
+		expect(sendValue?.innerHTML).not.toContain("truncate");
+		expect(sendValue?.innerHTML).not.toContain("text-ellipsis");
+		expect(testState.lastQuoteParams).toEqual({
+			fromChainId: nearTenDai.chainId,
+			fromTokenAddress: nearTenDai.address,
+			fromTokenDecimals: 18,
+			fromAddress: "0x1111111111111111111111111111111111111111",
+			amount: "9.999999999999999999",
+		});
+
+		act(() => {
+			root.render(
+				<I18nProvider i18n={i18n}>
+					<ConfirmationScreen
+						token={{ ...TOKEN, amount: "10006000", amountUSD: 10.006 }}
+						tokenAmount="10.006000"
+						address="0x1111111111111111111111111111111111111111"
+						onBack={vi.fn()}
+						onConfirm={onConfirm}
+					/>
+				</I18nProvider>,
+			);
+		});
+		const usdcSendValue = [...container.querySelectorAll('[data-slot="info-row"]')]
+			.find((row) => row.querySelector('[data-slot="info-row-label"]')?.textContent?.trim() === "You send")
+			?.querySelector('[data-slot="info-row-value"]');
+		expect(usdcSendValue?.textContent?.trim()).toBe("10.006 USDC");
 	});
 });

@@ -31,14 +31,14 @@ export function AmountEntryScreen({ token, initialUsd, initialIsMax = false, onB
 	const [maxSelectionKey, setMaxSelectionKey] = useState<string | null>(() => (initialIsMax ? tokenAmountKey : null));
 
 	function handleUsdChange(e: React.ChangeEvent<HTMLInputElement>) {
+		const typed = e.target.value;
 		const raw = normalizeDecimalInputEvent(e).target.value;
+		if (typed !== usdInput || raw !== usdInput) setMaxSelectionKey(null);
 		if (raw === "") {
-			setMaxSelectionKey(null);
 			setUsdInput("");
 			return;
 		}
 		if (!/^\d*\.?\d{0,2}$/.test(raw)) return;
-		setMaxSelectionKey(null);
 		setUsdInput(raw);
 	}
 

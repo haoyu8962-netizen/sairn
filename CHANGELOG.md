@@ -145,6 +145,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
   interface language.
 - The Chinese confirmation for cancelling one order now says the position may no longer be
   protected, not that it will not be.
+- The market selector stays busy, instead of offering Retry, while the Traditional Finance and
+  Pre-launch lists are still loading, and its Retry reloads whatever failed. A market removed from
+  Favorites no longer comes back as the highlighted entry when another tab adds it again.
 - Dialog close buttons and several shared controls are placed and announced correctly in
   right-to-left languages, and the light theme's buy and sell fills have enough contrast for their
   labels.

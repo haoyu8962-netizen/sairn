@@ -208,7 +208,18 @@ export function TokenSelectorContent({
 
 	function renderListBody() {
 		if (hasLoadError) {
-			const handleRetry = hasCatalogError ? (onRetryCatalog ?? onRetryClassifications) : onRetryClassifications;
+			function handleRetry() {
+				if (hasCatalogError && hasClassificationError) {
+					onRetryCatalog?.();
+					onRetryClassifications();
+					return;
+				}
+				if (hasCatalogError) {
+					(onRetryCatalog ?? onRetryClassifications)();
+					return;
+				}
+				onRetryClassifications();
+			}
 			return (
 				<div className="flex flex-col items-center justify-center px-4 py-8 text-center">
 					<Button type="button" variant="outline" intent="neutral" size="xs" onClick={handleRetry}>

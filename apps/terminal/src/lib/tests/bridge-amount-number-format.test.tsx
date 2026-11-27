@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
+import Big from "big.js";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetSelectionScreen } from "@/components/trade/tradebox/bridge/asset-selection-screen";
 import { ConfirmationScreen } from "@/components/trade/tradebox/bridge/confirmation-screen";
 import { SuccessScreen } from "@/components/trade/tradebox/bridge/success-screen";
+import { type NumberFormatLocale, numberSeparatorsByFormatLocale } from "@/config/i18n";
 import { formatSendAmount } from "@/lib/bridge/format";
 import { getNumberFormatters } from "@/lib/format";
 import type { BridgeToken } from "@/lib/lifi/use-balances";
@@ -182,18 +184,51 @@ describe("bridge amounts", () => {
 				/>,
 			);
 		}
+		function stripTrailingDecimalZeros(amount: string): string {
+			return amount.replace(/(\.\d*?[1-9])0+$/u, "$1").replace(/\.0*$/u, "");
+		}
+
+		function parseDisplayedSendAmount(displayed: string | null | undefined, locale: NumberFormatLocale): Big {
+			const suffix = ` ${TOKEN.symbol}`;
+			expect(displayed?.endsWith(suffix)).toBe(true);
+			const numericText = (displayed ?? "").slice(0, -suffix.length);
+			const { group, decimal } = numberSeparatorsByFormatLocale[locale];
+			const withoutGroup = group ? numericText.replaceAll(group, "") : numericText;
+			const normalized = decimal === "." ? withoutGroup : withoutGroup.replaceAll(decimal, ".");
+			return Big(normalized);
+		}
+
+		const displayedCases: Array<{
+			tokenAmount: string;
+			locale: NumberFormatLocale;
+			displayed: string | null | undefined;
+		}> = [];
+
 		act(() => renderSend("1234.5678"));
-		expect(rowValue("You send")).toBe("1,234.6 USDC");
+		const firstDisplay = rowValue("You send");
+		expect(firstDisplay).toBe("1,234.5678 USDC");
+		displayedCases.push({ tokenAmount: "1234.5678", locale: "en-US", displayed: firstDisplay });
 
 		act(() => renderSend("123456.789"));
-		expect(rowValue("You send")).toBe("123,457 USDC");
+		const secondDisplay = rowValue("You send");
+		expect(secondDisplay).toBe("123,456.789 USDC");
+		displayedCases.push({ tokenAmount: "123456.789", locale: "en-US", displayed: secondDisplay });
 
 		testState.formatLocale = "de-DE";
 		act(() => notifyNumberFormatChange());
-		expect(rowValue("You send")).toBe("123.457 USDC");
+		const thirdDisplay = rowValue("You send");
+		expect(thirdDisplay).toBe("123.456,789 USDC");
+		displayedCases.push({ tokenAmount: "123456.789", locale: "de-DE", displayed: thirdDisplay });
 
 		act(() => renderSend("0.000123456789"));
-		expect(rowValue("You send")).toBe("0,00012345 USDC");
+		const fourthDisplay = rowValue("You send");
+		expect(fourthDisplay).toBe("0,000123456789 USDC");
+		displayedCases.push({ tokenAmount: "0.000123456789", locale: "de-DE", displayed: fourthDisplay });
+
+		for (const { tokenAmount, locale, displayed } of displayedCases) {
+			const expectedNumeric = Big(stripTrailingDecimalZeros(tokenAmount));
+			expect(parseDisplayedSendAmount(displayed, locale).eq(expectedNumeric)).toBe(true);
+		}
 	});
 
 	it("writes wallet balances, the dust threshold and the total time with the number-format separators", () => {

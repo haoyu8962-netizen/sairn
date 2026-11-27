@@ -400,4 +400,53 @@ describe("Bridge AmountEntryScreen", () => {
 		act(() => findButton(container, "Continue").click());
 		expect(onContinue).toHaveBeenCalledWith("2", "2.00");
 	});
+
+	it("clears explicit Max when a manual edit is rejected by the two-decimal validator", () => {
+		const onContinue = vi.fn();
+		const fractionalCentWhole = createToken({
+			symbol: "WHOLE",
+			name: "Whole Token",
+			decimals: 0,
+			priceUSD: "2.004",
+			amount: "1",
+			amountUSD: 2.004,
+		});
+		act(() =>
+			root.render(
+				<AmountEntryScreen token={fractionalCentWhole} initialUsd="" onBack={vi.fn()} onContinue={onContinue} />,
+			),
+		);
+
+		const input = container.querySelector<HTMLInputElement>("input");
+		expect(input).not.toBeNull();
+
+		act(() => findButton(container, "Max").click());
+		expect(input?.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(false);
+
+		act(() => {
+			if (input) setInputValue(input, "2.001");
+		});
+		expect(input?.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+
+		act(() => findButton(container, "Max").click());
+		expect(input?.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(false);
+
+		act(() => {
+			if (input) setInputValue(input, "2.000");
+		});
+		expect(input?.value).toBe("2.00");
+		expect(findButton(container, "Continue").disabled).toBe(true);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).not.toHaveBeenCalled();
+
+		act(() => findButton(container, "Max").click());
+		expect(findButton(container, "Continue").disabled).toBe(false);
+		act(() => findButton(container, "Continue").click());
+		expect(onContinue).toHaveBeenCalledWith("1", "2.00");
+	});
 });

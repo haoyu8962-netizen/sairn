@@ -1,9 +1,15 @@
 import { getEightHourFundingRate, getMarketCapUsd, getOiUsd } from "@/domain/market";
 import { isLiveMarkPriceReady } from "@/domain/trade/market-price";
 import type { MarketCatalogState } from "@/lib/hyperliquid/markets/market-catalog-state";
-import type { MarketRow } from "./token-selector-categories";
+import type { MarketClassificationState, MarketRow } from "./token-selector-categories";
 
 export type MarketCatalogDisplayState = "ready" | "loading" | "error";
+
+export interface TokenSelectorDisplayState {
+	isLoading: boolean;
+	hasCatalogError: boolean;
+	hasClassificationError: boolean;
+}
 
 export function canConfirmEmptyMarketCatalog({
 	isLoading,
@@ -49,6 +55,40 @@ export function resolveMarketCatalogDisplayState({
 	if (isLoading) return "loading";
 	if (error) return "error";
 	return "ready";
+}
+
+export function resolveTokenSelectorDisplayState({
+	open,
+	isSearchStale,
+	catalogDisplayState,
+	classificationState,
+}: {
+	open: boolean;
+	isSearchStale: boolean;
+	catalogDisplayState: MarketCatalogDisplayState;
+	classificationState: MarketClassificationState;
+}): TokenSelectorDisplayState {
+	if (!open) {
+		return {
+			isLoading: false,
+			hasCatalogError: false,
+			hasClassificationError: false,
+		};
+	}
+
+	if (isSearchStale || catalogDisplayState === "loading" || classificationState === "pending") {
+		return {
+			isLoading: true,
+			hasCatalogError: false,
+			hasClassificationError: false,
+		};
+	}
+
+	return {
+		isLoading: false,
+		hasCatalogError: catalogDisplayState === "error",
+		hasClassificationError: classificationState === "error",
+	};
 }
 
 export function getLiveSelectorMarkPrice(market: MarketRow, now = Date.now()): string | undefined {
