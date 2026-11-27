@@ -11,6 +11,7 @@ export default defineConfig({
 	reporter: "line",
 	timeout: 600_000,
 	use: {
+		actionTimeout: 30_000,
 		launchOptions: { args: LOCAL_HOSTS_ONLY_ARGS },
 		baseURL: "http://127.0.0.1:4192",
 		browserName: "chromium",

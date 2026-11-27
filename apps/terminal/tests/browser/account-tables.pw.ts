@@ -22,10 +22,13 @@ const VIEWPORTS = [
 ] as const;
 type Width = (typeof VIEWPORTS)[number]["width"];
 
+/** TWAP sub-tabs in the order they render; their element ids are generated, so the test finds them by position. */
+const TWAP_SUBVIEWS = ["current", "history", "fills"] as const;
+
 interface View {
 	name: string;
 	tab: string;
-	subview?: "current" | "history" | "fills";
+	subview?: (typeof TWAP_SUBVIEWS)[number];
 	/** Rows in the desktop table and cards on the phone that the fixture data must produce. */
 	items: number;
 	/** Whether every phone card of this view has a details disclosure to expand. */
@@ -50,8 +53,8 @@ const LOCAL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="1
 /**
  * Cut-off text English already shows (first read 2026-11-27), per width, as `view kind region «field» ×count`.
  * Every other language is checked against English element by element, so these are not repeated per language.
- * At 390px `orders truncated «Market» ×8` is not cut text: the market button's 44px `::after` touch target
- * makes its `scrollHeight` 31px in a 17px box while the name renders whole.
+ * The phone account cards read clean in every language since the phone layout fixes of PR #21 (re-read
+ * 2026-11-27 after merging main), so 390px expects no finding at all.
  */
 const EN_PENDING: Record<Width, readonly string[]> = {
 	1440: [
@@ -80,27 +83,7 @@ const EN_PENDING: Record<Width, readonly string[]> = {
 		"positions spilled cell-spill «Position Value» ×4",
 		"positions spilled cell-spill «Size» ×3",
 	],
-	390: [
-		"funding truncated «Market» ×1",
-		"funding truncated «Payment» ×5",
-		"funding truncated «Position» ×4",
-		"history truncated mobile-trade-history-list «Direction» ×1",
-		"history truncated mobile-trade-history-list «Market» ×1",
-		"history truncated mobile-trade-history-list «Realized PNL» ×1",
-		"history truncated mobile-trade-history-list «Size» ×8",
-		"orders truncated «Market» ×8",
-		"orders truncated «Time» ×8",
-		"orders-history clipped «ExecutionMarket» ×2",
-		"orders-history truncated «Market» ×2",
-		"orders-history truncated «Time» ×6",
-		"orders-history truncated «Type» ×3",
-		"positions clipped «87,000» ×1",
-		"twap-fills truncated mobile-twap-fill-history-list «Closed PNL» ×1",
-		"twap-fills truncated mobile-twap-fill-history-list «Fee» ×3",
-		"twap-fills truncated mobile-twap-fill-history-list «Size» ×2",
-		"twap-history truncated «Executed Size» ×1",
-		"twap-history truncated «Total Size» ×1",
-	],
+	390: [],
 };
 
 /**
@@ -116,9 +99,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		1100: [
 			"orders-history spilled cell-spill «時間» ×6",
 		],
-		390: [
-			"orders-history truncated «時間» ×11",
-		],
 	},
 	ja: {
 		1440: [
@@ -126,16 +106,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 		1100: [
 			"orders-history spilled cell-spill «状態» ×1",
-		],
-		390: [
-			"history truncated mobile-trade-history-list «方向» ×1",
-			"orders-history truncated «タイプ» ×1",
-			"orders-history truncated «状態» ×1",
-		],
-	},
-	ko: {
-		390: [
-			"orders-history truncated «시간» ×11",
 		],
 	},
 	vi: {
@@ -146,19 +116,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		1100: [
 			"positions spilled cell-spill «Thao tácĐóng tất cả vị thế» ×5",
 			"twap-current spilled cell-spill «Thao tác» ×2",
-		],
-		390: [
-			"orders-history truncated «Loại» ×2",
-		],
-	},
-	id: {
-		390: [
-			"orders-history truncated «Jenis» ×1",
-		],
-	},
-	hi: {
-		390: [
-			"orders-history truncated «प्रकार» ×2",
 		],
 	},
 	es: {
@@ -175,31 +132,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 			"orders-history spilled cell-spill «Tipo» ×1",
 			"positions spilled cell-spill «Precio de liquidación» ×1",
 		],
-		390: [
-			"orders truncated «Condición de activación-» ×4",
-			"orders truncated «Condición de activación≤ 2,100.5» ×1",
-			"orders truncated «Condición de activación≤ 87,000» ×1",
-			"orders truncated «Condición de activación≥ 120,000» ×1",
-			"orders truncated «Condición de activación≥ 2,600.25» ×1",
-			"orders truncated «Precio$1.5678» ×1",
-			"orders truncated «Precio$2,090.8» ×1",
-			"orders truncated «Precio$2,650.5» ×1",
-			"orders truncated «Precio$34.567» ×1",
-			"orders truncated «Precio$340.12» ×1",
-			"orders truncated «Precio$95,000» ×1",
-			"orders truncated «PrecioMercado» ×2",
-			"orders truncated «Tipo» ×1",
-			"orders-history truncated «Estado» ×1",
-			"orders-history truncated «Tipo» ×2",
-			"twap-history truncated «Precio de disparo$2,300.5» ×1",
-			"twap-history truncated «Precio de disparo-» ×5",
-			"twap-history truncated «Precio medio$1.12341» ×1",
-			"twap-history truncated «Precio medio$2,234.56» ×1",
-			"twap-history truncated «Precio medio$3,456.78» ×1",
-			"twap-history truncated «Precio medio$356.78» ×1",
-			"twap-history truncated «Precio medio$97,654.3» ×1",
-			"twap-history truncated «Precio medio-» ×1",
-		],
 	},
 	pt: {
 		1440: [
@@ -207,10 +139,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 		1100: [
 			"orders-history spilled cell-spill «Preço» ×2",
-		],
-		390: [
-			"orders truncated «Tipo» ×1",
-			"orders-history truncated «Tipo» ×1",
 		],
 	},
 	fr: {
@@ -225,29 +153,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 			"orders-history spilled cell-spill «Type» ×1",
 			"positions spilled cell-spill «ActionsFermer toutes les positions» ×5",
 		],
-		390: [
-			"orders truncated «Prix$1.5678» ×1",
-			"orders truncated «Prix$2,090.8» ×1",
-			"orders truncated «Prix$2,650.5» ×1",
-			"orders truncated «Prix$34.567» ×1",
-			"orders truncated «Prix$340.12» ×1",
-			"orders truncated «Prix$95,000» ×1",
-			"orders truncated «PrixMarché» ×2",
-			"orders truncated «Taille d'origine1,234,567.8» ×1",
-			"orders truncated «Taille d'origine1,234.567» ×1",
-			"orders truncated «Taille d'origine12,345.67» ×1",
-			"orders truncated «Taille d'origine12.34567» ×2",
-			"orders truncated «Taille d'origine123.456» ×1",
-			"orders truncated «Taille d'origine2.50000» ×1",
-			"orders truncated «Taille d'origine617.283» ×1",
-			"orders-history truncated «Statut» ×1",
-			"orders-history truncated «Type» ×2",
-			"twap-fills truncated mobile-twap-fill-history-list «Taille0.41234 BTC» ×1",
-			"twap-fills truncated mobile-twap-fill-history-list «Taille12,345.6 FARTCOIN» ×1",
-			"twap-fills truncated mobile-twap-fill-history-list «Taille61.728 SMALL2000» ×1",
-			"twap-history truncated «Prix de déclenchement$2,300.5» ×1",
-			"twap-history truncated «Prix de déclenchement-» ×5",
-		],
 	},
 	tr: {
 		1440: [
@@ -255,18 +160,6 @@ const LOCALE_ONLY_PENDING: Partial<Record<Locale, Partial<Record<Width, readonly
 		],
 		1100: [
 			"positions spilled cell-spill «İşlemlerTüm pozisyonları kapat» ×5",
-		],
-	},
-	ru: {
-		390: [
-			"orders truncated «Тип» ×2",
-			"orders-history truncated «Тип» ×2",
-		],
-	},
-	ar: {
-		390: [
-			"orders-history truncated «النوع» ×1",
-			"orders-history truncated «الوقت» ×10",
 		],
 	},
 };
@@ -352,10 +245,13 @@ async function openView(page: Page, width: number, view: View) {
 	await expect(tab).toHaveAttribute("aria-selected", "true");
 	let panel = page.locator(`${root} [role="tabpanel"]:visible`).first();
 	if (view.subview) {
-		const subview = panel.locator(`[role="tab"][id$="-${view.subview}-tab"]`);
+		const subview = panel.getByRole("tablist").getByRole("tab").nth(TWAP_SUBVIEWS.indexOf(view.subview));
 		await subview.click();
 		await expect(subview).toHaveAttribute("aria-selected", "true");
-		panel = panel.locator(`[id$="-${view.subview}-panel"]`);
+		const subviewPanel = await subview.getAttribute("aria-controls");
+		if (!subviewPanel) throw new Error(`TWAP ${view.subview} tab names no panel`);
+		panel = page.locator(`[id=${JSON.stringify(subviewPanel)}]`);
+		await expect(panel).toBeVisible();
 	}
 	await expect(panel.getByText("SMALL2000").first()).toBeVisible();
 	await expect(page.locator(`${root} [aria-busy="true"]`)).toHaveCount(0);
@@ -363,13 +259,16 @@ async function openView(page: Page, width: number, view: View) {
 		await expect(panel.locator("tbody tr")).toHaveCount(view.items);
 	} else {
 		await expect(panel.locator(PHONE_CARD)).toHaveCount(view.items);
-		const disclosures = panel.locator(`${PHONE_CARD} button[aria-expanded][aria-controls]`);
+		const disclosures = panel.locator(`${PHONE_CARD} button[aria-expanded]`);
 		await expect(disclosures).toHaveCount(view.disclosures ? view.items : 0);
-		const collapsed = panel.locator(`${PHONE_CARD} button[aria-expanded="false"][aria-controls]`);
+		const collapsed = panel.locator(`${PHONE_CARD} button[aria-expanded="false"]`);
 		while ((await collapsed.count()) > 0) await collapsed.first().click();
-		await expect(panel.locator(`${PHONE_CARD} button[aria-expanded="true"][aria-controls]`)).toHaveCount(
-			view.disclosures ? view.items : 0,
-		);
+		const expanded = panel.locator(`${PHONE_CARD} button[aria-expanded="true"][aria-controls]`);
+		await expect(expanded).toHaveCount(view.disclosures ? view.items : 0);
+		for (const disclosure of await expanded.all()) {
+			const details = await disclosure.getAttribute("aria-controls");
+			await expect(page.locator(`[id=${JSON.stringify(details ?? "")}]`)).toBeVisible();
+		}
 	}
 	await settle(page, root);
 	return root;

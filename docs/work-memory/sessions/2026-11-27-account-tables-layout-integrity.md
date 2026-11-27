@@ -7,10 +7,10 @@
   "kind": "task",
   "status": "verified",
   "topics": ["i18n-runtime", "vite-cache"],
-  "summary": "新增账户表格浏览器夹具（端口 4192）：用固定假数据和固定时钟渲染真实的桌面账户面板（1440/1100）与手机账户视图（390），14 种语言逐元素与英文对照截断、裁切和表格单元格溢出。七种新语言里 ko、zh-TW 只差日期格式；vi、id、pt、tr、ru 改短 22 条译文后，剩余语言独有问题都要改布局或日期格式，记为待决定。Gemini 审查后探针不再用元素自己隐藏的文字对祖先报裁切。读数为 macOS Chrome 的脚本读取，CJK、印地、阿拉伯文依赖系统字体。",
+  "summary": "新增账户表格浏览器夹具（端口 4192）：用固定假数据和固定时钟渲染真实的桌面账户面板（1440/1100）与手机账户视图（390），14 种语言逐元素与英文对照截断、裁切和表格单元格溢出。七种新语言里 ko、zh-TW 只差日期格式；vi、id、pt、tr、ru 改短 22 条译文后，剩余语言独有问题都要改布局或日期格式，记为待决定。Gemini 审查后探针不再用元素自己隐藏的文字对祖先报裁切。合并含 PR #21 的 main 后重读：390 宽 14 种语言全部零发现，手机相关的待决项随之解决，剩桌面 4 项与英文盈亏数字换行。读数为 macOS Chrome 的脚本读取，CJK、印地、阿拉伯文依赖系统字体。",
   "thread": null,
   "baseCommit": "5a0a345b",
-  "commits": ["d1ab868d", "b7472699", "ac9db012"],
+  "commits": ["d1ab868d", "b7472699", "ac9db012", "bc913d0b", "78bd36e1", "5a814c7d"],
   "sources": [
     { "path": "apps/terminal/tests/browser/account-tables.pw.ts" },
     { "path": "apps/terminal/tests/browser/account-tables.browser.tsx" },
@@ -104,11 +104,22 @@
 5. P3 数字，成立：「七个页签」改为六个页签、八个视图；ko、zh-TW 时间 17 行（独有 11 行）；ar 独有 10 行；「1440 与 1100 结果相同、列宽固定」改为只说英文相同，并写明 1100 的类型列变窄。
 6. P3 用词一致，部分成立：tr 撤回「Ters çevir」，原因见待决第 2 项；ru 的处理见「取舍」；ru 桌面 `Distance to mark {markDistanceLabel}` 与手机统一为「До цены маркировки」，沿用本目录 `Mark price`「Цена маркировки」，不再用含义偏「贴标」的「маркировки」单用。pt 余量问题见「取舍」，保留。
 
+### 合并 main 后的重读（2026-11-27，PR #22 合入之后）
+
+编排会话告知 #22 已合入 main（`7474813c`），要求把新 main 用合并提交并入本分支后推送，PR #25 先合并。新 main 比本分支的基线 `5a0a345b` 多了 PR #21（多代理 UI 审查第一阶段：手机账户卡片两列展开、表头双行、TWAP 子页签改用 `@sairn/ui` 的 `Tabs` 等）、七个新目录补译 #21 的 25 条消息，以及第二次包体重定基线。
+
+- 合并提交 `78bd36e1`（不变基、不压缩）。两处冲突：`mobile-history-cards.pw.ts` 取 main 版本（#21 已清掉手机历史卡片的待处理清单，改为直接断言零发现，本分支 2026-11-27 对该清单的删减随之作废）；`docs/layout-integrity.md` 两边都保留（main 的「首次接入过渡规则」与手机历史卡片现状，本分支的账户表格一行与说明）。`.po` 自动合并，以 main 为底、保留本分支对 id/pt/ru/tr/vi 的 22 条改动；`pnpm i18n:extract` 后新目录 Missing 均为 0，`git diff 7474813c -- apps/terminal/src/locales/{en,zh,ja,hi,es,fr,ar}` 为空，`pnpm i18n:compile` 通过。
+- `5a814c7d`：#21 给手机持仓卡片按钮新加的可访问名称 vi「Limit Close {displayName}」「Market Close {displayName}」沿用了改短前的「Đóng theo giá …」，不再包含可见文字，改为「Đóng theo giới hạn / thị trường {displayName}」；vi 的「Reopen Market Close to review the new size.」里的按钮名同步改为「Đóng theo thị trường」。
+- 测试适配 #21：TWAP 子页签的元素 id 改为自动生成，测试改按位置找子页签、按 `aria-controls` 找面板；手机卡片的展开按钮只在展开时才有 `aria-controls`，改为按 `aria-expanded` 计数，并要求展开后每个按钮的 `aria-controls` 指向可见的详情区。配置加 `actionTimeout: 30_000`：第一次重跑因找不到旧 id 一直等到 10 分钟的用例超时才失败。
+- 读数：桌面 1440 / 1100 与合并前逐条相同，清单未改。390 宽 14 种语言全部零发现（英文原有 19 组、11 种语言的独有项都消失）；截图核对：内容为真实展开的卡片（ar 委托历史卡片表头分两行），英文 TP/SL 编辑图标完整，vi 持仓卡片三个按钮都在卡片内。`EN_PENDING[390]` 改为空，各语言的 390 项删除，ko、id、hi、ru、ar 不再有条目。
+- 待决项随之变化：第 5、6 项（手机委托历史类型栏、手机当前委托类型名）由 #21 的布局解决；第 1 项只剩桌面 zh-TW 两位数小时溢出 2px ×6（ko、ar 的手机时间栏已解决）；第 2、3、4 项（持仓操作列、vi TWAP 操作列、保护价列）都在桌面，未变。英文既有限制里手机持仓卡片 TP/SL 图标被裁已解决；未实现盈亏仍在数字中间换行（英文与 vi 截图都是「-$12,345.6」与「8」分两行），探针不判断换行，仍待决定。原有语言 ja、hi、es、fr、ar 的手机条目同样消失，桌面条目不变。
+
 ## 验证与限制
 
 - 基线 `5a0a345b`（PR #22 头）加本任务改动。本机 macOS 26.6.2，Google Chrome 158.0.8127.37（Playwright `channel: "chrome"`），Node 22.15.0。
 - 首版：`test:browser:account-tables` 在填入清单后 3/3 通过（3.1 分钟）。变异核对：把 ru `Pause` 临时改回「Приостановить」，1440 用例只在 ru 上失败，已还原。全量 `pnpm --filter @sairn/terminal test`（沙盒内）778 个文件中 2 个失败：`hyperliquid-order-label-catalogs` 钉住了 ru `Spot Dust Conversion` 的旧译文，已改期望；`vite-development-cache` 需要监听本地端口，沙盒内必然失败。两个文件在沙盒外重跑 37 项通过；其余 12,216 项通过、1 项跳过。
 - 审查修订后：`test:browser:account-tables` 3/3 通过（3.3 分钟），同一代码再跑一轮结果相同（见修订第 1 项）。`layout-integrity.pw.ts`（共用配置，`CI=1`，Playwright 自带 Chromium）4/4 通过。`test:browser:mobile-history-cards` 7/7 通过。修订涉及的单测与目录契约（`locale-font-subset-contract`、`hyperliquid-order-label-catalogs`、`catalog-completeness-contract`、`catalog-literal-number-contract`、`brand-catalog-contract`）全部通过。全量 `pnpm --filter @sairn/terminal test`（沙盒外，与 typecheck 同时运行）：778 个文件中 776 个通过、1 个跳过，`mobile-agent-sync-modal` 的「两秒长按后显示二维码」一项在 `vi.waitFor` 的 1 秒等待里超时（手册第 6 节列出的负载下偶发项），单独重跑 29/29 通过；共 12,217 项通过、1 项跳过。
+- 合并 main（`7474813c`）后：`pnpm --filter @sairn/terminal typecheck` 0 个错误；运行时翻译组（AGENTS.md「Runtime translation contract」）加 `hyperliquid-order-label-catalogs`、`locale-font-subset-contract`、`language-switcher-font-warm` 共 14 个文件 629 项通过；Biome 检查与 main 不同的 `src` 文件通过（`tests/browser` 不在 `biome.json` 的 `files.includes` 里）；`layout-integrity.pw.ts`（共用配置）4/4、`test:browser:mobile-history-cards` 7/7（main 版本，零发现）、`test:browser:account-tables` 3/3（3.1 分钟，适配与清单更新之后）；`pnpm memory:check` 通过。截图（英文与 vi 手机持仓卡片）为本地脚本另起夹具服务器截取，未入库。
 - 图表库（ADR 0054，私有仓库）不在新工作树里：首版时 `pnpm --filter @sairn/terminal typecheck` 因此报 113 个 TradingView 类型错误（本任务文件 0 个），`pnpm memory:check` 也因解析不到旧记录引用的 `public/charting_library/charting_library.js` 而停下。从主检出复制 `public/charting_library/`（Git 忽略，未提交）后，修订版的 typecheck 0 个错误，`memory:check` 通过、`memory:test` 12/12。
 - 结论只来自脚本读取的几何（`scrollWidth`/`clientWidth`、文字范围矩形），指针点击由 Playwright 注入，不是人眼或像素比对，也不是真机；两张截图（英文与 vi 的手机持仓卡片、英文当前委托卡片）用于核对具体结果。中、日、韩、印地与阿拉伯文落到 macOS 系统字体，Linux CI 的 Chromium 读数可能不同；该测试尚未加入 CI 浏览器分片。
 - 夹具的数据 hook 是桩，不覆盖加载、过期、出错和空状态，也不覆盖弹窗、下拉菜单、悬停提示与余额页签。
@@ -116,6 +127,6 @@
 
 ## 后续与替代关系
 
-- 上面「七种新语言」的 6 项、英文的既有限制（含手机持仓卡片 TP/SL 图标被裁、盈亏数字中间换行）和原有语言的登记项待运营方决定；改布局时先跑本测试，再按新读数更新清单。
+- 上面「七种新语言」的 6 项、英文的既有限制（含手机持仓卡片 TP/SL 图标被裁、盈亏数字中间换行）和原有语言的登记项待运营方决定；改布局时先跑本测试，再按新读数更新清单。合并含 #21 的 main 后，仍待决定的是第 1 项的桌面部分（zh-TW 2px）、第 2、3、4 项、英文桌面的既有限制、手机持仓卡片盈亏数字换行，以及原有语言的桌面条目（见「合并 main 后的重读」）。
 - 账户表格测试与手机历史卡片测试都未进 CI 浏览器分片；进 CI 前需要先在 Linux Chromium 上重新读取一次清单。
 - 本记录不替代七语言记录的默认页面截断结论，只补上有数据状态。
