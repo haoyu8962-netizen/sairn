@@ -433,6 +433,53 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Order book size heading `trade-terminal-page` re-baseline (2026-11-27)
+
+PR #23 (`claude/quizzical-darwin-c01302`) gives the desktop order book's size column heading its own message
+(`Size` with the context `Order book column`, `docs/orderbook-layout.md`). Before that change
+`TRADE_PANEL_LABELS.size` referenced `ORDERBOOK_LABELS.size`; now each label module defines its own descriptor. The
+PR's first CI run (head `c719ee0c9`, before PR #21 and PR #22 reached `main`) exceeded the `trade-terminal-page`
+allowance by 80 (pairing off) and 89 (pairing on) bytes over the baseline of that time, 125,655. After `main`
+`7474813c3` (PR #22, the seven interface languages and their second re-baseline) was merged into the branch, local
+builds exceed it by 31 and 38 bytes; every other surface passes.
+
+Paired builds, each run on its own, in two clean detached worktrees on the same machine: `main` `7474813c3` and the
+branch head `f81a5568a` (the merge commit), both with Node 22.15.0, pnpm 10.21.0,
+`pnpm install --frozen-lockfile --prefer-offline`, the chart library installed from a local copy with
+`scripts/fetch-chart-library.mjs --from`, no `apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed
+identity (`SAIRN_BUILD_SHA=f81a5568a6213c3926d54d93bbd33eb347e7b5d0`, `SAIRN_RELEASE_ID=orderbook-size-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-27T00:00:00.000Z`). The build script, worktree state, environment-file check, versions,
+every build log and a copy of each client asset directory were saved in the Git-ignored
+`.worklog/2026-11-27/orderbook-size-rebaseline/` of the branch worktree.
+
+| Metric | `main` off | Branch off | Change | `main` on | Branch on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,706,147 | 3,706,434 | +287 | 3,708,952 | 3,708,967 | +15 |
+| Static trade startup | 1,685,001 | 1,685,089 | +88 | 1,686,020 | 1,686,123 | +103 |
+| Mobile runtime increment | 121,960 | 121,966 | +6 | 121,968 | 121,959 | -9 |
+| Desktop runtime increment | 209,713 | 209,719 | +6 | 209,705 | 209,677 | -28 |
+| `trade-terminal-page` | 131,223 | 131,439 | +216 | 131,235 | 131,446 | +211 |
+
+The client output (478 assets with pairing off, 479 with pairing on), the static closure and both runtime profiles
+keep their asset counts (105, 15, 31), and every other route surface moved by 5 bytes or less. By chunk, compared with
+Node's `gzipSync` with content hashes removed from file names and imports: `trade-terminal-page` +220 / +228 and
+`fees` -195 / -193, the 13 non-English catalog chunks +18 together (one entry each), `vendor-tanstack-router` +62 with
+pairing on only; no other chunk moved by 20 bytes, and all chunks together moved by +60 / +112. The two
+`trade-terminal-page` and `fees` numbers are one object moving: `ORDERBOOK_LABELS` (17 message descriptors, 375 raw
+bytes) used to sit in the shared `fees` chunk because `TRADE_PANEL_LABELS`, which lives there, referenced it; with
+that reference gone, its remaining users are the phone book view (`mobile-book-view.tsx`, bundled in
+`trade-terminal-page`) and the desktop order book (the `orderbook-panel` chunk, which already imports from
+`trade-terminal-page`), so Rollup placed it in `trade-terminal-page`. Both `trade-terminal-page` and `fees` are in the
+static trade closure, so the bytes a viewer downloads at startup do not change by more than the build variance. The differences between the checker's totals (+287 / +15) and the chunk sum come from the
+content-hash file names that the checker's measurement includes.
+
+Change to the baselines, allowance unchanged: `trade-terminal-page` raised by the larger increment, +216, from 127,408
+to 127,624, so the room left stays at what `main` `7474813c3` has (185 bytes with pairing off, 173 with pairing on).
+The total, static startup, both runtime increments and the other surfaces are unchanged; against them the branch's
+pairing-on output reads total +6,705 (3,295 left), static startup +9,417 (583 left), mobile runtime +9,237 (763 left)
+and desktop runtime +6,994 (3,006 left). Limits: the release configuration (production `.env.local`, pairing on) was not built,
+and CI-identity builds can differ from these by a few dozen bytes.
+
 ## Multi-model UI review fixes re-baseline (2026-11-27)
 
 PR #21 (`claude/multi-agent-ui-review-phase-1`, head `7d92841d`) carries the fixes of a multi-model UI and UX

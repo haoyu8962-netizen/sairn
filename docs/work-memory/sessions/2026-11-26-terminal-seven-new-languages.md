@@ -10,7 +10,7 @@
   "summary": "按单语言闭环为交易终端依次增加 ko、zh-TW、vi、tr、ru、pt、id，七种都已逐个提交，终验（语言菜单、全量验证、包体重定基线、文档）已完成，已推送为 PR #22；合入 main 4548175e（PR #21）后补译 25 条新消息并按新 main 第二次重定包体基线。Gemini 4 Neon 定术语表、翻译与接入，Codex 只读对抗审查，Claude 编排、核实与提交。",
   "thread": null,
   "baseCommit": "ce3259b68",
-  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1"],
+  "commits": ["39e976a3a", "75dc13273", "a094e3561", "6749e8cd9", "8c9a9ea8e", "a2b51473a", "66c6c6f31", "357c3ff81", "cdb95aa7c", "020469061", "5a0a345b1", "ef4aa5145", "c363643b1", "0a2afbefc", "c719ee0c9", "f81a5568a"],
   "sources": [
     {"path": "apps/terminal/lingui.config.ts"},
     {"path": "apps/terminal/src/config/i18n.ts"},
@@ -598,3 +598,14 @@
   - 新基线下分支配对开读数：总量 +7,487（余 2,513）、静态启动 +9,589（余 411），与 main 相同；手机运行时 +9,249（余 751）。`node --test scripts/check-client-bundle-budget.test.mjs` 19 项通过。
   - 第一次重定基线（对比 `ce3259b6`）的数据作为历史保留在性能文档里。
 - 没有做：生产发布配置的构建、真机、母语审校（同前）。
+
+### 订单簿列头分支合入 main 7474813c 与 `trade-terminal-page` 重定基线（2026-11-27）
+
+- 起因：PR #23（第 3 项的订单簿列头，分支 `claude/quizzical-darwin-c01302`）从本分支旧头 `5a0a345b1` 切出。#22 合入 main（`7474813c3`）后，运营方定的合并顺序是 #25 → #24 → #23，编排会话要求先把新 main 合进 #23。#23 第一次 CI（头 `c719ee0c9`，当时的基线 125,655）报 `trade-terminal-page` 超出余量 80 / 89 字节（配对关 / 开）。
+- 合并：`f81a5568a` 把 `main` `7474813c3` 合入，没有冲突。每个目录与 main 只差列头 `Size` 一条和一行来源注释；`pnpm i18n:extract` 不改目录，新增 7 个都是 Missing 0（ar/es/fr/hi 缺 35 条、zh 缺 3 条，是 main 的现状），`pnpm i18n:compile` 通过。
+- 包体：按 `docs/terminal-performance-baseline.md` 做配对构建，`main` `7474813c3` 对比合并头 `f81a5568a`，日志与各次的客户端资源副本在 `.worklog/2026-11-27/orderbook-size-rebaseline/`。合并头超出 `trade-terminal-page` 余量 31 / 38 字节，其他面都在余量内。
+  - 增量（配对关 / 开）：`trade-terminal-page` +216 / +211，总量 +287 / +15，静态启动 +88 / +103，两种运行时与其他路由面变化在 ±28 以内。
+  - 原因：`ORDERBOOK_LABELS`（17 个描述符，原始 375 字节）原来因为 `TRADE_PANEL_LABELS` 引用它而放在共享的 `fees` 块；去掉这层引用后，它的使用者只剩手机盘口（在 `trade-terminal-page` 内）和桌面订单簿（`orderbook-panel` 块，本来就从 `trade-terminal-page` 导入），于是被移进 `trade-terminal-page`，`fees` 块相应少 195 / 193。两块都在静态启动闭包里；去掉文件名哈希后逐块比较，所有块合计只多 60 / 112 字节，13 个非英文目录块合计 +18。
+  - 新基线：`trade-terminal-page` 按较大的增量 +216，从 127,408 上调到 127,624，余量不变，剩余与 main 相同（配对关 185）。其他基线不变；新基线下合并头配对开读数为总量 +6,705（余 3,295）、静态启动 +9,417（余 583）、手机运行时 +9,237（余 763）。
+- 合并后的检查：终端 typecheck、改动文件 Biome、订单簿组与运行时翻译组等 32 个文件 1,042 项、`node --test scripts/check-client-bundle-budget.test.mjs`（19 项）、`pnpm memory:check` 与 `memory:test` 通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
+- 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。#25、#24 合入 main 后还要再合一次 main。
