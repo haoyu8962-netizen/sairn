@@ -180,11 +180,14 @@ describe("LeveragePositionLimitRow", () => {
 		expect(getValue()).toBe("无档位上限");
 	});
 
-	it.each(["zh", "ja", "es", "fr", "hi", "ar"])("ships translations for the new copy in %s", (locale) => {
-		for (const message of NEW_MESSAGES) {
-			expect(readCatalogTranslation(locale, message), message).not.toBe("");
-		}
-	});
+	it.each(["zh", "zh-TW", "ja", "ko", "vi", "id", "es", "pt", "fr", "hi", "tr", "ru", "ar"])(
+		"ships translations for the new copy in %s",
+		(locale) => {
+			for (const message of NEW_MESSAGES) {
+				expect(readCatalogTranslation(locale, message), message).not.toBe("");
+			}
+		},
+	);
 
 	it("keeps the row on one line so text changes cannot change its height", () => {
 		renderRow(25);

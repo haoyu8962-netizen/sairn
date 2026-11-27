@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 	pathname: "/trade/BTC",
 	gateReady: false,
 	runtimeReady: false,
+	persistedLocale: "zh",
 	finishLocale: () => {},
 }));
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -34,7 +35,7 @@ vi.mock("@/lib/hyperliquid/hooks/MarketsInfoProvider", () => ({
 }));
 vi.mock("@/lib/i18n", () => ({
 	LOCALE_CATALOG_READY_TIMEOUT_MS: 3000,
-	getPersistedLocale: () => "zh",
+	getPersistedLocale: () => state.persistedLocale,
 	i18nReady: {
 		finally: (callback: () => void) => {
 			state.finishLocale = callback;
@@ -48,6 +49,7 @@ const RootComponent = Route.options.component as ComponentType;
 beforeEach(() => {
 	state.gateReady = false;
 	state.runtimeReady = false;
+	state.persistedLocale = "zh";
 	i18n.loadAndActivate({ locale: "en", messages: {} });
 });
 
@@ -158,13 +160,90 @@ it("keeps /trade/BTC empty until the persisted locale and the startup fonts are 
 	try {
 		act(() => root.render(<RootComponent />));
 		expect(host.innerHTML).toBe(renderToString(<StartupFallback />));
-		expect(load).toHaveBeenCalledWith('400 14px "Inter Variable"');
-		expect(load).toHaveBeenCalledWith('400 13px "IBM Plex Sans Variable"');
+		expect(load.mock.calls).toStrictEqual([['400 14px "Inter Variable"'], ['400 13px "IBM Plex Sans Variable"']]);
 		act(() => {
 			i18n.loadAndActivate({ locale: "zh", messages: {} });
 			state.finishLocale();
 		});
 		expect(host.innerHTML).toBe(renderToString(<StartupFallback />));
+		await act(async () => {
+			for (const resolve of resolvers) resolve();
+		});
+		expect(host.textContent).toBe("交易");
+	} finally {
+		act(() => root.unmount());
+		Reflect.deleteProperty(document, "fonts");
+	}
+});
+
+it("also waits for the font subsets the persisted language draws beyond Latin", async () => {
+	state.pathname = "/trade/BTC";
+	state.gateReady = true;
+	state.runtimeReady = true;
+	state.persistedLocale = "vi";
+	const resolvers: Array<() => void> = [];
+	const loaded = new Set<string>();
+	const load = vi.fn(
+		(spec: string, text?: string) =>
+			new Promise<void>((resolve) => {
+				resolvers.push(() => {
+					loaded.add(`${spec}|${text}`);
+					resolve();
+				});
+			}),
+	);
+	const check = vi.fn((spec: string, text?: string) => text === undefined || loaded.has(`${spec}|${text}`));
+	Object.defineProperty(document, "fonts", { configurable: true, value: { check, load } });
+	const host = document.createElement("div");
+	const root = createRoot(host);
+	try {
+		act(() => root.render(<RootComponent />));
+		expect(load.mock.calls).toEqual([
+			['400 14px "Inter Variable"', " ạă"],
+			['400 13px "IBM Plex Sans Variable"', " ạă"],
+		]);
+		act(() => {
+			i18n.loadAndActivate({ locale: "vi", messages: {} });
+			state.finishLocale();
+		});
+		expect(host.innerHTML).toBe(renderToString(<StartupFallback />));
+		await act(async () => {
+			resolvers[0]?.();
+		});
+		expect(host.innerHTML).toBe(renderToString(<StartupFallback />));
+		await act(async () => {
+			resolvers[1]?.();
+		});
+		expect(host.textContent).toBe("交易");
+	} finally {
+		act(() => root.unmount());
+		Reflect.deleteProperty(document, "fonts");
+	}
+});
+
+it("does not skip the subset wait when the persisted catalog and the Latin faces are already usable", async () => {
+	state.pathname = "/trade/BTC";
+	state.gateReady = true;
+	state.runtimeReady = true;
+	state.persistedLocale = "vi";
+	i18n.loadAndActivate({ locale: "vi", messages: {} });
+	const resolvers: Array<() => void> = [];
+	const load = vi.fn(
+		(_spec: string, _text?: string) =>
+			new Promise<void>((resolve) => {
+				resolvers.push(resolve);
+			}),
+	);
+	Object.defineProperty(document, "fonts", {
+		configurable: true,
+		value: { check: (_spec: string, text?: string) => text === undefined, load },
+	});
+	const host = document.createElement("div");
+	const root = createRoot(host);
+	try {
+		act(() => root.render(<RootComponent />));
+		expect(host.innerHTML).toBe(renderToString(<StartupFallback />));
+		expect(load).toHaveBeenCalledTimes(2);
 		await act(async () => {
 			for (const resolve of resolvers) resolve();
 		});

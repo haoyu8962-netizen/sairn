@@ -541,6 +541,79 @@ Limits:
   readings for `7d92841d`. The two are different commits, so these figures do not isolate the effect of the build
   identity.
 
+## Seven interface languages total and static-startup re-baseline (2026-11-27)
+
+Branch `claude/terminal-i18n-orchestration-587e12` adds seven interface languages (Korean, Traditional Chinese,
+Vietnamese, Turkish, Russian, Brazilian Portuguese, Indonesian) plus the language-aware startup font wait of ADR 0059.
+It was measured twice: first against `main` `ce3259b6`, then, after `main` `4548175e` (PR #21, the multi-model UI
+review fixes and their own re-baseline) was merged into the branch, against that `main`. The second measurement sets
+the baselines; the first is kept below as history.
+
+### Second measurement, against `main` `4548175e`
+
+After the merge the branch exceeded the total allowance by 920 bytes with pairing on (+10,920 over the first raise);
+every other surface passed. Paired builds, each run on its own, in two clean detached worktrees on the same machine:
+`main` `4548175ea` and the branch head `c363643b1` (the merge commit), both with Node 22.15.0, pnpm 10.21.0,
+`pnpm install --frozen-lockfile --prefer-offline`, the chart library installed from the local copy, no
+`apps/terminal/.env.local`, `NITRO_PRESET=node-server` and the same fixed identity
+(`SAIRN_BUILD_SHA=c363643b10910bba5d85364843a2c25df4fa4ff8`, `SAIRN_RELEASE_ID=i18n-languages-rebaseline-2`,
+`SAIRN_BUILD_TIME=2026-11-27T00:00:00.000Z`). The worktree state, environment-file check, versions, the build script
+and every build log were saved in the Git-ignored `.worklog/2026-11-27/i18n-languages-rebaseline-2/` of the branch
+worktree.
+
+| Metric | `main` off | Branch off | Change | `main` on | Branch on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,430,258 | 3,706,213 | +275,955 | 3,433,046 | 3,709,749 | +276,703 |
+| Static trade startup | 1,683,374 | 1,685,015 | +1,641 | 1,684,418 | 1,686,295 | +1,877 |
+| Mobile runtime increment | 121,966 | 121,959 | -7 | 121,965 | 121,971 | +6 |
+| Desktop runtime increment | 209,754 | 209,703 | -51 | 209,749 | 209,782 | +33 |
+| `trade-terminal-page` | 131,148 | 131,236 | +88 | 131,149 | 131,236 | +87 |
+| `api-wallet` | 18,668 | 18,667 | -1 | 18,550 | 18,553 | +3 |
+
+The static closure and both runtime profiles keep their asset counts (105, 15, 31). By chunk, compared with Node's
+`gzipSync` on the pairing-on outputs with content hashes removed: the locale catalog chunks `messages-*` +274,483 (the
+seven new catalogs, 34-48 kB gzip each; a viewer downloads only the active one) and `vendor-tanstack-router` +1,403
+(the locale list, `?lang=` parsing, the startup font samples and the language-menu warm-up); no other chunk moved by
+200 bytes or more. The catalogs grew by 3,130 more than in the first measurement, which matches the 25 messages PR #21
+added being translated in the seven new catalogs.
+
+Change to the baselines, allowances unchanged, each by the larger of the two measured increments over `main`
+`4548175e`'s baselines, so the room left stays at what that `main` has:
+
+- all client JS + CSS: `main`'s 3,425,559 raised by +276,703 to 3,702,262 (the branch had first raised it to 3,698,829);
+- static trade startup: `main`'s 1,674,829 raised by +1,877 to 1,676,706 (first raise: 1,676,769);
+- the mobile and desktop runtime increments, `trade-terminal-page` (127,408), `api-wallet` and the other surfaces are
+  unchanged.
+
+Against the new baselines, with the checker run again on the branch's pairing-on output, the branch reads total +7,487
+(2,513 left) and static startup +9,589 (411 left), the same as `main` `4548175e` reads against its own baselines, and
+mobile runtime +9,249 (751 left). Limits: the release configuration (production `.env.local`, pairing on) was not
+built, CI-identity builds can differ from these by a few dozen bytes, and the total grows by about 39 kB gzip with each
+further interface language.
+
+### First measurement, against `main` `ce3259b6` (superseded)
+
+On top of `main` `ce3259b6` the branch's builds exceeded the total allowance by 267,450 (pairing off) and 270,157
+(pairing on) bytes and the static-startup allowance with pairing on. Paired builds as above, with `main` `ce3259b68`
+and the branch head `020469061` and the identity `SAIRN_BUILD_SHA=020469061278845e627c760e02cdb3999648efcd`,
+`SAIRN_RELEASE_ID=i18n-languages-rebaseline`; logs in `.worklog/2026-11-27/i18n-languages-rebaseline/`.
+
+| Metric | `main` off | Branch off | Change | `main` on | Branch on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,408,540 | 3,681,689 | +273,149 | 3,411,126 | 3,684,396 | +273,270 |
+| Static trade startup | 1,675,195 | 1,677,135 | +1,940 | 1,676,286 | 1,678,054 | +1,768 |
+| Mobile runtime increment | 120,365 | 120,363 | -2 | 120,348 | 120,353 | +5 |
+| Desktop runtime increment | 207,485 | 207,490 | +5 | 207,383 | 207,454 | +71 |
+| `trade-terminal-page` | 129,404 | 129,505 | +101 | 129,401 | 129,501 | +100 |
+| `api-wallet` | 18,631 | 18,632 | +1 | 18,515 | 18,517 | +2 |
+
+The static closure and both runtime profiles kept their asset counts (103, 15, 31). By chunk, compared with Node's
+`gzipSync` on the pairing-on outputs with content hashes removed: the locale catalog chunks `messages-*` +271,353 (13
+non-English catalogs instead of 6; English is bundled) and `vendor-router` +1,469; every other chunk moved by less than
+300 bytes. That measurement raised the total by +273,270 to 3,677,509 and static startup by +1,940 to 1,668,662 over
+`ce3259b6`'s baselines; PR #21 then raised `main`'s own baselines, and the merge combined both raises, which the second
+measurement replaces.
+
 ## Signer session guard total and static-startup re-baseline (2026-11-23)
 
 PR 2 (`claude/signer-session-guard`, head `2d30f86d`, `main` `fa82e486` merged in) checks the wallet session before

@@ -57,6 +57,15 @@ describe("bootstrap error page", () => {
 		expect(fallback?.textContent).toContain("إعادة تحميل المنصة");
 	});
 
+	it("renders the persisted Traditional Chinese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "zh-TW");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("zh-TW");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain("交易終端無法安全啟動。請重新載入後再交易。");
+		expect(document.querySelector("button")?.textContent).toBe("重新載入交易終端");
+	});
+
 	it("renders the persisted Japanese fallback without loading a catalog", () => {
 		window.localStorage.setItem("locale-v1", "ja");
 		renderBootstrapErrorPage();
@@ -66,6 +75,70 @@ describe("bootstrap error page", () => {
 			"取引ターミナルを安全に起動できませんでした。取引する前に再読み込みしてください。",
 		);
 		expect(document.querySelector("button")?.textContent).toBe("ターミナルを再読み込み");
+	});
+
+	it("renders the persisted Korean fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "ko");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("ko");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain("터미널을 안전하게 시작할 수 없습니다. 거래하기 전에 새로고침하세요.");
+		expect(document.querySelector("button")?.textContent).toBe("터미널 새로고침");
+	});
+
+	it("renders the persisted Vietnamese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "vi");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("vi");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Nền tảng giao dịch không thể khởi động an toàn. Hãy tải lại trước khi giao dịch.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Tải lại nền tảng giao dịch");
+	});
+
+	it("renders the persisted Indonesian fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "id");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("id");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Terminal tidak dapat dimulai secara aman. Muat ulang sebelum trading.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Muat ulang terminal");
+	});
+
+	it("renders the persisted Turkish fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "tr");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("tr");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Terminal güvenli bir şekilde başlatılamadı. İşlem yapmadan önce sayfayı yenileyin.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Terminali yenile");
+	});
+
+	it("renders the persisted Russian fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "ru");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("ru");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Не удалось безопасно запустить терминал. Перезагрузите его перед началом торговли.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Перезагрузить терминал");
+	});
+
+	it("renders the persisted Portuguese fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "pt");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("pt");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Não foi possível iniciar o terminal com segurança. Recarregue-o antes de negociar.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Recarregar terminal");
 	});
 
 	it("fails closed to English when persisted locale storage cannot be read", () => {

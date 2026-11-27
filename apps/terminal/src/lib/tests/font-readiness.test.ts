@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	areFontsReady,
 	FONT_READY_TIMEOUT_MS,
+	fontTextForLocale,
+	LANGUAGE_MENU_FONT_SPECS,
 	MARKET_CLOSE_FONT_SPECS,
 	STARTUP_FONT_SPECS,
 	waitForFonts,
+	warmFonts,
 } from "@/lib/fonts/font-readiness";
 
 function installFontFaceSet(fonts: Partial<FontFaceSet>) {
@@ -77,5 +80,55 @@ describe("waitForFonts", () => {
 		await vi.advanceTimersByTimeAsync(1);
 		await wait;
 		expect(settled).toBe(true);
+	});
+});
+
+describe("fontTextForLocale", () => {
+	it("adds the language's samples after a space so the Latin faces stay included", () => {
+		expect(fontTextForLocale("vi")).toBe(" ạă");
+	});
+
+	it("passes no text for a language that draws only on the Latin faces", () => {
+		for (const locale of ["en", "zh", "fr", "toString", "__proto__", "constructor"]) {
+			expect(fontTextForLocale(locale), locale).toBeUndefined();
+		}
+	});
+});
+
+describe("font text", () => {
+	it("checks and loads every spec with the given text", async () => {
+		const check = vi.fn(() => false);
+		const load = vi.fn(() => Promise.resolve([] as FontFace[]));
+		installFontFaceSet({ check, load });
+		expect(areFontsReady(STARTUP_FONT_SPECS, " ạă")).toBe(false);
+		await waitForFonts(STARTUP_FONT_SPECS, " ạă");
+		expect(check.mock.calls[0]).toStrictEqual([STARTUP_FONT_SPECS[0], " ạă"]);
+		expect(load.mock.calls).toStrictEqual(STARTUP_FONT_SPECS.map((spec) => [spec, " ạă"]));
+	});
+
+	it("passes no text argument when none is given, so the browser checks a space", async () => {
+		const check = vi.fn(() => false);
+		const load = vi.fn(() => Promise.resolve([] as FontFace[]));
+		installFontFaceSet({ check, load });
+		await waitForFonts(STARTUP_FONT_SPECS);
+		expect(check.mock.calls[0]).toStrictEqual([STARTUP_FONT_SPECS[0]]);
+		expect(load.mock.calls).toStrictEqual(STARTUP_FONT_SPECS.map((spec) => [spec]));
+	});
+});
+
+describe("warmFonts", () => {
+	it("starts loading the faces for the text without waiting and ignores failures", () => {
+		const load = vi.fn(() => Promise.reject(new Error("blocked")));
+		installFontFaceSet({ check: () => false, load });
+		expect(() => warmFonts(LANGUAGE_MENU_FONT_SPECS, "Tiếng Việt")).not.toThrow();
+		expect(load.mock.calls).toStrictEqual([[LANGUAGE_MENU_FONT_SPECS[0], "Tiếng Việt"]]);
+	});
+
+	it("does nothing once the faces are loaded or without the CSS Font Loading API", () => {
+		expect(() => warmFonts(LANGUAGE_MENU_FONT_SPECS, "Tiếng Việt")).not.toThrow();
+		const load = vi.fn();
+		installFontFaceSet({ check: () => true, load });
+		warmFonts(LANGUAGE_MENU_FONT_SPECS, "Tiếng Việt");
+		expect(load).not.toHaveBeenCalled();
 	});
 });

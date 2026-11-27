@@ -16,6 +16,12 @@ import {
 describe("parseLinkLocale", () => {
 	it("reads a maintained interface language from ?lang=", () => {
 		expect(parseLinkLocale("?lang=ja")).toBe("ja");
+		expect(parseLinkLocale("?lang=ko")).toBe("ko");
+		expect(parseLinkLocale("?lang=vi")).toBe("vi");
+		expect(parseLinkLocale("?lang=id")).toBe("id");
+		expect(parseLinkLocale("?lang=pt")).toBe("pt");
+		expect(parseLinkLocale("?lang=tr")).toBe("tr");
+		expect(parseLinkLocale("?lang=ru")).toBe("ru");
 		expect(parseLinkLocale("?utm_source=newsletter&lang=zh&utm_content=cta")).toBe("zh");
 		expect(parseLinkLocale("?lang=en")).toBe("en");
 	});
@@ -23,7 +29,44 @@ describe("parseLinkLocale", () => {
 	it("ignores case and falls back from a region tag to its language", () => {
 		expect(parseLinkLocale("?lang=JA")).toBe("ja");
 		expect(parseLinkLocale("?lang=ja-JP")).toBe("ja");
-		expect(parseLinkLocale("?lang=pt_BR")).toBeNull();
+		expect(parseLinkLocale("?lang=KO")).toBe("ko");
+		expect(parseLinkLocale("?lang=ko-KR")).toBe("ko");
+		expect(parseLinkLocale("?lang=ko_KR")).toBe("ko");
+		expect(parseLinkLocale("?lang=VI")).toBe("vi");
+		expect(parseLinkLocale("?lang=vi-VN")).toBe("vi");
+		expect(parseLinkLocale("?lang=vi_VN")).toBe("vi");
+		expect(parseLinkLocale("?lang=ID")).toBe("id");
+		expect(parseLinkLocale("?lang=id-ID")).toBe("id");
+		expect(parseLinkLocale("?lang=id_ID")).toBe("id");
+		expect(parseLinkLocale("?lang=PT")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt-BR")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt_BR")).toBe("pt");
+		expect(parseLinkLocale("?lang=pt-PT")).toBe("pt");
+		expect(parseLinkLocale("?lang=TR")).toBe("tr");
+		expect(parseLinkLocale("?lang=tr-TR")).toBe("tr");
+		expect(parseLinkLocale("?lang=tr_TR")).toBe("tr");
+		expect(parseLinkLocale("?lang=RU")).toBe("ru");
+		expect(parseLinkLocale("?lang=ru-RU")).toBe("ru");
+		expect(parseLinkLocale("?lang=ru_RU")).toBe("ru");
+		expect(parseLinkLocale("?lang=de_DE")).toBeNull();
+	});
+
+	it("routes Traditional and Simplified Chinese tags by script and region", () => {
+		expect(parseLinkLocale("?lang=zh-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-tw")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=ZH-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh_TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-HK")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-MO")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-Hant")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-Hant-TW")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh-hant-hk")).toBe("zh-TW");
+		expect(parseLinkLocale("?lang=zh")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-CN")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-SG")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans-HK")).toBe("zh");
+		expect(parseLinkLocale("?lang=zh-Hans-TW")).toBe("zh");
 	});
 
 	it("ignores a missing, empty or unknown language", () => {
@@ -219,6 +262,14 @@ describe("storeLocale", () => {
 		window.history.replaceState(null, "", "/trade/BTC?lang=ja&utm_source=newsletter");
 		expect(applyWindowLinkLocale()).toBe("ja");
 		expect(window.localStorage.getItem(STORAGE_KEYS.LOCALE)).toBe("ja");
+		expect(window.location.search).toBe("?utm_source=newsletter");
+		window.history.replaceState(null, "", "/");
+	});
+
+	it("persists a Traditional Chinese region link as zh-TW through storage", () => {
+		window.history.replaceState(null, "", "/trade/BTC?lang=zh-hk&utm_source=newsletter");
+		expect(applyWindowLinkLocale()).toBe("zh-TW");
+		expect(window.localStorage.getItem(STORAGE_KEYS.LOCALE)).toBe("zh-TW");
 		expect(window.location.search).toBe("?utm_source=newsletter");
 		window.history.replaceState(null, "", "/");
 	});

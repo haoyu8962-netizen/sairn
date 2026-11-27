@@ -533,10 +533,17 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: "Order book animations",
 			zh: "订单簿动画",
+			"zh-TW": "訂單簿動畫",
 			ja: "板のアニメーション",
+			ko: "호가창 애니메이션",
+			vi: "Hiệu ứng sổ lệnh",
+			id: "Animasi order book",
 			hi: "ऑर्डर बुक एनिमेशन",
 			es: "Animaciones del libro de órdenes",
+			pt: "Animações do livro de ordens",
 			fr: "Animations du carnet d’ordres",
+			tr: "Emir defteri animasyonları",
+			ru: "Анимации книги ордеров",
 			ar: "رسوم دفتر الأوامر المتحركة",
 		};
 		for (const [locale, translation] of Object.entries(translations)) {
@@ -549,10 +556,17 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: "Transaction delay protection",
 			zh: "交易延迟保护",
+			"zh-TW": "交易延遲保護",
 			ja: "取引遅延保護",
+			ko: "거래 지연 보호",
+			vi: "Bảo vệ độ trễ giao dịch",
+			id: "Perlindungan penundaan transaksi",
 			hi: "लेनदेन विलंब सुरक्षा",
 			es: "Protección contra retrasos de transacción",
+			pt: "Proteção contra atraso de transação",
 			fr: "Protection contre les retards de transaction",
+			tr: "İşlem gecikme koruması",
+			ru: "Защита от задержки транзакций",
 			ar: "الحماية من تأخر المعاملات",
 		};
 		for (const [locale, translation] of Object.entries(translations)) {
@@ -565,10 +579,17 @@ describe("GlobalSettingsModal", () => {
 		const translations = {
 			en: ["Diagnostics", "Copy diagnostics"],
 			zh: ["诊断信息", "复制诊断信息"],
+			"zh-TW": ["診斷資訊", "複製診斷資訊"],
 			ja: ["診断情報", "診断情報をコピー"],
+			ko: ["진단 정보", "진단 정보 복사"],
+			vi: ["Chẩn đoán", "Sao chép thông tin chẩn đoán"],
+			id: ["Diagnostik", "Salin diagnostik"],
 			hi: ["निदान जानकारी", "निदान जानकारी कॉपी करें"],
 			es: ["Diagnóstico", "Copiar diagnóstico"],
+			pt: ["Diagnóstico", "Copiar diagnóstico"],
 			fr: ["Diagnostic", "Copier le diagnostic"],
+			tr: ["Tanılama", "Tanılama bilgilerini kopyala"],
+			ru: ["Диагностика", "Копировать диагностику"],
 			ar: ["معلومات التشخيص", "نسخ معلومات التشخيص"],
 		};
 		for (const [locale, [label, action]] of Object.entries(translations)) {

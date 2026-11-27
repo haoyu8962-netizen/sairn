@@ -8,9 +8,29 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Added
 
+- Indonesian interface language (Bahasa Indonesia) in the language menu, including the TradingView
+  chart and Indonesian dates; numbers keep following the separate number-format setting.
+- Brazilian Portuguese interface language (Português) in the language menu, including the TradingView
+  chart and Portuguese dates; numbers keep following the separate number-format setting. `?lang=pt`,
+  `pt-BR` or `pt-PT` links open it.
+- Russian interface language (Русский) in the language menu, including the TradingView chart and
+  Russian dates; numbers keep following the separate number-format setting, and the first screen
+  waits for the Cyrillic letters as it does for the Latin ones.
+- Turkish interface language (Türkçe) in the language menu, including the TradingView chart and
+  Turkish dates; numbers keep following the separate number-format setting, and the first screen
+  waits for the letters ğ, ş and İ as it does for the Latin letters.
 - Settings → About → Diagnostics copies a local record of the last ten startups (timings and counts)
   and connection recoveries, to help explain a blank screen or a long wait for data. Nothing is sent
   anywhere and it contains no addresses or account data.
+- Vietnamese interface language (Tiếng Việt) in the language menu, including the TradingView chart and
+  Vietnamese dates; numbers keep following the separate number-format setting. Letters with tone marks
+  are drawn in the interface fonts everywhere, and the first screen waits for them as it does for the
+  Latin letters.
+- Traditional Chinese interface language (繁體中文) with Taiwanese wording, including the TradingView chart
+  and Traditional Chinese dates. `?lang=zh-TW`, `zh-HK` or `zh-Hant` links open it; other Chinese tags
+  keep opening Simplified Chinese.
+- Korean interface language (한국어) in the language menu, including the TradingView chart and
+  Korean dates; numbers keep following the separate number-format setting.
 - Japanese interface language (日本語) in the language menu, including the TradingView chart and
   Japanese dates; numbers keep following the separate number-format setting.
 - A link can open the terminal in a language: `?lang=ja` (or any other interface language) shows the
@@ -66,6 +86,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Changed
 
+- The surfaces set in IBM Plex Sans (header, market overview, token selector, account tables, menus and
+  funds dialogs) now draw Latin Extended, Vietnamese, Cyrillic and Greek letters, for example in a token
+  name, in IBM Plex instead of a system font. Hovering, pressing or focusing the language button starts
+  loading the letters of the language names, so they are usually ready when the menu opens.
 - Portfolio, Earn, Vaults, Staking, Referrals, Leaderboard, Funding Comparison, API Wallet and the
   history pages now share one page frame: the same side margin, top spacing, maximum width (1440px)
   and title size on desktop and on phones, so the content no longer changes width or jumps when you

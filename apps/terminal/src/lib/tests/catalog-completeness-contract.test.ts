@@ -5,7 +5,7 @@ import { setupI18n } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { describe, expect, it } from "vitest";
 
-const TRANSLATED_LOCALES = ["zh", "ja", "hi", "es", "fr", "ar"] as const;
+const TRANSLATED_LOCALES = ["zh", "zh-TW", "ja", "ko", "vi", "id", "hi", "es", "pt", "fr", "tr", "ru", "ar"] as const;
 
 interface CatalogEntry {
 	id: string;

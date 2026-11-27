@@ -50,6 +50,13 @@ describe("spot asset info snapshot", () => {
 			kind: "asset",
 			text: expect.stringContaining("人工智能"),
 		});
+		await expect(loadSpotAssetDescription(identity, "zh-CN")).resolves.toEqual({
+			kind: "asset",
+			text: expect.stringContaining("人工智能"),
+		});
+		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-HK")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-Hant")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "en")).resolves.toBeNull();
 	});
 
@@ -60,6 +67,21 @@ describe("spot asset info snapshot", () => {
 		await expect(loadSpotAssetDescription(identity, "hi")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "ja")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "ja-JP")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ko")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ko-KR")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "vi")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "vi-VN")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "tr")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "tr-TR")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ru")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ru-RU")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "pt")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "pt-BR")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "id")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "id-ID")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-HK")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-Hant")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "en-US")).resolves.toEqual({
 			kind: "asset",
 			text: expect.stringContaining("first native spot asset"),

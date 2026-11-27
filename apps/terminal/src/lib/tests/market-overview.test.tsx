@@ -480,6 +480,50 @@ describe("MarketOverview", () => {
 		}
 	});
 
+	it("also waits for the subsets the active language draws beyond Latin", async () => {
+		const resolveLoads: Array<() => void> = [];
+		const load = vi.fn(
+			(_spec: string, _text?: string) =>
+				new Promise<void>((resolve) => {
+					resolveLoads.push(resolve);
+				}),
+		);
+		Object.defineProperty(document, "fonts", { configurable: true, value: { check: () => false, load } });
+		try {
+			act(() => {
+				i18n.loadAndActivate({ locale: "vi", messages: {} });
+			});
+			mocks.perpCtxStatus = "active";
+			mocks.perpCtxEvent = {
+				coin: "xyz:BRENTOIL",
+				ctx: {
+					markPx: "80",
+					prevDayPx: "64",
+					oraclePx: "79",
+					dayNtlVlm: "10000000",
+					openInterest: "2",
+					funding: "0.00001",
+				},
+			};
+			renderOverview();
+			expect(load.mock.calls).toEqual([
+				['400 10px "IBM Plex Sans Variable"', " ạă"],
+				['600 13px "IBM Plex Sans Variable"', " ạă"],
+			]);
+			expect(container.querySelector("[data-market-overview]")?.getAttribute("data-market-overview-state")).toBe(
+				"pending",
+			);
+			await act(async () => {
+				for (const resolve of resolveLoads) resolve();
+			});
+			expect(container.querySelector("[data-market-overview]")?.getAttribute("data-market-overview-state")).toBe(
+				"ready",
+			);
+		} finally {
+			Reflect.deleteProperty(document, "fonts");
+		}
+	});
+
 	it("uses realtime context after the subscription becomes available", () => {
 		renderOverview();
 		expect(getStat("price").textContent).toContain("Mark71.8");
