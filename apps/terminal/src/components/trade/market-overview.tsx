@@ -21,7 +21,7 @@ import { useMarketPriceFlash } from "@/hooks/trade/use-market-price-flash";
 import { useCopyToClipboard } from "@/hooks/ui/use-copy-to-clipboard";
 import { useFontsReady } from "@/hooks/ui/use-fonts-ready";
 import { cn } from "@/lib/cn";
-import { MARKET_CLOSE_FONT_SPECS } from "@/lib/fonts/font-readiness";
+import { fontTextForLocale, MARKET_CLOSE_FONT_SPECS } from "@/lib/fonts/font-readiness";
 import { formatClockDuration, type NumberFormatters, shortenAddress, useNumberFormat } from "@/lib/format";
 import {
 	getExplorerTokenUrl,
@@ -141,7 +141,8 @@ function formatMarketHeaderPrice(
 }
 
 export function MarketOverview() {
-	const { t } = useLingui();
+	const { t, i18n } = useLingui();
+	const locale = i18n.locale;
 	const numberFormat = useNumberFormat();
 	const { formatNumber, formatPercent, formatQuoteAmount, formatUSD } = numberFormat;
 	const { env } = useHyperliquid();
@@ -149,7 +150,7 @@ export function MarketOverview() {
 	const { getMarketByName } = useMarketsInfo();
 	const isSpot = selectedMarketInfo?.kind === "spot";
 	const { copiedValue: copiedSpotTokenAddress, copy: copySpotTokenAddress } = useCopyToClipboard(1500);
-	const marketCloseFontReady = useFontsReady(MARKET_CLOSE_FONT_SPECS);
+	const marketCloseFontReady = useFontsReady(MARKET_CLOSE_FONT_SPECS, fontTextForLocale(locale));
 
 	const perpCoin = getMarketApiCoin(selectedMarketInfo);
 	const spotCoin = getSpotMarketApiCoin(selectedMarketInfo);

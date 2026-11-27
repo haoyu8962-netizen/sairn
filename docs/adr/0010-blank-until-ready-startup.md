@@ -53,6 +53,8 @@
 
 后果：正常情况下首帧已按最终字体度量排版，不再因换字重排；字体极端缓慢时最多空白 3 s 后以回退字体显示，与 block 语义一致。实测记录在[任务记录](../work-memory/sessions/2026-09-16-remove-startup-placeholders.md)。
 
+补充（2026-11-27）：决策 2、3 的等待不带文字，只覆盖拉丁子集。按语言带上非拉丁子集的样例、IBM Plex 补声明其余子集，见 [ADR 0059](0059-language-aware-startup-fonts.md)。
+
 ## 更正（2026-10-01，品牌改名）
 
 决策 1 写的播报文字 `Loading GATU...` 是当时的产品名。改名后播报为 `Loading Sairn...`，品牌名取自 `BRAND_NAME`（`brand/brand.json`），不再写死；结构（一个 `aria-busy` 容器加一个 `sr-only` output）不变，见 [ADR 0027](0027-brand-single-source-and-identifier-rename.md)。

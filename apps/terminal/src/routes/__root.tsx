@@ -10,7 +10,7 @@ import { StartupFallback } from "@/components/startup-fallback";
 import { isRtlLocale } from "@/config/i18n";
 import { getBootstrapEntryWatchdogScript } from "@/lib/bootstrap-error-page";
 import { markStartupMilestone } from "@/lib/diagnostics/startup-milestones";
-import { areFontsReady, STARTUP_FONT_SPECS, waitForFonts } from "@/lib/fonts/font-readiness";
+import { areFontsReady, fontTextForLocale, STARTUP_FONT_SPECS, waitForFonts } from "@/lib/fonts/font-readiness";
 import { MarketsInfoProvider } from "@/lib/hyperliquid/hooks/MarketsInfoProvider";
 import { getPersistedLocale, i18nReady, LOCALE_CATALOG_READY_TIMEOUT_MS } from "@/lib/i18n";
 import { buildRootHead } from "@/lib/seo";
@@ -98,14 +98,17 @@ function AppRuntime({ fallback }: { fallback: React.ReactNode }) {
 	);
 }
 
-// Gates first render until the persisted language's catalog is active and the preloaded startup
-// fonts are usable, so the page renders ONCE in the persisted locale with final text metrics — no
-// flash of English / LTR→RTL jump while the lazy catalog loads, and no fallback-font reflow when the
-// webfonts arrive. The font wait is capped at FONT_READY_TIMEOUT_MS, matching font-display: block, and
+// Gates first render until the persisted language's catalog is active and the startup fonts, with the
+// subsets that language draws beyond Latin, are usable, so the page renders ONCE in the persisted
+// locale with final text metrics — no flash of English / LTR→RTL jump while the lazy catalog loads,
+// and no fallback-font reflow or invisible letters when the webfonts arrive. The font wait is capped at FONT_READY_TIMEOUT_MS, matching font-display: block, and
 // the catalog wait at LOCALE_CATALOG_READY_TIMEOUT_MS: past it the page reveals in English and the
 // catalog, when it arrives, switches the mounted page in place.
 function StartupReadyGate({ children, fallback }: { children: React.ReactNode; fallback: React.ReactNode }) {
-	const [ready, setReady] = useState(() => i18n.locale === getPersistedLocale() && areFontsReady(STARTUP_FONT_SPECS));
+	const [ready, setReady] = useState(() => {
+		const persistedLocale = getPersistedLocale();
+		return i18n.locale === persistedLocale && areFontsReady(STARTUP_FONT_SPECS, fontTextForLocale(persistedLocale));
+	});
 	useEffect(() => {
 		if (ready) {
 			markStartupMilestone("locale");
@@ -114,8 +117,10 @@ function StartupReadyGate({ children, fallback }: { children: React.ReactNode; f
 			return;
 		}
 		let active = true;
-		let localeReady = i18n.locale === getPersistedLocale();
-		let fontsReady = areFontsReady(STARTUP_FONT_SPECS);
+		const persistedLocale = getPersistedLocale();
+		const fontText = fontTextForLocale(persistedLocale);
+		let localeReady = i18n.locale === persistedLocale;
+		let fontsReady = areFontsReady(STARTUP_FONT_SPECS, fontText);
 		if (localeReady) markStartupMilestone("locale");
 		if (fontsReady) markStartupMilestone("fonts");
 		let localeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -134,7 +139,7 @@ function StartupReadyGate({ children, fallback }: { children: React.ReactNode; f
 			localeTimer = setTimeout(settleLocale, LOCALE_CATALOG_READY_TIMEOUT_MS);
 		}
 		if (!fontsReady) {
-			waitForFonts(STARTUP_FONT_SPECS).then(() => {
+			waitForFonts(STARTUP_FONT_SPECS, fontText).then(() => {
 				markStartupMilestone("fonts");
 				fontsReady = true;
 				reveal();

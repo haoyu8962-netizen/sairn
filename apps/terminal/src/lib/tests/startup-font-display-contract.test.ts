@@ -78,6 +78,28 @@ describe("startup font display contract", () => {
 		}
 	});
 
+	it("declares every IBM Plex subset in Inter's order and with Inter's ranges", () => {
+		function subsetsOf(family: string) {
+			return readFontFaces(stylesCss)
+				.filter((face) => readDescriptor(face, "font-family") === family)
+				.map((face) => ({
+					subset: face.match(/\/files\/(?:inter|ibm-plex-sans)-([a-z-]+)-wght-normal\.woff2/)?.[1],
+					range: readDescriptor(face, "unicode-range")?.replace(/\s+/g, ""),
+				}));
+		}
+		const plex = subsetsOf('"IBM Plex Sans Variable"');
+		const inter = subsetsOf('"Inter Variable"');
+		expect(plex.map(({ subset }) => subset)).toEqual([
+			"cyrillic-ext",
+			"cyrillic",
+			"greek",
+			"vietnamese",
+			"latin-ext",
+			"latin",
+		]);
+		expect(plex).toEqual(inter.filter(({ subset }) => plex.some((face) => face.subset === subset)));
+	});
+
 	it("preloads the latin faces the first paint depends on", () => {
 		for (const file of ["inter-latin-wght-normal.woff2", "ibm-plex-sans-latin-wght-normal.woff2"]) {
 			expect(stylesCss).toContain(`/files/${file}`);

@@ -5,10 +5,13 @@ import { toast } from "sonner";
 import { DESKTOP_NAV_LABELS } from "@/config/desktop-nav";
 import { defaultLocale, defaultNumberFormatLocale, localeList, numberFormatLocaleList } from "@/config/i18n";
 import { cn } from "@/lib/cn";
+import { LANGUAGE_MENU_FONT_SPECS, warmFonts } from "@/lib/fonts/font-readiness";
 import { dynamicActivate } from "@/lib/i18n";
 import { menuPopupSelectionSkinClass } from "@/lib/ui/menu-popup-skin";
 import { useGlobalSettings, useGlobalSettingsActions } from "@/stores/use-global-settings-store";
 import { NavMenuTriggerView } from "./nav-menu-trigger-view";
+
+const LANGUAGE_NAMES_TEXT = localeList.map(({ name }) => name).join(" ");
 
 interface Props {
 	showLabel?: boolean;
@@ -52,6 +55,10 @@ export function LanguageSwitcher({
 	}));
 	const settingsAreDefault = activeLocale === defaultLocale && numberFormatLocale === defaultNumberFormatLocale;
 
+	function warmLanguageNameFonts() {
+		warmFonts(LANGUAGE_MENU_FONT_SPECS, LANGUAGE_NAMES_TEXT);
+	}
+
 	function resetLocaleSettings() {
 		dynamicActivate(defaultLocale)
 			.then((activated) => {
@@ -78,6 +85,9 @@ export function LanguageSwitcher({
 					labelClassName={labelClassName}
 					icon={<GlobeIcon className="size-[18px] shrink-0" />}
 					className={className}
+					onPointerEnter={warmLanguageNameFonts}
+					onPointerDown={warmLanguageNameFonts}
+					onFocus={warmLanguageNameFonts}
 				/>
 			}
 			popupClassName={cn(
