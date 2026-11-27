@@ -541,6 +541,7 @@ describe("GlobalSettingsModal", () => {
 			es: "Animaciones del libro de órdenes",
 			fr: "Animations du carnet d’ordres",
 			tr: "Emir defteri animasyonları",
+			ru: "Анимации книги ордеров",
 			ar: "رسوم دفتر الأوامر المتحركة",
 		};
 		for (const [locale, translation] of Object.entries(translations)) {
@@ -561,6 +562,7 @@ describe("GlobalSettingsModal", () => {
 			es: "Protección contra retrasos de transacción",
 			fr: "Protection contre les retards de transaction",
 			tr: "İşlem gecikme koruması",
+			ru: "Защита от задержки транзакций",
 			ar: "الحماية من تأخر المعاملات",
 		};
 		for (const [locale, translation] of Object.entries(translations)) {
@@ -581,6 +583,7 @@ describe("GlobalSettingsModal", () => {
 			es: ["Diagnóstico", "Copiar diagnóstico"],
 			fr: ["Diagnostic", "Copier le diagnostic"],
 			tr: ["Tanılama", "Tanılama bilgilerini kopyala"],
+			ru: ["Диагностика", "Копировать диагностику"],
 			ar: ["معلومات التشخيص", "نسخ معلومات التشخيص"],
 		};
 		for (const [locale, [label, action]] of Object.entries(translations)) {

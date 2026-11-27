@@ -28,6 +28,11 @@ describe("TradingView locale mapping", () => {
 		expect(isRtlLocale("tr")).toBe(false);
 	});
 
+	it("uses Russian dates and left-to-right presentation", () => {
+		expect(languageToIntlLocale.ru).toBe("ru-RU");
+		expect(isRtlLocale("ru")).toBe(false);
+	});
+
 	it.each([
 		["en", "en"],
 		["zh", "zh"],
@@ -38,6 +43,7 @@ describe("TradingView locale mapping", () => {
 		["es", "es"],
 		["fr", "fr"],
 		["tr", "tr"],
+		["ru", "ru"],
 		["ar", "ar"],
 		["hi", "en"],
 		["unknown", "en"],

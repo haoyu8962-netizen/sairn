@@ -8,6 +8,9 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Added
 
+- Russian interface language (Русский) in the language menu, including the TradingView chart and
+  Russian dates; numbers keep following the separate number-format setting, and the first screen
+  waits for the Cyrillic letters as it does for the Latin ones.
 - Turkish interface language (Türkçe) in the language menu, including the TradingView chart and
   Turkish dates; numbers keep following the separate number-format setting, and the first screen
   waits for the letters ğ, ş and İ as it does for the Latin letters.

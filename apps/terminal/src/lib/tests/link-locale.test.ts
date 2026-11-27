@@ -19,6 +19,7 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=ko")).toBe("ko");
 		expect(parseLinkLocale("?lang=vi")).toBe("vi");
 		expect(parseLinkLocale("?lang=tr")).toBe("tr");
+		expect(parseLinkLocale("?lang=ru")).toBe("ru");
 		expect(parseLinkLocale("?utm_source=newsletter&lang=zh&utm_content=cta")).toBe("zh");
 		expect(parseLinkLocale("?lang=en")).toBe("en");
 	});
@@ -35,6 +36,9 @@ describe("parseLinkLocale", () => {
 		expect(parseLinkLocale("?lang=TR")).toBe("tr");
 		expect(parseLinkLocale("?lang=tr-TR")).toBe("tr");
 		expect(parseLinkLocale("?lang=tr_TR")).toBe("tr");
+		expect(parseLinkLocale("?lang=RU")).toBe("ru");
+		expect(parseLinkLocale("?lang=ru-RU")).toBe("ru");
+		expect(parseLinkLocale("?lang=ru_RU")).toBe("ru");
 		expect(parseLinkLocale("?lang=pt_BR")).toBeNull();
 	});
 

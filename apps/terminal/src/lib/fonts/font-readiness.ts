@@ -12,6 +12,7 @@ export const FONT_READY_TIMEOUT_MS = 3000;
 export const LOCALE_FONT_SAMPLES: Readonly<Partial<Record<LocaleCode, string>>> = {
 	vi: "ạă",
 	tr: "ğ",
+	ru: "Ж",
 };
 
 export function fontTextForLocale(locale: string): string | undefined {

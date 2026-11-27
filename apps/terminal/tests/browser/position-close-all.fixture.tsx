@@ -17,6 +17,7 @@ import { messages as fr } from "@/locales/fr/messages.po";
 import { messages as hi } from "@/locales/hi/messages.po";
 import { messages as ja } from "@/locales/ja/messages.po";
 import { messages as ko } from "@/locales/ko/messages.po";
+import { messages as ru } from "@/locales/ru/messages.po";
 import { messages as tr } from "@/locales/tr/messages.po";
 import { messages as vi } from "@/locales/vi/messages.po";
 import { messages as zh } from "@/locales/zh/messages.po";
@@ -25,7 +26,7 @@ import { usePositionCloseAllSession } from "@/stores/use-position-dialog-store";
 import { releaseCloseAllFixture, setCloseAllFixture, useCloseAllFixture } from "./position-close-all.browser";
 import "./mobile-orderbook-cls.css";
 
-const catalogs = { en, zh, "zh-TW": zhTW, ja, ko, vi, fr, tr, ar, es, hi };
+const catalogs = { en, zh, "zh-TW": zhTW, ja, ko, vi, fr, tr, ru, ar, es, hi };
 
 function Fixture() {
 	const state = useCloseAllFixture();

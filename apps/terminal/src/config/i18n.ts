@@ -9,6 +9,7 @@ export const locales = {
 	es: "Español",
 	fr: "Français",
 	tr: "Türkçe",
+	ru: "Русский",
 	ar: "العربية",
 } as const;
 
@@ -73,6 +74,7 @@ export const languageToIntlLocale: Record<LocaleCode, string> = {
 	es: "es-ES",
 	fr: "fr-FR",
 	tr: "tr-TR",
+	ru: "ru-RU",
 	ar: "ar-SA",
 };
 

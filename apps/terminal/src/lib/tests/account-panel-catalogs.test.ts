@@ -57,6 +57,11 @@ const EXPECTED_TRANSLATIONS = {
 		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
 			"Ortak bakiyeli hesap modlarında Spot ve Vadeli arasında transfer yapılamaz.",
 	},
+	ru: {
+		"Cross Maintenance Margin": "Поддерживающая кросс-маржа",
+		"Transfers between Spot and Perps are unavailable in shared-balance account modes.":
+			"Переводы между спотом и фьючерсами недоступны в режимах аккаунта с общим балансом.",
+	},
 } as const;
 
 describe("account panel catalogs", () => {

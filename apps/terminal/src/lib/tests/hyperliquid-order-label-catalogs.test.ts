@@ -47,6 +47,11 @@ const translations = {
 		"TWAP Slice": "TWAP dilimi",
 		"Vault Close": "Kasa kapatma",
 	},
+	ru: {
+		"Spot Dust Conversion": "Конвертация мелких остатков (спот)",
+		"TWAP Slice": "Фрагмент TWAP",
+		"Vault Close": "Закрытие хранилищем",
+	},
 } as const;
 
 describe("Hyperliquid order-label catalogs", () => {

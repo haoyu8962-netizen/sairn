@@ -73,6 +73,8 @@ describe("spot asset info snapshot", () => {
 		await expect(loadSpotAssetDescription(identity, "vi-VN")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "tr")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "tr-TR")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ru")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "ru-RU")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "zh-HK")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "zh-Hant")).resolves.toBeNull();

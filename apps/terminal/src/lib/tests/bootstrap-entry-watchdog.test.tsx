@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import type { ComponentType, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { localeList } from "@/config/i18n";
+import { getBootstrapFatalCopy, getBootstrapFatalDirection } from "@/lib/bootstrap-error-copy";
 import {
 	BOOTSTRAP_ENTRY_LOAD_GRACE_MS,
 	BOOTSTRAP_ENTRY_WATCHDOG_MS,
@@ -226,6 +228,25 @@ describe("bootstrap entry watchdog in the shell", () => {
 		const scripts = collectInlineScripts(html);
 		expect(scripts).toHaveLength(2);
 		expect(html.indexOf(script)).toBeLessThan(html.indexOf("<body>"));
-		expect(Buffer.byteLength(script, "utf8")).toBeLessThan(4096);
+	});
+
+	// The script carries the failure copy of every maintained language, so its size grows with each one. The
+	// code and each language's copy are bounded separately: adding a language cannot fail the code budget, and
+	// the code growing or one copy becoming a paragraph still does.
+	it("keeps its code small and every language's copy short", () => {
+		const script = getBootstrapEntryWatchdogScript();
+		const copy = Object.fromEntries(
+			localeList.map(({ code }) => {
+				const { heading, description, reload } = getBootstrapFatalCopy(code);
+				return [code, [heading, description, reload, getBootstrapFatalDirection(code) === "rtl" ? 1 : 0]];
+			}),
+		);
+		const copyJson = JSON.stringify(copy).replace(/</g, "\\u003c");
+		expect(script).toContain(`C=${copyJson};`);
+		expect(Buffer.byteLength(script, "utf8") - Buffer.byteLength(copyJson, "utf8")).toBeLessThan(2560);
+		for (const [code, entry] of Object.entries(copy)) {
+			const inlined = JSON.stringify(entry).replace(/</g, "\\u003c");
+			expect(Buffer.byteLength(inlined, "utf8"), code).toBeLessThan(512);
+		}
 	});
 });

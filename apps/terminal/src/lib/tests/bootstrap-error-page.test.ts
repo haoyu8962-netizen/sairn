@@ -108,6 +108,17 @@ describe("bootstrap error page", () => {
 		expect(document.querySelector("button")?.textContent).toBe("Terminali yenile");
 	});
 
+	it("renders the persisted Russian fallback without loading a catalog", () => {
+		window.localStorage.setItem("locale-v1", "ru");
+		renderBootstrapErrorPage();
+		expect(document.documentElement.lang).toBe("ru");
+		expect(document.documentElement.dir).toBe("ltr");
+		expect(document.body.textContent).toContain(
+			"Не удалось безопасно запустить терминал. Перезагрузите его перед началом торговли.",
+		);
+		expect(document.querySelector("button")?.textContent).toBe("Перезагрузить терминал");
+	});
+
 	it("fails closed to English when persisted locale storage cannot be read", () => {
 		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
 			throw new Error("storage unavailable");
