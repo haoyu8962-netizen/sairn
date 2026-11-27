@@ -88,6 +88,10 @@ msgid "{FUNDING_HISTORY_WINDOW_DAYS}-day API window"
 msgstr "Khung thời gian API {FUNDING_HISTORY_WINDOW_DAYS} ngày"
 
 #: src/components/vaults/vault-performance-chart.tsx
+msgid "{label} over {periodLabel}."
+msgstr "{label} trong {periodLabel}."
+
+#: src/components/vaults/vault-performance-chart.tsx
 msgid "{label} over {periodLabel}. Latest value <0>{latestValue}</0>."
 msgstr "{label} trong {periodLabel}. Giá trị mới nhất <0>{latestValue}</0>."
 
@@ -487,10 +491,12 @@ msgid "Activate DEX"
 msgstr "Kích hoạt DEX"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≤ {triggerPrice}"
 msgstr "Kích hoạt khi giá đánh dấu ≤ {triggerPrice}"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≥ {triggerPrice}"
 msgstr "Kích hoạt khi giá đánh dấu ≥ {triggerPrice}"
 
@@ -538,7 +544,6 @@ msgstr "Thêm ký quỹ"
 msgid "Add to Target"
 msgstr "Thêm ký quỹ đến mức mục tiêu"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Add TP/SL"
 msgstr "Thêm TP/SL"
@@ -687,6 +692,7 @@ msgstr "ALO (Chỉ thêm thanh khoản)"
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-view.tsx
+#: src/components/trade/components/spot-swap-modal.tsx
 #: src/components/trade/positions/position-isolated-margin-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
@@ -696,6 +702,10 @@ msgstr "ALO (Chỉ thêm thanh khoản)"
 msgid "Amount"
 msgstr "Số lượng"
 
+#: src/components/trade/components/spot-swap-modal.tsx
+msgid "Amount ({token})"
+msgstr "Số lượng ({token})"
+
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Amount (USDC)"
 msgstr "Số lượng (USDC)"
@@ -703,6 +713,10 @@ msgstr "Số lượng (USDC)"
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount exceeds the verified available balance."
 msgstr "Số lượng vượt quá số dư khả dụng đã xác minh."
+
+#: src/components/trade/tradebox/bridge/amount-entry-screen.tsx
+msgid "Amount in USD"
+msgstr "Số tiền bằng USD"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount is too large to submit safely."
@@ -1177,6 +1191,7 @@ msgstr "Phần thưởng Builder là thống kê tích lũy theo nguồn, không
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -1234,6 +1249,10 @@ msgstr "Xem trước camera để quét mã QR ví máy tính"
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Cancel"
 msgstr "Hủy"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Cancel {marketLabel} order"
+msgstr "Hủy lệnh {marketLabel}"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
@@ -1626,7 +1645,6 @@ msgstr "Đóng thao tác ví API"
 msgid "Close close-all confirmation"
 msgstr "Đóng xác nhận đóng tất cả"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -1686,7 +1704,6 @@ msgstr "Đóng vị thế"
 msgid "Close reverse confirmation"
 msgstr "Đóng xác nhận đảo chiều"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -2145,12 +2162,16 @@ msgid "Could not check the approval on Hyperliquid. Nothing was imported. Try ag
 msgstr "Không thể kiểm tra phê duyệt trên Hyperliquid. Chưa có dữ liệu nào được nhập. Hãy thử lại."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Could not fetch your token balances"
-msgstr "Không thể tải số dư token của bạn"
+#~ msgid "Could not fetch your token balances"
+#~ msgstr "Không thể tải số dư token của bạn"
 
 #: src/hooks/wallet/use-email-wallet-export.ts
 msgid "Could not open wallet export. Retry in your system browser on the same {BRAND_NAME} site, using the same email."
 msgstr "Không thể mở mục xuất ví. Hãy thử lại trên trình duyệt hệ thống tại cùng trang {BRAND_NAME} bằng đúng email đó."
+
+#: src/components/trade/components/wallet-modal.tsx
+msgid "Could not start app installation. Use your browser menu to install, or go back to connect."
+msgstr "Không thể bắt đầu cài đặt ứng dụng. Hãy sử dụng menu trình duyệt để cài đặt hoặc quay lại để kết nối."
 
 #: src/components/referrals/referral-action-modal.tsx
 msgid "Create a code after Hyperliquid confirms your eligibility. It cannot be changed from this page later."
@@ -2705,6 +2726,7 @@ msgid "Earn"
 msgstr "Earn"
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Earn Action History"
 msgstr "Lịch sử thao tác Earn"
 
@@ -2750,7 +2772,6 @@ msgstr "Chỉnh sửa số lượng lệnh {0}"
 msgid "Edit {0} trigger price"
 msgstr "Chỉnh sửa giá kích hoạt {0}"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Edit TP/SL"
 msgstr "Chỉnh sửa TP/SL"
@@ -3152,12 +3173,12 @@ msgid "Failed to export TWAP fill history."
 msgstr "Xuất lịch sử khớp lệnh TWAP thất bại."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Failed to load balances"
-msgstr "Tải số dư thất bại"
+#~ msgid "Failed to load balances"
+#~ msgstr "Tải số dư thất bại"
 
 #: src/components/trade/chart/token-selector-content.tsx
-msgid "Failed to load market categories."
-msgstr "Tải danh mục thị trường thất bại."
+#~ msgid "Failed to load market categories."
+#~ msgstr "Tải danh mục thị trường thất bại."
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Failed to load positions."
@@ -3605,6 +3626,10 @@ msgstr "Hàng giờ"
 msgid "Hourly rate paid by longs to shorts (if negative, shorts pay longs). Funding has no associated fee; it is a peer-to-peer transfer between users to push the price toward the spot price. See the documentation for details."
 msgstr "Tỷ lệ theo giờ mà vị thế Long trả cho vị thế Short (nếu âm, Short trả cho Long). Funding không kèm phí bổ sung; đây là khoản chuyển ngang hàng giữa người dùng để đưa giá tiến gần giá giao ngay. Xem tài liệu để biết chi tiết."
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Hours must be 0-{TWAP_HOURS_MAX}"
+msgstr "Số giờ phải trong khoảng 0-{TWAP_HOURS_MAX}"
+
 #: src/components/referrals/referral-rewards-card.tsx
 msgid "How Hyperliquid referrals work"
 msgstr "Cách hoạt động của chương trình giới thiệu Hyperliquid"
@@ -3810,6 +3835,7 @@ msgid "Insufficient spot balance for this order."
 msgstr "Số dư giao ngay không đủ cho lệnh này."
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Interest"
 msgstr "Tiền lãi"
 
@@ -3928,6 +3954,7 @@ msgstr "Người quản lý"
 msgid "Leader commission"
 msgstr "Hoa hồng người quản lý"
 
+#: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -4050,6 +4077,10 @@ msgstr "Mua giới hạn"
 msgid "Limit Close"
 msgstr "Đóng theo giá giới hạn"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Limit Close {displayName}"
+msgstr "Đóng theo giá giới hạn {displayName}"
+
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
 msgstr "Thực thi giới hạn"
@@ -4140,8 +4171,12 @@ msgid "Loading authorized API wallets"
 msgstr "Đang tải ví API đã ủy quyền"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Loading balances across all chains..."
-msgstr "Đang tải số dư trên tất cả các chuỗi..."
+msgid "Loading balances"
+msgstr "Đang tải số dư"
+
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
+#~ msgid "Loading balances across all chains..."
+#~ msgstr "Đang tải số dư trên tất cả các chuỗi..."
 
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/funding-history/funding-history-page.tsx
@@ -4160,6 +4195,10 @@ msgstr "Đang tải tỷ lệ funding"
 msgid "Loading leaderboard"
 msgstr "Đang tải bảng xếp hạng"
 
+#: src/components/trade/components/command-menu.tsx
+msgid "Loading markets"
+msgstr "Đang tải thị trường"
+
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Loading markets..."
 msgstr "Đang tải thị trường..."
@@ -4168,6 +4207,10 @@ msgstr "Đang tải thị trường..."
 #: src/components/historical-orders/historical-orders-page.tsx
 msgid "Loading order history"
 msgstr "Đang tải lịch sử lệnh"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Loading position data. Switching to Isolated mode is temporarily unavailable."
+msgstr "Đang tải dữ liệu vị thế. Tạm thời không thể chuyển sang chế độ cô lập."
 
 #: src/components/trade/positions/position-pnl-share-modal.tsx
 msgid "Loading QR code"
@@ -4435,6 +4478,10 @@ msgstr "Nhấp vào \"Thị trường\" hiện sẽ đóng toàn bộ vị thế
 msgid "Market Close"
 msgstr "Đóng theo giá thị trường"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Market Close {displayName}"
+msgstr "Đóng theo giá thị trường {displayName}"
+
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
 msgstr "Xác nhận đóng theo giá thị trường"
@@ -4632,6 +4679,10 @@ msgstr "Phút"
 msgid "Minute(s)"
 msgstr "Phút"
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Minutes must be 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+msgstr "Số phút phải trong khoảng 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+
 #: src/components/trade/components/mobile-agent-qr-scanner.tsx
 #: src/routes/mobile-agent-sync.tsx
 msgid "Mobile QR import is temporarily unavailable."
@@ -4652,9 +4703,17 @@ msgstr "Sửa lệnh"
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Modify Order"
 msgstr "Sửa lệnh"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Modify Order for {marketLabel}"
+msgstr "Sửa lệnh {marketLabel}"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
+msgid "Modify Order for {marketLabel}: {modifyUnavailableReason}"
+msgstr "Sửa lệnh {marketLabel}: {modifyUnavailableReason}"
 
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -5269,7 +5328,6 @@ msgstr "Giới hạn hợp đồng mở"
 msgid "Open Interest Reward"
 msgstr "Phần thưởng hợp đồng mở"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Long"
@@ -5304,7 +5362,6 @@ msgstr "Lệnh đang mở đã thay đổi. Vui lòng mở lại hộp thoại x
 msgid "Open related page"
 msgstr "Mở trang liên quan"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Short"
@@ -5464,6 +5521,7 @@ msgstr "Lệnh"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
 msgid "Orders with linked TP/SL orders cannot be modified here."
 msgstr "Không thể chỉnh sửa lệnh có đính kèm lệnh TP/SL tại đây."
 
@@ -5798,8 +5856,8 @@ msgid "Position data is unavailable"
 msgstr "Dữ liệu vị thế không khả dụng"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
-msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
-msgstr "Dữ liệu vị thế không khả dụng. Vui lòng chờ kết nối tài khoản khôi phục trước khi thay đổi chế độ ký quỹ."
+#~ msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
+#~ msgstr "Dữ liệu vị thế không khả dụng. Vui lòng chờ kết nối tài khoản khôi phục trước khi thay đổi chế độ ký quỹ."
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 msgid "Position margin"
@@ -5852,6 +5910,7 @@ msgid "Positive PNL"
 msgstr "PNL dương"
 
 #: src/components/trade/tradebox/trade-form-tif.tsx
+#: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 msgid "Post Only"
 msgstr "Post Only"
@@ -5941,6 +6000,8 @@ msgstr "Trang Vault trước"
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -6297,6 +6358,7 @@ msgid "Referrals & rewards"
 msgstr "Giới thiệu & phần thưởng"
 
 #: src/components/referrals/referral-activity.tsx
+#: src/components/referrals/referred-traders.tsx
 msgid "Referred traders"
 msgstr "Nhà giao dịch được giới thiệu"
 
@@ -6550,6 +6612,7 @@ msgid "Resume tracking"
 msgstr "Tiếp tục theo dõi"
 
 #: src/components/api-wallet/api-wallet-list.tsx
+#: src/components/earn/earn-view.tsx
 #: src/components/funding-comparison/funding-comparison-view.tsx
 #: src/components/portfolio/portfolio-overview.tsx
 #: src/components/portfolio/portfolio-performance-chart.tsx
@@ -6562,6 +6625,7 @@ msgstr "Tiếp tục theo dõi"
 #: src/components/trade/chart/funding-history-panel.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/tradingview-chart.tsx
+#: src/components/trade/components/command-menu.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/market-asset-info.tsx
@@ -6574,6 +6638,7 @@ msgstr "Tiếp tục theo dõi"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -6613,6 +6678,10 @@ msgstr "Đảo chiều"
 msgctxt "Position action"
 msgid "Reverse"
 msgstr "Đảo chiều"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Reverse {displayName} position"
+msgstr "Đảo chiều vị thế {displayName}"
 
 #: src/components/trade/positions/position-inline-actions.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
@@ -6986,6 +7055,7 @@ msgstr "PNL kỳ đã chọn"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -7168,6 +7238,10 @@ msgstr "Đang ký bằng ví email của bạn"
 msgid "Signing..."
 msgstr "Đang ký..."
 
+#: src/components/vaults/vault-performance-chart.tsx
+msgid "Single data point at <0>{latestValue}</0>."
+msgstr "Chỉ có một điểm dữ liệu tại <0>{latestValue}</0>."
+
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
@@ -7192,6 +7266,8 @@ msgstr "Đang ký..."
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/funding-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -7324,9 +7400,16 @@ msgid "Sort by"
 msgstr "Sắp xếp theo"
 
 #: src/components/trade/chart/token-selector-content.tsx
-#: src/components/trade/chart/token-selector-content.tsx
 msgid "Sort by {sortLabel}"
 msgstr "Sắp xếp theo {sortLabel}"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted ascending"
+msgstr "Sắp xếp theo {sortLabel}, đang xếp tăng dần"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted descending"
+msgstr "Sắp xếp theo {sortLabel}, đang xếp giảm dần"
 
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Sort leaderboard"
@@ -7340,6 +7423,14 @@ msgstr "Sắp xếp thị trường"
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Sorted by {0}"
 msgstr "Đã sắp xếp theo {0}"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, ascending"
+msgstr "Đã sắp xếp theo {sortLabel}, tăng dần"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, descending"
+msgstr "Đã sắp xếp theo {sortLabel}, giảm dần"
 
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
@@ -7757,9 +7848,6 @@ msgid "Switch to {displayName} market, short position"
 msgstr "Chuyển sang thị trường {displayName}, vị thế Short"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/positions/twap-tab.tsx
@@ -7768,6 +7856,9 @@ msgstr "Chuyển sang thị trường {marketLabel}"
 
 #: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-tab.tsx
 msgid "Switch to {marketName} market"
 msgstr "Chuyển sang thị trường {marketName}"
 
@@ -8316,8 +8407,12 @@ msgid "The server rejected the request. Try again later."
 msgstr "Máy chủ đã từ chối yêu cầu. Vui lòng thử lại sau."
 
 #: src/components/vaults/vault-action-modal.tsx
-msgid "The signed {action} request is dispatched once and will not be retried automatically."
-msgstr "Yêu cầu {action} đã ký chỉ được gửi một lần và sẽ không tự động thử lại."
+#~ msgid "The signed {action} request is dispatched once and will not be retried automatically."
+#~ msgstr "Yêu cầu {action} đã ký chỉ được gửi một lần và sẽ không tự động thử lại."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed deposit request is dispatched once and will not be retried automatically."
+msgstr "Yêu cầu nạp đã ký chỉ được gửi đi một lần và sẽ không tự động thử lại."
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request has been submitted. Keep this window open."
@@ -8326,6 +8421,10 @@ msgstr "Yêu cầu đã ký đã được gửi. Vui lòng giữ cửa sổ này
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request may have succeeded, but reconciliation timed out. Do not submit it again; verify against fresh extraAgents data. Closing before verification discards the local key."
 msgstr "Yêu cầu đã ký có thể đã thành công, nhưng quá trình đối chiếu đã hết thời gian chờ. Không gửi lại; hãy xác minh với dữ liệu extraAgents mới nhất. Đóng cửa sổ trước khi xác minh sẽ hủy bỏ khóa cục bộ."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed withdrawal request is dispatched once and will not be retried automatically."
+msgstr "Yêu cầu rút đã ký chỉ được gửi đi một lần và sẽ không tự động thử lại."
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "The start and end values are unchanged."
@@ -8718,6 +8817,7 @@ msgstr "TIF"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/funding-tab.tsx
@@ -8761,6 +8861,13 @@ msgstr "Chuyển đổi đơn vị lãi lỗ"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 msgid "Toggle size mode"
 msgstr "Chuyển đổi chế độ số lượng"
+
+#: src/components/referrals/referral-action-modal.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referred-traders.tsx
+msgid "Token #{tokenId}"
+msgstr "Token #{tokenId}"
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Token ID"
@@ -8852,6 +8959,7 @@ msgstr "Giá TP"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
 msgid "TP/SL"
@@ -8861,6 +8969,10 @@ msgstr "TP/SL"
 msgctxt "Current orders column"
 msgid "TP/SL"
 msgstr "TP/SL"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "TP/SL for {displayName}"
+msgstr "TP/SL cho {displayName}"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "TP/SL may have changed. Review this position's TP/SL before retrying."
@@ -9134,7 +9246,6 @@ msgstr "Đã kích hoạt"
 msgid "Try again"
 msgstr "Thử lại"
 
-#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/bridge/bridge-error-screen.tsx
 msgid "Try Again"
 msgstr "Thử lại"
@@ -9256,6 +9367,8 @@ msgstr "Hợp đồng mở hai chiều: tổng các vị thế Long và Short tr
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Type"
 msgstr "Loại"
@@ -9301,6 +9414,10 @@ msgstr "Không thể xác minh quyền truy cập"
 #: src/lib/trade/withdrawal.ts
 msgid "Unable to verify available balance"
 msgstr "Không thể xác minh số dư khả dụng"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Unable to verify current positions. Switching to Isolated mode is temporarily unavailable."
+msgstr "Không thể xác minh các vị thế hiện tại. Tạm thời không thể chuyển sang chế độ cô lập."
 
 #: src/hooks/trade/use-deposit-availability.ts
 msgid "Unable to verify regional availability. Deposits are temporarily unavailable."
@@ -9528,6 +9645,7 @@ msgstr "Chưa xác nhận cập nhật. Hãy kiểm tra cài đặt tài khoản
 msgid "Updated"
 msgstr "Đã cập nhật"
 
+#: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Updated live"
 msgstr "Cập nhật trực tiếp"

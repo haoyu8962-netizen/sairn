@@ -156,7 +156,9 @@ test("the static ticker becomes a marquee only with motion enabled, and pauses o
 	assert.match(STYLES, /\.ticker-mirror \{\s*display: none;/, "the duplicated cards exist only while the marquee moves");
 	const live = COMPONENTS.find(({ file }) => file === "LiveMarkets.astro").text;
 	assert.match(live, /data-ticker="static"/, "without the script the ticker is a scroll-snap row");
-	assert.match(live, /class="ticker-list ticker-mirror py-1" aria-hidden="true" inert>/);
+	assert.match(live, /class="ticker-list ticker-mirror py-1" aria-hidden="true">/);
+	assert.doesNotMatch(live, /ticker-mirror[^>]*\binert\b/, "visible mirror cards must remain clickable by pointer");
+	assert.match(live, /tabindex="-1"[^>]*data-live-mirror=/, "mirror links stay out of keyboard Tab order");
 });
 
 test("default styles are the final state and motion stops under prefers-reduced-motion", () => {

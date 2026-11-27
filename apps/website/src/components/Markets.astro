@@ -182,11 +182,11 @@ function marketCountLabel(count: number): string {
 				{preIpoRows.map((row) => (
 					<li class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-6" data-market-coin={row.coin}>
 						<div class="flex gap-3">
-							<MarketIcon coin={row.coin} size={20} class="mt-3 sm:mt-0.5" />
+							<MarketIcon coin={row.coin} size={20} class="mt-3 sm:mt-0.5 sm:any-pointer-coarse:mt-3" />
 							<div class="min-w-0 text-xs">
 								<a
 									href={terminalTradeUrl(row.coin, "markets_preipo")}
-									class="inline-flex min-h-11 items-center text-base font-medium text-fg underline-offset-2 hover:underline sm:min-h-0"
+									class="inline-flex min-h-11 items-center text-base font-medium text-fg underline-offset-2 hover:underline active:opacity-75 sm:min-h-0 sm:any-pointer-coarse:min-h-11"
 								>{row.name}</a>
 								<span class="font-mono text-xs text-fg-subtle"> · by {row.deployerFullName}</span>
 								{row.quotedPerShare && <span class="mt-1 block text-fg-muted">Quoted per share of the company</span>}
@@ -201,7 +201,7 @@ function marketCountLabel(count: number): string {
 						<a
 							href={row.preIpoTerms ? row.preIpoTerms.unitSource.url : row.docsUrl}
 							rel="noopener"
-							class="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-fg-muted underline underline-offset-2 hover:text-fg max-sm:ml-8 sm:min-h-0"
+							class="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-fg-muted underline underline-offset-2 hover:text-fg active:text-fg active:opacity-75 max-sm:ml-8 sm:min-h-0 sm:any-pointer-coarse:min-h-11"
 						>
 							{row.preIpoTerms ? "How the price is set →" : "Deployer documentation →"}
 						</a>

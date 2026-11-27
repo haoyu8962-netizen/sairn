@@ -47,9 +47,12 @@ export function PositionReverseConfirmationModal({
 			showHandle={isMobile}
 			closeLabel={t`Close reverse confirmation`}
 			handleClassName="top-2 h-1 w-9 !rounded-[2px] bg-market-close-stroke-input"
-			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none [&>button]:!top-5 [&>button]:!right-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:max-w-[23.75rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!right-6"
+			className="font-market-close max-h-[calc(100dvh-1rem)] !rounded-t-[18px] !bg-modal !shadow-none [&>button]:!top-5 [&>button]:!end-4 [&>button]:!rounded-[8px] [&>button]:text-market-close-muted [&>button:hover]:bg-market-close-hover [&>button:hover]:text-market-close-fg [&>button:active]:bg-market-close-hover min-[1001px]:max-w-[23.75rem] min-[1001px]:!rounded-[16px] min-[1001px]:!shadow-overlay min-[1001px]:[&>button]:!top-6 min-[1001px]:[&>button]:!end-6"
 		>
-			<ModalHeader divider={false} className="gap-1 px-4 pt-7 pb-0 text-start min-[1001px]:px-6 min-[1001px]:pt-6">
+			<ModalHeader
+				divider={false}
+				className="gap-1 ps-4 pe-14 pt-7 pb-0 text-start min-[1001px]:ps-6 min-[1001px]:pe-16 min-[1001px]:pt-6"
+			>
 				<ModalTitle className="text-base leading-[22px] font-bold text-market-close-fg min-[1001px]:text-[17px] min-[1001px]:leading-6">
 					{t`Reverse Position`}
 				</ModalTitle>
@@ -144,7 +147,7 @@ function ReverseDetailRow({
 	return (
 		<div
 			className={cn(
-				"flex items-center justify-between gap-4",
+				"flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5",
 				separated && "border-t border-dashed border-market-close-stroke-card pt-2.5",
 			)}
 		>
@@ -152,12 +155,12 @@ function ReverseDetailRow({
 			<dd
 				aria-describedby={describedBy}
 				className={cn(
-					"min-w-0 truncate text-right text-market-close-fg",
+					"ms-auto min-w-0 max-w-full text-end text-market-close-fg [overflow-wrap:anywhere]",
 					emphasized && "font-bold",
 					numeric && "font-semibold tabular-nums",
 				)}
 			>
-				{value}
+				{typeof value === "string" ? <bdi>{value}</bdi> : value}
 			</dd>
 		</div>
 	);

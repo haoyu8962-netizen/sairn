@@ -94,47 +94,85 @@ function MobileWalletChooser({
 	const { t } = useLingui();
 	const [view, setView] = useState<"choice" | "pwa" | "scanner">("choice");
 	const [isInstalling, setIsInstalling] = useState(false);
+	const [installFailed, setInstallFailed] = useState(false);
+	const installAttemptRef = useRef(0);
 	const { reconnectWallet, walletsReady, isReconnecting } = useReconnectWallet();
 	const { capability: pwaCapability, promptInstall } = usePwaInstall();
 	const canOfferPwa = pwaCapability === "browser-prompt" || pwaCapability === "ios-instructions";
 
+	useEffect(() => {
+		if (!open) {
+			installAttemptRef.current += 1;
+		}
+		return () => {
+			installAttemptRef.current += 1;
+		};
+	}, [open]);
+
+	function handleOpenChange(nextOpen: boolean) {
+		if (!nextOpen) {
+			installAttemptRef.current += 1;
+		}
+		onOpenChange(nextOpen);
+	}
+
+	function showView(nextView: "choice" | "pwa" | "scanner") {
+		installAttemptRef.current += 1;
+		setIsInstalling(false);
+		setInstallFailed(false);
+		setView(nextView);
+	}
+
 	function handleReconnectWallet() {
 		if (!ready || !walletsReady || isReconnecting) return;
-		onOpenChange(false);
+		handleOpenChange(false);
 		void reconnectWallet();
 	}
 
 	function handleEmailLogin() {
 		if (!ready || authenticated) return;
-		onOpenChange(false);
+		handleOpenChange(false);
 		login({ loginMethods: ["email"] });
 	}
 
 	function handleWalletLogin() {
 		if (!ready || authenticated) return;
-		onOpenChange(false);
+		handleOpenChange(false);
 		login({ loginMethods: ["wallet"], walletChainType: "ethereum-only" });
 	}
 
 	async function handleInstallApp() {
-		if (pwaCapability !== "browser-prompt" || isInstalling) return;
+		if (pwaCapability !== "browser-prompt" || isInstalling || !open || view !== "pwa") return;
+		const attemptId = installAttemptRef.current + 1;
+		installAttemptRef.current = attemptId;
 		setIsInstalling(true);
-		await promptInstall();
+		setInstallFailed(false);
+		let outcome: "accepted" | "dismissed" | "failed";
+		try {
+			outcome = await promptInstall();
+		} catch {
+			outcome = "failed";
+		}
+		if (installAttemptRef.current !== attemptId) return;
 		setIsInstalling(false);
-		onOpenChange(false);
+		if (outcome === "failed") {
+			setInstallFailed(true);
+			return;
+		}
+		handleOpenChange(false);
 	}
 
 	return (
 		<AdaptiveModal
 			open={open}
-			onOpenChange={onOpenChange}
+			onOpenChange={handleOpenChange}
 			presentation="drawer"
 			size="sm"
 			closeLabel={t`Close`}
 			showHandle={false}
 			className="max-h-[calc(100dvh-1rem)] overflow-y-auto"
 		>
-			<ModalHeader divider={view !== "choice"} className={view === "choice" ? "px-4 pt-5 pb-2" : undefined}>
+			<ModalHeader divider={view !== "choice"} className={view === "choice" ? "ps-4 pe-14 pt-5 pb-2" : undefined}>
 				<ModalTitle className={view === "choice" ? "text-xl" : undefined}>
 					{view === "choice" ? (
 						<Trans>Connect</Trans>
@@ -174,7 +212,7 @@ function MobileWalletChooser({
 								intent="neutral"
 								size="md"
 								className={MOBILE_CONNECT_BUTTON_CLASS}
-								onClick={() => setView("scanner")}
+								onClick={() => showView("scanner")}
 								iconLeft={<DesktopIcon className="size-5" aria-hidden />}
 							>
 								<Trans>Link Desktop Wallet</Trans>
@@ -237,7 +275,7 @@ function MobileWalletChooser({
 								intent="brand"
 								size="md"
 								className="h-13 w-full bg-success-soft px-4 text-sm font-medium text-success shadow-none"
-								onClick={() => setView("pwa")}
+								onClick={() => showView("pwa")}
 								iconLeft={<DownloadSimpleIcon className="size-5" aria-hidden />}
 							>
 								<span>
@@ -250,9 +288,19 @@ function MobileWalletChooser({
 						)}
 					</>
 				) : view === "scanner" ? (
-					<MobileAgentQrScanner onCancel={() => setView("choice")} />
+					<MobileAgentQrScanner onCancel={() => showView("choice")} />
 				) : (
 					<div className="space-y-3">
+						{installFailed && (
+							<p
+								role="alert"
+								className="rounded-16 border border-stroke-error-weak bg-error-soft px-3 py-2 text-xs text-error"
+							>
+								<Trans>
+									Could not start app installation. Use your browser menu to install, or go back to connect.
+								</Trans>
+							</p>
+						)}
 						{pwaCapability === "browser-prompt" && (
 							<Button
 								type="button"
@@ -273,7 +321,7 @@ function MobileWalletChooser({
 							intent="neutral"
 							size="md"
 							className="w-full"
-							onClick={() => setView("choice")}
+							onClick={() => showView("choice")}
 							iconLeft={<ArrowLeftIcon className="size-4 rtl:rotate-180" aria-hidden />}
 						>
 							<Trans>Back</Trans>

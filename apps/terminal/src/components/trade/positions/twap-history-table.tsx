@@ -10,6 +10,7 @@ import { formatClockDuration, formatDateTime, useNumberFormat } from "@/lib/form
 import { useMarkets } from "@/lib/hyperliquid";
 import { getMarketPriceFormatOptions } from "@/lib/trade/market-price-format";
 import { getTwapAverageFillPrice, getTwapHistoryDurationMs, getTwapHistoryTimeMs } from "@/lib/trade/order-history";
+import { HistoricalOrderStatusBadge } from "./historical-order-status-badge";
 import { PassiveDataPlaceholder } from "./passive-data-placeholder";
 import { ConnectPlaceholder, Placeholder } from "./placeholder";
 import { positionsPanelTableShellClass } from "./positions-panel-table-styles";
@@ -121,18 +122,18 @@ export function TwapHistoryTable() {
 										<td className="p-0 text-center text-market-close-muted">
 											{entry.state.randomize ? t`Yes` : t`No`}
 										</td>
-										<td
-											title={statusDescription}
-											className={cn(
-												"p-0 text-right font-semibold",
-												entry.status.status === "finished" && "text-market-close-success",
-												entry.status.status === "error" && "text-market-close-danger",
-												entry.status.status !== "finished" &&
-													entry.status.status !== "error" &&
-													"text-market-close-muted",
-											)}
-										>
-											{statusLabel}
+										<td className="p-0 text-right">
+											<HistoricalOrderStatusBadge
+												status={{ label: statusLabel, reason: statusDescription ?? null }}
+												className={cn(
+													"font-semibold",
+													entry.status.status === "finished" && "text-market-close-success",
+													entry.status.status === "error" && "text-market-close-danger",
+													entry.status.status !== "finished" &&
+														entry.status.status !== "error" &&
+														"text-market-close-muted",
+												)}
+											/>
 										</td>
 									</tr>
 								);

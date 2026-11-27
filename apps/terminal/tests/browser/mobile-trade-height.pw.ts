@@ -102,7 +102,7 @@ test("preserves wrapped TWAP hint height when the mark reaches the trigger", asy
 	await expect(hint.locator("span:visible")).toHaveCount(0);
 	await page.getByRole("button", { name: "Quote", exact: true }).click();
 	expect(await hint.evaluate((node) => node.getBoundingClientRect().height)).toBe(before.height);
-	await expect(hint.locator("span:visible")).toHaveText("Activates when mark ≤ 110000000000000");
+	await expect(hint.locator("span:visible")).toHaveText("Activates when mark ≤ 110,000,000,000,000");
 	await expect(hint.locator('span[aria-hidden="false"]')).toHaveCount(1);
 	await page.getByRole("button", { name: "Quote", exact: true }).click();
 	expect(await hint.evaluate((node) => node.getBoundingClientRect().height)).toBe(before.height);

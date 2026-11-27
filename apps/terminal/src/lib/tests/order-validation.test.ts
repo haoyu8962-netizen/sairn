@@ -400,6 +400,51 @@ describe("TWAP trigger and stop price validation", () => {
 
 		expect(result.errors.filter((error) => error.category === "twap")).toEqual([]);
 	});
+
+	it("rejects non-empty unparseable TWAP trigger and stop inputs when advanced settings are enabled", () => {
+		for (const raw of [".", "-", "-.", ","]) {
+			const perpTrigger = validatePerpOrder(
+				twapContext({ twapPricesEnabled: true, twapTriggerPriceInput: raw, twapTriggerPriceNum: null }),
+			);
+			const perpStop = validatePerpOrder(
+				twapContext({ side: "sell", twapPricesEnabled: true, twapStopPriceInput: raw, twapStopPriceNum: null }),
+			);
+			const spotTrigger = validateSpotOrder(
+				spotContext({
+					twapOrder: true,
+					twapMinutesNum: 30,
+					orderValue: 1_000,
+					twapPricesEnabled: true,
+					twapTriggerPriceInput: raw,
+					twapTriggerPriceNum: null,
+				}),
+			);
+			const spotStop = validateSpotOrder(
+				spotContext({
+					twapOrder: true,
+					twapMinutesNum: 30,
+					orderValue: 1_000,
+					twapPricesEnabled: true,
+					twapStopPriceInput: raw,
+					twapStopPriceNum: null,
+				}),
+			);
+
+			expect(perpTrigger.canSubmit).toBe(false);
+			expect(perpTrigger.errors.map((error) => error.code)).toContain("TWAP_003");
+			expect(perpStop.canSubmit).toBe(false);
+			expect(perpStop.errors.find((error) => error.code === "TWAP_004")?.message).toBe("Enter a valid min price");
+			expect(spotTrigger.canSubmit).toBe(false);
+			expect(spotTrigger.errors.map((error) => error.code)).toContain("TWAP_003");
+			expect(spotStop.canSubmit).toBe(false);
+			expect(spotStop.errors.map((error) => error.code)).toContain("TWAP_004");
+		}
+
+		const disabled = validatePerpOrder(
+			twapContext({ twapPricesEnabled: false, twapTriggerPriceInput: ".", twapStopPriceInput: "." }),
+		);
+		expect(disabled.canSubmit).toBe(true);
+	});
 });
 
 describe("reduce-only trigger validation", () => {

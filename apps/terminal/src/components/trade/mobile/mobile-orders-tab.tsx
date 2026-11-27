@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ListIcon } from "@phosphor-icons/react";
 import { Button, Select } from "@sairn/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MOBILE_FILTER_CHIP_CLASS } from "@/components/trade/mobile/mobile-filter-chip";
 import { DataPendingState } from "@/components/ui/data-pending-state";
@@ -48,6 +48,7 @@ import {
 import { useMarketNavigation } from "@/hooks/trade/use-market-navigation";
 import { useOrderDisplayLabels } from "@/hooks/trade/use-order-display-labels";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
+import { useLingeringValue } from "@/hooks/use-lingering-value";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { type ActionFailure, formatActionFailure } from "@/lib/errors/action-error";
@@ -62,6 +63,7 @@ import {
 	useMarketsInfo,
 	useSubscription,
 } from "@/lib/hyperliquid";
+import { getMarketDexLabel, getMarketListLabel } from "@/lib/hyperliquid/markets/helper";
 import {
 	isClosePositionOrder,
 	isMarketTriggerOrder,
@@ -100,6 +102,8 @@ interface Props {
 
 type CancelScope = "row" | "all";
 type ModifyPhase = "idle" | "submitting" | "awaiting";
+
+const MODIFY_DIALOG_EXIT_MS = 250;
 
 type OrderValidationErrorCode =
 	| "cancellation-response-unconfirmed"
@@ -1098,7 +1102,51 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 	const modifyOrder = modifyTarget
 		? (openOrders.find((order) => order.oid === modifyTarget.size.order.oid) ?? null)
 		: null;
-	const modifyMarketLabel = modifyOrder ? (markets.getMarket(modifyOrder.coin)?.shortName ?? modifyOrder.coin) : "";
+	const modifyMarket = modifyOrder ? markets.getMarket(modifyOrder.coin) : undefined;
+	const modifyMarketBaseLabel = modifyOrder ? getMarketListLabel(modifyMarket, modifyOrder.coin) : "";
+	const modifyMarketDex = getMarketDexLabel(modifyMarket);
+	const modifyMarketLabel = modifyMarketDex ? `${modifyMarketBaseLabel} (${modifyMarketDex})` : modifyMarketBaseLabel;
+	const modifySizeUnitLabel = modifyOrder
+		? (modifyMarket?.shortName ?? modifyOrder.coin.split(":").pop() ?? modifyOrder.coin)
+		: "";
+	const modifyDirectionLabel = modifyOrder ? getOrderSideLabel(modifyOrder.side, modifyOrder.reduceOnly) : "";
+	const modifyDirectionTone: "positive" | "negative" = modifyOrder?.side === "B" ? "positive" : "negative";
+	const modifyTypeLabel = modifyOrder ? getFullOrderTypeLabel(modifyOrder) : "";
+	const activeModifyDialog = useMemo(
+		() =>
+			modifyOrder && modifyPhase === "idle"
+				? {
+						marketLabel: modifyMarketLabel,
+						sizeUnitLabel: modifySizeUnitLabel,
+						directionLabel: modifyDirectionLabel,
+						directionTone: modifyDirectionTone,
+						typeLabel: modifyTypeLabel,
+						sizeValue: modifySize,
+						triggerPriceValue: modifyTriggerPrice,
+						limitPriceValue: modifyLimitPrice,
+						sizeInvalid: draftInvalidField === "size",
+						triggerPriceInvalid: draftInvalidField === "triggerPrice",
+						limitPriceInvalid: draftInvalidField === "limitPrice",
+						errorMessage: modalError,
+					}
+				: null,
+		[
+			draftInvalidField,
+			modalError,
+			modifyDirectionLabel,
+			modifyDirectionTone,
+			modifyLimitPrice,
+			modifyMarketLabel,
+			modifyOrder,
+			modifyPhase,
+			modifySize,
+			modifySizeUnitLabel,
+			modifyTriggerPrice,
+			modifyTypeLabel,
+		],
+	);
+	const displayedModifyDialog = useLingeringValue(activeModifyDialog, MODIFY_DIALOG_EXIT_MS);
+	const isModifyModalOpen = activeModifyDialog !== null;
 
 	function renderFilterToolbar(disabled: boolean) {
 		return (
@@ -1199,7 +1247,8 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 									order={order}
 									szDecimals={market?.szDecimals ?? markets.getSzDecimals(order.coin)}
 									marketType={market?.kind === "spot" ? "spot" : "perp"}
-									marketLabel={market?.shortName ?? order.coin}
+									marketLabel={getMarketListLabel(market, order.coin)}
+									marketDex={getMarketDexLabel(market)}
 									markPx={(() => {
 										const marketInfo = getMarketInfo(order.coin);
 										return isLiveMarkPriceReady(
@@ -1245,22 +1294,23 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 				onOpenChange={handleCancelAllOpenChange}
 				onConfirm={handleConfirmCancelAll}
 			/>
-			{modifyOrder ? (
+			{displayedModifyDialog ? (
 				<MobileOrderModificationModal
-					open={modifyPhase === "idle"}
-					marketLabel={modifyMarketLabel}
-					directionLabel={getOrderSideLabel(modifyOrder.side, modifyOrder.reduceOnly)}
-					directionTone={modifyOrder.side === "B" ? "positive" : "negative"}
-					typeLabel={getFullOrderTypeLabel(modifyOrder)}
-					sizeValue={modifySize}
-					triggerPriceValue={modifyTriggerPrice}
-					limitPriceValue={modifyLimitPrice}
-					sizeInvalid={draftInvalidField === "size"}
-					triggerPriceInvalid={draftInvalidField === "triggerPrice"}
-					limitPriceInvalid={draftInvalidField === "limitPrice"}
-					isInteractionLocked={isModifyBusy}
-					isConfirmDisabled={isModifyConfirmDisabled}
-					errorMessage={modalError}
+					open={isModifyModalOpen}
+					marketLabel={displayedModifyDialog.marketLabel}
+					sizeUnitLabel={displayedModifyDialog.sizeUnitLabel}
+					directionLabel={displayedModifyDialog.directionLabel}
+					directionTone={displayedModifyDialog.directionTone}
+					typeLabel={displayedModifyDialog.typeLabel}
+					sizeValue={displayedModifyDialog.sizeValue}
+					triggerPriceValue={displayedModifyDialog.triggerPriceValue}
+					limitPriceValue={displayedModifyDialog.limitPriceValue}
+					sizeInvalid={displayedModifyDialog.sizeInvalid}
+					triggerPriceInvalid={displayedModifyDialog.triggerPriceInvalid}
+					limitPriceInvalid={displayedModifyDialog.limitPriceInvalid}
+					isInteractionLocked={isModifyBusy || !isModifyModalOpen}
+					isConfirmDisabled={isModifyConfirmDisabled || !isModifyModalOpen}
+					errorMessage={displayedModifyDialog.errorMessage}
 					onSizeChange={handleModifySizeChange}
 					onTriggerPriceChange={handleModifyTriggerPriceChange}
 					onLimitPriceChange={handleModifyLimitPriceChange}
@@ -1277,6 +1327,7 @@ interface MobileOrderCardProps {
 	szDecimals: number;
 	marketType: "perp" | "spot";
 	marketLabel: string;
+	marketDex: string | null;
 	markPx: string;
 	expanded: boolean;
 	isCancelling: boolean;
@@ -1292,18 +1343,19 @@ interface MobileOrderCardProps {
 }
 
 interface OrderMetricProps {
+	className?: string;
 	label: ReactNode;
 	value: ReactNode;
 	valueClassName?: string;
 }
 
-function OrderMetric({ label, value, valueClassName }: OrderMetricProps) {
+function OrderMetric({ className, label, value, valueClassName }: OrderMetricProps) {
 	return (
-		<div className="flex min-w-0 flex-col gap-0.5">
-			<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{label}</div>
+		<div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
+			<div className="break-words whitespace-normal text-3xs leading-[14px] text-market-close-subtle">{label}</div>
 			<div
 				className={cn(
-					"truncate text-xs font-semibold leading-[17px] tabular-nums text-market-close-fg",
+					"min-w-0 break-words whitespace-normal [overflow-wrap:anywhere] text-xs font-semibold leading-[17px] tabular-nums text-market-close-fg",
 					valueClassName,
 				)}
 			>
@@ -1317,7 +1369,8 @@ function MobileOrderCard({
 	order,
 	szDecimals,
 	marketType,
-	marketLabel,
+	marketLabel: marketBaseLabel,
+	marketDex,
 	markPx,
 	expanded,
 	isCancelling,
@@ -1336,6 +1389,7 @@ function MobileOrderCard({
 	const locale = i18n.locale;
 	const detailsId = useId();
 	const { getOrderSideLabel, getOrderTypeLabel, getTriggerConditionLabel } = useOrderDisplayLabels();
+	const marketLabel = marketDex ? `${marketBaseLabel} (${marketDex})` : marketBaseLabel;
 	const sideLabel = getOrderSideLabel(order.side, order.reduceOnly);
 	const isBuy = order.side === "B";
 	const side: Side = isBuy ? "buy" : "sell";
@@ -1387,17 +1441,22 @@ function MobileOrderCard({
 				label={expanded ? t`Collapse ${marketLabel} order details` : t`Expand ${marketLabel} order details`}
 				controls={detailsId}
 				onToggle={() => onExpandedChange(!expanded)}
-				className="grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_16px] gap-2.5 px-3.5 py-[11px]"
+				className="grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_16px] items-start gap-2.5 px-3.5 py-[11px] [&>svg]:self-center"
 			>
 				<div className="flex min-w-0 flex-col gap-0.5">
-					<div className="truncate text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</div>
+					<div className="break-words whitespace-normal text-3xs leading-[14px] text-market-close-subtle">{t`Market`}</div>
 					<button
 						type="button"
 						onClick={() => onSelectMarket(order.coin, side)}
 						aria-label={t`Switch to ${marketLabel} market`}
-						className="pointer-events-auto relative z-10 max-w-full truncate rounded-xs text-start text-xs font-bold leading-[17px] text-market-close-fg after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
+						className="pointer-events-auto relative z-10 flex max-w-full min-w-0 flex-wrap items-center gap-1 rounded-xs text-start text-xs font-bold leading-[17px] text-market-close-fg after:absolute after:top-1/2 after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
 					>
-						{marketLabel}
+						<span className="min-w-0 break-words [overflow-wrap:anywhere]">{marketBaseLabel}</span>
+						{marketDex ? (
+							<span className="shrink-0 rounded-8 bg-fill-weak px-1 py-0.5 text-3xs leading-3 font-semibold text-market-close-muted">
+								{marketDex}
+							</span>
+						) : null}
 					</button>
 				</div>
 				<OrderMetric label={t`Type`} value={typeLabel} />
@@ -1406,7 +1465,7 @@ function MobileOrderCard({
 
 			{expanded ? (
 				<div id={detailsId} className="flex flex-col gap-2.5 px-3.5 py-3">
-					<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-x-2.5 gap-y-3">
+					<div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
 						<OrderMetric
 							label={t`Time`}
 							value={formatDateTime(order.timestamp, { locale, dateStyle: "short", timeStyle: "short" })}
@@ -1417,15 +1476,15 @@ function MobileOrderCard({
 							valueClassName={isBuy ? "text-market-close-success" : "text-market-close-danger"}
 						/>
 						<OrderMetric label={t`Price`} value={priceLabel} />
-						<OrderMetric label={t`Trigger Condition`} value={triggerConditionLabel} />
+						<OrderMetric label={t`Original Size`} value={originalSizeLabel} />
 						<OrderMetric
 							label={t`Distance to mark`}
 							value={markDistanceLabel ?? FALLBACK_VALUE_PLACEHOLDER}
 							valueClassName={isNearMark ? "text-market-close-warning" : "text-market-close-muted"}
 						/>
-						<OrderMetric label={t`Original Size`} value={originalSizeLabel} />
 						<OrderMetric label={t`Reduce Only`} value={order.reduceOnly ? t`Yes` : t`No`} />
-						<OrderMetric label={t`TP/SL`} value={tpSlLabel} />
+						<OrderMetric className="col-span-2" label={t`Trigger Condition`} value={triggerConditionLabel} />
+						<OrderMetric className="col-span-2" label={t`TP/SL`} value={tpSlLabel} />
 					</div>
 
 					<div className="flex items-center border-t border-market-close-stroke-card/60 pt-2.5">
@@ -1443,12 +1502,17 @@ function MobileOrderCard({
 								disabled={modifyDisabled}
 								aria-disabled={!canModify || modifyDisabled}
 								title={modifyUnavailableReason}
-								aria-label={modifyUnavailableReason ? `${t`Modify Order`}: ${modifyUnavailableReason}` : undefined}
+								aria-label={
+									modifyUnavailableReason
+										? t`Modify Order for ${marketLabel}: ${modifyUnavailableReason}`
+										: t`Modify Order for ${marketLabel}`
+								}
 							>
 								{t`Modify Order`}
 							</button>
 							<button
 								type="button"
+								aria-label={t`Cancel ${marketLabel} order`}
 								className="relative inline-flex h-[18px] items-center gap-1.5 rounded-xs text-2sm leading-[18px] font-semibold whitespace-nowrap text-market-close-danger after:absolute after:top-[calc(50%_-_1px)] after:left-1/2 after:h-11 after:min-w-11 after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:text-fg-disabled"
 								onClick={() => onCancel([order])}
 								disabled={isCancelling || actionsDisabled}

@@ -34,6 +34,67 @@ function useScrollableRegion(enabled = true) {
 	return { ref, scrollable };
 }
 
+function readToastHiddenInStack(section: HTMLElement | null): boolean {
+	const toastItem = section?.closest<HTMLElement>("[data-sonner-toast]");
+	if (!toastItem) return false;
+	if (toastItem.getAttribute("data-visible") === "false") return true;
+	if (toastItem.getAttribute("data-expanded") !== "false") return false;
+	if (toastItem.getAttribute("data-front") !== "false") return false;
+	const toaster = toastItem.closest<HTMLElement>("[data-sonner-toaster]");
+	const active = document.activeElement;
+	if (toaster && active instanceof Node && toaster.contains(active)) return false;
+	return true;
+}
+
+function useHiddenInCollapsedStack() {
+	const ref = useRef<HTMLElement>(null);
+	const [hidden, setHidden] = useState(false);
+
+	useEffect(() => {
+		const section = ref.current;
+		const toastItem = section?.closest<HTMLElement>("[data-sonner-toast]");
+		if (!section || !toastItem) return;
+		const toaster = toastItem.closest<HTMLElement>("[data-sonner-toaster]");
+
+		function sync() {
+			setHidden(readToastHiddenInStack(section));
+		}
+
+		sync();
+		const observer = new MutationObserver(sync);
+		observer.observe(toastItem, {
+			attributes: true,
+			attributeFilter: ["data-expanded", "data-front", "data-visible"],
+		});
+
+		function handleFocusIn() {
+			sync();
+		}
+
+		function handleFocusOut(event: FocusEvent) {
+			const next = event.relatedTarget;
+			if (toaster && next instanceof Node && toaster.contains(next)) return;
+			if (toastItem?.getAttribute("data-visible") === "false") {
+				setHidden(true);
+				return;
+			}
+			setHidden(
+				toastItem?.getAttribute("data-expanded") === "false" && toastItem?.getAttribute("data-front") === "false",
+			);
+		}
+
+		toaster?.addEventListener("focusin", handleFocusIn);
+		toaster?.addEventListener("focusout", handleFocusOut);
+		return () => {
+			observer.disconnect();
+			toaster?.removeEventListener("focusin", handleFocusIn);
+			toaster?.removeEventListener("focusout", handleFocusOut);
+		};
+	}, []);
+
+	return { ref, hidden };
+}
+
 interface Props {
 	order: OrderQueueItem;
 	onDismiss: () => void;
@@ -47,6 +108,7 @@ export function OrderToast({ order, onDismiss }: Props) {
 	const successful = order.status === "success";
 	const failed = order.status === "failed";
 	const hasChildren = Boolean(order.children?.length);
+	const stackVisibility = useHiddenInCollapsedStack();
 	const bodyRegion = useScrollableRegion();
 	const childrenRegion = useScrollableRegion(hasChildren);
 	const childLabels = {
@@ -61,6 +123,7 @@ export function OrderToast({ order, onDismiss }: Props) {
 	};
 	return (
 		<section
+			ref={stackVisibility.ref}
 			aria-label={copy.label}
 			data-order-feedback={order.id}
 			className="w-full rounded-8 border border-stroke-weak bg-overlay p-3 shadow-overlay font-sans text-xs"
@@ -71,7 +134,7 @@ export function OrderToast({ order, onDismiss }: Props) {
 					<section
 						ref={bodyRegion.ref}
 						aria-label={bodyRegion.scrollable ? t`Notification details` : undefined}
-						tabIndex={bodyRegion.scrollable ? 0 : undefined}
+						tabIndex={!stackVisibility.hidden && bodyRegion.scrollable ? 0 : undefined}
 						data-order-scroll="body"
 						className={cn(
 							scrollRegionClassName,
@@ -104,6 +167,7 @@ export function OrderToast({ order, onDismiss }: Props) {
 					variant="ghost"
 					intent="neutral"
 					size="xs"
+					tabIndex={stackVisibility.hidden ? -1 : undefined}
 					onClick={onDismiss}
 					aria-label={t`Dismiss`}
 					className="min-h-6 min-w-6 shrink-0"
@@ -115,7 +179,7 @@ export function OrderToast({ order, onDismiss }: Props) {
 				<section
 					ref={childrenRegion.ref}
 					aria-label={childrenRegion.scrollable ? t`Order results` : undefined}
-					tabIndex={childrenRegion.scrollable ? 0 : undefined}
+					tabIndex={!stackVisibility.hidden && childrenRegion.scrollable ? 0 : undefined}
 					data-order-scroll="children"
 					className={cn(scrollRegionClassName, "mt-2")}
 				>

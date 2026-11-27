@@ -88,6 +88,10 @@ msgid "{FUNDING_HISTORY_WINDOW_DAYS}-day API window"
 msgstr "{FUNDING_HISTORY_WINDOW_DAYS}일 API 조회 기간"
 
 #: src/components/vaults/vault-performance-chart.tsx
+msgid "{label} over {periodLabel}."
+msgstr "{periodLabel} 동안의 {label}."
+
+#: src/components/vaults/vault-performance-chart.tsx
 msgid "{label} over {periodLabel}. Latest value <0>{latestValue}</0>."
 msgstr "{periodLabel} 동안의 {label}. 최신 값 <0>{latestValue}</0>."
 
@@ -487,10 +491,12 @@ msgid "Activate DEX"
 msgstr "DEX 활성화"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≤ {triggerPrice}"
 msgstr "마크가 ≤ {triggerPrice} 시 활성화"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≥ {triggerPrice}"
 msgstr "마크가 ≥ {triggerPrice} 시 활성화"
 
@@ -538,7 +544,6 @@ msgstr "증거금 추가"
 msgid "Add to Target"
 msgstr "목표까지 추가"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Add TP/SL"
 msgstr "TP/SL 추가"
@@ -687,6 +692,7 @@ msgstr "ALO (유동성 공급 전용)"
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-view.tsx
+#: src/components/trade/components/spot-swap-modal.tsx
 #: src/components/trade/positions/position-isolated-margin-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
@@ -696,6 +702,10 @@ msgstr "ALO (유동성 공급 전용)"
 msgid "Amount"
 msgstr "수량"
 
+#: src/components/trade/components/spot-swap-modal.tsx
+msgid "Amount ({token})"
+msgstr "수량 ({token})"
+
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Amount (USDC)"
 msgstr "금액 (USDC)"
@@ -703,6 +713,10 @@ msgstr "금액 (USDC)"
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount exceeds the verified available balance."
 msgstr "수량이 확인된 사용 가능 잔고를 초과합니다."
+
+#: src/components/trade/tradebox/bridge/amount-entry-screen.tsx
+msgid "Amount in USD"
+msgstr "USD 금액"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount is too large to submit safely."
@@ -1177,6 +1191,7 @@ msgstr "빌더 리워드는 누적 출처별 내역이며 추가 리워드 잔�
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -1234,6 +1249,10 @@ msgstr "데스크톱 지갑 QR 카메라 미리보기"
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Cancel"
 msgstr "취소"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Cancel {marketLabel} order"
+msgstr "{marketLabel} 주문 취소"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
@@ -1626,7 +1645,6 @@ msgstr "API 지갑 작업 닫기"
 msgid "Close close-all confirmation"
 msgstr "전체 종료 확인 닫기"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -1686,7 +1704,6 @@ msgstr "포지션 종료"
 msgid "Close reverse confirmation"
 msgstr "반전 확인 닫기"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -2145,12 +2162,16 @@ msgid "Could not check the approval on Hyperliquid. Nothing was imported. Try ag
 msgstr "Hyperliquid에서 승인 여부를 확인할 수 없습니다. 가져온 내용은 없습니다. 다시 시도하세요."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Could not fetch your token balances"
-msgstr "토큰 잔고를 불러올 수 없습니다"
+#~ msgid "Could not fetch your token balances"
+#~ msgstr "토큰 잔고를 불러올 수 없습니다"
 
 #: src/hooks/wallet/use-email-wallet-export.ts
 msgid "Could not open wallet export. Retry in your system browser on the same {BRAND_NAME} site, using the same email."
 msgstr "지갑 내보내기를 열 수 없습니다. 시스템 브라우저에서 동일한 {BRAND_NAME} 사이트를 열고 같은 이메일로 다시 시도하세요."
+
+#: src/components/trade/components/wallet-modal.tsx
+msgid "Could not start app installation. Use your browser menu to install, or go back to connect."
+msgstr "앱 설치를 시작하지 못했습니다. 브라우저 메뉴에서 설치하거나 뒤로 돌아가 연결하세요."
 
 #: src/components/referrals/referral-action-modal.tsx
 msgid "Create a code after Hyperliquid confirms your eligibility. It cannot be changed from this page later."
@@ -2705,6 +2726,7 @@ msgid "Earn"
 msgstr "Earn"
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Earn Action History"
 msgstr "Earn 작업 내역"
 
@@ -2750,7 +2772,6 @@ msgstr "{0} 주문 수량 수정"
 msgid "Edit {0} trigger price"
 msgstr "{0} 트리거 가격 수정"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Edit TP/SL"
 msgstr "TP/SL 수정"
@@ -3152,12 +3173,12 @@ msgid "Failed to export TWAP fill history."
 msgstr "TWAP 체결 내역을 내보내지 못했습니다."
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Failed to load balances"
-msgstr "잔고 불러오기 실패"
+#~ msgid "Failed to load balances"
+#~ msgstr "잔고 불러오기 실패"
 
 #: src/components/trade/chart/token-selector-content.tsx
-msgid "Failed to load market categories."
-msgstr "마켓 카테고리를 불러오지 못했습니다."
+#~ msgid "Failed to load market categories."
+#~ msgstr "마켓 카테고리를 불러오지 못했습니다."
 
 #: src/lib/trade/position-submit-feedback.ts
 msgid "Failed to load positions."
@@ -3605,6 +3626,10 @@ msgstr "1시간마다"
 msgid "Hourly rate paid by longs to shorts (if negative, shorts pay longs). Funding has no associated fee; it is a peer-to-peer transfer between users to push the price toward the spot price. See the documentation for details."
 msgstr "롱이 숏에게 지급하는 시간당 비율입니다(음수인 경우 숏이 롱에게 지급). 펀딩비에는 별도 수수료가 없으며, 가격을 현물 가격에 맞추기 위해 사용자 간 직접 주고받는 방식입니다. 자세한 내용은 문서를 참고하세요."
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Hours must be 0-{TWAP_HOURS_MAX}"
+msgstr "시간은 0-{TWAP_HOURS_MAX} 사이여야 합니다"
+
 #: src/components/referrals/referral-rewards-card.tsx
 msgid "How Hyperliquid referrals work"
 msgstr "Hyperliquid 추천 프로그램 안내"
@@ -3810,6 +3835,7 @@ msgid "Insufficient spot balance for this order."
 msgstr "이 주문에 필요한 현물 잔고가 부족합니다."
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Interest"
 msgstr "이자"
 
@@ -3928,6 +3954,7 @@ msgstr "운용자"
 msgid "Leader commission"
 msgstr "운용자 수수료"
 
+#: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -4050,6 +4077,10 @@ msgstr "지정가 매수"
 msgid "Limit Close"
 msgstr "지정가 종료"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Limit Close {displayName}"
+msgstr "{displayName} 지정가 종료"
+
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
 msgstr "지정가 체결"
@@ -4140,8 +4171,12 @@ msgid "Loading authorized API wallets"
 msgstr "승인된 API 지갑을 불러오는 중"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Loading balances across all chains..."
-msgstr "모든 체인의 잔고를 불러오는 중..."
+msgid "Loading balances"
+msgstr "잔고 불러오는 중"
+
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
+#~ msgid "Loading balances across all chains..."
+#~ msgstr "모든 체인의 잔고를 불러오는 중..."
 
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/funding-history/funding-history-page.tsx
@@ -4160,6 +4195,10 @@ msgstr "펀딩 비율을 불러오는 중"
 msgid "Loading leaderboard"
 msgstr "리더보드를 불러오는 중"
 
+#: src/components/trade/components/command-menu.tsx
+msgid "Loading markets"
+msgstr "마켓 불러오는 중"
+
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Loading markets..."
 msgstr "마켓을 불러오는 중..."
@@ -4168,6 +4207,10 @@ msgstr "마켓을 불러오는 중..."
 #: src/components/historical-orders/historical-orders-page.tsx
 msgid "Loading order history"
 msgstr "주문 내역을 불러오는 중"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Loading position data. Switching to Isolated mode is temporarily unavailable."
+msgstr "포지션 데이터를 불러오는 중입니다. 일시적으로 격리 모드로 전환할 수 없습니다."
 
 #: src/components/trade/positions/position-pnl-share-modal.tsx
 msgid "Loading QR code"
@@ -4435,6 +4478,10 @@ msgstr "현재 이 계정 및 네트워크에서는 '시장가'를 클릭하면 
 msgid "Market Close"
 msgstr "시장가 종료"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Market Close {displayName}"
+msgstr "{displayName} 시장가 종료"
+
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
 msgstr "시장가 종료 확인"
@@ -4632,6 +4679,10 @@ msgstr "분"
 msgid "Minute(s)"
 msgstr "분"
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Minutes must be 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+msgstr "분은 0-{TWAP_MINUTES_PER_INPUT_MAX} 사이여야 합니다"
+
 #: src/components/trade/components/mobile-agent-qr-scanner.tsx
 #: src/routes/mobile-agent-sync.tsx
 msgid "Mobile QR import is temporarily unavailable."
@@ -4652,9 +4703,17 @@ msgstr "주문 수정"
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Modify Order"
 msgstr "주문 수정"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Modify Order for {marketLabel}"
+msgstr "{marketLabel} 주문 수정"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
+msgid "Modify Order for {marketLabel}: {modifyUnavailableReason}"
+msgstr "{marketLabel} 주문 수정: {modifyUnavailableReason}"
 
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -5269,7 +5328,6 @@ msgstr "미결제약정 한도"
 msgid "Open Interest Reward"
 msgstr "미결제약정 리워드"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Long"
@@ -5304,7 +5362,6 @@ msgstr "미체결 주문이 변경되었습니다. 확인 창을 다시 열고 �
 msgid "Open related page"
 msgstr "관련 페이지 열기"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Short"
@@ -5464,6 +5521,7 @@ msgstr "주문"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
 msgid "Orders with linked TP/SL orders cannot be modified here."
 msgstr "연동된 TP/SL 주문이 있는 주문은 여기에서 수정할 수 없습니다."
 
@@ -5798,8 +5856,8 @@ msgid "Position data is unavailable"
 msgstr "포지션 데이터를 사용할 수 없습니다"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
-msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
-msgstr "포지션 데이터를 사용할 수 없습니다. 계정 연결이 복구된 후 마진 모드를 변경하세요."
+#~ msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
+#~ msgstr "포지션 데이터를 사용할 수 없습니다. 계정 연결이 복구된 후 마진 모드를 변경하세요."
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 msgid "Position margin"
@@ -5852,6 +5910,7 @@ msgid "Positive PNL"
 msgstr "양수 손익"
 
 #: src/components/trade/tradebox/trade-form-tif.tsx
+#: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 msgid "Post Only"
 msgstr "포스트 온리"
@@ -5941,6 +6000,8 @@ msgstr "이전 볼트 페이지"
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -6297,6 +6358,7 @@ msgid "Referrals & rewards"
 msgstr "추천 및 리워드"
 
 #: src/components/referrals/referral-activity.tsx
+#: src/components/referrals/referred-traders.tsx
 msgid "Referred traders"
 msgstr "추천한 트레이더"
 
@@ -6550,6 +6612,7 @@ msgid "Resume tracking"
 msgstr "추적 재개"
 
 #: src/components/api-wallet/api-wallet-list.tsx
+#: src/components/earn/earn-view.tsx
 #: src/components/funding-comparison/funding-comparison-view.tsx
 #: src/components/portfolio/portfolio-overview.tsx
 #: src/components/portfolio/portfolio-performance-chart.tsx
@@ -6562,6 +6625,7 @@ msgstr "추적 재개"
 #: src/components/trade/chart/funding-history-panel.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/tradingview-chart.tsx
+#: src/components/trade/components/command-menu.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/market-asset-info.tsx
@@ -6574,6 +6638,7 @@ msgstr "추적 재개"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -6613,6 +6678,10 @@ msgstr "반전"
 msgctxt "Position action"
 msgid "Reverse"
 msgstr "반전"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Reverse {displayName} position"
+msgstr "{displayName} 포지션 반전"
 
 #: src/components/trade/positions/position-inline-actions.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
@@ -6986,6 +7055,7 @@ msgstr "선택 기간 손익"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -7168,6 +7238,10 @@ msgstr "이메일 지갑으로 서명 중"
 msgid "Signing..."
 msgstr "서명 중..."
 
+#: src/components/vaults/vault-performance-chart.tsx
+msgid "Single data point at <0>{latestValue}</0>."
+msgstr "데이터 포인트가 1개(<0>{latestValue}</0>)만 있습니다."
+
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
@@ -7192,6 +7266,8 @@ msgstr "서명 중..."
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/funding-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -7324,9 +7400,16 @@ msgid "Sort by"
 msgstr "정렬 기준"
 
 #: src/components/trade/chart/token-selector-content.tsx
-#: src/components/trade/chart/token-selector-content.tsx
 msgid "Sort by {sortLabel}"
 msgstr "{sortLabel} 기준 정렬"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted ascending"
+msgstr "{sortLabel} 기준 정렬, 오름차순 정렬됨"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted descending"
+msgstr "{sortLabel} 기준 정렬, 내림차순 정렬됨"
 
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Sort leaderboard"
@@ -7340,6 +7423,14 @@ msgstr "마켓 정렬"
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Sorted by {0}"
 msgstr "{0} 기준 정렬됨"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, ascending"
+msgstr "{sortLabel} 기준 오름차순 정렬됨"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, descending"
+msgstr "{sortLabel} 기준 내림차순 정렬됨"
 
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
@@ -7757,9 +7848,6 @@ msgid "Switch to {displayName} market, short position"
 msgstr "{displayName} 마켓으로 전환, 숏 포지션"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/positions/twap-tab.tsx
@@ -7768,6 +7856,9 @@ msgstr "{marketLabel} 마켓으로 전환"
 
 #: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-tab.tsx
 msgid "Switch to {marketName} market"
 msgstr "{marketName} 마켓으로 전환"
 
@@ -8316,8 +8407,12 @@ msgid "The server rejected the request. Try again later."
 msgstr "서버에서 요청을 거부했습니다. 나중에 다시 시도하세요."
 
 #: src/components/vaults/vault-action-modal.tsx
-msgid "The signed {action} request is dispatched once and will not be retried automatically."
-msgstr "서명된 {action} 요청은 한 번만 전송되며 자동으로 재시도되지 않습니다."
+#~ msgid "The signed {action} request is dispatched once and will not be retried automatically."
+#~ msgstr "서명된 {action} 요청은 한 번만 전송되며 자동으로 재시도되지 않습니다."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed deposit request is dispatched once and will not be retried automatically."
+msgstr "서명된 입금 요청은 1회만 전송되며 자동으로 재시도되지 않습니다."
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request has been submitted. Keep this window open."
@@ -8326,6 +8421,10 @@ msgstr "서명된 요청이 제출되었습니다. 이 창을 열어 두세요."
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request may have succeeded, but reconciliation timed out. Do not submit it again; verify against fresh extraAgents data. Closing before verification discards the local key."
 msgstr "서명된 요청이 성공했을 수 있으나 대조 시간이 초과되었습니다. 다시 제출하지 말고 최신 extraAgents 데이터로 확인하세요. 확인 전에 창을 닫으면 로컬 키가 삭제됩니다."
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed withdrawal request is dispatched once and will not be retried automatically."
+msgstr "서명된 출금 요청은 1회만 전송되며 자동으로 재시도되지 않습니다."
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "The start and end values are unchanged."
@@ -8718,6 +8817,7 @@ msgstr "TIF"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/funding-tab.tsx
@@ -8761,6 +8861,13 @@ msgstr "손익 단위 전환"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 msgid "Toggle size mode"
 msgstr "수량 모드 전환"
+
+#: src/components/referrals/referral-action-modal.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referred-traders.tsx
+msgid "Token #{tokenId}"
+msgstr "토큰 #{tokenId}"
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Token ID"
@@ -8852,6 +8959,7 @@ msgstr "익절가"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
 msgid "TP/SL"
@@ -8861,6 +8969,10 @@ msgstr "TP/SL"
 msgctxt "Current orders column"
 msgid "TP/SL"
 msgstr "TP/SL"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "TP/SL for {displayName}"
+msgstr "{displayName} TP/SL"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "TP/SL may have changed. Review this position's TP/SL before retrying."
@@ -9134,7 +9246,6 @@ msgstr "트리거됨"
 msgid "Try again"
 msgstr "다시 시도"
 
-#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/bridge/bridge-error-screen.tsx
 msgid "Try Again"
 msgstr "다시 시도"
@@ -9256,6 +9367,8 @@ msgstr "양방향 미결제약정: 이 계약의 롱 및 숏 포지션 합계입
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Type"
 msgstr "유형"
@@ -9301,6 +9414,10 @@ msgstr "접근 권한을 확인할 수 없습니다"
 #: src/lib/trade/withdrawal.ts
 msgid "Unable to verify available balance"
 msgstr "사용 가능 잔고를 확인할 수 없습니다"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Unable to verify current positions. Switching to Isolated mode is temporarily unavailable."
+msgstr "현재 포지션을 확인할 수 없습니다. 일시적으로 격리 모드로 전환할 수 없습니다."
 
 #: src/hooks/trade/use-deposit-availability.ts
 msgid "Unable to verify regional availability. Deposits are temporarily unavailable."
@@ -9528,6 +9645,7 @@ msgstr "업데이트가 확인되지 않았습니다. 다시 시도하기 전에
 msgid "Updated"
 msgstr "업데이트됨"
 
+#: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Updated live"
 msgstr "실시간 업데이트"

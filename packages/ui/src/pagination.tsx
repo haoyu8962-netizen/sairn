@@ -54,7 +54,7 @@ const pageButtonVariants = cva(
 const navButtonVariants = cva(
 	[
 		"inline-flex items-center",
-		"relative before:absolute before:-inset-y-2 before:inset-x-0 before:content-['']",
+		"relative before:absolute before:content-['']",
 		"cursor-pointer select-none",
 		"transition-opacity duration-150",
 		"rounded-4",
@@ -65,8 +65,8 @@ const navButtonVariants = cva(
 	{
 		variants: {
 			variant: {
-				desktop: "gap-2 text-xs font-normal text-fg-muted",
-				mobile: "text-icon",
+				desktop: "gap-2 text-xs font-normal text-fg-muted before:-inset-y-2 before:inset-x-0",
+				mobile: "justify-center min-w-6 min-h-6 text-icon before:-inset-2",
 			},
 		},
 		defaultVariants: {
@@ -165,9 +165,9 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
 						disabled={isFirstPage}
 						data-disabled={isFirstPage ? "" : undefined}
 						aria-label={previousPageLabel}
-						className={cn(navButtonVariants({ variant: "mobile" }), navBtnH)}
+						className={cn(navButtonVariants({ variant: "mobile" }), pageBtnSize)}
 					>
-						<ArrowLeftIcon size={iconSize} className="shrink-0" />
+						<ArrowLeftIcon size={iconSize} className="shrink-0 rtl:rotate-180" />
 					</button>
 					<span className="flex-1 text-center text-xs font-normal text-fg-muted tabular-nums min-w-0">
 						{mobilePageSummary ?? (
@@ -181,9 +181,9 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
 						disabled={isLastPage}
 						data-disabled={isLastPage ? "" : undefined}
 						aria-label={nextPageLabel}
-						className={cn(navButtonVariants({ variant: "mobile" }), navBtnH)}
+						className={cn(navButtonVariants({ variant: "mobile" }), pageBtnSize)}
 					>
-						<ArrowRightIcon size={iconSize} className="shrink-0" />
+						<ArrowRightIcon size={iconSize} className="shrink-0 rtl:rotate-180" />
 					</button>
 				</nav>
 			);
@@ -207,9 +207,9 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
 						disabled={isFirstPage}
 						data-disabled={isFirstPage ? "" : undefined}
 						aria-label={previousPageLabel}
-						className={cn(navButtonVariants({ variant: "desktop" }), navBtnH, "pr-4")}
+						className={cn(navButtonVariants({ variant: "desktop" }), navBtnH, "pe-4")}
 					>
-						<ArrowLeftIcon size={iconSize} className="shrink-0 text-icon" />
+						<ArrowLeftIcon size={iconSize} className="shrink-0 text-icon rtl:rotate-180" />
 						{previousText}
 					</button>
 
@@ -242,10 +242,10 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
 						disabled={isLastPage}
 						data-disabled={isLastPage ? "" : undefined}
 						aria-label={nextPageLabel}
-						className={cn(navButtonVariants({ variant: "desktop" }), navBtnH, "pl-4")}
+						className={cn(navButtonVariants({ variant: "desktop" }), navBtnH, "ps-4")}
 					>
 						{nextText}
-						<ArrowRightIcon size={iconSize} className="shrink-0 text-icon" />
+						<ArrowRightIcon size={iconSize} className="shrink-0 text-icon rtl:rotate-180" />
 					</button>
 				</div>
 

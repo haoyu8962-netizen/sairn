@@ -3,7 +3,15 @@ import { Checkbox } from "@sairn/ui";
 import { useId } from "react";
 import { NumberInput } from "@/components/ui/number-input";
 import { TWAP_MINUTES_MAX, TWAP_MINUTES_MIN } from "@/config/trade";
-import { formatTwapPriceInput, getTwapTriggerDirection } from "@/domain/trade/twap-details";
+import {
+	buildTwapDurationDraft,
+	getTwapTriggerDirection,
+	isTwapHoursAtMax,
+	parseTwapPriceInput,
+	resolveTwapDurationState,
+	TWAP_HOURS_MAX,
+	TWAP_MINUTES_PER_INPUT_MAX,
+} from "@/domain/trade/twap-details";
 import { cn } from "@/lib/cn";
 import { useNumberFormat } from "@/lib/format";
 import { getTwapStopPriceLabel } from "@/lib/trade/twap-labels";
@@ -12,6 +20,7 @@ import { tradingInputFrameClass, tradingInputFrameErrorClass } from "@/lib/ui/tr
 import {
 	useOrderEntryActions,
 	useTwapAdvancedEnabled,
+	useTwapDurationDraft,
 	useTwapMinutes,
 	useTwapRandomize,
 	useTwapStopPrice,
@@ -22,6 +31,8 @@ interface Props {
 	disabled: boolean;
 	triggerPriceInvalid?: boolean;
 	stopPriceInvalid?: boolean;
+	triggerPriceErrorMessage?: string;
+	stopPriceErrorMessage?: string;
 	side: Side;
 	quoteToken: string;
 	markPx: number;
@@ -45,19 +56,14 @@ const compactDurationLabelClass = "me-1.5 text-2xs";
 const compactPriceLabelClass = "me-1.5 min-w-0 shrink truncate text-2xs";
 const compactInputClass = "h-7";
 const MINUTES_PER_DAY = 24 * 60;
-const HOURS_MAX = Math.floor(TWAP_MINUTES_MAX / 60);
 const DAYS_MAX = Math.floor(TWAP_MINUTES_MAX / MINUTES_PER_DAY);
-const MINUTES_PER_INPUT_MAX = 59;
-
-function clamp(n: number, min: number, max: number): number {
-	if (Number.isNaN(n)) return min;
-	return Math.min(Math.max(n, min), max);
-}
 
 export function TradeFormTwap({
 	disabled,
 	triggerPriceInvalid = false,
 	stopPriceInvalid = false,
+	triggerPriceErrorMessage,
+	stopPriceErrorMessage,
 	side,
 	quoteToken,
 	markPx,
@@ -70,21 +76,37 @@ export function TradeFormTwap({
 }: Props) {
 	const { t } = useLingui();
 	const { formatDecimalString } = useNumberFormat();
+	const durationErrorId = useId();
 	const triggerFieldId = useId();
+	const triggerErrorId = useId();
 	const stopFieldId = useId();
+	const stopErrorId = useId();
 	const advancedFieldsId = useId();
 	const advancedEnabled = useTwapAdvancedEnabled();
 	const twapMinutesNum = useTwapMinutes();
+	const twapDurationDraft = useTwapDurationDraft();
 	const twapRandomize = useTwapRandomize();
 	const twapTriggerPrice = useTwapTriggerPrice();
 	const twapStopPrice = useTwapStopPrice();
-	const { setTwapMinutes, setTwapRandomize, setTwapTriggerPrice, setTwapStopPrice, setTwapAdvancedEnabled } =
-		useOrderEntryActions();
+	const {
+		setTwapMinutes,
+		setTwapDurationDraft,
+		setTwapRandomize,
+		setTwapTriggerPrice,
+		setTwapStopPrice,
+		setTwapAdvancedEnabled,
+	} = useOrderEntryActions();
 
-	const hours = Math.floor(twapMinutesNum / 60);
-	const minutes = twapMinutesNum - hours * 60;
+	const { hoursValue, minutesValue, hoursInvalid, minutesInvalid, minutesLocked } = resolveTwapDurationState(
+		twapMinutesNum,
+		twapDurationDraft,
+	);
+	const durationErrors: string[] = [];
+	if (hoursInvalid) durationErrors.push(t`Hours must be 0-${TWAP_HOURS_MAX}`);
+	if (minutesInvalid) durationErrors.push(t`Minutes must be 0-${TWAP_MINUTES_PER_INPUT_MAX}`);
+	const durationErrorMessage = durationErrors.join(" \u2022 ");
 	const stopPriceLabel = getTwapStopPriceLabel(side, { buy: t`Max Price`, sell: t`Min Price` });
-	const triggerPx = formatTwapPriceInput(twapTriggerPrice, { assetId, szDecimals });
+	const triggerPx = parseTwapPriceInput(twapTriggerPrice, { assetId, szDecimals }).price;
 	const triggerDirection = getTwapTriggerDirection(triggerPx, markPx);
 	const triggerPrice = triggerPx ? formatDecimalString(triggerPx) : "";
 	const aboveTriggerHint = t`Activates when mark ≥ ${triggerPrice}`;
@@ -115,17 +137,20 @@ export function TradeFormTwap({
 		labelClassName: "text-xs text-trading-panel-muted [overflow-wrap:anywhere]",
 	};
 
+	function commitDurationDraft(nextHours: string, nextMinutes: string) {
+		const nextDraft = buildTwapDurationDraft(nextHours, nextMinutes);
+		setTwapMinutes(nextDraft.expectedMinutes);
+		setTwapDurationDraft?.(nextDraft);
+	}
+
 	function handleHoursChange(value: string) {
-		const h = clamp(Math.floor(Number(value) || 0), 0, HOURS_MAX);
-		const cappedMinutes = h >= HOURS_MAX ? 0 : minutes;
-		setTwapMinutes(clamp(h * 60 + cappedMinutes, 0, TWAP_MINUTES_MAX));
+		const nextMinutes = isTwapHoursAtMax(value) ? "0" : minutesValue;
+		commitDurationDraft(value, nextMinutes);
 	}
 
 	function handleMinutesChange(value: string) {
-		const m = clamp(Math.floor(Number(value) || 0), 0, MINUTES_PER_INPUT_MAX);
-		const cappedHours = hours >= HOURS_MAX ? HOURS_MAX : hours;
-		const total = cappedHours >= HOURS_MAX ? HOURS_MAX * 60 : cappedHours * 60 + m;
-		setTwapMinutes(clamp(total, 0, TWAP_MINUTES_MAX));
+		if (minutesLocked) return;
+		commitDurationDraft(hoursValue, value);
 	}
 
 	return (
@@ -133,38 +158,55 @@ export function TradeFormTwap({
 			<div className="flex flex-col gap-1.5">
 				<span className={labelClass}>{t`Running Time (${TWAP_MINUTES_MIN}m - ${DAYS_MAX}d)`}</span>
 				<div className="flex gap-2">
-					<div className={cn(durationFrameClass, disabled && "opacity-50")}>
+					<div
+						className={cn(durationFrameClass, hoursInvalid && tradingInputFrameErrorClass, disabled && "opacity-50")}
+					>
 						<span className={durationTextClass}>{compact || desktop ? t`Hrs` : hoursLabel}</span>
 						<NumberInput
 							aria-label={hoursLabel}
+							aria-invalid={hoursInvalid || undefined}
+							aria-describedby={hoursInvalid ? durationErrorId : undefined}
 							placeholder="0"
-							value={String(hours)}
+							value={hoursValue}
 							onChange={(e) => handleHoursChange(e.target.value)}
 							allowDecimals={false}
 							min={0}
-							max={HOURS_MAX}
+							max={TWAP_HOURS_MAX}
 							className={fieldInputClass}
 							disabled={disabled}
 							mobileSafe={mobileSafe}
 						/>
 					</div>
-					<div className={cn(durationFrameClass, (disabled || hours >= HOURS_MAX) && "opacity-50")}>
+					<div
+						className={cn(
+							durationFrameClass,
+							minutesInvalid && tradingInputFrameErrorClass,
+							(disabled || minutesLocked) && "opacity-50",
+						)}
+					>
 						<span className={durationTextClass}>{compact || desktop ? t`Mins` : minutesLabel}</span>
 						<NumberInput
 							aria-label={minutesLabel}
+							aria-invalid={minutesInvalid || undefined}
+							aria-describedby={minutesInvalid ? durationErrorId : undefined}
 							placeholder="0"
-							value={String(minutes)}
+							value={minutesValue}
 							onChange={(e) => handleMinutesChange(e.target.value)}
 							allowDecimals={false}
 							min={0}
-							max={MINUTES_PER_INPUT_MAX}
+							max={TWAP_MINUTES_PER_INPUT_MAX}
 							className={fieldInputClass}
-							disabled={disabled || hours >= HOURS_MAX}
-							readOnly={hours >= HOURS_MAX}
+							disabled={disabled || minutesLocked}
+							readOnly={minutesLocked}
 							mobileSafe={mobileSafe}
 						/>
 					</div>
 				</div>
+				{durationErrorMessage !== "" && (
+					<p id={durationErrorId} role="alert" className="text-2xs text-trading-panel-error">
+						{durationErrorMessage}
+					</p>
+				)}
 			</div>
 			<div data-slot="trade-twap-options" className={mobileSafe ? "flex min-w-0 flex-col" : "contents"}>
 				<div className={mobileSafe ? "contents" : "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"}>
@@ -218,12 +260,18 @@ export function TradeFormTwap({
 							placeholder="0.00"
 							value={twapTriggerPrice}
 							aria-invalid={triggerPriceInvalid || undefined}
+							aria-describedby={triggerPriceErrorMessage ? triggerErrorId : undefined}
 							onChange={(e) => setTwapTriggerPrice(e.target.value)}
 							className={fieldInputClass}
 							disabled={disabled || !advancedEnabled}
 							mobileSafe={mobileSafe}
 						/>
 					</div>
+					{triggerPriceErrorMessage ? (
+						<span id={triggerErrorId} hidden>
+							{triggerPriceErrorMessage}
+						</span>
+					) : null}
 					{(triggerHint || (mobileSafe && triggerPx !== null)) && (
 						<p className={cn("text-2xs text-trading-panel-muted", mobileSafe && "grid")}>
 							{mobileSafe ? (
@@ -258,12 +306,18 @@ export function TradeFormTwap({
 						placeholder="0.00"
 						value={twapStopPrice}
 						aria-invalid={stopPriceInvalid || undefined}
+						aria-describedby={stopPriceErrorMessage ? stopErrorId : undefined}
 						onChange={(e) => setTwapStopPrice(e.target.value)}
 						className={fieldInputClass}
 						disabled={disabled || !advancedEnabled}
 						mobileSafe={mobileSafe}
 					/>
 				</div>
+				{stopPriceErrorMessage ? (
+					<span id={stopErrorId} hidden>
+						{stopPriceErrorMessage}
+					</span>
+				) : null}
 			</div>
 		</div>
 	);

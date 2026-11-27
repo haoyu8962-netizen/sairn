@@ -9,8 +9,15 @@ import { OrderbookHoverTooltip } from "@/components/trade/orderbook/orderbook-ho
 import { OrderbookRow } from "@/components/trade/orderbook/orderbook-row";
 import { useOrderbookHover } from "@/hooks/trade/use-orderbook-hover";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
+import { useOrderEntryActions } from "@/stores/use-order-entry-store";
 import { getOrderbookActionsStore } from "@/stores/use-orderbook-actions-store";
 import { createI18nRoot } from "./harness/react";
+
+let orderEntryActions: ReturnType<typeof useOrderEntryActions> | null = null;
+function CaptureOrderEntryActions() {
+	orderEntryActions = useOrderEntryActions();
+	return null;
+}
 
 const numberFormatSetting = vi.hoisted(() => ({ locale: "en-US" }));
 
@@ -141,6 +148,7 @@ describe("compact orderbook cumulative tooltip", () => {
 			portal.remove();
 		});
 		getOrderbookActionsStore().actions.clearSelectedPrice();
+		act(() => orderEntryActions?.setOrderType("market"));
 		vi.useRealTimers();
 	});
 
@@ -233,5 +241,37 @@ describe("compact orderbook cumulative tooltip", () => {
 			expect(bidPrice?.className).not.toMatch(/(?:^|\s|:)bg-/);
 			expect(bidPrice?.classList.contains("text-trading-panel-success")).toBe(false);
 		}
+	});
+
+	it("keeps cumulative focus and touch long-press tooltips working when the order type ignores price clicks", () => {
+		act(() => root.render(<CaptureOrderEntryActions />));
+		act(() => orderEntryActions?.setOrderType("twap"));
+		renderRow("ask");
+
+		const row = container.querySelector<HTMLButtonElement>("button");
+		if (!row) throw new Error("Missing row");
+		expect(row.disabled).toBe(false);
+		expect(row.getAttribute("aria-disabled")).toBe("true");
+		expect(row.getAttribute("aria-label")).not.toContain("limit price");
+
+		act(() => row.focus());
+		expect(document.body.querySelector('[data-slot="orderbook-cumulative-tooltip"]')?.textContent).toContain(
+			"Average Price",
+		);
+		act(() => row.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" })));
+		expect(document.body.querySelector('[data-slot="orderbook-cumulative-tooltip"]')).toBeNull();
+
+		act(() => {
+			row.dispatchEvent(createTouchEvent("pointerdown"));
+			vi.advanceTimersByTime(450);
+		});
+		expect(document.body.querySelector('[data-slot="orderbook-cumulative-tooltip"]')?.textContent).toContain(
+			"Total (HYPE)",
+		);
+		act(() => {
+			row.dispatchEvent(createTouchEvent("pointerup"));
+			row.click();
+		});
+		expect(getOrderbookActionsStore().selectedPrice).toBeNull();
 	});
 });

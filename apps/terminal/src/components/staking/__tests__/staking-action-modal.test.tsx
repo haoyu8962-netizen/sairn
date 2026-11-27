@@ -168,6 +168,45 @@ describe("StakingActionModal amount errors", () => {
 		const atomicTerm = [...document.body.querySelectorAll("dt")].find((term) => term.textContent === "Atomic amount");
 		expect(atomicTerm?.nextElementSibling?.textContent).toBe("123450000000");
 	});
+
+	it("wraps long validator names and review amounts instead of truncating them", () => {
+		const longValidatorName = "SuperLongInstitutionalStakingValidatorNameWithoutBreaksForMobileTesting";
+		act(() =>
+			root.render(
+				<StakingActionModal
+					action={{
+						kind: "delegate",
+						maxAmount: "12345678.12345678",
+						validator: OWNER,
+						validatorName: longValidatorName,
+					}}
+					ownerAddress={OWNER}
+					open
+					isMobile
+					onOpenChange={vi.fn()}
+					onSubmit={vi.fn()}
+				/>,
+			),
+		);
+
+		act(() => changeInput(amountInput(), "12345678.12345678"));
+		act(() => button("Review").click());
+
+		const validatorValue = [...document.body.querySelectorAll("span")].find(
+			(node) => node.textContent === longValidatorName,
+		);
+		const amountValue = [...document.body.querySelectorAll("span")].find(
+			(node) => node.textContent === "12,345,678.12345678 HYPE",
+		);
+		expect(validatorValue).toBeDefined();
+		expect(amountValue).toBeDefined();
+		expect(validatorValue?.className).not.toContain("truncate");
+		expect(validatorValue?.className).toContain("break-words");
+		expect(amountValue?.className).not.toContain("truncate");
+		expect(amountValue?.className).toContain("break-words");
+		expect(amountValue?.parentElement?.className).toContain("flex-col");
+		expect(amountValue?.parentElement?.className).toContain("min-[1001px]:flex-row");
+	});
 });
 
 describe("StakingActionModal operation reference", () => {

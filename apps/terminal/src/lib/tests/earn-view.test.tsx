@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { i18n } from "@lingui/core";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +20,8 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 }));
 
 const earnDataDeps = vi.hoisted(() => ({
+	isOnline: true,
+	interestFetch: () => new Promise<unknown[]>(() => {}),
 	ledger: {
 		status: "ready" as "error" | "idle" | "loading" | "ready" | "unavailable",
 		canConfirmEmpty: true,
@@ -28,7 +30,11 @@ const earnDataDeps = vi.hoisted(() => ({
 	},
 }));
 
-vi.mock("@/hooks/trade/use-account-ledger", () => ({ useAccountLedger: () => earnDataDeps.ledger }));
+vi.mock("@/hooks/use-mobile", () => ({ useOnlineStatus: () => earnDataDeps.isOnline }));
+vi.mock("@/hooks/trade/use-account-ledger", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/hooks/trade/use-account-ledger")>()),
+	useAccountLedger: () => earnDataDeps.ledger,
+}));
 
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({
 	useWalletSession: () => ({ address: "0x1111111111111111111111111111111111111111", isConnected: true }),
@@ -48,7 +54,7 @@ vi.mock("@/hooks/trade/use-account-balances", async (importOriginal) => ({
 
 vi.mock("@/lib/hyperliquid", () => ({
 	infoQueryOptions: () => ({}),
-	useHyperliquid: () => ({ env: "Mainnet", info: { userBorrowLendInterest: () => new Promise(() => {}) } }),
+	useHyperliquid: () => ({ env: "Mainnet", info: { userBorrowLendInterest: () => earnDataDeps.interestFetch() } }),
 	useInfo: () => ({ data: undefined, isError: false, refetch: () => Promise.resolve({}) }),
 	useSpotTokens: () => ({ tokens: [] }),
 }));
@@ -60,7 +66,8 @@ function passthrough(tag: string) {
 vi.mock("@sairn/ui", () => ({
 	Button: ({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick?: () => void }) =>
 		createElement("button", { type: "button", disabled, onClick }, children),
-	Table: passthrough("table"),
+	Table: ({ children, scrollableRegionLabel }: { children?: ReactNode; scrollableRegionLabel?: string }) =>
+		createElement("table", { "data-scrollable-region-label": scrollableRegionLabel }, children),
 	TableBody: passthrough("tbody"),
 	TableCell: passthrough("td"),
 	TableHead: passthrough("th"),
@@ -125,8 +132,11 @@ function createData(accountStatus: EarnData["accountStatus"]): EarnData {
 		publicStatus: "ready",
 		accountStatus,
 		interestStatus: "loading",
+		canConfirmEmptyInterest: false,
 		canConfirmEmptyHistory: false,
 		historyStatus: "loading",
+		historyRefreshFailed: false,
+		historyRefreshing: false,
 		snapshot: buildEarnSnapshot({
 			reserves,
 			userState: accountStatus === "ready" ? userState : null,
@@ -153,6 +163,8 @@ describe("earn view", () => {
 	let root: Root;
 
 	beforeEach(() => {
+		earnDataDeps.isOnline = true;
+		earnDataDeps.interestFetch = () => new Promise<unknown[]>(() => {});
 		numberFormatSetting.locale = "en-US";
 		i18n.loadAndActivate({ locale: "en", messages: {} });
 		container = document.createElement("div");
@@ -288,4 +300,157 @@ describe("earn view", () => {
 			expect(cell?.textContent).toBe(formatDateTime(time, { locale: "zh" }));
 		},
 	);
+
+	it("confirms empty interest only when canConfirmEmptyInterest is true", () => {
+		render({
+			...createData("ready"),
+			interestStatus: "ready",
+			canConfirmEmptyInterest: false,
+			interest: [],
+		} as EarnData);
+		expect(container.textContent).not.toContain("No interest yet");
+
+		render({
+			...createData("ready"),
+			interestStatus: "ready",
+			canConfirmEmptyInterest: true,
+			interest: [],
+		} as EarnData);
+		expect(container.textContent).toContain("No interest yet");
+	});
+
+	it("withholds empty interest confirmation in useEarnData when offline or still fetching cached empty data", () => {
+		earnDataDeps.isOnline = false;
+		const client = new QueryClient();
+		client.setQueryData(["hl", "earn-interest", "Mainnet", "0x1111111111111111111111111111111111111111"], []);
+		let data: EarnData | null = null;
+		function Probe() {
+			data = useEarnData();
+			return null;
+		}
+		act(() => root.render(createElement(QueryClientProvider, { client }, createElement(Probe))));
+		expect(data).toMatchObject({ interestStatus: "ready", canConfirmEmptyInterest: false });
+		act(() => root.render(null));
+		client.clear();
+	});
+
+	it("does not mark the page busy on public error and exposes neutral Retry for all four failure states", () => {
+		const publicErr = {
+			...createData("ready"),
+			publicStatus: "error" as const,
+			interestStatus: "ready" as const,
+			historyStatus: "ready" as const,
+			snapshot: null,
+		};
+		render(publicErr);
+		expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+		const retryButtons = [...container.querySelectorAll<HTMLButtonElement>("button")].filter(
+			(button) => button.textContent?.trim() === "Retry",
+		);
+		expect(retryButtons).toHaveLength(1);
+		act(() => retryButtons[0]?.click());
+		expect(publicErr.retryPublic).toHaveBeenCalledOnce();
+
+		const accountErr = createData("error");
+		render(accountErr);
+		const accountRetries = [...container.querySelectorAll<HTMLButtonElement>("button")].filter(
+			(button) => button.textContent?.trim() === "Retry",
+		);
+		expect(accountRetries).toHaveLength(1);
+		act(() => accountRetries[0]?.click());
+		expect(accountErr.retryAccount).toHaveBeenCalledOnce();
+
+		const interestErr = { ...createData("ready"), interestStatus: "error" as const };
+		render(interestErr);
+		const interestRetries = [...container.querySelectorAll<HTMLButtonElement>("button")].filter(
+			(button) => button.textContent?.trim() === "Retry",
+		);
+		expect(interestRetries).toHaveLength(1);
+		act(() => interestRetries[0]?.click());
+		expect(interestErr.retryInterest).toHaveBeenCalledOnce();
+
+		const historyErr = { ...createData("ready"), historyStatus: "error" as const };
+		render(historyErr);
+		const historyRetries = [...container.querySelectorAll<HTMLButtonElement>("button")].filter(
+			(button) => button.textContent?.trim() === "Retry",
+		);
+		expect(historyRetries).toHaveLength(1);
+		act(() => historyRetries[0]?.click());
+		expect(historyErr.retryHistory).toHaveBeenCalledOnce();
+	});
+
+	it("provides named scrollable regions for all Earn tables and meets 24px min target height on Health Factor trigger", () => {
+		render(createData("ready"));
+		const tables = [...container.querySelectorAll("table")];
+		expect(tables).toHaveLength(4);
+		expect(tables.map((table) => table.getAttribute("data-scrollable-region-label"))).toEqual([
+			"Supply",
+			"Borrow",
+			"Interest",
+			"Earn Action History",
+		]);
+
+		const healthTrigger = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent?.trim() === "Your Health Factor",
+		);
+		expect(healthTrigger?.className).toContain("min-h-6");
+	});
+
+	it("expires an empty interest snapshot after the refresh window when background polling is paused", async () => {
+		vi.useFakeTimers();
+		focusManager.setFocused(false);
+		const client = new QueryClient();
+		let calls = 0;
+		earnDataDeps.interestFetch = async () => {
+			calls += 1;
+			return [];
+		};
+		let latest: EarnData | null = null;
+		function Probe() {
+			const data = useEarnData();
+			latest = data;
+			return createElement(EarnView, {
+				data,
+				isMobile: false,
+				actionsAllowed: true,
+				notice: null,
+				onOpenAction: vi.fn(),
+			});
+		}
+		try {
+			await act(async () => {
+				root.render(createElement(QueryClientProvider, { client }, createElement(Probe)));
+				await Promise.resolve();
+			});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1);
+			});
+			expect(calls).toBe(1);
+			expect(latest).toMatchObject({ interestStatus: "ready", canConfirmEmptyInterest: true });
+			expect(container.textContent).toContain("No interest yet");
+
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(30_000);
+			});
+			expect(calls).toBe(1);
+			expect(latest).toMatchObject({ interestStatus: "ready", canConfirmEmptyInterest: false });
+			expect(container.textContent).not.toContain("No interest yet");
+
+			await act(async () => {
+				focusManager.setFocused(true);
+				await Promise.resolve();
+			});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1);
+			});
+			expect(calls).toBe(2);
+			expect(latest).toMatchObject({ interestStatus: "ready", canConfirmEmptyInterest: true });
+			expect(container.textContent).toContain("No interest yet");
+		} finally {
+			act(() => root.render(null));
+			client.clear();
+			focusManager.setFocused(true);
+			vi.useRealTimers();
+		}
+	});
 });

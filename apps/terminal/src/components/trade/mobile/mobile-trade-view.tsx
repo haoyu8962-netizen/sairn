@@ -33,7 +33,13 @@ import { buildOrderFeeQuote, resolveEstimatedProtocolRate } from "@/domain/trade
 import { hasOrderSizeValidationError } from "@/domain/trade/order-size-validation";
 import { resolveScaleSkewNumber } from "@/domain/trade/orders";
 import { getTpSlPriceErrors } from "@/domain/trade/tpsl-price-validation";
-import { resolveTwapPriceInputs } from "@/domain/trade/twap-details";
+import {
+	getTwapPriceFieldErrorMessage,
+	getTwapTriggerDirection,
+	parseTwapPriceInput,
+	resolveTwapDurationState,
+	resolveTwapPriceStates,
+} from "@/domain/trade/twap-details";
 import {
 	type SelectableAccountAbstraction,
 	useAccountAbstractionControl,
@@ -52,6 +58,7 @@ import { type OrderSubmitDraftInput, useOrderSubmit } from "@/hooks/trade/use-or
 import { useProspectiveCrossMarginAccount } from "@/hooks/trade/use-prospective-cross-margin-account";
 import { useSizeSliderInteraction } from "@/hooks/trade/use-size-slider-interaction";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
+import { useLingeringValue } from "@/hooks/use-lingering-value";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { cn } from "@/lib/cn";
 import { formatTransferError } from "@/lib/errors/format";
@@ -66,7 +73,7 @@ import {
 } from "@/lib/hyperliquid";
 import { createLazyComponent } from "@/lib/lazy";
 import type { MarginMode } from "@/lib/trade/margin-mode";
-import { isPositive, toNumber, toNumberOrZero } from "@/lib/trade/numbers";
+import { isPositive, toBig, toNumber, toNumberOrZero } from "@/lib/trade/numbers";
 import {
 	canUseTpSl as canUseTpSlForOrder,
 	isScaleOrderType,
@@ -108,6 +115,7 @@ import {
 	useTpSlReturnInvalid,
 	useTriggerPrice,
 	useTwapAdvancedEnabled,
+	useTwapDurationDraft,
 	useTwapMinutes,
 	useTwapRandomize,
 	useTwapStopPrice,
@@ -134,6 +142,8 @@ import { MobileTradePriceField } from "./mobile-trade-price-field";
 import { MobileTradeScrollArea } from "./mobile-trade-scroll-area";
 import { MobileTradeSizeControl } from "./mobile-trade-size-control";
 import { MobileSlippageRowView, MobileSummaryRowView, MobileTradeSummaryView } from "./mobile-trade-summary-view";
+
+const ORDER_CONFIRMATION_EXIT_MS = 250;
 
 const WalletModal = createLazyComponent(() => import("../components/wallet-modal"), "WalletModal");
 
@@ -207,6 +217,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 	const scaleLevelsNum = useScaleLevels();
 	const scaleSkewInput = useScaleSkew();
 	const twapMinutesNum = useTwapMinutes();
+	const twapDurationDraft = useTwapDurationDraft();
 	const twapRandomize = useTwapRandomize();
 	const twapAdvancedEnabled = useTwapAdvancedEnabled();
 	const twapTriggerPriceInput = useTwapTriggerPrice();
@@ -247,14 +258,18 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 	const markPriceStatus = market?.markPriceStatus ?? "loading";
 	const marketType = market?.kind === "spot" ? "spot" : "perp";
 	const twapPriceFormat = { assetId: market?.assetId, szDecimals: market?.szDecimals ?? 0 };
-	const { triggerPx: twapTriggerPx, stopPx: twapStopPx } = resolveTwapPriceInputs(
+	const { trigger: twapTriggerPriceState, stop: twapStopPriceState } = resolveTwapPriceStates(
 		twapAdvancedEnabled,
 		twapTriggerPriceInput,
 		twapStopPriceInput,
 		twapPriceFormat,
 	);
+	const twapTriggerPx = twapTriggerPriceState.price;
+	const twapStopPx = twapStopPriceState.price;
 	const twapTriggerPriceNum = toNumber(twapTriggerPx);
+	const twapTriggerDirection = twapOrder && twapTriggerPx ? getTwapTriggerDirection(twapTriggerPx, markPx) : null;
 	const twapStopPriceNum = toNumber(twapStopPx);
+	const twapDurationState = resolveTwapDurationState(twapMinutesNum, twapDurationDraft);
 	const scaleStartPriceNum = toNumber(scaleStartPriceInput);
 	const scaleEndPriceNum = toNumber(scaleEndPriceInput);
 	const scaleSkewNum = resolveScaleSkewNumber(scaleSkewInput);
@@ -588,15 +603,24 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 		slPrice,
 		side,
 	});
+	const hideTwapMinutesRangeFooterError = twapOrder && twapMinutesNum === 0 && twapDurationState.hasInlineError;
 	const validationSnapshot = {
 		text: visibleValidationErrors
-			.filter((error) => !isInlineTpSlValidationError(error, inlineTpSlPriceErrors))
+			.filter(
+				(error) =>
+					!isInlineTpSlValidationError(error, inlineTpSlPriceErrors) &&
+					!(hideTwapMinutesRangeFooterError && error.id === "twap-minutes-range"),
+			)
 			.map((error) => error.message)
 			.join(" \u2022 "),
 		hasSizeError: hasOrderSizeValidationError(visibleValidationErrors),
 	};
 	const triggerErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "trigger");
 	const limitErrorMessage = getOrderPriceFieldErrorMessage(visibleValidationErrors, "limit");
+	const twapTriggerErrorMessage = getTwapPriceFieldErrorMessage(visibleValidationErrors, "trigger");
+	const twapStopErrorMessage = getTwapPriceFieldErrorMessage(visibleValidationErrors, "stop");
+	const twapTriggerHasError = twapTriggerErrorMessage !== "";
+	const twapStopHasError = twapStopErrorMessage !== "";
 
 	function applySizeFromPercent(pct: number) {
 		if (maxSize <= 0) return;
@@ -704,6 +728,27 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 		if (isAvailabilityBlocked) return false;
 		if (!validation.canSubmit) return false;
 		if (!market || !baseToken || typeof market.assetId !== "number") return false;
+		if (
+			twapOrder &&
+			twapAdvancedEnabled &&
+			(twapTriggerPriceState.status === "invalid" || twapStopPriceState.status === "invalid")
+		) {
+			return false;
+		}
+		if (input?.twapOrder && input.twapAdvancedEnabled) {
+			if (
+				(input.twapTriggerPriceInput !== undefined &&
+					parseTwapPriceInput(input.twapTriggerPriceInput, twapPriceFormat).status === "invalid") ||
+				(input.twapStopPriceInput !== undefined &&
+					parseTwapPriceInput(input.twapStopPriceInput, twapPriceFormat).status === "invalid")
+			) {
+				return false;
+			}
+			if (toBig(input.twapTriggerPx)?.gt(0)) {
+				const liveDirection = getTwapTriggerDirection(input.twapTriggerPx, markPx);
+				if (!liveDirection || liveDirection !== input.twapTriggerDirection) return false;
+			}
+		}
 		if (!requiresLiveMarkPrice) return true;
 		return isLiveMarkPriceReady(market.markPriceStatus, market.markPx, market.markPriceReceivedAt);
 	}
@@ -737,6 +782,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 			twapMinutes: twapMinutesNum,
 			twapRandomize,
 			twapTriggerPrice: twapTriggerPriceNum,
+			twapTriggerDirection,
 			twapStopPrice: twapStopPriceNum,
 			tpSlEnabled: tpSlEnabled && canUseTpSl,
 			tpPrice: toNumber(tpPrice),
@@ -780,7 +826,10 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 				twapRandomize,
 				twapAdvancedEnabled,
 				twapTriggerPx,
+				twapTriggerDirection,
 				twapStopPx,
+				twapTriggerPriceInput,
+				twapStopPriceInput,
 				tpSlEnabled,
 				canUseTpSl,
 				tpPriceNum: toNumber(tpPrice),
@@ -798,6 +847,7 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 	}
 
 	const confirmation = useOrderConfirmation({ execute: executeSubmit, canExecute: canExecuteOrder });
+	const displayedConfirmation = useLingeringValue(confirmation.pending, ORDER_CONFIRMATION_EXIT_MS);
 
 	const sliderValue = getSliderValue(sizeValue, maxSize);
 
@@ -876,6 +926,9 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 					onPendingLeverageChange={setPendingLeverage}
 					hasPosition={hasPosition}
 					positionStateReady={positionStateReady}
+					positionStateLoading={
+						!positionStateReady && userPositions.isLoading && !userPositions.hasError && !userPositions.isStale
+					}
 					allowsCrossMargin={capabilities.allowsCrossMargin}
 					allowsIsolatedMarginRemoval={allowsIsolatedMarginRemoval}
 					isUpdating={isMarginDialogUpdating}
@@ -1032,6 +1085,10 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 								: undefined
 						}
 						disabled={isFormDisabled}
+						triggerPriceInvalid={twapTriggerHasError}
+						stopPriceInvalid={twapStopHasError}
+						triggerPriceErrorMessage={twapTriggerErrorMessage}
+						stopPriceErrorMessage={twapStopErrorMessage}
 						side={side}
 						quoteToken={priceUnitLabel}
 						markPx={markPx}
@@ -1187,10 +1244,10 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 				{!embedded && <MobileBottomNavSpacer />}
 			</MobileTradeCtaFrameView>
 
-			{confirmation.pending && (
+			{displayedConfirmation && (
 				<OrderConfirmationModal
-					open
-					draft={confirmation.pending.draft}
+					open={confirmation.pending !== null}
+					draft={displayedConfirmation.draft}
 					dontShowAgain={confirmation.dontShowAgain}
 					onDontShowAgainChange={confirmation.setDontShowAgain}
 					onConfirm={confirmation.confirm}

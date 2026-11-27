@@ -90,30 +90,53 @@ describe.each(["desktop", "compact"] as const)("TWAP duration on %s", (surface) 
 		expect(duration).toBe(10_079);
 	});
 
-	it("clears and replaces minutes without restoring the default or changing the hour", () => {
+	it("keeps cleared hour and minute inputs empty without refilling zero and restores when typed", () => {
 		act(() => actions.setTwapMinutes(90));
 		act(() => changeInput(input("Minute(s)"), ""));
 		expect(input("Hour(s)").value).toBe("1");
-		expect(input("Minute(s)").value).toBe("0");
+		expect(input("Minute(s)").value).toBe("");
+		expect(input("Minute(s)").getAttribute("aria-invalid")).toBeNull();
+		expect(container.querySelector('[role="alert"]')).toBeNull();
 		expect(duration).toBe(60);
+
 		act(() => changeInput(input("Minute(s)"), "5"));
 		expect(input("Minute(s)").value).toBe("5");
 		expect(duration).toBe(65);
+
 		act(() => changeInput(input("Hour(s)"), ""));
-		expect(input("Hour(s)").value).toBe("0");
+		expect(input("Hour(s)").value).toBe("");
+		expect(input("Hour(s)").getAttribute("aria-invalid")).toBeNull();
+		expect(container.querySelector('[role="alert"]')).toBeNull();
 		expect(duration).toBe(5);
 	});
 
-	it("retains integer-only inputs and caps each duration component", () => {
+	it("keeps out-of-range minutes and hours un-clamped with inline feedback and blocks submission", () => {
 		act(() => changeInput(input("Minute(s)"), "1.5"));
 		expect(input("Minute(s)").value).toBe("30");
 		expect(duration).toBe(30);
-		act(() => changeInput(input("Minute(s)"), "99"));
-		expect(input("Minute(s)").value).toBe("59");
-		expect(duration).toBe(59);
+
+		act(() => changeInput(input("Minute(s)"), "60"));
+		expect(input("Minute(s)").value).toBe("60");
+		expect(input("Minute(s)").getAttribute("aria-invalid")).toBe("true");
+		expect(container.querySelector('[role="alert"]')?.textContent).toContain("Minutes must be 0-59");
+		expect(duration).toBe(0);
+
+		act(() => changeInput(input("Minute(s)"), "30"));
+		expect(input("Minute(s)").value).toBe("30");
+		expect(input("Minute(s)").getAttribute("aria-invalid")).toBeNull();
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(duration).toBe(30);
+
 		act(() => changeInput(input("Hour(s)"), "999"));
-		expect(input("Hour(s)").value).toBe("168");
-		expect(input("Minute(s)").value).toBe("0");
-		expect(duration).toBe(10_080);
+		expect(input("Hour(s)").value).toBe("999");
+		expect(input("Hour(s)").getAttribute("aria-invalid")).toBe("true");
+		expect(container.querySelector('[role="alert"]')?.textContent).toContain("Hours must be 0-168");
+		expect(duration).toBe(0);
+
+		act(() => actions.resetForm());
+		expect(input("Hour(s)").value).toBe("0");
+		expect(input("Minute(s)").value).toBe("30");
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+		expect(duration).toBe(30);
 	});
 });

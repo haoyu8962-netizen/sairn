@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { Tooltip } from "@sairn/ui";
+import { Button, Tooltip } from "@sairn/ui";
 import { useMemo, useState } from "react";
-import { type TwapSubview, TwapSubviewTabs } from "@/components/trade/twap/twap-subview-tabs";
+import { type TwapSubview, TwapSubviewPanel, TwapSubviewTabs } from "@/components/trade/twap/twap-subview-tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimeTicker } from "@/components/ui/time-ticker";
 import { HL_ALL_DEXS } from "@/config/app";
@@ -86,192 +86,186 @@ export function TwapTab() {
 	const renderTimeMs = Date.now();
 
 	return (
-		<div className={positionsPanelTabRootClass}>
-			<TwapSubviewTabs idPrefix="desktop-twap" value={subview} onValueChange={setSubview} />
-			<div
-				role="tabpanel"
-				id={`desktop-twap-${subview}-panel`}
-				aria-labelledby={`desktop-twap-${subview}-tab`}
-				className="flex min-h-0 flex-1 flex-col"
-			>
-				{subview === "history" ? <TwapHistoryTable /> : null}
-				{subview === "fills" ? <TwapFillHistoryTable /> : null}
-				{subview === "current" ? (
-					<>
-						{feedback ? (
-							<div
-								role={feedback.tone === "error" ? "alert" : "status"}
-								className={cn("px-5 py-1 text-xs", feedback.tone === "error" ? "text-error" : "text-warning")}
-							>
-								{feedback.message}
-							</div>
-						) : null}
-						<div className={positionsPanelTableShellClass}>
-							{placeholder ?? (
-								<ScrollArea className="h-full w-full">
-									<table aria-label={t`Active TWAP orders`} className="block min-w-[1280px] border-collapse">
-										<thead className="block">
+		<TwapSubviewTabs value={subview} onValueChange={setSubview} className={positionsPanelTabRootClass}>
+			<TwapSubviewPanel value="current">
+				{feedback ? (
+					<div
+						role={feedback.tone === "error" ? "alert" : "status"}
+						className={cn("px-5 py-1 text-xs", feedback.tone === "error" ? "text-error" : "text-warning")}
+					>
+						{feedback.message}
+					</div>
+				) : null}
+				<div className={positionsPanelTableShellClass}>
+					{placeholder ?? (
+						<ScrollArea className="h-full w-full">
+							<table aria-label={t`Active TWAP orders`} className="block min-w-[1280px] border-collapse">
+								<thead className="block">
+									<tr
+										className={cn(
+											twapGridClass,
+											"h-[33px] items-center border-b border-market-close-stroke-card text-[11px] font-semibold text-market-close-subtle",
+										)}
+									>
+										<th scope="col" className="p-0 text-start font-semibold">
+											{t`Asset`}
+										</th>
+										<th scope="col" className="p-0 text-start font-semibold">
+											{t`Direction`}
+										</th>
+										<th scope="col" className="p-0 text-start font-semibold">
+											{t`Execution Progress`}
+										</th>
+										<th scope="col" className="p-0 text-right font-semibold">
+											{t`Average Fill Price`}
+										</th>
+										<th scope="col" className="p-0 text-right font-semibold">
+											{t`Execution Interval`}
+										</th>
+										<th scope="col" className="p-0 text-right font-semibold">
+											{t`Remaining Time`}
+										</th>
+										<th scope="col" className="p-0 text-right font-semibold">
+											{t`Actions`}
+										</th>
+									</tr>
+								</thead>
+								<tbody className="block">
+									{activeOrders.map(({ twapId, state }) => {
+										const isBuy = state.side === "B";
+										const market = markets.getMarket(state.coin);
+										const marketLabel = market?.shortName ?? state.coin;
+										const szDecimals = markets.getSzDecimals(state.coin);
+										const metrics = getToolbarTwapMetrics({
+											sz: state.sz,
+											executedSz: state.executedSz,
+											executedNtl: state.executedNtl,
+											timestampMs: String(state.timestamp),
+											minutes: String(state.minutes),
+											nowMs: String(renderTimeMs),
+										});
+										const progressLabel = formatPercent(metrics.progressRatio, {
+											decimals: 1,
+											signDisplay: "never",
+										});
+										const remainingMs = metrics.remainingMs === null ? null : Number(metrics.remainingMs);
+
+										return (
 											<tr
+												key={twapId}
 												className={cn(
 													twapGridClass,
-													"h-[33px] items-center border-b border-market-close-stroke-card text-[11px] font-semibold text-market-close-subtle",
+													"h-14 items-center border-b border-market-close-stroke-card/60 transition-colors duration-[120ms] hover:bg-market-close-hover",
 												)}
 											>
-												<th scope="col" className="p-0 text-start font-semibold">
-													{t`Asset`}
-												</th>
-												<th scope="col" className="p-0 text-start font-semibold">
-													{t`Direction`}
-												</th>
-												<th scope="col" className="p-0 text-start font-semibold">
-													{t`Execution Progress`}
-												</th>
-												<th scope="col" className="p-0 text-right font-semibold">
-													{t`Average Fill Price`}
-												</th>
-												<th scope="col" className="p-0 text-right font-semibold">
-													{t`Execution Interval`}
-												</th>
-												<th scope="col" className="p-0 text-right font-semibold">
-													{t`Remaining Time`}
-												</th>
-												<th scope="col" className="p-0 text-right font-semibold">
-													{t`Actions`}
-												</th>
-											</tr>
-										</thead>
-										<tbody className="block">
-											{activeOrders.map(({ twapId, state }) => {
-												const isBuy = state.side === "B";
-												const market = markets.getMarket(state.coin);
-												const marketLabel = market?.shortName ?? state.coin;
-												const szDecimals = markets.getSzDecimals(state.coin);
-												const metrics = getToolbarTwapMetrics({
-													sz: state.sz,
-													executedSz: state.executedSz,
-													executedNtl: state.executedNtl,
-													timestampMs: String(state.timestamp),
-													minutes: String(state.minutes),
-													nowMs: String(renderTimeMs),
-												});
-												const progressLabel = formatPercent(metrics.progressRatio, {
-													decimals: 1,
-													signDisplay: "never",
-												});
-												const remainingMs = metrics.remainingMs === null ? null : Number(metrics.remainingMs);
-
-												return (
-													<tr
-														key={twapId}
-														className={cn(
-															twapGridClass,
-															"h-14 items-center border-b border-market-close-stroke-card/60 transition-colors duration-[120ms] hover:bg-market-close-hover",
-														)}
+												<td className="p-0">
+													<button
+														type="button"
+														className="rounded-[4px] text-[13px] font-bold text-market-close-fg transition-colors duration-[120ms] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
+														onClick={() => navigateToMarket(state.coin)}
+														aria-label={t`Switch to ${marketLabel} market`}
 													>
-														<td className="p-0">
-															<button
-																type="button"
-																className="rounded-[4px] text-[13px] font-bold text-market-close-fg transition-colors duration-[120ms] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus"
-																onClick={() => navigateToMarket(state.coin)}
-																aria-label={t`Switch to ${marketLabel} market`}
-															>
-																{marketLabel}
-															</button>
-														</td>
-														<td
+														{marketLabel}
+													</button>
+												</td>
+												<td
+													className={cn(
+														"p-0 whitespace-nowrap text-[11px] font-semibold",
+														isBuy ? "text-market-close-success" : "text-market-close-danger",
+													)}
+												>
+													{isBuy ? t`Buy / Long` : t`Sell / Short`}
+												</td>
+												<td className="flex min-w-0 flex-col gap-1 p-0">
+													<div className="flex items-center justify-between gap-3 text-[11px] tabular-nums">
+														<span className="shrink-0 whitespace-nowrap text-market-close-muted">
+															{formatNumber(state.executedSz, szDecimals)} / {formatNumber(state.sz, szDecimals)}{" "}
+															{marketLabel}
+														</span>
+														<span className="shrink-0 whitespace-nowrap font-bold text-market-close-fg">
+															{progressLabel}
+														</span>
+													</div>
+													<div
+														role="progressbar"
+														aria-valuemin={0}
+														aria-valuemax={1}
+														aria-valuenow={metrics.progressRatio === null ? undefined : Number(metrics.progressRatio)}
+														aria-valuetext={progressLabel}
+														aria-label={t`TWAP execution progress`}
+														className="h-[5px] overflow-hidden rounded-[3px] bg-market-close-stroke-card"
+													>
+														<span
 															className={cn(
-																"p-0 whitespace-nowrap text-[11px] font-semibold",
-																isBuy ? "text-market-close-success" : "text-market-close-danger",
+																"block h-full origin-left rounded-[3px]",
+																isBuy ? "bg-market-close-success" : "bg-market-close-danger",
 															)}
+															style={{ transform: `scaleX(${metrics.progressRatio ?? "0"})` }}
+														/>
+													</div>
+												</td>
+												<td className="p-0 text-right text-[13px] font-semibold text-market-close-fg tabular-nums">
+													{formatPrice(metrics.executedAvgPx, {
+														szDecimals,
+														marketType: market?.kind === "spot" ? "spot" : "perp",
+													})}
+												</td>
+												<td className="p-0 text-right text-xs leading-tight text-market-close-muted tabular-nums">
+													{t`Every ${TWAP_SUBORDER_INTERVAL_SECONDS} seconds`}
+												</td>
+												<td className="p-0 whitespace-nowrap text-right text-[13px] text-market-close-fg tabular-nums">
+													{remainingMs === null ? (
+														"—"
+													) : (
+														<TimeTicker
+															startTime={renderTimeMs}
+															durationMs={remainingMs}
+															isActive={remainingMs > 0}
+															format={(elapsedMs) => formatClockDuration(remainingMs - elapsedMs)}
+														/>
+													)}
+												</td>
+												<td className="flex justify-end gap-2 p-0">
+													<Tooltip content={t`Hyperliquid does not support pausing active TWAP orders.`}>
+														<Button
+															type="button"
+															variant="ghost"
+															intent="neutral"
+															size="xs"
+															disabled
+															focusableWhenDisabled
+															aria-label={t`Pause unavailable: Hyperliquid does not support pausing active TWAP orders.`}
+															className="h-[27px] min-h-0 whitespace-nowrap rounded-[7px] border border-market-close-stroke-card px-3 text-xs font-semibold text-market-close-subtle hover:bg-transparent active:bg-transparent active:not-data-disabled:scale-100 data-disabled:cursor-not-allowed data-disabled:text-market-close-subtle"
 														>
-															{isBuy ? t`Buy / Long` : t`Sell / Short`}
-														</td>
-														<td className="flex min-w-0 flex-col gap-1 p-0">
-															<div className="flex items-center justify-between gap-3 text-[11px] tabular-nums">
-																<span className="shrink-0 whitespace-nowrap text-market-close-muted">
-																	{formatNumber(state.executedSz, szDecimals)} / {formatNumber(state.sz, szDecimals)}{" "}
-																	{marketLabel}
-																</span>
-																<span className="shrink-0 whitespace-nowrap font-bold text-market-close-fg">
-																	{progressLabel}
-																</span>
-															</div>
-															<div
-																role="progressbar"
-																aria-valuemin={0}
-																aria-valuemax={1}
-																aria-valuenow={
-																	metrics.progressRatio === null ? undefined : Number(metrics.progressRatio)
-																}
-																aria-valuetext={progressLabel}
-																aria-label={t`TWAP execution progress`}
-																className="h-[5px] overflow-hidden rounded-[3px] bg-market-close-stroke-card"
-															>
-																<span
-																	className={cn(
-																		"block h-full origin-left rounded-[3px]",
-																		isBuy ? "bg-market-close-success" : "bg-market-close-danger",
-																	)}
-																	style={{ transform: `scaleX(${metrics.progressRatio ?? "0"})` }}
-																/>
-															</div>
-														</td>
-														<td className="p-0 text-right text-[13px] font-semibold text-market-close-fg tabular-nums">
-															{formatPrice(metrics.executedAvgPx, {
-																szDecimals,
-																marketType: market?.kind === "spot" ? "spot" : "perp",
-															})}
-														</td>
-														<td className="p-0 text-right text-xs leading-tight text-market-close-muted tabular-nums">
-															{t`Every ${TWAP_SUBORDER_INTERVAL_SECONDS} seconds`}
-														</td>
-														<td className="p-0 whitespace-nowrap text-right text-[13px] text-market-close-fg tabular-nums">
-															{remainingMs === null ? (
-																"—"
-															) : (
-																<TimeTicker
-																	startTime={renderTimeMs}
-																	durationMs={remainingMs}
-																	isActive={remainingMs > 0}
-																	format={(elapsedMs) => formatClockDuration(remainingMs - elapsedMs)}
-																/>
-															)}
-														</td>
-														<td className="flex justify-end gap-2 p-0">
-															<Tooltip content={t`Hyperliquid does not support pausing active TWAP orders.`}>
-																<span className="inline-flex">
-																	<button
-																		type="button"
-																		disabled
-																		aria-label={t`Pause unavailable: Hyperliquid does not support pausing active TWAP orders.`}
-																		className="h-[27px] min-h-0 whitespace-nowrap rounded-[7px] border border-market-close-stroke-card px-3 text-xs font-semibold text-market-close-subtle disabled:cursor-not-allowed"
-																	>
-																		{t`Pause`}
-																	</button>
-																</span>
-															</Tooltip>
-															<button
-																type="button"
-																className="h-[27px] min-h-0 whitespace-nowrap rounded-[7px] border border-stroke-error-weak px-3 text-xs font-semibold text-market-close-danger transition-colors duration-[120ms] hover:border-market-close-danger hover:bg-market-close-danger hover:text-market-close-danger-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50"
-																aria-label={t`Terminate TWAP order`}
-																aria-busy={cancellingTwapId === twapId}
-																disabled={cancellingTwapId !== null}
-																onClick={() => void cancelTwap(state.coin, twapId)}
-															>
-																{t`Terminate`}
-															</button>
-														</td>
-													</tr>
-												);
-											})}
-										</tbody>
-									</table>
-								</ScrollArea>
-							)}
-						</div>
-					</>
-				) : null}
-			</div>
-		</div>
+															{t`Pause`}
+														</Button>
+													</Tooltip>
+													<button
+														type="button"
+														className="h-[27px] min-h-0 whitespace-nowrap rounded-[7px] border border-stroke-error-weak px-3 text-xs font-semibold text-market-close-danger transition-colors duration-[120ms] hover:border-market-close-danger hover:bg-market-close-danger hover:text-market-close-danger-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-market-close-focus disabled:cursor-not-allowed disabled:opacity-50"
+														aria-label={t`Terminate TWAP order`}
+														aria-busy={cancellingTwapId === twapId}
+														disabled={cancellingTwapId !== null}
+														onClick={() => void cancelTwap(state.coin, twapId)}
+													>
+														{t`Terminate`}
+													</button>
+												</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						</ScrollArea>
+					)}
+				</div>
+			</TwapSubviewPanel>
+			<TwapSubviewPanel value="history">
+				<TwapHistoryTable />
+			</TwapSubviewPanel>
+			<TwapSubviewPanel value="fills">
+				<TwapFillHistoryTable />
+			</TwapSubviewPanel>
+		</TwapSubviewTabs>
 	);
 }

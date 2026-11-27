@@ -3,6 +3,7 @@ import { ArrowLeftIcon, ArrowSquareOutIcon, LockKeyIcon, WarningCircleIcon } fro
 import { Button, Table } from "@sairn/ui";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
+import { TOUCH_PRESS_CLASS, TOUCH_PRESS_FADE_CLASS } from "@/components/ui/touch-press";
 import { useMasterWalletRequiredMessage } from "@/hooks/trade/use-master-wallet-action-reason";
 import { cn } from "@/lib/cn";
 import { formatDateTime, shortenAddress, useNumberFormat } from "@/lib/format";
@@ -28,6 +29,7 @@ export type VaultRequestedAction = "deposit" | "withdraw";
 
 export interface VaultDetailViewProps {
 	detail: VaultDetail;
+	detailCurrent?: boolean;
 	owner: VaultOwnerViewState;
 	actionAvailability: VaultActionsAvailability;
 	isTestnet: boolean;
@@ -37,6 +39,7 @@ export interface VaultDetailViewProps {
 
 export function VaultDetailView({
 	detail,
+	detailCurrent = true,
 	owner,
 	actionAvailability,
 	isTestnet,
@@ -95,7 +98,13 @@ export function VaultDetailView({
 		>
 			<header className="flex flex-wrap items-start justify-between gap-4 border-b border-stroke-weak px-4 py-4 min-[1001px]:px-5">
 				<div className="min-w-0">
-					<Link to="/vaults" className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg">
+					<Link
+						to="/vaults"
+						className={cn(
+							"inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+							TOUCH_PRESS_FADE_CLASS,
+						)}
+					>
 						<ArrowLeftIcon className="size-3.5 rtl:rotate-180" />
 						<Trans>Vaults</Trans>
 					</Link>
@@ -237,7 +246,7 @@ export function VaultDetailView({
 							))}
 						</fieldset>
 					</div>
-					<VaultPerformanceChart snapshot={snapshot} kind={chartKind} period={period} />
+					<VaultPerformanceChart snapshot={snapshot} kind={chartKind} period={period} snapshotCurrent={detailCurrent} />
 					<div className="flex items-center justify-between border-t border-stroke-weak px-3 py-2 text-xs">
 						<span className="text-fg-muted">
 							<Trans>Selected-period PNL</Trans>
@@ -261,7 +270,10 @@ export function VaultDetailView({
 						href={getExplorerAddressUrl(detail.leader, isTestnet)}
 						target="_blank"
 						rel="noopener"
-						className="mt-3 inline-flex items-center gap-1 font-mono text-xs tabular-nums text-signal hover:text-signal-hover hover:underline"
+						className={cn(
+							"mt-3 -my-1 inline-flex min-h-6 items-center gap-1 py-1 font-mono text-xs tabular-nums text-signal hover:text-signal-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+							TOUCH_PRESS_FADE_CLASS,
+						)}
 					>
 						<bdi dir="ltr">{shortenAddress(detail.leader)}</bdi>
 						<ArrowSquareOutIcon className="size-3" />
@@ -320,12 +332,18 @@ export function VaultDetailView({
 				</div>
 			</section>
 
-			<VaultFollowers followers={detail.followers} />
+			<VaultFollowers followers={detail.followers} snapshotCurrent={detailCurrent} />
 		</article>
 	);
 }
 
-function VaultFollowers({ followers }: { followers: VaultDetail["followers"] }) {
+function VaultFollowers({
+	followers,
+	snapshotCurrent,
+}: {
+	followers: VaultDetail["followers"];
+	snapshotCurrent: boolean;
+}) {
 	const { t } = useLingui();
 	const titleId = useId();
 	return (
@@ -339,9 +357,11 @@ function VaultFollowers({ followers }: { followers: VaultDetail["followers"] }) 
 				</p>
 			</div>
 			{followers.length === 0 ? (
-				<p className="px-4 py-8 text-center text-xs text-fg-muted">
-					<Trans>No depositors were returned.</Trans>
-				</p>
+				snapshotCurrent ? (
+					<p className="px-4 py-8 text-center text-xs text-fg-muted">
+						<Trans>No depositors were returned.</Trans>
+					</p>
+				) : null
 			) : (
 				<>
 					<Table
@@ -503,8 +523,10 @@ function ChartButton({
 			type="button"
 			aria-pressed={active}
 			className={cn(
-				"rounded-8 px-2 py-1 text-xs font-semibold",
-				active ? "bg-fill-selected text-fg-inverse" : "text-fg-muted hover:bg-fill-hover hover:text-fg",
+				"cursor-pointer rounded-8 px-2 py-1 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+				active
+					? cn("bg-fill-selected text-fg-inverse", TOUCH_PRESS_FADE_CLASS)
+					: cn("text-fg-muted hover:bg-fill-hover hover:text-fg", TOUCH_PRESS_CLASS),
 			)}
 			onClick={onClick}
 		>

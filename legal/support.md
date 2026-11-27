@@ -53,7 +53,7 @@ Open the account/deposit panel and follow the withdrawal flow. Withdrawals are s
 ### Mobile
 
 **How do I link my phone?**
-Where phone linking is available, click the QR code icon in the desktop header, approve the request with your main wallet, then reveal the QR code and scan it with your phone. The phone then trades with the trading key you approved; deposits, withdrawals and transfers still need your main wallet on desktop. Approving again replaces the phone's key, and you can remove it on the API Wallet page.
+Where phone linking is available, first activate trading on desktop by depositing and placing a first order with your main wallet that completes the builder-fee authorization (such as a market or limit order; TWAP orders do not trigger builder-fee approval). Then click the QR code icon in the desktop header, approve the mobile trading key with your main wallet, reveal the QR code, and scan it with your phone. On your phone, review the account address shown on the preview screen and tap **Import** to finish linking. The phone then trades with the trading key you approved; deposits, withdrawals and transfers still need your main wallet on desktop. Approving again replaces the phone's key, and you can remove it on the API Wallet page.
 
 ---
 
@@ -76,8 +76,10 @@ Where phone linking is available, click the QR code icon in the desktop header, 
 - Disable browser extensions that may block real-time connections.
 
 ### Mobile link not working
+- If approval is disabled on desktop, activate trading first by depositing and placing a first order on desktop that completes the builder-fee authorization (such as a market or limit order). Placing only a TWAP order does not trigger builder-fee approval, so phone linking stays disabled until a builder-fee-enabled order completes that authorization.
 - The QR code is short-lived and closes when you leave the window — reveal a new one and scan it right away.
 - Make sure the phone opens the same network (mainnet or testnet) as the desktop.
+- After scanning, check the account address on your phone and tap **Import** to complete setup.
 - If importing fails, approve again on desktop and scan the new code.
 
 > If an issue persists, please contact support with details (see below).

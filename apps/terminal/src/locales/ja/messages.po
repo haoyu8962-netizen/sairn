@@ -88,6 +88,10 @@ msgid "{FUNDING_HISTORY_WINDOW_DAYS}-day API window"
 msgstr "API の取得期間：{FUNDING_HISTORY_WINDOW_DAYS} 日間"
 
 #: src/components/vaults/vault-performance-chart.tsx
+msgid "{label} over {periodLabel}."
+msgstr "{periodLabel} の {label}。"
+
+#: src/components/vaults/vault-performance-chart.tsx
 msgid "{label} over {periodLabel}. Latest value <0>{latestValue}</0>."
 msgstr "{periodLabel} の {label}。最新値 <0>{latestValue}</0>。"
 
@@ -495,10 +499,12 @@ msgid "Activate DEX"
 msgstr "DEX を有効化"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≤ {triggerPrice}"
 msgstr "マーク価格 ≤ {triggerPrice} で開始"
 
 #: src/components/trade/tradebox/trade-form-twap.tsx
+#: src/domain/trade/order-confirmation.ts
 msgid "Activates when mark ≥ {triggerPrice}"
 msgstr "マーク価格 ≥ {triggerPrice} で開始"
 
@@ -546,7 +552,6 @@ msgstr "証拠金を追加"
 msgid "Add to Target"
 msgstr "目標まで証拠金を追加"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Add TP/SL"
 msgstr "TP/SL を追加"
@@ -695,6 +700,7 @@ msgstr "ALO（流動性追加のみ）"
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-action-modal.tsx
 #: src/components/staking/staking-view.tsx
+#: src/components/trade/components/spot-swap-modal.tsx
 #: src/components/trade/positions/position-isolated-margin-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
 #: src/components/trade/positions/send-modal.tsx
@@ -704,6 +710,10 @@ msgstr "ALO（流動性追加のみ）"
 msgid "Amount"
 msgstr "数量"
 
+#: src/components/trade/components/spot-swap-modal.tsx
+msgid "Amount ({token})"
+msgstr "数量（{token}）"
+
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Amount (USDC)"
 msgstr "金額（USDC）"
@@ -711,6 +721,10 @@ msgstr "金額（USDC）"
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount exceeds the verified available balance."
 msgstr "確認済みの利用可能残高を超えています。"
+
+#: src/components/trade/tradebox/bridge/amount-entry-screen.tsx
+msgid "Amount in USD"
+msgstr "USD 金額"
 
 #: src/components/staking/staking-action-modal.tsx
 msgid "Amount is too large to submit safely."
@@ -1197,6 +1211,7 @@ msgstr "ビルダー報酬は累計報酬の内訳であり、追加の報酬残
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -1254,6 +1269,10 @@ msgstr "デスクトップウォレット QR コードのカメラプレビュ�
 #: src/components/vaults/vault-action-modal.tsx
 msgid "Cancel"
 msgstr "キャンセル"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Cancel {marketLabel} order"
+msgstr "{marketLabel} の注文をキャンセル"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
@@ -1650,7 +1669,6 @@ msgstr "API ウォレット操作を閉じる"
 msgid "Close close-all confirmation"
 msgstr "全決済の確認を閉じる"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -1710,7 +1728,6 @@ msgstr "ポジションを決済"
 msgid "Close reverse confirmation"
 msgstr "ドテンの確認を閉じる"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/hooks/trade/use-order-display-labels.ts
 #: src/lib/trade/fill-direction.ts
@@ -2169,12 +2186,16 @@ msgid "Could not check the approval on Hyperliquid. Nothing was imported. Try ag
 msgstr "Hyperliquid の承認を確認できませんでした。インポートは行われていません。再試行してください。"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Could not fetch your token balances"
-msgstr "トークン残高を取得できませんでした"
+#~ msgid "Could not fetch your token balances"
+#~ msgstr "トークン残高を取得できませんでした"
 
 #: src/hooks/wallet/use-email-wallet-export.ts
 msgid "Could not open wallet export. Retry in your system browser on the same {BRAND_NAME} site, using the same email."
 msgstr "ウォレットのエクスポートを開けませんでした。端末の標準ブラウザーで同じ {BRAND_NAME} サイトを開き、同じメールアドレスで再試行してください。"
+
+#: src/components/trade/components/wallet-modal.tsx
+msgid "Could not start app installation. Use your browser menu to install, or go back to connect."
+msgstr "アプリのインストールを開始できませんでした。ブラウザのメニューからインストールするか、戻って接続してください。"
 
 #: src/components/referrals/referral-action-modal.tsx
 msgid "Create a code after Hyperliquid confirms your eligibility. It cannot be changed from this page later."
@@ -2741,6 +2762,7 @@ msgid "Earn"
 msgstr "Earn"
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Earn Action History"
 msgstr "Earn 操作履歴"
 
@@ -2786,7 +2808,6 @@ msgstr "{0} の注文数量を編集"
 msgid "Edit {0} trigger price"
 msgstr "{0} のトリガー価格を編集"
 
-#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/position-row.tsx
 msgid "Edit TP/SL"
 msgstr "TP/SL を編集"
@@ -3197,16 +3218,16 @@ msgid "Failed to export TWAP fill history."
 msgstr "TWAP 約定履歴をエクスポートできませんでした。"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Failed to load balances"
-msgstr "残高を読み込めませんでした"
+#~ msgid "Failed to load balances"
+#~ msgstr "残高を読み込めませんでした"
 
 #: src/components/trade/positions/account-transfers-tab.tsx
 #~ msgid "Failed to load deposits and withdrawals."
 #~ msgstr "入出金を読み込めませんでした。"
 
 #: src/components/trade/chart/token-selector-content.tsx
-msgid "Failed to load market categories."
-msgstr "市場カテゴリーを読み込めませんでした。"
+#~ msgid "Failed to load market categories."
+#~ msgstr "市場カテゴリーを読み込めませんでした。"
 
 #: src/config/ui-text.ts
 #~ msgid "Failed to load order book."
@@ -3670,6 +3691,14 @@ msgstr "1時間ごと"
 msgid "Hourly rate paid by longs to shorts (if negative, shorts pay longs). Funding has no associated fee; it is a peer-to-peer transfer between users to push the price toward the spot price. See the documentation for details."
 msgstr "ロングからショートに支払われる1時間あたりの率です（負の場合はショートからロングに支払います）。資金調達に手数料はありません。価格を現物価格に近づけるためのユーザー間の送金です。詳細はドキュメントをご覧ください。"
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+#~ msgid "Hours must be 0-{HOURS_MAX}"
+#~ msgstr "時間は 0〜{HOURS_MAX} で入力してください"
+
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Hours must be 0-{TWAP_HOURS_MAX}"
+msgstr "時間は 0～{TWAP_HOURS_MAX} にしてください"
+
 #: src/components/referrals/referral-rewards-card.tsx
 msgid "How Hyperliquid referrals work"
 msgstr "Hyperliquid の紹介制度について"
@@ -3875,6 +3904,7 @@ msgid "Insufficient spot balance for this order."
 msgstr "この注文に必要な現物残高が不足しています。"
 
 #: src/components/earn/earn-view.tsx
+#: src/components/earn/earn-view.tsx
 msgid "Interest"
 msgstr "利息"
 
@@ -3993,6 +4023,7 @@ msgstr "運用者"
 msgid "Leader commission"
 msgstr "運用者手数料"
 
+#: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/leaderboard/leaderboard-view.tsx
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -4115,6 +4146,10 @@ msgstr "指値買い"
 msgid "Limit Close"
 msgstr "指値決済"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Limit Close {displayName}"
+msgstr "{displayName} を指値決済"
+
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "Limit execution"
 msgstr "指値執行"
@@ -4205,8 +4240,12 @@ msgid "Loading authorized API wallets"
 msgstr "承認済み API ウォレットを読み込み中"
 
 #: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
-msgid "Loading balances across all chains..."
-msgstr "全チェーンの残高を読み込み中..."
+msgid "Loading balances"
+msgstr "残高を読み込み中"
+
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
+#~ msgid "Loading balances across all chains..."
+#~ msgstr "全チェーンの残高を読み込み中..."
 
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/funding-history/funding-history-page.tsx
@@ -4225,6 +4264,10 @@ msgstr "資金調達率を読み込み中"
 msgid "Loading leaderboard"
 msgstr "リーダーボードを読み込み中"
 
+#: src/components/trade/components/command-menu.tsx
+msgid "Loading markets"
+msgstr "市場を読み込み中"
+
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Loading markets..."
 msgstr "市場を読み込み中..."
@@ -4233,6 +4276,10 @@ msgstr "市場を読み込み中..."
 #: src/components/historical-orders/historical-orders-page.tsx
 msgid "Loading order history"
 msgstr "注文履歴を読み込み中"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Loading position data. Switching to Isolated mode is temporarily unavailable."
+msgstr "ポジションデータを読み込み中です。分離モードへの切り替えは一時的に利用できません。"
 
 #: src/components/trade/positions/position-pnl-share-modal.tsx
 msgid "Loading QR code"
@@ -4512,6 +4559,10 @@ msgstr "現在、このアカウントとネットワークでは「成行」を
 msgid "Market Close"
 msgstr "成行決済"
 
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Market Close {displayName}"
+msgstr "{displayName} を成行決済"
+
 #: src/components/trade/components/global-settings-modal.tsx
 msgid "Market close confirmation"
 msgstr "成行決済の確認"
@@ -4709,6 +4760,14 @@ msgstr "分"
 msgid "Minute(s)"
 msgstr "分"
 
+#: src/components/trade/tradebox/trade-form-twap.tsx
+#~ msgid "Minutes must be 0-{MINUTES_PER_INPUT_MAX}"
+#~ msgstr "分は 0〜{MINUTES_PER_INPUT_MAX} で入力してください"
+
+#: src/components/trade/tradebox/trade-form-twap.tsx
+msgid "Minutes must be 0-{TWAP_MINUTES_PER_INPUT_MAX}"
+msgstr "分は 0～{TWAP_MINUTES_PER_INPUT_MAX} にしてください"
+
 #: src/components/trade/components/mobile-agent-qr-scanner.tsx
 #: src/routes/mobile-agent-sync.tsx
 msgid "Mobile QR import is temporarily unavailable."
@@ -4729,9 +4788,17 @@ msgstr "注文を変更"
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-order-modification-modal.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-orders-tab.tsx
 msgid "Modify Order"
 msgstr "注文を変更"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+msgid "Modify Order for {marketLabel}"
+msgstr "{marketLabel} の注文を変更"
+
+#: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
+msgid "Modify Order for {marketLabel}: {modifyUnavailableReason}"
+msgstr "{marketLabel} の注文を変更: {modifyUnavailableReason}"
 
 #: src/components/trade/mobile/mobile-nav-drawer.tsx
 #: src/config/desktop-nav.ts
@@ -5346,7 +5413,6 @@ msgstr "未決済建玉の上限"
 msgid "Open Interest Reward"
 msgstr "未決済建玉リワード"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Long"
@@ -5381,7 +5447,6 @@ msgstr "未約定注文が変更されました。確認画面を開き直して
 msgid "Open related page"
 msgstr "関連ページを開く"
 
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/lib/trade/fill-direction.ts
 msgid "Open Short"
@@ -5559,6 +5624,7 @@ msgstr "注文"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/positions/orders-tab.tsx
+#: src/lib/tests/catalog-completeness-contract.test.ts
 msgid "Orders with linked TP/SL orders cannot be modified here."
 msgstr "TP/SL 注文が連動する注文は、ここでは変更できません。"
 
@@ -5893,8 +5959,8 @@ msgid "Position data is unavailable"
 msgstr "ポジションデータを利用できません"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
-msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
-msgstr "ポジションデータを利用できません。アカウントの接続が復旧してから証拠金モードを変更してください。"
+#~ msgid "Position data is unavailable. Wait for the account connection to recover before changing margin mode."
+#~ msgstr "ポジションデータを利用できません。アカウントの接続が復旧してから証拠金モードを変更してください。"
 
 #: src/components/trade/tradebox/margin-mode-modal.tsx
 msgid "Position margin"
@@ -5947,6 +6013,7 @@ msgid "Positive PNL"
 msgstr "利益"
 
 #: src/components/trade/tradebox/trade-form-tif.tsx
+#: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
 msgid "Post Only"
 msgstr "ポストオンリー"
@@ -6036,6 +6103,8 @@ msgstr "ボールトの前のページ"
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/history-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -6400,6 +6469,7 @@ msgid "Referrals & rewards"
 msgstr "紹介と報酬"
 
 #: src/components/referrals/referral-activity.tsx
+#: src/components/referrals/referred-traders.tsx
 msgid "Referred traders"
 msgstr "紹介したトレーダー"
 
@@ -6677,6 +6747,7 @@ msgid "Resume tracking"
 msgstr "追跡を再開"
 
 #: src/components/api-wallet/api-wallet-list.tsx
+#: src/components/earn/earn-view.tsx
 #: src/components/funding-comparison/funding-comparison-view.tsx
 #: src/components/portfolio/portfolio-overview.tsx
 #: src/components/portfolio/portfolio-performance-chart.tsx
@@ -6689,6 +6760,7 @@ msgstr "追跡を再開"
 #: src/components/trade/chart/funding-history-panel.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/tradingview-chart.tsx
+#: src/components/trade/components/command-menu.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/legal-acceptance-modal.tsx
 #: src/components/trade/components/market-asset-info.tsx
@@ -6701,6 +6773,7 @@ msgstr "追跡を再開"
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/orders-history-tab.tsx
+#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
 #: src/components/trade/tradebox/deposit/deposit-form.tsx
@@ -6744,6 +6817,10 @@ msgstr "ドテン"
 msgctxt "Position action"
 msgid "Reverse"
 msgstr "ドテン"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "Reverse {displayName} position"
+msgstr "{displayName} ポジションをドテン"
 
 #: src/components/trade/positions/position-inline-actions.tsx
 #: src/components/trade/positions/position-reverse-confirmation-modal.tsx
@@ -7121,6 +7198,7 @@ msgstr "選択期間の損益"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-twap-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/positions/orders-tab.tsx
 #: src/config/trade-panel-labels.ts
 #: src/domain/trade/order-confirmation.ts
@@ -7134,6 +7212,14 @@ msgstr "売り"
 #: src/domain/trade/order-confirmation.ts
 msgid "Sell / Short"
 msgstr "売り / ショート"
+
+#: src/components/trade/components/spot-swap-modal.tsx
+#~ msgid "Sell amount"
+#~ msgstr "売却数量"
+
+#: src/components/trade/components/spot-swap-modal.tsx
+#~ msgid "Sell amount ({token})"
+#~ msgstr "売却数量（{token}）"
 
 #: src/config/trade-panel-labels.ts
 msgid "Sell Short"
@@ -7303,6 +7389,10 @@ msgstr "メールウォレットで署名中"
 msgid "Signing..."
 msgstr "署名中..."
 
+#: src/components/vaults/vault-performance-chart.tsx
+msgid "Single data point at <0>{latestValue}</0>."
+msgstr "データポイントは 1 件（<0>{latestValue}</0>）のみです。"
+
 #: src/components/funding-history/funding-history-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
 #: src/components/historical-orders/historical-orders-page.tsx
@@ -7327,6 +7417,8 @@ msgstr "署名中..."
 #: src/components/trade/mobile/mobile-trade-view.tsx
 #: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
 #: src/components/trade/orderbook/orderbook-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/funding-tab.tsx
 #: src/components/trade/positions/history-tab.tsx
@@ -7459,9 +7551,16 @@ msgid "Sort by"
 msgstr "並べ替え基準"
 
 #: src/components/trade/chart/token-selector-content.tsx
-#: src/components/trade/chart/token-selector-content.tsx
 msgid "Sort by {sortLabel}"
 msgstr "{sortLabel} で並べ替え"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted ascending"
+msgstr "{sortLabel} で並べ替え、昇順"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sort by {sortLabel}, sorted descending"
+msgstr "{sortLabel} で並べ替え、降順"
 
 #: src/components/leaderboard/leaderboard-view.tsx
 msgid "Sort leaderboard"
@@ -7475,6 +7574,14 @@ msgstr "市場を並べ替え"
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Sorted by {0}"
 msgstr "{0} 順"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, ascending"
+msgstr "{sortLabel} の昇順で並べ替え済み"
+
+#: src/components/trade/chart/token-selector-content.tsx
+msgid "Sorted by {sortLabel}, descending"
+msgstr "{sortLabel} の降順で並べ替え済み"
 
 #: src/components/trade/mobile/mobile-account-transfers-tab.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
@@ -7841,6 +7948,14 @@ msgid "Swap"
 msgstr "スワップ"
 
 #: src/components/trade/components/spot-swap-modal.tsx
+#~ msgid "Swap amount"
+#~ msgstr "スワップ数量"
+
+#: src/components/trade/components/spot-swap-modal.tsx
+#~ msgid "Swap amount ({token})"
+#~ msgstr "スワップ数量（{token}）"
+
+#: src/components/trade/components/spot-swap-modal.tsx
 msgid "Swap direction"
 msgstr "スワップ方向"
 
@@ -7896,9 +8011,6 @@ msgid "Switch to {displayName} market, short position"
 msgstr "{displayName} 市場のショートポジションに切り替え"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
-#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-history-list.tsx
-#: src/components/trade/mobile/mobile-twap-tab.tsx
 #: src/components/trade/positions/twap-fill-history-table.tsx
 #: src/components/trade/positions/twap-history-table.tsx
 #: src/components/trade/positions/twap-tab.tsx
@@ -7907,6 +8019,9 @@ msgstr "{marketLabel} 市場に切り替え"
 
 #: src/components/trade/mobile/mobile-funding-tab.tsx
 #: src/components/trade/mobile/mobile-history-tab.tsx
+#: src/components/trade/mobile/mobile-twap-fill-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-history-list.tsx
+#: src/components/trade/mobile/mobile-twap-tab.tsx
 msgid "Switch to {marketName} market"
 msgstr "{marketName} 市場に切り替え"
 
@@ -8483,8 +8598,12 @@ msgid "The server rejected the request. Try again later."
 msgstr "サーバーがリクエストを拒否しました。後でもう一度お試しください。"
 
 #: src/components/vaults/vault-action-modal.tsx
-msgid "The signed {action} request is dispatched once and will not be retried automatically."
-msgstr "署名済みの {action} リクエストは一度だけ送信され、自動再試行は行われません。"
+#~ msgid "The signed {action} request is dispatched once and will not be retried automatically."
+#~ msgstr "署名済みの {action} リクエストは一度だけ送信され、自動再試行は行われません。"
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed deposit request is dispatched once and will not be retried automatically."
+msgstr "署名済みの入金リクエストは 1 回のみ送信され、自動的に再試行されません。"
 
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request has been submitted. Keep this window open."
@@ -8493,6 +8612,10 @@ msgstr "署名済みリクエストを送信しました。このウィンドウ
 #: src/components/api-wallet/api-wallet-action-modal.tsx
 msgid "The signed request may have succeeded, but reconciliation timed out. Do not submit it again; verify against fresh extraAgents data. Closing before verification discards the local key."
 msgstr "署名済みリクエストが成功している可能性がありますが、照合がタイムアウトしました。再送信せず、最新の extraAgents データで確認してください。確認前に閉じるとローカルキーは破棄されます。"
+
+#: src/components/vaults/vault-action-modal.tsx
+msgid "The signed withdrawal request is dispatched once and will not be retried automatically."
+msgstr "署名済みの出金リクエストは 1 回のみ送信され、自動的に再試行されません。"
 
 #: src/components/vaults/vault-performance-chart.tsx
 msgid "The start and end values are unchanged."
@@ -8885,6 +9008,7 @@ msgstr "TIF"
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-history-tab.tsx
 #: src/components/trade/mobile/mobile-orders-tab.tsx
+#: src/components/trade/orderbook/trade-row.tsx
 #: src/components/trade/orderbook/trades-panel.tsx
 #: src/components/trade/positions/account-transfers-tab.tsx
 #: src/components/trade/positions/funding-tab.tsx
@@ -8928,6 +9052,13 @@ msgstr "損益の単位を切り替え"
 #: src/components/trade/tradebox/trade-form-fields.tsx
 msgid "Toggle size mode"
 msgstr "数量モードを切り替え"
+
+#: src/components/referrals/referral-action-modal.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referral-rewards-card.tsx
+#: src/components/referrals/referred-traders.tsx
+msgid "Token #{tokenId}"
+msgstr "トークン #{tokenId}"
 
 #: src/components/trade/components/market-asset-info.tsx
 msgid "Token ID"
@@ -9019,6 +9150,7 @@ msgstr "利確価格"
 
 #: src/components/trade/mobile/mobile-orders-tab.tsx
 #: src/components/trade/mobile/mobile-position-card.tsx
+#: src/components/trade/positions/position-row.tsx
 #: src/components/trade/positions/positions-tab.tsx
 #: src/config/trade-panel-labels.ts
 msgid "TP/SL"
@@ -9028,6 +9160,10 @@ msgstr "TP/SL"
 msgctxt "Current orders column"
 msgid "TP/SL"
 msgstr "TP/SL"
+
+#: src/components/trade/mobile/mobile-position-card.tsx
+msgid "TP/SL for {displayName}"
+msgstr "{displayName} の TP/SL"
 
 #: src/components/trade/positions/position-tpsl-modal.tsx
 msgid "TP/SL may have changed. Review this position's TP/SL before retrying."
@@ -9309,7 +9445,6 @@ msgstr "トリガー済み"
 msgid "Try again"
 msgstr "再試行"
 
-#: src/components/trade/tradebox/bridge/asset-selection-screen.tsx
 #: src/components/trade/tradebox/bridge/bridge-error-screen.tsx
 msgid "Try Again"
 msgstr "再試行"
@@ -9431,6 +9566,8 @@ msgstr "未決済建玉（両側合計）：このコントラクトのロング
 #: src/components/trade/positions/orders-tab.tsx
 #: src/domain/trade/order-confirmation.ts
 #: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
+#: src/domain/trade/order-confirmation.ts
 #: src/hooks/trade/use-twap-fill-history-csv.ts
 msgid "Type"
 msgstr "タイプ"
@@ -9476,6 +9613,10 @@ msgstr "アクセスを確認できません"
 #: src/lib/trade/withdrawal.ts
 msgid "Unable to verify available balance"
 msgstr "利用可能残高を確認できません"
+
+#: src/components/trade/tradebox/margin-mode-modal.tsx
+msgid "Unable to verify current positions. Switching to Isolated mode is temporarily unavailable."
+msgstr "現在のポジションを確認できません。分離モードへの切り替えは一時的に利用できません。"
 
 #: src/hooks/trade/use-deposit-availability.ts
 msgid "Unable to verify regional availability. Deposits are temporarily unavailable."
@@ -9707,6 +9848,7 @@ msgstr "更新が確認されていません。再試行する前にアカウン
 msgid "Updated"
 msgstr "更新済み"
 
+#: src/components/trade/chart/token-selector-content.tsx
 #: src/components/trade/chart/token-selector-content.tsx
 msgid "Updated live"
 msgstr "リアルタイム更新"

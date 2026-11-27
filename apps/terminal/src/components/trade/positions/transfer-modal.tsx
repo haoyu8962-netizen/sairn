@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { ArrowsLeftRightIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { ExchangeRequestInvalidatedError } from "@sairn/hl-react/internal/exchange/request-scheduler";
-import { Button, ModalContent, ModalDescription, ModalHeader, ModalTitle } from "@sairn/ui";
+import { Button, ButtonIcon, ModalContent, ModalDescription, ModalHeader, ModalTitle } from "@sairn/ui";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusGlyph } from "@/components/brand/status-glyph";
@@ -355,15 +355,18 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 										{fromLabel}
 									</span>
 								</div>
-								<button
+								<ButtonIcon
 									type="button"
+									variant="ghost"
+									intent="neutral"
+									size="sm"
 									onClick={handleFlip}
 									aria-label={t`Flip transfer direction`}
 									disabled={internalTransfersDisabled || isPending}
-									className="p-1.5 rounded-8 hover:bg-fill-hover transition-colors text-fg-muted hover:text-action"
+									className="text-fg-muted not-data-disabled:hover:text-action"
 								>
 									<ArrowsLeftRightIcon className="size-4" />
-								</button>
+								</ButtonIcon>
 								<div className="flex flex-col items-center">
 									<span
 										className={cn(

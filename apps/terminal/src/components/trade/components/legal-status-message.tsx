@@ -26,7 +26,7 @@ export function LegalStatusMessage({
 }: Props) {
 	return (
 		<>
-			<ModalHeader divider={false} className="px-6 pt-5 pb-2">
+			<ModalHeader divider={false} className="ps-6 pe-6 pt-5 pb-2">
 				<ModalTitle className="text-lg font-normal">{title}</ModalTitle>
 			</ModalHeader>
 			<ModalContent className="px-6 pt-0 pb-4">

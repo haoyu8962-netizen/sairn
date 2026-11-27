@@ -1,4 +1,5 @@
 import { StarIcon, XIcon } from "@phosphor-icons/react";
+import type { Ref } from "react";
 import { cn } from "@/lib/cn";
 
 interface Props {
@@ -14,13 +15,26 @@ interface Props {
 	onRemove?: (name: string) => void;
 	removeLabel?: (name: string) => string;
 	selectLabel?: (name: string) => string;
+	stripRef?: Ref<HTMLDivElement>;
+	setItemButtonRef?: (name: string, node: HTMLButtonElement | null) => void;
 }
 
-export function FavoritesStripView({ items, emptyLabel, onSelect, onRemove, removeLabel, selectLabel }: Props) {
+export function FavoritesStripView({
+	items,
+	emptyLabel,
+	onSelect,
+	onRemove,
+	removeLabel,
+	selectLabel,
+	stripRef,
+	setItemButtonRef,
+}: Props) {
 	return (
 		<div
+			ref={stripRef}
+			tabIndex={-1}
 			data-favorites-strip=""
-			className="flex h-full items-center overflow-hidden border-b border-stroke-weak bg-surface px-2"
+			className="flex h-full items-center overflow-hidden border-b border-stroke-weak bg-surface px-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stroke-focus"
 		>
 			{items.length === 0 ? (
 				<div className="flex items-center gap-2 text-xs text-fg">
@@ -28,11 +42,12 @@ export function FavoritesStripView({ items, emptyLabel, onSelect, onRemove, remo
 					<span>{emptyLabel}</span>
 				</div>
 			) : (
-				<div className="flex items-center gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+				<div className="flex items-center gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 					<StarIcon weight="fill" className="size-3 shrink-0 text-yellow" />
 					{items.map((item) => (
 						<div key={item.name} className="group/fav relative shrink-0">
 							<button
+								ref={setItemButtonRef ? (node) => setItemButtonRef(item.name, node) : undefined}
 								type="button"
 								onClick={() => onSelect?.(item.name)}
 								aria-pressed={item.active}
@@ -50,6 +65,7 @@ export function FavoritesStripView({ items, emptyLabel, onSelect, onRemove, remo
 									{item.label}
 								</span>
 								<span
+									aria-hidden={item.changeText === undefined || undefined}
 									className={cn(
 										"tabular-nums font-medium transition-opacity",
 										{
@@ -71,9 +87,9 @@ export function FavoritesStripView({ items, emptyLabel, onSelect, onRemove, remo
 									onRemove?.(item.name);
 								}}
 								aria-label={removeLabel?.(item.name)}
-								className="absolute -top-0.5 -right-0.5 hidden size-3 cursor-pointer items-center justify-center text-fg-muted hover:text-fg group-hover/fav:flex"
+								className="pointer-events-none absolute top-0 end-0 flex size-3 cursor-pointer items-center justify-center rounded-4 text-fg-muted opacity-0 transition-opacity duration-150 hover:text-fg group-hover/fav:pointer-events-auto group-hover/fav:opacity-100 group-focus-within/fav:pointer-events-auto group-focus-within/fav:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-stroke-focus motion-reduce:transition-none"
 							>
-								<XIcon className="size-2.5" weight="bold" />
+								<XIcon className="size-2.5" weight="bold" aria-hidden="true" />
 							</button>
 						</div>
 					))}

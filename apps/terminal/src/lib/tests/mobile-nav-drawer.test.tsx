@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { i18n } from "@lingui/core";
-import { act, createElement, Fragment, type ReactNode } from "react";
+import { act, cloneElement, createContext, createElement, type ReactElement, type ReactNode, useContext } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileNavDrawer } from "@/components/trade/mobile/mobile-nav-drawer";
@@ -25,6 +25,8 @@ const testState = vi.hoisted(() => ({
 	sessionMode: "disconnected" as "wallet" | "agent-only" | "disconnected",
 	settingsOpen: vi.fn(),
 }));
+
+const DrawerMockContext = createContext<{ open: boolean; onOpenChange?: (open: boolean) => void }>({ open: false });
 
 vi.mock("@sairn/ui", () => ({
 	Badge: ({ children }: { children: ReactNode }) => createElement("span", null, children),
@@ -71,22 +73,37 @@ vi.mock("@sairn/ui", () => ({
 		),
 	Drawer: ({
 		children,
+		onOpenChange,
 		onOpenChangeComplete,
 		open,
 	}: {
 		children: ReactNode;
+		onOpenChange?: (open: boolean) => void;
 		onOpenChangeComplete?: (open: boolean) => void;
 		open: boolean;
 	}) =>
-		open
-			? createElement(Fragment, null, children)
-			: createElement("button", {
+		createElement(
+			DrawerMockContext.Provider,
+			{ value: { open, onOpenChange } },
+			children,
+			!open &&
+				createElement("button", {
 					"data-testid": "drawer-close-complete",
 					onClick: () => onOpenChangeComplete?.(false),
 					type: "button",
 				}),
-	DrawerContent: ({ children, className }: { children: ReactNode; className?: string }) =>
-		createElement("div", { className, "data-testid": "mobile-nav-drawer", role: "dialog" }, children),
+		),
+	DrawerTrigger: ({ render, ...props }: { render?: ReactElement<Record<string, unknown>>; [key: string]: unknown }) => {
+		const { open, onOpenChange } = useContext(DrawerMockContext);
+		const triggerProps = { ...props, onClick: () => onOpenChange?.(!open) };
+		return render ? cloneElement(render, triggerProps) : createElement("button", { type: "button", ...triggerProps });
+	},
+	DrawerContent: ({ children, className }: { children: ReactNode; className?: string }) => {
+		const { open } = useContext(DrawerMockContext);
+		return open
+			? createElement("div", { className, "data-testid": "mobile-nav-drawer", role: "dialog" }, children)
+			: null;
+	},
 	DrawerTitle: ({ children, className }: { children: ReactNode; className?: string }) =>
 		createElement("h2", { className }, children),
 }));

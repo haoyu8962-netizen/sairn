@@ -71,7 +71,7 @@ export function EarnView({ data, isMobile, actionsAllowed, notice, onOpenAction 
 	const healthRatio = summary ? getHealthFactorDisplayRatio(summary) : null;
 	const firstSupplied = supplyRows.find((row) => Big(row.supplied).gt(0))?.token ?? null;
 	const firstBorrowed = borrowRows.find((row) => Big(row.borrowed).gt(0))?.token ?? null;
-	const busy = data.publicStatus !== "ready" || data.accountStatus === "loading";
+	const busy = data.publicStatus === "loading" || data.accountStatus === "loading";
 
 	const headerActions: { operation: EarnOperation; label: string; token: number | null; primary: boolean }[] = [
 		{ operation: "supply", label: t`Supply`, token: null, primary: true },
@@ -123,7 +123,7 @@ export function EarnView({ data, isMobile, actionsAllowed, notice, onOpenAction 
 							<button
 								type="button"
 								className={cn(
-									"cursor-help text-start underline decoration-dashed decoration-stroke-strong underline-offset-4",
+									"-my-1 inline-flex min-h-6 cursor-help items-center py-1 text-start underline decoration-dashed decoration-stroke-strong underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
 									TOUCH_PRESS_FADE_CLASS,
 								)}
 							>
@@ -147,30 +147,48 @@ export function EarnView({ data, isMobile, actionsAllowed, notice, onOpenAction 
 				<Tabs value={tab} onValueChange={(value) => setTab(value as EarnTab)}>
 					<div className="px-3 pt-2">
 						<TabsList aria-label={t`Earn detail views`} className="overflow-x-auto">
-							<TabsTrigger value="supplyBorrow">{t`Supply and Borrow`}</TabsTrigger>
-							<TabsTrigger value="interest">{t`Interest`}</TabsTrigger>
-							<TabsTrigger value="history">{t`Earn Action History`}</TabsTrigger>
+							<TabsTrigger value="supplyBorrow" className="max-[1000px]:px-2.5">
+								{t`Supply and Borrow`}
+							</TabsTrigger>
+							<TabsTrigger value="interest" className="max-[1000px]:px-2.5">
+								{t`Interest`}
+							</TabsTrigger>
+							<TabsTrigger value="history" className="max-[1000px]:px-2.5">
+								{t`Earn Action History`}
+							</TabsTrigger>
 						</TabsList>
 					</div>
 					<TabsContent value="supplyBorrow" className="space-y-5 p-3 min-[1001px]:p-4">
-						<AssetSection
-							title={t`Supply`}
-							kind="supply"
-							rows={supplyRows}
-							data={data}
-							isMobile={isMobile}
-							blocks={blocks}
-							onOpenAction={onOpenAction}
-						/>
-						<AssetSection
-							title={t`Borrow`}
-							kind="borrow"
-							rows={borrowRows}
-							data={data}
-							isMobile={isMobile}
-							blocks={blocks}
-							onOpenAction={onOpenAction}
-						/>
+						{data.publicStatus === "error" || data.accountStatus === "error" ? (
+							<EarnRetryBar
+								onRetry={() => {
+									if (data.publicStatus === "error") data.retryPublic();
+									if (data.accountStatus === "error") data.retryAccount();
+								}}
+							/>
+						) : null}
+						{data.publicStatus === "error" && !snapshot ? null : (
+							<>
+								<AssetSection
+									title={t`Supply`}
+									kind="supply"
+									rows={supplyRows}
+									data={data}
+									isMobile={isMobile}
+									blocks={blocks}
+									onOpenAction={onOpenAction}
+								/>
+								<AssetSection
+									title={t`Borrow`}
+									kind="borrow"
+									rows={borrowRows}
+									data={data}
+									isMobile={isMobile}
+									blocks={blocks}
+									onOpenAction={onOpenAction}
+								/>
+							</>
+						)}
 					</TabsContent>
 					<TabsContent value="interest" className="p-3 min-[1001px]:p-4">
 						<InterestTable data={data} />
@@ -178,8 +196,11 @@ export function EarnView({ data, isMobile, actionsAllowed, notice, onOpenAction 
 					<TabsContent value="history" className="p-3 min-[1001px]:p-4">
 						<HistoryTable
 							rows={data.history}
-							ready={data.historyStatus === "ready"}
+							status={data.historyStatus}
+							refreshFailed={data.historyRefreshFailed}
+							refreshing={data.historyRefreshing}
 							canConfirmEmpty={data.canConfirmEmptyHistory}
+							onRetry={data.retryHistory}
 						/>
 					</TabsContent>
 				</Tabs>
@@ -340,46 +361,44 @@ function AssetSection({ title, kind, rows, data, isMobile, blocks, onOpenAction 
 	return (
 		<div className="space-y-2">
 			<h2 className="text-sm font-semibold text-fg">{title}</h2>
-			<div className="overflow-x-auto">
-				<Table className="min-w-[56rem]">
-					<TableHeader>
-						<TableRow>
-							<TableHead size="dense">{t`Asset`}</TableHead>
-							{headerCells.map((cell) => (
-								<TableHead key={cell.key} size="dense">
-									{cell.label}
-								</TableHead>
-							))}
-							<TableHead size="dense">{t`Action`}</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{sortedRows.map((row) => (
-							<TableRow key={row.token}>
-								<TableCell size="dense" className="font-semibold text-fg">
-									{row.displayName}
-								</TableCell>
-								{getCells(row, kind, accountReady, showInterest, translate, numberFormat).map((cell) => (
-									<TableCell key={cell.key} size="dense" className="text-fg tabular-nums">
-										{cell.value}
-									</TableCell>
-								))}
-								<TableCell size="dense">
-									<div className="flex items-center gap-3">
-										{getActions(row).map((action) => (
-											<RowActionLink
-												key={action.operation}
-												action={action}
-												onClick={() => onOpenAction(action.operation, row.token)}
-											/>
-										))}
-									</div>
-								</TableCell>
-							</TableRow>
+			<Table scrollableRegionLabel={title} className="min-w-[56rem]">
+				<TableHeader>
+					<TableRow>
+						<TableHead size="dense">{t`Asset`}</TableHead>
+						{headerCells.map((cell) => (
+							<TableHead key={cell.key} size="dense">
+								{cell.label}
+							</TableHead>
 						))}
-					</TableBody>
-				</Table>
-			</div>
+						<TableHead size="dense">{t`Action`}</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{sortedRows.map((row) => (
+						<TableRow key={row.token}>
+							<TableCell size="dense" className="font-semibold text-fg">
+								{row.displayName}
+							</TableCell>
+							{getCells(row, kind, accountReady, showInterest, translate, numberFormat).map((cell) => (
+								<TableCell key={cell.key} size="dense" className="text-fg tabular-nums">
+									{cell.value}
+								</TableCell>
+							))}
+							<TableCell size="dense">
+								<div className="flex items-center gap-3">
+									{getActions(row).map((action) => (
+										<RowActionLink
+											key={action.operation}
+											action={action}
+											onClick={() => onOpenAction(action.operation, row.token)}
+										/>
+									))}
+								</div>
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
 		</div>
 	);
 }
@@ -526,6 +545,29 @@ function getBlockReason(
 	return null;
 }
 
+interface EarnRetryBarProps {
+	onRetry: () => void;
+	isRetrying?: boolean;
+}
+
+function EarnRetryBar({ onRetry, isRetrying = false }: EarnRetryBarProps) {
+	const { t } = useLingui();
+	return (
+		<div className="flex justify-center py-4">
+			<Button
+				variant="outline"
+				intent="neutral"
+				size="sm"
+				disabled={isRetrying}
+				aria-busy={isRetrying || undefined}
+				onClick={onRetry}
+			>
+				{t`Retry`}
+			</Button>
+		</div>
+	);
+}
+
 interface InterestTableProps {
 	data: EarnData;
 }
@@ -536,8 +578,8 @@ function InterestTable({ data }: InterestTableProps) {
 	const { formatNumber } = useNumberFormat();
 	const ready = data.interestStatus === "ready";
 	return (
-		<div className="overflow-x-auto" aria-busy={data.interestStatus === "loading" || undefined}>
-			<Table>
+		<div aria-busy={data.interestStatus === "loading" || undefined}>
+			<Table scrollableRegionLabel={t`Interest`}>
 				<TableHeader>
 					<TableRow>
 						<TableHead size="dense">{t`Time`}</TableHead>
@@ -567,7 +609,8 @@ function InterestTable({ data }: InterestTableProps) {
 						: null}
 				</TableBody>
 			</Table>
-			{ready && data.interest.length === 0 ? (
+			{data.interestStatus === "error" ? <EarnRetryBar onRetry={data.retryInterest} /> : null}
+			{data.canConfirmEmptyInterest && data.interest.length === 0 ? (
 				<p className="py-6 text-center text-xs text-fg-muted">{t`No interest yet`}</p>
 			) : null}
 		</div>
@@ -576,18 +619,22 @@ function InterestTable({ data }: InterestTableProps) {
 
 interface HistoryTableProps {
 	rows: readonly AccountLedgerRow[];
-	ready: boolean;
+	status: EarnData["historyStatus"];
+	refreshFailed: boolean;
+	refreshing: boolean;
 	canConfirmEmpty: boolean;
+	onRetry: () => void;
 }
 
-function HistoryTable({ rows, ready, canConfirmEmpty }: HistoryTableProps) {
+function HistoryTable({ rows, status, refreshFailed, refreshing, canConfirmEmpty, onRetry }: HistoryTableProps) {
 	const { i18n, t } = useLingui();
 	const locale = i18n.locale;
 	const { formatNumber } = useNumberFormat();
 	const translate = (descriptor: MessageDescriptor) => t(descriptor);
+	const ready = status === "ready";
 	return (
-		<div className="overflow-x-auto">
-			<Table>
+		<div aria-busy={status === "loading" || refreshing || undefined}>
+			<Table scrollableRegionLabel={t`Earn Action History`}>
 				<TableHeader>
 					<TableRow>
 						<TableHead size="dense">{t`Time`}</TableHead>
@@ -615,6 +662,7 @@ function HistoryTable({ rows, ready, canConfirmEmpty }: HistoryTableProps) {
 						: null}
 				</TableBody>
 			</Table>
+			{status === "error" || refreshFailed ? <EarnRetryBar onRetry={onRetry} isRetrying={refreshing} /> : null}
 			{canConfirmEmpty && rows.length === 0 ? (
 				<p className="py-6 text-center text-xs text-fg-muted">{t`No earn actions yet`}</p>
 			) : null}

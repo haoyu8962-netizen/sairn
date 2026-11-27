@@ -39,7 +39,7 @@ Guiding principles:
 - Send USDC from Arbitrum to your trading account; the terminal moves it to Hyperliquid through Circle's CCTP.
 
 ### Mobile Device Linking
-- Where available, link a phone by approving a trading key on desktop and scanning a short-lived QR code from the desktop header.
+- Where available, after activating trading on desktop (deposit and place a first order that completes the builder-fee authorization, such as a market or limit order—TWAP orders do not trigger builder-fee approval), link a phone by clicking the desktop header QR code icon, approving the mobile trading key, revealing and scanning the short-lived QR code, and verifying the account address and tapping **Import** on your phone.
 
 ---
 

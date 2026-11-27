@@ -81,6 +81,7 @@ vi.mock("@/stores/use-global-settings-store", () => ({
 }));
 
 vi.mock("@/stores/use-order-entry-store", () => ({
+	useOrderType: () => "limit",
 	useSizeMode: () => mocks.sizeMode,
 }));
 

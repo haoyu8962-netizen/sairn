@@ -624,6 +624,14 @@
 					animation-timeline: view();
 					animation-range: cover calc((sibling-index() - 1) * 40px) cover calc(280px + (sibling-index() - 1) * 40px);
 				}
+
+				/* Below @split the features tablist scrolls horizontally, which makes it the view() scroller for its
+				   own children and freezes tabs mid-reveal; stagger them only in the vertical @split layout. */
+				@container (max-width: 59.999rem) {
+					#features .reveal-stagger > * {
+						animation-name: none;
+					}
+				}
 			}
 		}
 
@@ -877,8 +885,8 @@ html.js:not(.js-loaded) [data-panel-heading],
 	font-size: var(--text-2sm);
 	line-height: var(--text-2sm--line-height);
 }
-/* Touch targets: 44px below the breakpoints where the old controls grew to min-h-11. */
-@media (max-width: 767px) {
+/* Touch targets: 44px below the breakpoints and whenever a coarse pointer is available (docs/website-plan.md). */
+@media (max-width: 767px), (any-pointer: coarse) {
 	.btn-md {
 		--btn-height: 44px;
 		--btn-chip: 28px;
@@ -889,6 +897,8 @@ html.js:not(.js-loaded) [data-panel-heading],
 		--btn-pad: 18px;
 		--btn-gap: 10px;
 	}
+}
+@media (max-width: 639px), (any-pointer: coarse) {
 	.btn-sm {
 		--btn-height: 44px;
 		--btn-chip: 28px;

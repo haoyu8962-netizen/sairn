@@ -455,7 +455,7 @@ describe("mobile order modification", () => {
 			if (!size || !price) return;
 			changeInput(price, "171.5");
 			changeInput(size, "1.500");
-			pressKey(price, "Enter");
+			pressKey(size, "Enter");
 			await Promise.resolve();
 		});
 
@@ -489,7 +489,7 @@ describe("mobile order modification", () => {
 		await act(async () => {
 			if (!price) return;
 			changeInput(price, "171.5");
-			pressKey(price, "Enter");
+			document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.click();
 			await Promise.resolve();
 		});
 
@@ -530,7 +530,7 @@ describe("mobile order modification", () => {
 		await act(async () => {
 			if (!price) return;
 			changeInput(price, "171.5");
-			pressKey(price, "Enter");
+			document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.click();
 			await Promise.resolve();
 		});
 
@@ -728,7 +728,7 @@ describe("mobile order modification", () => {
 		await act(async () => {
 			if (!trigger) return;
 			changeInput(trigger, "175");
-			pressKey(trigger, "Enter");
+			document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.click();
 			await Promise.resolve();
 		});
 
@@ -867,7 +867,7 @@ describe("mobile order modification", () => {
 		await act(async () => {
 			if (!trigger) return;
 			changeInput(trigger, "175");
-			pressKey(trigger, "Enter");
+			document.body.querySelector<HTMLButtonElement>('form button[type="submit"]')?.click();
 			await Promise.resolve();
 		});
 

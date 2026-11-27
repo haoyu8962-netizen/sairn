@@ -42,8 +42,10 @@ export function MobileBalancesTab() {
 		hasError,
 		internalTransfersEnabled,
 		isConnected,
+		isDataReady: balancesDataReady,
 		isDataStale,
 		isLoading,
+		isPending: balancesPending,
 		perpFundsActionsEnabled,
 		showBalanceAccountType,
 	} = useBalanceRows();
@@ -92,15 +94,17 @@ export function MobileBalancesTab() {
 		return <div className="flex min-h-0 flex-1" />;
 	}
 	const isDataReady =
-		!hasError &&
-		!isLoading &&
-		!isDataStale &&
-		(accountModeReady || accountModeSetup === "awaiting-funds") &&
-		accountDataReady;
+		balancesDataReady ??
+		(!hasError &&
+			!isLoading &&
+			!isDataStale &&
+			(accountModeReady || accountModeSetup === "awaiting-funds") &&
+			accountDataReady);
+	const isPending = balancesPending ?? (isLoading || (!accountModeReady && accountModeSetup === "pending"));
 	return (
 		<div className="flex min-h-0 flex-col font-market-close">
 			{!isDataReady ? (
-				<DataPendingState loading={isLoading || (!accountModeReady && accountModeSetup === "pending")} />
+				<DataPendingState loading={isPending} />
 			) : balances.length === 0 ? (
 				<MobileBalancesState
 					label={depositNotice ?? t`No balances found. Deposit funds to start trading.`}
@@ -128,14 +132,14 @@ export function MobileBalancesTab() {
 						return (
 							<article
 								key={`${row.type}-${row.asset}`}
-								className="flex min-h-[57px] items-center justify-between gap-3 border-b border-market-close-stroke-card px-3.5 py-3 transition-colors duration-[120ms] active:bg-market-close-hover"
+								className="flex min-h-[57px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-market-close-stroke-card px-3.5 py-3 transition-colors duration-[120ms] active:bg-market-close-hover"
 							>
-								<div className="flex min-w-0 items-center gap-2">
+								<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
 									<AssetDisplay
 										coin={row.asset}
 										isToken
 										iconClassName="size-[26px]"
-										nameClassName="truncate text-[13px] font-bold text-market-close-fg"
+										nameClassName="break-words text-[13px] font-bold text-market-close-fg [overflow-wrap:anywhere]"
 									/>
 									{showBalanceAccountType ? (
 										<span className="shrink-0 text-[10px] font-medium text-market-close-subtle">
@@ -143,12 +147,12 @@ export function MobileBalancesTab() {
 										</span>
 									) : null}
 								</div>
-								<div className="ms-auto flex min-w-0 items-center gap-2.5">
-									<div className="min-w-0 text-right">
-										<div className="truncate text-[13px] font-semibold text-market-close-fg tabular-nums">
+								<div className="ms-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2.5">
+									<div className="min-w-0 text-end">
+										<div className="break-words text-[13px] font-semibold text-market-close-fg tabular-nums [overflow-wrap:anywhere]">
 											{formatUSD(row.usdValue, { compact: true })}
 										</div>
-										<div className="truncate text-[10px] text-market-close-subtle tabular-nums">
+										<div className="break-words text-[10px] text-market-close-subtle tabular-nums [overflow-wrap:anywhere]">
 											{t`Available`} {displayAvailable === null ? "—" : formatToken(displayAvailable, decimals)}
 										</div>
 									</div>

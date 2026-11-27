@@ -11,9 +11,9 @@ import type { useTokenSelector } from "./use-token-selector";
 
 function SortIcon({ columnId, sorting }: { columnId: string; sorting: { id: string; desc: boolean }[] }) {
 	const sort = sorting.find((s) => s.id === columnId);
-	if (sort?.desc === false) return <ArrowUpIcon className="size-3" />;
-	if (sort?.desc === true) return <ArrowDownIcon className="size-3" />;
-	return <ArrowsDownUpIcon className="size-3 opacity-50" />;
+	if (sort?.desc === false) return <ArrowUpIcon className="size-3" aria-hidden="true" />;
+	if (sort?.desc === true) return <ArrowDownIcon className="size-3" aria-hidden="true" />;
+	return <ArrowsDownUpIcon className="size-3 opacity-50" aria-hidden="true" />;
 }
 
 interface Props {
@@ -24,6 +24,8 @@ interface Props {
 	search: string;
 	setSearch: (value: string) => void;
 	isLoading: boolean;
+	hasCatalogError?: boolean;
+	onRetryCatalog?: () => void;
 	hasClassificationError: boolean;
 	onRetryClassifications: () => void;
 	isFavorite: (name: string) => boolean;
@@ -38,9 +40,13 @@ interface Props {
 	virtualItems: ReturnType<typeof useTokenSelector>["virtualItems"];
 	virtualTotalSize: number;
 	containerRef: React.RefObject<HTMLDivElement | null>;
+	searchInputRef?: React.RefObject<HTMLInputElement | null>;
 	filteredMarkets: ReturnType<typeof useTokenSelector>["filteredMarkets"];
 	highlightedIndex: number;
 	handleListKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+	onFavoriteFocus?: (name: string) => void;
+	onFavoriteBlur?: (name: string) => void;
+	onFavoriteButtonRef?: (name: string, node: HTMLButtonElement | null) => void;
 	headingId: string;
 	mobile?: boolean;
 	onClose?: () => void;
@@ -54,6 +60,8 @@ export function TokenSelectorContent({
 	search,
 	setSearch,
 	isLoading,
+	hasCatalogError = false,
+	onRetryCatalog,
 	hasClassificationError,
 	onRetryClassifications,
 	isFavorite,
@@ -68,9 +76,13 @@ export function TokenSelectorContent({
 	virtualItems,
 	virtualTotalSize,
 	containerRef,
+	searchInputRef,
 	filteredMarkets,
 	highlightedIndex,
 	handleListKeyDown,
+	onFavoriteFocus,
+	onFavoriteBlur,
+	onFavoriteButtonRef,
 	headingId,
 	mobile = false,
 	onClose,
@@ -91,6 +103,18 @@ export function TokenSelectorContent({
 	];
 	const showSubcategoryTabs = subcategories.length > 0;
 	const tableLayout: MarketTableLayout = scope === "spot" ? "spot" : "default";
+	const listboxId = `${headingId}-listbox`;
+	const hasLoadError = hasCatalogError || hasClassificationError;
+	const showList = !hasLoadError && !isLoading && rows.length > 0;
+
+	function getOptionId(marketName: string): string {
+		return `${headingId}-option-${encodeURIComponent(marketName)}`;
+	}
+
+	const highlightedRow = showList && highlightedIndex >= 0 ? rows[highlightedIndex] : undefined;
+	const isHighlightedMounted =
+		highlightedRow !== undefined && virtualItems.some((item) => item.index === highlightedIndex);
+	const activeOptionId = isHighlightedMounted ? getOptionId(highlightedRow.original.name) : undefined;
 
 	function getColumnSortLabel(columnId: string): string {
 		switch (columnId) {
@@ -109,6 +133,22 @@ export function TokenSelectorContent({
 			default:
 				return columnId;
 		}
+	}
+
+	function getSortButtonAriaLabel(columnId: string): string {
+		const sortLabel = getColumnSortLabel(columnId);
+		const activeSort = sorting[0];
+		if (activeSort?.id !== columnId) return t`Sort by ${sortLabel}`;
+		if (activeSort.desc) return t`Sort by ${sortLabel}, sorted descending`;
+		return t`Sort by ${sortLabel}, sorted ascending`;
+	}
+
+	function getSortFooterAnnouncement(): string {
+		const activeSort = sorting[0];
+		if (!activeSort) return t`Updated live`;
+		const sortLabel = getColumnSortLabel(activeSort.id);
+		if (activeSort.desc) return t`Sorted by ${sortLabel}, descending`;
+		return t`Sorted by ${sortLabel}, ascending`;
 	}
 
 	function getSubcategoryLabel(value: string, fallback: string): string {
@@ -156,13 +196,92 @@ export function TokenSelectorContent({
 						? "font-bold text-trading-panel-fg"
 						: "font-medium text-trading-panel-subtle hover:text-trading-panel-fg",
 				)}
-				aria-label={t`Sort by ${sortLabel}`}
+				aria-label={getSortButtonAriaLabel(columnId)}
 			>
 				<span className="min-w-0 truncate">{sortLabel}</span>
 				<span className={cn("inline-flex shrink-0", isActive ? "text-trading-panel-fg" : "text-trading-panel-subtle")}>
 					<SortIcon columnId={columnId} sorting={sorting} />
 				</span>
 			</button>
+		);
+	}
+
+	function renderListBody() {
+		if (hasLoadError) {
+			function handleRetry() {
+				if (hasCatalogError && hasClassificationError) {
+					onRetryCatalog?.();
+					onRetryClassifications();
+					return;
+				}
+				if (hasCatalogError) {
+					(onRetryCatalog ?? onRetryClassifications)();
+					return;
+				}
+				onRetryClassifications();
+			}
+			return (
+				<div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+					<Button type="button" variant="outline" intent="neutral" size="xs" onClick={handleRetry}>
+						{t`Retry`}
+					</Button>
+				</div>
+			);
+		}
+		if (isLoading) {
+			return (
+				<div aria-busy="true" className="min-h-44 flex-1">
+					<span className="sr-only">{t`Loading markets...`}</span>
+				</div>
+			);
+		}
+		if (rows.length === 0) {
+			return (
+				<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+					<div className="grid size-10 place-items-center rounded-full bg-trading-panel-hover text-trading-panel-subtle">
+						<MagnifyingGlassIcon className="size-4" aria-hidden="true" />
+					</div>
+					<span className="text-[13px] font-semibold text-trading-panel-muted">{t`No markets found.`}</span>
+				</div>
+			);
+		}
+		return (
+			<div id={listboxId} role="listbox" aria-label={t`Markets`}>
+				<ul
+					role="none"
+					className="m-0 list-none p-0"
+					style={{
+						height: `${virtualTotalSize}px`,
+						width: "100%",
+						position: "relative",
+					}}
+				>
+					{virtualItems.map((virtualItem) => {
+						const row = rows[virtualItem.index];
+						const market = row.original;
+						return (
+							<TokenSelectorRow
+								key={row.id}
+								market={market}
+								optionId={getOptionId(market.name)}
+								mobile={mobile}
+								showDerivativesMetrics={scope !== "spot"}
+								showSpotMarketCap={scope === "spot"}
+								isSelected={selectedMarket?.name === market.name}
+								isHighlighted={highlightedIndex >= 0 && virtualItem.index === highlightedIndex}
+								isFavorite={isFavorite(market.name)}
+								top={virtualItem.start}
+								height={virtualItem.size}
+								onSelect={handleSelect}
+								onToggleFavorite={toggleFavorite}
+								onFavoriteFocus={onFavoriteFocus}
+								onFavoriteBlur={onFavoriteBlur}
+								onFavoriteButtonRef={onFavoriteButtonRef}
+							/>
+						);
+					})}
+				</ul>
+			</div>
 		);
 	}
 
@@ -179,6 +298,12 @@ export function TokenSelectorContent({
 				</h2>
 				<div className="flex min-w-0 items-center gap-2">
 					<SearchInput
+						ref={searchInputRef}
+						role="combobox"
+						aria-autocomplete="list"
+						aria-expanded={showList}
+						aria-controls={showList ? listboxId : undefined}
+						aria-activedescendant={activeOptionId}
 						placeholder={t`Search markets...`}
 						value={search}
 						onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
@@ -210,7 +335,7 @@ export function TokenSelectorContent({
 			</div>
 
 			<div className="relative shrink-0 border-b border-trading-panel-stroke-card">
-				<div className="overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+				<div className="overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 					<div className={cn("flex w-max min-w-full flex-nowrap items-center px-4", mobile ? "gap-3.5" : "gap-[18px]")}>
 						{marketScopes.map((s) => {
 							const isSelected = scope === s.value;
@@ -220,7 +345,7 @@ export function TokenSelectorContent({
 									key={s.value}
 									onClick={() => handleScopeSelect(s.value)}
 									className={cn(
-										"shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-px text-[13px] font-semibold transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+										"shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-px text-[13px] font-semibold transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stroke-focus",
 										mobile ? "h-11" : "h-10",
 										isSelected
 											? "border-trading-panel-control text-trading-panel-fg"
@@ -235,7 +360,10 @@ export function TokenSelectorContent({
 					</div>
 				</div>
 				{mobile ? (
-					<div className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-linear-to-r from-transparent to-surface" />
+					<div
+						aria-hidden="true"
+						className="pointer-events-none absolute inset-y-0 end-0 w-7 bg-linear-to-r from-transparent to-surface rtl:bg-linear-to-l"
+					/>
 				) : null}
 			</div>
 			{showSubcategoryTabs ? (
@@ -255,7 +383,7 @@ export function TokenSelectorContent({
 									key={sub.value}
 									onClick={() => handleSubcategorySelect(sub.value)}
 									className={cn(
-										"shrink-0 cursor-pointer whitespace-nowrap rounded-[7px] border px-2.5 py-1 text-xs font-medium transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus",
+										"shrink-0 cursor-pointer whitespace-nowrap rounded-[7px] border px-2.5 py-1 text-xs font-medium transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stroke-focus",
 										mobile && "relative after:absolute after:-inset-x-1 after:-inset-y-[9px] after:content-['']",
 										isSelected
 											? "border-trading-panel-stroke-input bg-trading-panel-hover text-trading-panel-fg"
@@ -270,7 +398,10 @@ export function TokenSelectorContent({
 						})}
 					</div>
 					{mobile ? (
-						<div className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-linear-to-r from-transparent to-surface" />
+						<div
+							aria-hidden="true"
+							className="pointer-events-none absolute inset-y-0 end-0 w-7 bg-linear-to-r from-transparent to-surface rtl:bg-linear-to-l"
+						/>
 					) : null}
 				</div>
 			) : null}
@@ -316,7 +447,7 @@ export function TokenSelectorContent({
 													? "font-bold text-trading-panel-fg"
 													: "font-medium text-trading-panel-subtle hover:text-trading-panel-fg",
 											)}
-											aria-label={t`Sort by ${sortLabel}`}
+											aria-label={getSortButtonAriaLabel(header.id)}
 										>
 											<span className="min-w-0 whitespace-normal text-right leading-tight text-balance">
 												{sortLabel}
@@ -341,56 +472,7 @@ export function TokenSelectorContent({
 				ref={containerRef}
 				className={cn("min-h-0 flex-1 overflow-auto", mobile ? "overscroll-none" : "max-h-[432px]")}
 			>
-				{hasClassificationError ? (
-					<div role="alert" className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
-						<span className="text-xs text-trading-panel-error">{t`Failed to load market categories.`}</span>
-						<Button variant="outline" intent="neutral" size="xs" onClick={onRetryClassifications}>
-							{t`Retry`}
-						</Button>
-					</div>
-				) : isLoading ? (
-					<div className="flex items-center justify-center py-8">
-						<span className="text-xs text-trading-panel-muted">{t`Loading markets...`}</span>
-					</div>
-				) : rows.length === 0 ? (
-					<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-						<div className="grid size-10 place-items-center rounded-full bg-trading-panel-hover text-trading-panel-subtle">
-							<MagnifyingGlassIcon className="size-4" />
-						</div>
-						<span className="text-[13px] font-semibold text-trading-panel-muted">{t`No markets found.`}</span>
-					</div>
-				) : (
-					<ul
-						aria-label={t`Markets`}
-						className="m-0 list-none p-0"
-						style={{
-							height: `${virtualTotalSize}px`,
-							width: "100%",
-							position: "relative",
-						}}
-					>
-						{virtualItems.map((virtualItem) => {
-							const row = rows[virtualItem.index];
-							const market = row.original;
-							return (
-								<TokenSelectorRow
-									key={row.id}
-									market={market}
-									mobile={mobile}
-									showDerivativesMetrics={scope !== "spot"}
-									showSpotMarketCap={scope === "spot"}
-									isSelected={selectedMarket?.name === market.name}
-									isHighlighted={highlightedIndex >= 0 && virtualItem.index === highlightedIndex}
-									isFavorite={isFavorite(market.name)}
-									top={virtualItem.start}
-									height={virtualItem.size}
-									onSelect={handleSelect}
-									onToggleFavorite={toggleFavorite}
-								/>
-							);
-						})}
-					</ul>
-				)}
+				{renderListBody()}
 			</div>
 
 			<div
@@ -400,10 +482,15 @@ export function TokenSelectorContent({
 				)}
 			>
 				<span className="whitespace-nowrap tabular-nums">
-					{filteredMarkets.length} {t`markets`}
+					{hasLoadError || isLoading ? "--" : `${filteredMarkets.length} ${t`markets`}`}
 				</span>
 				<span className="min-w-0 whitespace-nowrap text-right text-trading-panel-subtle tabular-nums">
-					{sorting.length > 0 ? t`Sorted by ${getColumnSortLabel(sorting[0].id)}` : t`Updated live`}
+					<span aria-hidden="true">
+						{sorting.length > 0 ? t`Sorted by ${getColumnSortLabel(sorting[0].id)}` : t`Updated live`}
+					</span>
+					<span className="sr-only" aria-live="polite" aria-atomic="true">
+						{getSortFooterAnnouncement()}
+					</span>
 				</span>
 			</div>
 		</div>

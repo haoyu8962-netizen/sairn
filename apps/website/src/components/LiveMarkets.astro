@@ -71,7 +71,7 @@ const cardClass =
 				</dl>
 			</div>
 			<details class="disclosure stats-method border-t border-stroke-weaker py-4 lg:col-span-12">
-				<summary class="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm text-fg-muted hover:text-fg sm:min-h-8 [&::-webkit-details-marker]:hidden">
+				<summary class="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm text-fg-muted hover:text-fg active:text-fg active:opacity-75 sm:min-h-8 sm:any-pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
 					<svg class="disclosure-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 2l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
 					How these are calculated
 				</summary>
@@ -145,7 +145,7 @@ const cardClass =
 					</li>
 				))}
 			</ul>
-			<ul class="ticker-list ticker-mirror py-1" aria-hidden="true" inert>
+			<ul class="ticker-list ticker-mirror py-1" aria-hidden="true">
 				{markets.map((market) => (
 					<li class="shrink-0" data-market-coin={market.coin}>
 						<a href={terminalTradeUrl(market.coin, `ticker_${coinSlot(market.coin)}`)} tabindex="-1" class={cardClass} data-live-mirror={market.coin}>

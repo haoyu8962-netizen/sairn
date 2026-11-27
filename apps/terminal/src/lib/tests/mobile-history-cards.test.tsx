@@ -423,7 +423,7 @@ describe("mobile history disclosure cards", () => {
 
 		let disclosureButtons = getDisclosureButtons();
 		expect(disclosureButtons.map((button) => button.getAttribute("aria-expanded"))).toEqual(["false", "false"]);
-		expect(disclosureButtons.every((button) => button.parentElement?.className.includes("h-[54px]"))).toBe(true);
+		expect(disclosureButtons.every((button) => button.parentElement?.className.includes("min-h-[54px]"))).toBe(true);
 		expectBulkAvailability(true, false);
 
 		act(() => disclosureButtons[1]?.click());
@@ -478,6 +478,7 @@ describe("mobile history disclosure cards", () => {
 		expect(filterRow?.className).toContain("h-9");
 		expect(filterRow?.className).toContain("px-3.5");
 		expect(filterRow?.className).toContain("overflow-x-auto");
+		expect(filterRow?.className).toContain("overflow-y-hidden");
 
 		const filterTriggers = Array.from(filterRow?.querySelectorAll<HTMLElement>('[role="combobox"]') ?? []);
 		expect(filterTriggers).toHaveLength(selectCount);
@@ -508,8 +509,8 @@ describe("mobile history disclosure cards", () => {
 
 		for (const disclosure of getDisclosureButtons()) {
 			const header = disclosure.parentElement;
-			expect(header?.className).toContain("h-[54px]");
-			expect(header?.className).toContain("grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_16px]");
+			expect(header?.className).toContain("min-h-[54px]");
+			expect(header?.className).toContain("grid-cols-[minmax(0,1fr)_16px]");
 			expect(header?.className).toContain("gap-2.5");
 			expect(header?.className).toContain("px-3.5");
 		}
@@ -521,9 +522,10 @@ describe("mobile history disclosure cards", () => {
 		const details = expandedDetailsId ? document.getElementById(expandedDetailsId) : null;
 		expect(details && container.contains(details)).toBe(true);
 		const detailsGrid = details?.querySelector<HTMLElement>("div.grid");
-		expect(detailsGrid?.className).toContain("grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]");
-		expect(detailsGrid?.className).toContain("gap-x-2.5");
-		expect(detailsGrid?.className).toContain("gap-y-3");
+		expect(detailsGrid?.className).toContain("grid-cols-2");
+		expect(detailsGrid?.className).toContain("gap-x-3");
+		expect(detailsGrid?.className).toContain("gap-y-2.5");
+		expect(details?.querySelectorAll(".truncate")).toHaveLength(0);
 		if (!wasExpanded) act(() => getDisclosureButtons()[0]?.click());
 
 		const footer = container.querySelector<HTMLElement>(`[data-testid="${footerTestId}"]`);

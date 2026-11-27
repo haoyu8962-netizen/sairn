@@ -69,12 +69,16 @@ export function AmountInput({
 					)}
 				/>
 				{hasHelper ? (
-					<p id={helperId} role="alert" className="flex h-4 items-center gap-1 text-xs text-market-close-danger">
-						<WarningCircleIcon className="size-3" />
-						{helperText}
+					<p
+						id={helperId}
+						role="alert"
+						className="mt-1 flex min-h-4 items-start gap-1 text-xs leading-4 text-market-close-danger"
+					>
+						<WarningCircleIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+						<span>{helperText}</span>
 					</p>
 				) : (
-					<div aria-hidden="true" className="h-4" />
+					<div aria-hidden="true" className="mt-1 min-h-4" />
 				)}
 			</div>
 

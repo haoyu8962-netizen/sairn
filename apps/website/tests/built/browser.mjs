@@ -26,8 +26,8 @@ const TYPES = {
 	".xml": "application/xml",
 };
 
-export async function launch() {
-	return chromium.launch();
+export async function launch(options = {}) {
+	return chromium.launch(options);
 }
 
 /**
@@ -37,9 +37,9 @@ export async function launch() {
 export async function openPage(
 	browser,
 	path,
-	{ viewport, javaScriptEnabled = true, block = [], delay = [], delayMs = 0, reducedMotion = "reduce" } = {},
+	{ viewport, javaScriptEnabled = true, block = [], delay = [], delayMs = 0, reducedMotion = "reduce", hasTouch = false, isMobile = false } = {},
 ) {
-	const context = await browser.newContext({ viewport, javaScriptEnabled, deviceScaleFactor: 1, reducedMotion });
+	const context = await browser.newContext({ viewport, javaScriptEnabled, deviceScaleFactor: 1, reducedMotion, hasTouch, isMobile });
 	await context.route("**/*", async (route) => {
 		const url = new URL(route.request().url());
 		if (url.origin !== ORIGIN) return route.abort();
