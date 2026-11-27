@@ -433,6 +433,114 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Multi-model UI review fixes re-baseline (2026-11-27)
+
+PR #21 (`claude/multi-agent-ui-review-phase-1`, head `7d92841d`) carries the fixes of a multi-model UI and UX
+review: about 280 files across the terminal, the shared `@sairn/ui` primitives, the website and the seven
+catalogs. The task record is `docs/work-memory/sessions/2026-11-27-multi-agent-ui-review-phase-1.md`. Its CI builds
+failed the total, static-startup, mobile-runtime, `trade-terminal-page`, `token-selector-popup` and `vaults-page`
+budgets in both pairing states. The local verification of the branch had not run the terminal build, so the failure
+first showed in CI. The operator approved a re-baseline on 2026-11-27 instead of cutting the fixes.
+
+Paired builds in two worktrees on the same machine: `main` `ce3259b6` and the PR head `7d92841d`. Each had no
+tracked changes when it built; the logs do not list untracked files. Both used
+Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile --prefer-offline`, no `apps/terminal/.env.local` (only
+the tracked `.env.example`), `NITRO_PRESET=node-server` and one fixed identity:
+`SAIRN_BUILD_SHA=7d92841da1efedf35ec36135672e0b3bc107c424`, `SAIRN_RELEASE_ID=ui-review-rebaseline`,
+`SAIRN_BUILD_TIME=2026-11-27T00:00:00.000Z`. Each worktree built pairing off, then pairing on; the two worktrees
+built at the same time. The build script, worktree state, environment-file check, versions, every build log and the
+readings were saved when the builds ran, in the Git-ignored `.worklog/2026-11-27/ui-review-rebaseline/`.
+
+| Metric | `main` off | PR off | Change | `main` on | PR on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| All client JS + CSS | 3,408,580 | 3,429,781 | +21,201 | 3,411,557 | 3,432,877 | +21,320 |
+| Static trade startup | 1,675,257 | 1,683,183 | +7,926 | 1,676,322 | 1,684,429 | +8,107 |
+| Route preloads only (diagnostic) | 531,014 | 531,882 | +868 | 531,982 | 532,996 | +1,014 |
+| Mobile runtime increment | 120,366 | 121,966 | +1,600 | 120,353 | 121,976 | +1,623 |
+| Desktop runtime increment | 207,512 | 209,742 | +2,230 | 207,446 | 209,755 | +2,309 |
+| `trade-terminal-page` | 129,404 | 131,137 | +1,733 | 129,392 | 131,145 | +1,753 |
+| `token-selector-popup` | 15,424 | 16,271 | +847 | 15,409 | 16,275 | +866 |
+| `vaults-page` | 30,487 | 30,883 | +396 | 30,490 | 30,884 | +394 |
+| Mobile static + runtime | 1,795,623 | 1,805,149 | +9,526 | 1,796,675 | 1,806,405 | +9,730 |
+| Desktop static + runtime | 1,882,769 | 1,892,925 | +10,156 | 1,883,768 | 1,894,184 | +10,416 |
+
+Asset counts:
+
+- The client output grows by two assets: 456 to 458 with pairing off, 457 to 459 with pairing on.
+- The static closure grows by two assets, 103 to 105.
+- The runtime profiles keep 15 (mobile) and 31 (desktop).
+
+By chunk, compared with Node's `gzipSync` on the pairing-on outputs with content hashes removed (264 of 439 chunk
+names changed; the 40 largest changes account for +20,861 of the +21,320):
+
+- **Static startup.**
+  - The TWAP sub-tab implementation, the account tabs' TWAP views and the phone second row are in the shared
+    `use-account-abstraction-control` chunk (+1,847).
+  - The TWAP trigger-direction and invalid-price submit guards are in `trade-terminal-page` (+1,753).
+  - `vendor-tanstack-router` changed by +1,014 net. It holds the statically imported English catalog, which carries
+    this batch's new messages.
+  - The stylesheet adds +644 and `twap-details` +587. `use-lingering-value` became `use-hip3-disclaimer-store`
+    with the same four modules (net +4).
+  - The new `selector-quote` chunk (+1,803) is described in the next paragraph.
+- **Mobile runtime.** `token-selector-popup` +866, the command search +496 (it now holds the selector's catalog
+  display state) and the toaster stylesheet +217. The other chunks add +44.
+- **Outside both profiles.**
+  - The lazy Bridge tab adds +2,845.
+  - The six non-English catalogs add +2,794 together. A viewer loads at most one at startup, and another one only
+    when switching language.
+  - Earn, the leaderboard and the referrals page add a few hundred bytes each.
+
+No third-party module was added to the static, mobile-runtime or desktop-runtime sets.
+
+One application module moved into static startup. `domain/market/selector-quote.ts` sat in `token-selector-popup`
+on `main`. It now loads with the first screen because the favourites strip calls `getMarketSelectorChange` from it.
+Its new `selector-quote` chunk therefore also carries `getMarketSelectorQuote`, which only the selector rows use.
+Part of the chunk's 1,803 bytes (`orderbook.ts`, `trades.ts`) was already in the static closure on `main`. Splitting
+`getMarketSelectorChange` into its own module would keep the popup-only formatting out of startup; this change does
+not do that.
+
+Changes to the baselines, with allowances unchanged. Each is raised by the larger of its two measured increments, so
+the room left equals `main`'s in the pairing state that measured that increment. The other state keeps the
+difference between the two increments on top.
+
+| Budget | Raise | New baseline | Room after (off / on) | `main`'s room (off / on) |
+|---|---:|---:|---:|---:|
+| All client JS + CSS | +21,320 | 3,425,559 | 5,778 / 2,682 | 5,659 / 2,682 |
+| Static trade startup | +8,107 | 1,674,829 | 1,646 / 400 | 1,465 / 400 |
+| Mobile runtime increment | +1,623 | 112,722 | 756 / 746 | 733 / 746 |
+| `trade-terminal-page` | +1,753 | 127,408 | 271 / 263 | 251 / 263 |
+| `token-selector-popup` | +866 | 15,221 | 450 / 446 | 431 / 446 |
+| `vaults-page` | +396 | 28,276 | 393 / 392 | 393 / 390 |
+
+Notes on the raises:
+
+- Before its raise, `vaults-page` was over its old limit of 30,880 by 3 bytes with pairing off and 4 with pairing
+  on.
+- Unchanged: the desktop runtime increment, which keeps 2,941 bytes off and 2,928 on, and the other surfaces, which
+  each keep at least 707.
+
+Verification of the new baselines:
+
+- The checker, run with them on the PR's pairing-on output, passes: total +7,318, static startup +9,600, mobile
+  runtime +9,254.
+- The pairing-off output was not kept. From the logged readings it would keep 5,778 for the total, 1,646 for static
+  startup and 756 for the mobile runtime.
+
+Limits:
+
+- **Release precheck.** It asks for 1,000 bytes of total room and 200 for every other budget.
+  - In these protocol builds, the total keeps 2,682 with pairing on, and the lowest other room is
+    `trade-terminal-page` with 263 pairing on.
+  - Static startup with pairing on keeps 400 bytes in this protocol build. Past release builds of identical code
+    have read up to about 150 bytes more than protocol builds (agent handbook §8), but that is history, not a
+    measurement of this release configuration. The release precheck has to measure it before relying on this
+    room.
+- **Release configuration.** The production `.env.local` with pairing on was not built.
+- **CI comparison.** The failing CI run of `03c1b526` read 131,155 for `trade-terminal-page` with pairing off and
+  131,148 with pairing on. With pairing on, its total and mobile runtime are 224 and 182 bytes below this protocol's
+  readings for `7d92841d`. The two are different commits, so these figures do not isolate the effect of the build
+  identity.
+
 ## Signer session guard total and static-startup re-baseline (2026-11-23)
 
 PR 2 (`claude/signer-session-guard`, head `2d30f86d`, `main` `fa82e486` merged in) checks the wallet session before
