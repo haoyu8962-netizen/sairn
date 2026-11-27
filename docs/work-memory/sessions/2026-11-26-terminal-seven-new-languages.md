@@ -684,3 +684,13 @@
   - 新基线：`trade-terminal-page` 按较大的增量 +216，从 127,408 上调到 127,624，余量不变，剩余与 main 相同（配对关 185）。其他基线不变；新基线下合并头配对开读数为总量 +6,705（余 3,295）、静态启动 +9,417（余 583）、手机运行时 +9,237（余 763）。
 - 合并后的检查：终端 typecheck、改动文件 Biome、订单簿组与运行时翻译组等 32 个文件 1,042 项、`node --test scripts/check-client-bundle-budget.test.mjs`（19 项）、`pnpm memory:check` 与 `memory:test` 通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
 - 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。#25、#24 合入 main 后还要再合一次 main。
+
+### 订单簿列头分支再次合入 main 1bcaaff4 与包体检查（2026-11-27）
+
+- 合并：#26、#25、#24 合入 `main` 后，`ff1355c70` 用合并提交把 `main` `1bcaaff49` 合入本分支。冲突在三份文档：`docs/i18n-presentation.md`（保留本分支的列头条目，静态数字一条取 `main` 的新写法）、`docs/terminal-performance-baseline.md`（两节都保留，本分支一节在前）和本记录（以 `main` 为底，本分支的提交号与各节接在后面；待决第 5、6 项取 `main` 标的「已处理」，第 7 项保留）。上面「待决项处理之后」写第 3 项仍待决定，是 #24 当时的情况；第 3 项由本分支（PR #23）处理。`harness/po-catalog.ts` 与 #24 的 `harness/catalog-messages.ts` 都保留，没有合并。`pnpm i18n:extract` 不改目录，每个目录与 `main` 只差列头 `Size` 一条与一行来源注释，新增 7 个都是 Missing 0；`pnpm i18n:compile` 通过。
+- 包体检查：条件与上一节相同，`main` `1bcaaff49` 对比 `ff1355c70`，构建标识 `SAIRN_RELEASE_ID=orderbook-size-check-2`，日志与资源副本在 `.worklog/2026-11-27/orderbook-size-check-2/`。四次构建都通过预算检查，基线不变。
+  - 分支配对开：`trade-terminal-page` 131,450（基线 127,624，余 174），总量 3,709,264（+7,002，余 2,998），静态启动 1,686,773（+9,132，余 868），手机运行时 +8,821（余 1,179），桌面运行时 +6,627。
+  - 分支配对关：`trade-terminal-page` 131,451（余 173），总量 +3,980，静态启动 +8,203。
+  - 相对 `main`（配对关 / 开）：`trade-terminal-page` +217 / +223，总量 -485 / -196，静态启动 +6 / -37，两个运行时与其他路由面在 ±58 以内。逐块（去掉文件名哈希）仍只有 `trade-terminal-page` +227 / +225 与 `fees` -195 / -193，所有块合计 +68 / +61，与上一节同一原因。`main` 在它自己的基线 127,408 下读 131,234 / 131,227（余 174 / 181）。
+- 验证（`ff1355c70`）：终端 typecheck 通过；本分支改过的 5 个 ts/tsx 跑 Biome 通过；订单簿组、运行时翻译组与目录相关的 32 个文件 1,042 项通过；#24 用 `harness/catalog-messages.ts` 读目录的 3 个测试文件 104 项通过；`node --test scripts/check-client-bundle-budget.test.mjs` 19 项、`pnpm memory:check`、`memory:test` 12 项通过。typecheck 与 `memory:check` 临时借用了 Git 忽略的图表库文件，用完已删。
+- 没有做：生产发布配置的构建、终端全量 Vitest（交给 PR 的 CI）。
