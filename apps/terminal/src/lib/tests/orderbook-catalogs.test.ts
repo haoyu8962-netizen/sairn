@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import { ORDERBOOK_LABELS } from "@/config/orderbook-labels";
 import { TRADE_PANEL_LABELS } from "@/config/trade-panel-labels";
+import { linguiMessageId, readPoEntries } from "./harness/po-catalog";
 
 const translations = {
 	ar: { "Distance from mid": "البُعد عن السعر الوسطي", Ask: "بيع", Bid: "شراء", "No orders": "لا توجد أوامر" },
@@ -37,14 +39,6 @@ const sizeTranslations = {
 	"zh-TW": { form: "數量", column: "數量" },
 } as const;
 
-function sizeEntries(catalog: string) {
-	return catalog
-		.split(/\n{2,}/)
-		.map((block) => block.split("\n").filter((line) => !line.startsWith("#")))
-		.filter((lines) => lines.includes('msgid "Size"'))
-		.map((lines) => lines.join("\n"));
-}
-
 describe("orderbook catalogs", () => {
 	for (const [locale, messages] of Object.entries(translations)) {
 		const catalog = readFileSync(new URL(`../../locales/${locale}/messages.po`, import.meta.url), "utf8");
@@ -58,18 +52,32 @@ describe("orderbook catalogs", () => {
 });
 
 describe("order book size column heading", () => {
-	it("does not share its message with the order form size label", () => {
-		expect(ORDERBOOK_LABELS.size.id).not.toBe(TRADE_PANEL_LABELS.size.id);
-	});
-
 	for (const [locale, { form, column }] of Object.entries(sizeTranslations)) {
-		const catalog = readFileSync(new URL(`../../locales/${locale}/messages.po`, import.meta.url), "utf8");
+		const entries = readPoEntries(locale).filter((entry) => entry.message === "Size");
+		const shared = entries.find((entry) => entry.context === "");
+		const heading = entries.find((entry) => entry.context === "Order book column");
 
-		it(`${locale} keeps the shared Size and translates the column heading`, () => {
-			expect(sizeEntries(catalog)).toEqual([
-				`msgid "Size"\nmsgstr "${form}"`,
-				`msgctxt "Order book column"\nmsgid "Size"\nmsgstr "${column}"`,
+		it(`${locale} has one shared Size and one order book column Size`, () => {
+			expect(entries.map(({ context, translation, flags }) => ({ context, translation, flags }))).toEqual([
+				{ context: "", translation: form, flags: [] },
+				{ context: "Order book column", translation: column, flags: [] },
 			]);
+			expect(heading?.references).toEqual(["src/config/orderbook-labels.ts"]);
+			expect(shared?.references).toContain("src/config/trade-panel-labels.ts");
+			expect(shared?.references).not.toContain("src/config/orderbook-labels.ts");
+		});
+
+		it(`${locale} resolves each label to its own catalog entry`, () => {
+			const catalogI18n = setupI18n({
+				locale,
+				messages: {
+					[locale]: Object.fromEntries(
+						entries.map((entry) => [linguiMessageId(entry.message, entry.context), entry.translation]),
+					),
+				},
+			});
+			expect(catalogI18n._(ORDERBOOK_LABELS.size)).toBe(column);
+			expect(catalogI18n._(TRADE_PANEL_LABELS.size)).toBe(form);
 		});
 	}
 });

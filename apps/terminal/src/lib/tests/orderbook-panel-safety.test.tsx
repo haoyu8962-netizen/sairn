@@ -9,6 +9,7 @@ import { OrderbookPanel } from "@/components/trade/orderbook/orderbook-panel";
 import { ORDERBOOK_PANEL_CLASS, ORDERBOOK_TAB_CONTENT_CLASS } from "@/components/trade/orderbook/orderbook-panel-view";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { getOrderbookActionsStore } from "@/stores/use-orderbook-actions-store";
+import { linguiMessageId, readPoEntries } from "./harness/po-catalog";
 
 const mocks = vi.hoisted(() => ({
 	formatLocale: "en-US",
@@ -340,6 +341,25 @@ describe("OrderbookPanel safety", () => {
 		const headingRow = controls?.nextElementSibling;
 		expect(headingRow?.firstElementChild?.textContent).toBe("Price");
 		expect(headingRow?.querySelector("button")).toBeNull();
+	});
+
+	it.each([
+		{ locale: "vi", column: "Lượng", shared: "Số lượng" },
+		{ locale: "pt", column: "Tam.", shared: "Tamanho" },
+	])("labels the size column with the order book's own message in $locale", ({ locale, column, shared }) => {
+		const entries = readPoEntries(locale).filter((entry) => entry.message === "Size");
+		expect(entries.map((entry) => entry.translation)).toEqual([shared, column]);
+		i18n.loadAndActivate({
+			locale,
+			messages: Object.fromEntries(
+				entries.map((entry) => [linguiMessageId(entry.message, entry.context), entry.translation]),
+			),
+		});
+
+		renderPanel();
+
+		const headingRow = container.querySelector('[data-slot="orderbook-controls"]')?.nextElementSibling;
+		expect(headingRow?.children[1]?.textContent).toBe(`${column}(HYPE)`);
 	});
 
 	it("asks the order form to switch the size unit when a unit is picked in the book", async () => {
