@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { useLegalStatus } from "@sairn/hl-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatUnits } from "viem";
 import { isCctpSponsoredDepositEnabled } from "@/config/cctp-deposit";
@@ -398,6 +398,11 @@ export function EmbeddedDepositAutoBridge() {
 		submissionOutcomeUnknown,
 	]);
 
+	const describeDepositError = useEffectEvent((error: Error | null) =>
+		formatTransferError(error, (descriptor) => t(descriptor), numberFormat, t`Automatic USDC deposit failed`),
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: describeDepositError is an effect event, so a number-format change does not reopen a notice
 	useEffect(() => {
 		if (!notificationIdentity) return;
 		function getNotificationOptions() {
@@ -471,12 +476,7 @@ export function EmbeddedDepositAutoBridge() {
 							depositError.reason === "changed" ? "deposit-route-changed" : "deposit-route-unavailable",
 							(descriptor) => t(descriptor),
 						)
-					: formatTransferError(
-							depositError,
-							(descriptor) => t(descriptor),
-							numberFormat,
-							t`Automatic USDC deposit failed`,
-						);
+					: describeDepositError(depositError);
 			toast.error(depositErrorMessage, getNotificationOptions());
 		}
 	}, [
@@ -487,7 +487,6 @@ export function EmbeddedDepositAutoBridge() {
 		depositStatus,
 		isEmbeddedDeposit,
 		notificationIdentity,
-		numberFormat,
 		submissionOutcomeUnknown,
 		usdcRoutingStatus,
 		t,

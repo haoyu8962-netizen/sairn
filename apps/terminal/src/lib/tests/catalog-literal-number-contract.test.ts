@@ -57,11 +57,14 @@ function escapeRegExp(value: string) {
 
 const GROUPED_NUMBER_PATTERN = /(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d]|[.,]\d)/g;
 
-// Every source message that writes a grouped number, translated or not, with the numbers it writes.
+// English source messages group thousands with commas; any such group counts, decimals included ("$10,000.00").
+const SOURCE_GROUPED_NUMBER_PATTERN = /\d{1,3}(?:,\d{3})+(?:\.\d+)?/g;
+
+// Every source message that writes a comma-grouped number, translated or not, with the numbers it writes.
 function sourceGroupedNumbers(source: string): Record<string, string[]> {
 	const found: Record<string, string[]> = {};
 	for (const { key, msgid } of parsePo(source)) {
-		const numbers = msgid.match(GROUPED_NUMBER_PATTERN);
+		const numbers = msgid.match(SOURCE_GROUPED_NUMBER_PATTERN);
 		if (numbers) found[key] = [...numbers];
 	}
 	return found;
@@ -139,6 +142,9 @@ describe("catalog literal number contract", () => {
 			'msgid "Over $10,000"',
 			'msgstr "Über $10,000"',
 			"",
+			'msgid "Fee of $10,000.00 and 2.5 USDC"',
+			'msgstr ""',
+			"",
 			'#~ msgid "Old cap 1,000 USDC"',
 			'#~ msgstr "Alte Grenze 1,000 USDC"',
 			"",
@@ -146,6 +152,7 @@ describe("catalog literal number contract", () => {
 		expect(sourceGroupedNumbers(catalog)).toEqual({
 			"Cap 10,000,000 USDC": ["10,000,000"],
 			"Board\u0004Over $10,000": ["10,000"],
+			"Fee of $10,000.00 and 2.5 USDC": ["10,000.00"],
 		});
 	});
 

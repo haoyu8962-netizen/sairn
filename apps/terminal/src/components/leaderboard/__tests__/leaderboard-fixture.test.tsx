@@ -5,12 +5,17 @@ import { i18n } from "@lingui/core";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { createI18nRoot } from "@/lib/tests/harness/react";
 import { LeaderboardFixture, type LeaderboardFixtureState, resolveLeaderboardFixture } from "../leaderboard-fixture";
 
-const mocks = vi.hoisted(() => ({ isMobile: false }));
+const mocks = vi.hoisted(() => ({ isMobile: false, numberFormatLocale: "en-US" }));
 
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => mocks.isMobile }));
+vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/stores/use-global-settings-store")>()),
+	getResolvedFormatLocale: () => mocks.numberFormatLocale,
+}));
 
 describe("LeaderboardFixture", () => {
 	let container: HTMLDivElement;
@@ -18,6 +23,8 @@ describe("LeaderboardFixture", () => {
 
 	beforeEach(() => {
 		mocks.isMobile = false;
+		mocks.numberFormatLocale = "en-US";
+		notifyNumberFormatChange();
 		container = document.createElement("div");
 		document.body.appendChild(container);
 		root = createI18nRoot(container);
@@ -88,6 +95,18 @@ describe("LeaderboardFixture", () => {
 			"its account value is below $100,000 and its all-time volume is below $10,000,000. ROI",
 		);
 		expect(container.textContent).not.toMatch(/\$[\d.,]+[KMB]\b/);
+	});
+
+	it("shows both exclusion thresholds with the new separators after the number format changes", () => {
+		render("normal");
+		expect(container.textContent).toContain("below $100,000 and its all-time volume is below $10,000,000. ROI");
+
+		act(() => {
+			mocks.numberFormatLocale = "de-DE";
+			notifyNumberFormatChange();
+		});
+
+		expect(container.textContent).toContain("below $100.000 and its all-time volume is below $10.000.000. ROI");
 	});
 
 	function render(fixture: LeaderboardFixtureState) {

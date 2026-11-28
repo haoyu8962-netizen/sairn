@@ -43,9 +43,9 @@
 13. **消息里不写数字，限额与门槛由占位符在显示时填入**（2026-11-28，[任务记录](work-memory/sessions/2026-11-28-static-number-placeholders.md)）。
    - **范围**：Circle CCTP 单笔存款上限（`config/cctp-deposit.ts`，主网 10,000,000、测试网 1,000 USDC）、推荐码的累计成交量门槛（`config/referral.ts`，10,000 美元）和排行榜的排除规则（`LEADERBOARD_ACCOUNT_VALUE_THRESHOLD`、`LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD`）。
    - **怎么填**：这些数字都写成占位符，显示时由 `useNumberFormat()` 的 `formatDecimalString` 填入，不带小数；`$` 和单位词留在各语言的译文里。
-   - **出错时**：这三类限额保存为带金额的分类失败 `AmountLimitActionFailure`（[ADR 0024](adr/0024-translate-action-errors-at-render.md)）。`formatActionFailure`、`describeActionFailure`、`describeActionError`、`formatTransferError`、`formatExchangeActionError` 都必须传入数字格式化函数，所以已保存的失败在设置改变后重新渲染时，会换成新的分隔符。一次性弹出的提示仍在弹出时格式化，已显示的不变（[ADR 0036](adr/0036-render-time-number-formatters.md)）。
+   - **出错时**：两种 Circle 存款上限和推荐码门槛保存为带金额的分类失败 `AmountLimitActionFailure`；排行榜的规则只在页面上显示，不会出错（[ADR 0024](adr/0024-translate-action-errors-at-render.md)）。`formatActionFailure`、`describeActionFailure`、`describeActionError`、`formatTransferError`、`formatExchangeActionError` 都必须传入数字格式化函数，所以已保存的失败在设置改变后重新渲染时，会换成新的分隔符。一次性弹出的提示仍在弹出时格式化，已显示的不变（[ADR 0036](adr/0036-render-time-number-formatters.md)）。
    - **从右到左的界面**：以空格分组的数字（`fr-FR` 的 `10 000 000`）会被双向算法拆成几段，并从右往左排列（实测为 `000 10`）。`useNumberFormat()` 的 `isolateNumber` 只在这种情况下给数字包上 U+2066…U+2069；从左到右的语言、逗号或点分组的数字，以及 `getNumberFormatters()` 的结果都原样输出。
-   - **契约**：`catalog-literal-number-contract` 在任何源消息写入分组数字时失败。
+   - **契约**：`catalog-literal-number-contract` 在任何英文源消息写入以逗号分组的数字时失败，带小数的（`10,000.00`）也算。
 
 ## 选项与存储
 

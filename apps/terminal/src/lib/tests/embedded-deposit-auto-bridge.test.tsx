@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EmbeddedDepositAutoBridge } from "@/components/trade/tradebox/embedded-deposit-auto-bridge";
 import { UsdcDepositRouteError } from "@/hooks/trade/use-usdc-routing";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 
 const USER_ADDRESS = "0x1111111111111111111111111111111111111111" as const;
 const HASH = "0x0000000000000000000000000000000000000000000000000000000000000001" as const;
@@ -309,6 +310,24 @@ describe.each([
 			root.render(createElement(EmbeddedDepositAutoBridge));
 		});
 
+		expect(testState.deposit).not.toHaveBeenCalled();
+	});
+
+	it("does not reopen a dismissed route notice when only the number format changes", async () => {
+		testState.routingData = null;
+		testState.routingIsError = true;
+		await act(async () => {
+			root.render(createElement(EmbeddedDepositAutoBridge));
+		});
+		expect(testState.toastError).toHaveBeenCalledTimes(1);
+		const options = testState.toastError.mock.calls[0]?.[1] as { onDismiss: () => void };
+
+		act(() => options.onDismiss());
+		await act(async () => {
+			notifyNumberFormatChange();
+		});
+
+		expect(testState.toastError).toHaveBeenCalledTimes(1);
 		expect(testState.deposit).not.toHaveBeenCalled();
 	});
 
