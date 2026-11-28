@@ -84,8 +84,9 @@ describe("LeaderboardFixture", () => {
 		expect(container.textContent).toContain("$2,450,000.00");
 		expect(container.textContent).toContain("$185,000.00");
 		expect(container.textContent).toContain("$18,000,000.00");
-		expect(container.textContent).toContain("$100,000");
-		expect(container.textContent).toContain("$10,000,000");
+		expect(container.textContent).toContain(
+			"its account value is below $100,000 and its all-time volume is below $10,000,000. ROI",
+		);
 		expect(container.textContent).not.toMatch(/\$[\d.,]+[KMB]\b/);
 	});
 

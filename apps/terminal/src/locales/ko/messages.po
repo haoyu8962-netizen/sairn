@@ -743,8 +743,12 @@ msgid "An accepted order was canceled afterward. Review open orders and position
 msgstr "접수된 주문이 이후 취소되었습니다. 다시 시도하기 전에 미체결 주문과 포지션을 확인하세요."
 
 #: src/components/leaderboard/leaderboard-view.tsx
-msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "계정 평가액이 $100,000 미만이고 전체 기간 거래량이 $10,000,000 미만인 경우에만 해당 계정이 제외됩니다. ROI는 현재 공식 앱 데이터 소스에서 보고하는 값입니다. 볼트 계정은 네트워크가 일치하는 볼트 데이터셋을 사용하여 제외됩니다. 검토된 프로토콜 및 트레저리 주소 정책이 없으므로 이 순위는 Hyperliquid 공식 리더보드와 정확히 일치함을 보장하지 않습니다."
+msgid "An account is excluded only when both its account value is below ${accountValueLimit} and its all-time volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+msgstr "계정 평가액이 ${accountValueLimit} 미만이고 전체 기간 거래량이 ${volumeLimit} 미만인 경우에만 해당 계정이 제외됩니다. ROI는 현재 공식 앱 데이터 소스에서 보고하는 값입니다. 볼트 계정은 네트워크가 일치하는 볼트 데이터셋을 사용하여 제외됩니다. 검토된 프로토콜 및 트레저리 주소 정책이 없으므로 이 순위는 Hyperliquid 공식 리더보드와 정확히 일치함을 보장하지 않습니다."
+
+#: src/components/leaderboard/leaderboard-view.tsx
+#~ msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+#~ msgstr "계정 평가액이 $100,000 미만이고 전체 기간 거래량이 $10,000,000 미만인 경우에만 해당 계정이 제외됩니다. ROI는 현재 공식 앱 데이터 소스에서 보고하는 값입니다. 볼트 계정은 네트워크가 일치하는 볼트 데이터셋을 사용하여 제외됩니다. 검토된 프로토콜 및 트레저리 주소 정책이 없으므로 이 순위는 Hyperliquid 공식 리더보드와 정확히 일치함을 보장하지 않습니다."
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1479,10 +1483,14 @@ msgstr "다른 마켓, 방향, 역할 또는 유형을 선택하세요."
 msgid "Choose different market, direction, type, or status filters."
 msgstr "다른 마켓, 방향, 유형 또는 상태 필터를 선택하세요."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle CCTP deposits are limited to {limit} USDC per transfer."
+msgstr "Circle CCTP 입금은 1회당 최대 {limit} USDC로 제한됩니다."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Circle CCTP 입금은 1회당 최대 10,000,000 USDC로 제한됩니다."
+#~ msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
+#~ msgstr "Circle CCTP 입금은 1회당 최대 10,000,000 USDC로 제한됩니다."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1504,10 +1512,14 @@ msgstr "Circle 수수료가 변경되었습니다. 업데이트된 수수료를 
 msgid "Circle is forwarding your USDC to Hyperliquid. Do not submit this deposit again."
 msgstr "Circle에서 USDC를 Hyperliquid로 전달하고 있습니다. 이 입금을 다시 제출하지 마세요."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle testnet deposits are limited to {limit} USDC per transfer."
+msgstr "Circle 테스트넷 입금은 1회당 최대 {limit} USDC로 제한됩니다."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Circle 테스트넷 입금은 1회당 최대 1,000 USDC로 제한됩니다."
+#~ msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
+#~ msgstr "Circle 테스트넷 입금은 1회당 최대 1,000 USDC로 제한됩니다."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -6307,10 +6319,14 @@ msgstr "추천 코드 적용됨"
 msgid "Referral code created"
 msgstr "추천 코드 생성됨"
 
+#: src/lib/errors/action-error.ts
+msgid "Referral codes cannot be applied after cumulative volume exceeds ${limit}."
+msgstr "누적 거래량이 ${limit}를 초과하면 추천 코드를 적용할 수 없습니다."
+
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
-msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "누적 거래량이 $10,000를 초과하면 추천 코드를 적용할 수 없습니다."
+#~ msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
+#~ msgstr "누적 거래량이 $10,000를 초과하면 추천 코드를 적용할 수 없습니다."
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

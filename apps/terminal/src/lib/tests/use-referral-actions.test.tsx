@@ -16,6 +16,7 @@ import {
 	useReferralActions,
 } from "@/hooks/trade/use-referral-actions";
 import { classifyActionErrorOr, formatActionFailure, isAmbiguousExchangeActionError } from "@/lib/errors/action-error";
+import { getNumberFormatters } from "@/lib/format";
 import type { ReferralData } from "@/lib/trade/referral";
 import type { Translate } from "@/lib/translate";
 import { clearFeedback, latestFeedback } from "./harness/order-feedback";
@@ -406,14 +407,16 @@ describe("useReferralActions", () => {
 
 		const failure = classifyActionErrorOr(rejection, REFERRAL_FAILURE);
 		expect(failure).toEqual(GEO_BLOCKED);
-		expect(formatActionFailure(failure, translate)).toBe(
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe(
 			"Referral actions are not available in your region. This referral request was not submitted.",
 		);
 		i18n.loadAndActivate({
 			locale: "zh",
 			messages: { [GEO_BLOCKED.id]: "你所在的地区无法使用推荐操作，此推荐请求未提交。" },
 		});
-		expect(formatActionFailure(failure, translate)).toBe("你所在的地区无法使用推荐操作，此推荐请求未提交。");
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe(
+			"你所在的地区无法使用推荐操作，此推荐请求未提交。",
+		);
 		expect(testState.setReferrer).not.toHaveBeenCalled();
 	});
 
@@ -588,7 +591,9 @@ describe("useReferralActions", () => {
 			expect(rejection).toBeInstanceOf(ExchangeActionDeadlineError);
 			expect(rejection).not.toBeInstanceOf(ReferralActionStatusUnknownError);
 			expect(isAmbiguousExchangeActionError(rejection)).toBe(false);
-			expect(formatActionFailure(classifyActionErrorOr(rejection, REFERRAL_FAILURE), translate)).toBe(NOT_SENT);
+			expect(
+				formatActionFailure(classifyActionErrorOr(rejection, REFERRAL_FAILURE), translate, getNumberFormatters()),
+			).toBe(NOT_SENT);
 		}
 
 		async function advanceBothClocks(ms: number) {

@@ -18,6 +18,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatExchangeActionError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { useNumberFormat } from "@/lib/format";
 import {
 	type AgentMissingReason,
 	type AgentRegistrationFailurePhase,
@@ -45,6 +46,7 @@ const resetFailureMessage = msg`Trading connection could not be reset.`;
 
 export function EstablishConnectionModal({ onClose, onConnected }: Props) {
 	const { _ } = useLingui();
+	const numberFormat = useNumberFormat();
 	const { t } = useLinguiMacro();
 	const isMobile = useIsMobile();
 	const { walletIntent } = useWalletSession();
@@ -74,10 +76,10 @@ export function EstablishConnectionModal({ onClose, onConnected }: Props) {
 	if (error) {
 		errorMessage = errorDescriptor
 			? _(errorDescriptor)
-			: formatExchangeActionError(error, _(connectionFallbackMessage), (descriptor) => _(descriptor));
+			: formatExchangeActionError(error, _(connectionFallbackMessage), (descriptor) => _(descriptor), numberFormat);
 	}
 	const resetErrorMessage = resetError
-		? formatExchangeActionError(resetError, _(resetFailureMessage), (descriptor) => _(descriptor))
+		? formatExchangeActionError(resetError, _(resetFailureMessage), (descriptor) => _(descriptor), numberFormat)
 		: null;
 	let connectButtonLabel = <Trans>Establish Connection</Trans>;
 	if (status === "approving_agent") {

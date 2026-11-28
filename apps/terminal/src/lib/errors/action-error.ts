@@ -1,5 +1,7 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import { REFERRAL_APPLY_VOLUME_LIMIT } from "@/config/referral";
+import type { NumberFormatters } from "@/lib/format";
 import {
 	type DefinitiveDepositSourceFailureCode,
 	DefinitiveDepositSourceFailureError,
@@ -12,7 +14,7 @@ import {
 	type InsufficientMarginHint,
 	parseExchangeErrorText,
 } from "./exchange-error-text";
-import { LocalizedActionError } from "./localized-action-error";
+import { AmountLimitActionError, LocalizedActionError } from "./localized-action-error";
 
 /** Stable, language-independent reasons for failures that are not exchange rejection texts. */
 export type ActionErrorCode =
@@ -47,11 +49,28 @@ export interface CodedActionFailure {
 	code: ActionErrorCode;
 }
 
+/** Fixed limits our own checks enforce on an amount. */
+export type AmountLimitCode =
+	| "cctp-mainnet-deposit-limit"
+	| "cctp-testnet-deposit-limit"
+	| "referral-apply-volume-limit";
+
+/** A limit failure keeps the limit itself, so it is formatted with the number-format setting when displayed. */
+export interface AmountLimitActionFailure {
+	kind: "action-error";
+	code: AmountLimitCode;
+	/** The limit as a plain decimal string, such as "10000000". */
+	amount: string;
+}
+
 /**
  * What to show for a failed user action, stored instead of an `Error.message` string so the text
  * is produced in the active language when it is displayed. A bare descriptor is our own message.
  */
-export type ActionFailure = ExchangeActionFailure | CodedActionFailure | MessageDescriptor;
+export type ActionFailure = ExchangeActionFailure | CodedActionFailure | AmountLimitActionFailure | MessageDescriptor;
+
+/** The number formatters a failure needs to show its amount: `useNumberFormat()` during render (ADR 0036). */
+export type ActionFailureNumberFormat = Pick<NumberFormatters, "formatDecimalString" | "isolateNumber">;
 
 const ACTION_ERROR_MESSAGES: Record<Exclude<ActionErrorCode, "unknown">, MessageDescriptor> = {
 	"access-blocked": msg`This account is not currently permitted to perform trading actions on Hyperliquid.`,
@@ -72,6 +91,13 @@ const ACTION_ERROR_MESSAGES: Record<Exclude<ActionErrorCode, "unknown">, Message
 	"wallet-mismatch": msg`Selected wallet does not match the connected account. Reconnect your wallet and try again.`,
 	"wallet-rejected": msg`Transaction was rejected`,
 	"wallet-unavailable": msg`Wallet connection failed. Unlock your wallet, approve the connection, then retry.`,
+};
+
+const AMOUNT_LIMIT_MESSAGES: Record<AmountLimitCode, (limit: string) => MessageDescriptor> = {
+	"cctp-mainnet-deposit-limit": (limit) => msg`Circle CCTP deposits are limited to ${limit} USDC per transfer.`,
+	"cctp-testnet-deposit-limit": (limit) => msg`Circle testnet deposits are limited to ${limit} USDC per transfer.`,
+	"referral-apply-volume-limit": (limit) =>
+		msg`Referral codes cannot be applied after cumulative volume exceeds $${limit}.`,
 };
 
 const GENERIC_FAILURE = msg`The request could not be completed. Try again.`;
@@ -119,7 +145,7 @@ const MESSAGE_RULES: readonly MessageRule[] = [
 	},
 	{
 		pattern: /referral codes cannot be applied after cumulative volume exceeds \$10,000/i,
-		failure: msg`Referral codes cannot be applied after cumulative volume exceeds $10,000.`,
+		failure: { kind: "action-error", code: "referral-apply-volume-limit", amount: REFERRAL_APPLY_VOLUME_LIMIT },
 	},
 	{
 		pattern: /not currently eligible to create a referral code/i,
@@ -330,8 +356,9 @@ export function isAmbiguousExchangeActionError(error: unknown): boolean {
 
 /** Classifies a thrown value without translating it. */
 export function classifyActionError(error: unknown): ActionFailure {
-	const localized = findLocalizedActionError(error);
-	if (localized) return localized.descriptor;
+	const own = findOwnActionError(error);
+	if (own instanceof AmountLimitActionError) return own.failure;
+	if (own) return own.descriptor;
 	if (error instanceof DefinitiveDepositSourceFailureError) return DEPOSIT_SOURCE_FAILURE_MESSAGES[error.code];
 	if (!isRecord(error)) return coded("unknown");
 	if (error.name === "ApiRequestError") return getApiRequestFailure(error);
@@ -366,19 +393,42 @@ export function classifyActionErrorOr(error: unknown, fallback: MessageDescripto
 	return isUnknownFailure(failure) ? fallback : failure;
 }
 
-/** Renders a classified failure in the active language, or null when there is nothing specific to say. */
-export function formatActionFailure(failure: ActionFailure, translate: Translate): string | null {
+/**
+ * Renders a classified failure in the active language and number format, or null when there is
+ * nothing specific to say.
+ */
+export function formatActionFailure(
+	failure: ActionFailure,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+): string | null {
 	if (!("kind" in failure)) return translate(failure);
 	if (failure.kind === "exchange-error") {
 		return failure.entries.length > 0 ? formatExchangeErrorEntries(failure.entries, translate, failure.hint) : null;
 	}
+	if ("amount" in failure) return describeAmountLimit(failure.code, failure.amount, translate, numberFormat);
 	if (failure.code === "unknown") return null;
 	return translate(ACTION_ERROR_MESSAGES[failure.code]);
 }
 
+/** The message of a limit, with the limit in the active number format; also shown before the action. */
+export function describeAmountLimit(
+	code: AmountLimitCode,
+	amount: string,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+): string {
+	return translate(AMOUNT_LIMIT_MESSAGES[code](numberFormat.isolateNumber(numberFormat.formatDecimalString(amount))));
+}
+
 /** Renders a stored failure in the active language, falling back to the caller's or a generic message. */
-export function describeActionFailure(failure: ActionFailure, translate: Translate, fallback?: string): string {
-	return formatActionFailure(failure, translate) ?? fallback ?? translate(GENERIC_FAILURE);
+export function describeActionFailure(
+	failure: ActionFailure,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+	fallback?: string,
+): string {
+	return formatActionFailure(failure, translate, numberFormat) ?? fallback ?? translate(GENERIC_FAILURE);
 }
 
 /**
@@ -386,8 +436,13 @@ export function describeActionFailure(failure: ActionFailure, translate: Transla
  * known and otherwise shown unchanged; everything else is translated, falling back to a generic
  * message instead of showing an untranslated `Error.message`.
  */
-export function describeActionError(error: unknown, translate: Translate, fallback?: string): string {
-	return describeActionFailure(classifyActionError(error), translate, fallback);
+export function describeActionError(
+	error: unknown,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+	fallback?: string,
+): string {
+	return describeActionFailure(classifyActionError(error), translate, numberFormat, fallback);
 }
 
 function getApiRequestFailure(error: Record<string, unknown>): ActionFailure {
@@ -416,9 +471,10 @@ function getApiResponseEntries(response: unknown): ExchangeErrorEntry[] {
  * Finds our own error in the cause chain: the LI.FI SDK and wallet adapters wrap what our callbacks
  * throw, and our message is the most specific thing to say.
  */
-function findLocalizedActionError(error: unknown): LocalizedActionError | undefined {
+function findOwnActionError(error: unknown): AmountLimitActionError | LocalizedActionError | undefined {
 	let current: unknown = error;
 	for (let depth = 0; depth < 6 && isRecord(current); depth++) {
+		if (current instanceof AmountLimitActionError) return current;
 		if (current instanceof LocalizedActionError) return current;
 		current = current.cause;
 	}

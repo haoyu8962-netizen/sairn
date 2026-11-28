@@ -232,6 +232,7 @@ function isModifyExecutionSessionBindingCurrent(
 
 export function MobileOrdersTab({ className, disclosureState, scrollMode = "contained" }: Props) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const queryClient = useQueryClient();
 	useGeoRestriction();
 	const { address, isConnected } = useWalletSession();
@@ -520,7 +521,8 @@ export function MobileOrdersTab({ className, disclosureState, scrollMode = "cont
 
 	function getValidationErrorMessage(error: OrderValidationError | null): string | null {
 		if (!error) return null;
-		if (error.kind === "failure") return formatActionFailure(error.failure, (descriptor) => t(descriptor));
+		if (error.kind === "failure")
+			return formatActionFailure(error.failure, (descriptor) => t(descriptor), numberFormat);
 		return t(getValidationErrorDescriptor(error));
 	}
 

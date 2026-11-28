@@ -1,7 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { SCALE_LEVELS_MAX, SCALE_LEVELS_MIN } from "@/config/trade";
 import type { Translate } from "@/lib/translate";
-import { describeActionError, isAmbiguousExchangeActionError } from "./action-error";
+import { type ActionFailureNumberFormat, describeActionError, isAmbiguousExchangeActionError } from "./action-error";
 
 export {
 	isAmbiguousExchangeActionError,
@@ -15,20 +15,30 @@ export {
  * Describes a failed funds or wallet operation in the active language. Pass the surface's own
  * message as the fallback for failures that have nothing more specific to say.
  */
-export function formatTransferError(error: Error | null, translate: Translate, fallback?: string): string {
+export function formatTransferError(
+	error: Error | null,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+	fallback?: string,
+): string {
 	if (!error) return fallback ?? translate(msg`Unknown error`);
-	return describeActionError(error, translate, fallback);
+	return describeActionError(error, translate, numberFormat, fallback);
 }
 
 /**
  * Describes a failed signed exchange action. A result that may still have executed is reported as
  * unconfirmed; unknown failures use the caller's fallback instead of an untranslated message.
  */
-export function formatExchangeActionError(error: unknown, fallback: string, translate: Translate): string {
+export function formatExchangeActionError(
+	error: unknown,
+	fallback: string,
+	translate: Translate,
+	numberFormat: ActionFailureNumberFormat,
+): string {
 	if (isAmbiguousExchangeActionError(error)) {
 		return translate(msg`Request status could not be confirmed. Check balances and transfer history before retrying.`);
 	}
-	return describeActionError(error, translate, fallback);
+	return describeActionError(error, translate, numberFormat, fallback);
 }
 
 export function formatOrderPlanError(message: string, translate: Translate): string {

@@ -56,6 +56,7 @@ describe("number formatters and the interface direction", () => {
 		expect(formatters).toBe(getNumberFormatters());
 		expect(formatters.formatNumber(-1.5, 2)).toBe("-1.50");
 		expect(formatters.markLeadingSign("+1.5%")).toBe("+1.5%");
+		expect(formatters.isolateNumber("10 000 000")).toBe("10 000 000");
 	});
 
 	it("puts a left-to-right mark before every signed result in Arabic and nowhere else", () => {
@@ -82,6 +83,16 @@ describe("number formatters and the interface direction", () => {
 		expect(markLeadingSign("+abcde1")).toBe("+abcde1");
 		expect(markLeadingSign("N/A")).toBe("N/A");
 		expect(markLeadingSign("1-2")).toBe("1-2");
+	});
+
+	it("isolates a number grouped with spaces in Arabic and leaves every other number alone", () => {
+		act(() => i18n.loadAndActivate({ locale: "ar", messages: {} }));
+		const { isolateNumber } = current();
+
+		expect(isolateNumber("10 000 000")).toBe("\u206610 000 000\u2069");
+		expect(isolateNumber("10\u00a0000")).toBe("\u206610\u00a0000\u2069");
+		expect(isolateNumber("10,000,000")).toBe("10,000,000");
+		expect(isolateNumber("10.000.000")).toBe("10.000.000");
 	});
 
 	it("gives every component the same right-to-left formatters while the language and the format stay", () => {

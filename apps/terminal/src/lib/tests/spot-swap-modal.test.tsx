@@ -189,6 +189,7 @@ vi.mock("@/stores/use-global-modal-store", () => ({
 import { SpotSwapModal } from "@/components/trade/components/spot-swap-modal";
 import { DEFAULT_SWAP_SLIPPAGE_BPS, getMaxSwapInput } from "@/domain/trade/swap";
 import { type ActionFailure, describeActionFailure } from "@/lib/errors/action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { getSpotSwapFeedback } from "@/lib/trade/spot-swap-feedback";
 import { getOrderQueueItem, getOrderQueueItems, removeOrderQueueItem } from "@/stores/use-order-queue-store";
 
@@ -438,7 +439,11 @@ describe("SpotSwapModal submission", () => {
 
 		expect(refusal).toBeInstanceOf(Error);
 		expect(
-			describeActionFailure(getSpotSwapFeedback(refusal) as ActionFailure, (descriptor) => i18n._(descriptor)),
+			describeActionFailure(
+				getSpotSwapFeedback(refusal) as ActionFailure,
+				(descriptor) => i18n._(descriptor),
+				getNumberFormatters(),
+			),
 		).toBe(message);
 		await act(async () => {
 			resolveSubmission?.(filledResponse());

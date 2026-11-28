@@ -13,6 +13,7 @@ import { UsdcDepositRouteError, useUsdcRouting } from "@/hooks/trade/use-usdc-ro
 import { useEmailEmbeddedWallet } from "@/hooks/wallet/use-email-embedded-wallet";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatTransferError, isSmartWalletNonceConflict } from "@/lib/errors/format";
+import { useNumberFormat } from "@/lib/format";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
 import { useDeposit } from "@/lib/hyperliquid/use-deposit";
 import { meetsCctpDepositMinimum } from "@/lib/trade/cctp-deposit";
@@ -44,6 +45,7 @@ function readSponsoredAuthorizationState(env: "Mainnet" | "Testnet", owner: stri
 
 export function EmbeddedDepositAutoBridge() {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const isTestnet = useIsTestnet();
 	const depositModalOpen = useDepositModalOpen();
 	const automaticDepositEnabled = isCctpSponsoredDepositEnabled(isTestnet);
@@ -469,7 +471,12 @@ export function EmbeddedDepositAutoBridge() {
 							depositError.reason === "changed" ? "deposit-route-changed" : "deposit-route-unavailable",
 							(descriptor) => t(descriptor),
 						)
-					: formatTransferError(depositError, (descriptor) => t(descriptor), t`Automatic USDC deposit failed`);
+					: formatTransferError(
+							depositError,
+							(descriptor) => t(descriptor),
+							numberFormat,
+							t`Automatic USDC deposit failed`,
+						);
 			toast.error(depositErrorMessage, getNotificationOptions());
 		}
 	}, [
@@ -480,6 +487,7 @@ export function EmbeddedDepositAutoBridge() {
 		depositStatus,
 		isEmbeddedDeposit,
 		notificationIdentity,
+		numberFormat,
 		submissionOutcomeUnknown,
 		usdcRoutingStatus,
 		t,

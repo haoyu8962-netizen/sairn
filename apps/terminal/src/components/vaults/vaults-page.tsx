@@ -13,7 +13,7 @@ import { FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/cn";
 import { type ActionFailure, describeActionFailure } from "@/lib/errors/action-error";
-import { shortenAddress, useNumberFormat } from "@/lib/format";
+import { type NumberFormatters, shortenAddress, useNumberFormat } from "@/lib/format";
 import { getExplorerTxUrl } from "@/lib/hyperliquid";
 import type { Translate } from "@/lib/translate";
 import { useIsTestnet } from "@/stores/use-global-settings-store";
@@ -71,7 +71,8 @@ export function VaultDetailPage({ vaultAddress, onRequestAction }: VaultDetailPa
 
 function VaultDetailLive({ vaultAddress, onRequestAction }: VaultDetailPageProps) {
 	const { t } = useLingui();
-	const { formatNumber } = useNumberFormat();
+	const numberFormat = useNumberFormat();
+	const { formatNumber } = numberFormat;
 	const isTestnet = useIsTestnet();
 	const controller = useVaultDetailController(vaultAddress);
 	const vaultAction = useVaultActionController({
@@ -134,7 +135,12 @@ function VaultDetailLive({ vaultAddress, onRequestAction }: VaultDetailPageProps
 		}
 		const isRejected = settledResult === "rejected";
 		toast.error(isRejected ? t`Authorization rejected` : t`Vault request failed`, {
-			description: getVaultFailureDescription(isRejected, activeAction.error, (descriptor) => t(descriptor)),
+			description: getVaultFailureDescription(
+				isRejected,
+				activeAction.error,
+				(descriptor) => t(descriptor),
+				numberFormat,
+			),
 			duration: FUNDS_OUTCOME_TOAST_DURATION_MS,
 		});
 		vaultAction.retry();
@@ -186,7 +192,9 @@ function VaultDetailLive({ vaultAddress, onRequestAction }: VaultDetailPageProps
 					minimumAmount={vaultAction.minimumAmount}
 					belowMinimum={vaultAction.belowMinimum}
 					errorMessage={
-						activeAction.error ? describeActionFailure(activeAction.error, (descriptor) => t(descriptor)) : undefined
+						activeAction.error
+							? describeActionFailure(activeAction.error, (descriptor) => t(descriptor), numberFormat)
+							: undefined
 					}
 					operationReference={activeAction.receipt?.operationReference ?? markerReference}
 					canReview={vaultAction.canReview}
@@ -286,7 +294,8 @@ function getVaultFailureDescription(
 	rejected: boolean,
 	error: ActionFailure | undefined,
 	translate: Translate,
+	numberFormat: NumberFormatters,
 ): string | undefined {
 	if (rejected) return translate(msg`No operation was submitted.`);
-	return error ? describeActionFailure(error, translate) : undefined;
+	return error ? describeActionFailure(error, translate, numberFormat) : undefined;
 }

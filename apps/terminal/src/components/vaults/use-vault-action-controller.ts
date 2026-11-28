@@ -36,6 +36,7 @@ import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { type ActionFailure, classifyActionErrorOr, describeActionFailure } from "@/lib/errors/action-error";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { useNumberFormat } from "@/lib/format";
 import {
 	type ExchangeParams,
 	readPersistTradingConnection,
@@ -167,6 +168,7 @@ export function useVaultActionController({
 	owner,
 }: UseVaultActionControllerInput): VaultActionController {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const wallet = useWalletSession();
 	const { reconnectWallet } = useReconnectWallet();
 	const hyperliquid = useHyperliquid();
@@ -511,7 +513,7 @@ export function useVaultActionController({
 			});
 		} catch (error) {
 			if (!(error instanceof VaultActionContextChangedError)) {
-				toast.error(describeActionFailure(getVaultActionFailure(error), (descriptor) => t(descriptor)));
+				toast.error(describeActionFailure(getVaultActionFailure(error), (descriptor) => t(descriptor), numberFormat));
 			}
 		} finally {
 			if (requestLeaseRef.current === requestLease) requestLeaseRef.current = null;

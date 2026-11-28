@@ -145,7 +145,8 @@ interface BodyProps {
 function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }: BodyProps) {
 	const { t } = useLingui();
 	const amountErrorId = useId();
-	const { formatDecimalString } = useNumberFormat();
+	const numberFormat = useNumberFormat();
+	const { formatDecimalString } = numberFormat;
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<SendSubmission | null>(null);
@@ -569,7 +570,7 @@ function SendModalBody({ onOpenChange, initialAsset, initialAccountType, open }:
 			return formatFundsActionFeedback(error.code, (descriptor) => t(descriptor));
 		}
 		if (!(error instanceof PreTransferCheckExecutionError)) {
-			return formatExchangeActionError(error, t`Send failed`, (descriptor) => t(descriptor));
+			return formatExchangeActionError(error, t`Send failed`, (descriptor) => t(descriptor), numberFormat);
 		}
 		if (error.reason === "sanctioned") return t`Unable to send funds to this address.`;
 		if (error.reason === "changed") {

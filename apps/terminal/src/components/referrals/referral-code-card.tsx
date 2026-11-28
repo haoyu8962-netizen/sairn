@@ -4,8 +4,10 @@ import { Button, ButtonIcon } from "@sairn/ui";
 import { useId } from "react";
 import { BrandMotion } from "@/components/brand/brand-motion";
 import { BRAND_NAME } from "@/config/brand";
+import { REFERRAL_APPLY_VOLUME_LIMIT } from "@/config/referral";
 import { useCopyToClipboard } from "@/hooks/ui/use-copy-to-clipboard";
 import { BRAND_MOTION_COPY_FEEDBACK } from "@/lib/brand/brand-motion.gen";
+import { describeAmountLimit } from "@/lib/errors/action-error";
 import { shortenAddress, useNumberFormat } from "@/lib/format";
 import { useHyperliquid } from "@/lib/hyperliquid";
 import {
@@ -36,7 +38,8 @@ export function ReferralCodeCard({
 	onApplyCode,
 	onCreateCode,
 }: Props) {
-	const { formatNumber, formatUSD } = useNumberFormat();
+	const numberFormat = useNumberFormat();
+	const { formatNumber, formatUSD } = numberFormat;
 	const { t } = useLingui();
 	const { env } = useHyperliquid();
 	const createReasonId = useId();
@@ -295,7 +298,12 @@ export function ReferralCodeCard({
 					</div>
 				) : (
 					<p className="text-xs leading-5 text-fg-muted">
-						<Trans>Referral codes cannot be applied after cumulative volume exceeds $10,000.</Trans>
+						{describeAmountLimit(
+							"referral-apply-volume-limit",
+							REFERRAL_APPLY_VOLUME_LIMIT,
+							(descriptor) => t(descriptor),
+							numberFormat,
+						)}
 					</p>
 				)}
 			</div>

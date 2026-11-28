@@ -743,8 +743,12 @@ msgid "An accepted order was canceled afterward. Review open orders and position
 msgstr "已接受的委託隨後遭到取消。重試前請先確認目前委託與部位。"
 
 #: src/components/leaderboard/leaderboard-view.tsx
-msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "僅當帳戶價值低於 $100,000 且全部期間交易量低於 $10,000,000 時，該帳戶才會被排除。ROI 為目前官方應用程式資料來源所回報的數值。金庫帳戶會透過對應網路的金庫資料集排除。由於尚無經審核的協議與國庫地址政策，此排行榜不保證與 Hyperliquid 官方排行榜完全一致。"
+msgid "An account is excluded only when both its account value is below ${accountValueLimit} and its all-time volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+msgstr "僅當帳戶價值低於 ${accountValueLimit} 且全部期間交易量低於 ${volumeLimit} 時，該帳戶才會被排除。ROI 為目前官方應用程式資料來源所回報的數值。金庫帳戶會透過對應網路的金庫資料集排除。由於尚無經審核的協議與國庫地址政策，此排行榜不保證與 Hyperliquid 官方排行榜完全一致。"
+
+#: src/components/leaderboard/leaderboard-view.tsx
+#~ msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+#~ msgstr "僅當帳戶價值低於 $100,000 且全部期間交易量低於 $10,000,000 時，該帳戶才會被排除。ROI 為目前官方應用程式資料來源所回報的數值。金庫帳戶會透過對應網路的金庫資料集排除。由於尚無經審核的協議與國庫地址政策，此排行榜不保證與 Hyperliquid 官方排行榜完全一致。"
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1479,10 +1483,14 @@ msgstr "請選擇其他市場、方向、角色或類型。"
 msgid "Choose different market, direction, type, or status filters."
 msgstr "請選擇其他市場、方向、類型或狀態篩選條件。"
 
+#: src/lib/errors/action-error.ts
+msgid "Circle CCTP deposits are limited to {limit} USDC per transfer."
+msgstr "每筆 Circle CCTP 存入上限為 {limit} USDC。"
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "每筆 Circle CCTP 存入上限為 10,000,000 USDC。"
+#~ msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
+#~ msgstr "每筆 Circle CCTP 存入上限為 10,000,000 USDC。"
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1504,10 +1512,14 @@ msgstr "Circle 手續費已變更。請檢視更新後的手續費，然後再�
 msgid "Circle is forwarding your USDC to Hyperliquid. Do not submit this deposit again."
 msgstr "Circle 正在將您的 USDC 轉送至 Hyperliquid。請勿重複送出此筆存入。"
 
+#: src/lib/errors/action-error.ts
+msgid "Circle testnet deposits are limited to {limit} USDC per transfer."
+msgstr "Circle 測試網每筆存入上限為 {limit} USDC。"
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Circle 測試網每筆存入上限為 1,000 USDC。"
+#~ msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
+#~ msgstr "Circle 測試網每筆存入上限為 1,000 USDC。"
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -6307,10 +6319,14 @@ msgstr "推薦碼已套用"
 msgid "Referral code created"
 msgstr "推薦碼已建立"
 
+#: src/lib/errors/action-error.ts
+msgid "Referral codes cannot be applied after cumulative volume exceeds ${limit}."
+msgstr "累計交易量超過 ${limit} 後無法套用推薦碼。"
+
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
-msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "累計交易量超過 $10,000 後無法套用推薦碼。"
+#~ msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
+#~ msgstr "累計交易量超過 $10,000 後無法套用推薦碼。"
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

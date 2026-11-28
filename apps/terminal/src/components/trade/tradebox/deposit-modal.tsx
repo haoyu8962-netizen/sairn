@@ -14,12 +14,7 @@ import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { StatusGlyph } from "@/components/brand/status-glyph";
 import { PassiveDataPlaceholder } from "@/components/trade/positions/passive-data-placeholder";
 import { DEFAULT_QUOTE_TOKEN } from "@/config/app";
-import {
-	CCTP_MAX_DEPOSIT_USDC,
-	CCTP_TESTNET_MAX_DEPOSIT_USDC,
-	isCctpExternalDepositEnabled,
-	isCctpSponsoredDepositEnabled,
-} from "@/config/cctp-deposit";
+import { isCctpExternalDepositEnabled, isCctpSponsoredDepositEnabled } from "@/config/cctp-deposit";
 import { LIFI_BRIDGE_FEATURES, shouldShowLiFiBridgeTab } from "@/config/lifi-bridge";
 import { isPrivyFiatFundingEnabled } from "@/config/privy-fiat-funding";
 import { DEPOSIT_BALANCE_REFRESH_MS, FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
@@ -64,6 +59,7 @@ import { useHeldWhileResolving } from "@/hooks/wallet/use-held-while-resolving";
 import { useLiveSessionToken } from "@/hooks/wallet/use-live-session-token";
 import { useReconnectWallet, useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { STATUS_GLYPH_UNKNOWN } from "@/lib/brand/status-glyph.gen";
+import { formatActionFailure } from "@/lib/errors/action-error";
 import {
 	formatExchangeActionError,
 	formatTransferError,
@@ -73,6 +69,7 @@ import {
 } from "@/lib/errors/format";
 import { useNumberFormat } from "@/lib/format";
 import { infoQueryOptions, useExchange, useHyperliquid, useInfo } from "@/lib/hyperliquid";
+import { getCctpDepositLimitFailure } from "@/lib/hyperliquid/cctp-deposit-limit";
 import {
 	createDepositSessionAttempt,
 	type DepositSessionAttempt,
@@ -189,7 +186,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	>(null);
 	const depositCctpPreflightError =
 		depositCctpPreflightErrorCode === "not-sent-in-time"
-			? formatTransferError(new ExchangeActionDeadlineError(), (descriptor) => t(descriptor))
+			? formatTransferError(new ExchangeActionDeadlineError(), (descriptor) => t(descriptor), numberFormat)
 			: depositCctpPreflightErrorCode === "balance-unavailable"
 				? formatFundsActionFeedback("balance-unavailable", (descriptor) => t(descriptor))
 				: depositCctpPreflightErrorCode === "verification-unavailable"
@@ -395,7 +392,11 @@ export function DepositModal({ onSurfaceChange }: Props) {
 	const baseDepositValidation = validateDeposit(reviewedDepositAmount, (descriptor) => t(descriptor));
 	const embeddedWalletValidationError =
 		isEmbeddedDeposit && embeddedWalletError
-			? formatTransferError(normalizeError(embeddedWalletError, t`Unknown error`), (descriptor) => t(descriptor))
+			? formatTransferError(
+					normalizeError(embeddedWalletError, t`Unknown error`),
+					(descriptor) => t(descriptor),
+					numberFormat,
+				)
 			: isEmbeddedDeposit && (needsEmbeddedWallet || isCreatingEmbeddedWallet || !depositEmbeddedWalletAddress)
 				? t`Creating your wallet. Please wait...`
 				: null;
@@ -424,17 +425,13 @@ export function DepositModal({ onSurfaceChange }: Props) {
 		cctpDepositBelowMinimumRaw !== null
 			? t`Minimum deposit is ${numberFormat.formatDecimalString(formatUnits(cctpDepositBelowMinimumRaw, 6))} USDC`
 			: null;
-	const cctpDepositAmountLimitError =
-		selectedDepositRoute === "cctp" &&
-		reviewedDepositAmountRaw !== undefined &&
-		reviewedDepositAmountRaw > CCTP_MAX_DEPOSIT_USDC
-			? t`Circle CCTP deposits are limited to 10,000,000 USDC per transfer.`
-			: selectedDepositRoute === "cctp" &&
-					isTestnet &&
-					reviewedDepositAmountRaw !== undefined &&
-					reviewedDepositAmountRaw > CCTP_TESTNET_MAX_DEPOSIT_USDC
-				? t`Circle testnet deposits are limited to 1,000 USDC per transfer.`
-				: null;
+	const cctpDepositLimitFailure =
+		selectedDepositRoute === "cctp" && reviewedDepositAmountRaw !== undefined
+			? getCctpDepositLimitFailure(reviewedDepositAmountRaw, isTestnet)
+			: null;
+	const cctpDepositAmountLimitError = cctpDepositLimitFailure
+		? formatActionFailure(cctpDepositLimitFailure, (descriptor) => t(descriptor), numberFormat)
+		: null;
 	const unresolvedWalletValidation = walletIdentityResolved
 		? null
 		: { valid: false, error: depositAvailability.unavailableReason };
@@ -1271,7 +1268,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 			});
 			return;
 		}
-		toast.error(formatExchangeActionError(error, t`Withdrawal failed`, (descriptor) => t(descriptor)));
+		toast.error(formatExchangeActionError(error, t`Withdrawal failed`, (descriptor) => t(descriptor), numberFormat));
 	}
 
 	async function handleWithdrawalPrerequisiteRetry() {
@@ -1468,7 +1465,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 				(descriptor) => t(descriptor),
 			);
 		}
-		return formatTransferError(depositError, (descriptor) => t(descriptor), t`Deposit failed`);
+		return formatTransferError(depositError, (descriptor) => t(descriptor), numberFormat, t`Deposit failed`);
 	}
 
 	let depositPendingHeading = <Trans>Confirm in wallet</Trans>;
@@ -1500,7 +1497,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 						heading={settledFailure ? <Trans>Deposit failed</Trans> : <Trans>Deposit status unknown</Trans>}
 						description={
 							settledFailure
-								? formatTransferError(settledFailure, (descriptor) => t(descriptor))
+								? formatTransferError(settledFailure, (descriptor) => t(descriptor), numberFormat)
 								: t`The Arbitrum transaction was submitted, but its final status could not be verified. Check the transaction before retrying.`
 						}
 						txHash={settledCctpDeposit.sourceHash}
@@ -1605,6 +1602,7 @@ export function DepositModal({ onSurfaceChange }: Props) {
 						description={formatTransferError(
 							walletProviderError,
 							(descriptor) => t(descriptor),
+							numberFormat,
 							t`Wallet connection failed. Unlock your wallet, approve the connection, then retry.`,
 						)}
 						onClose={handleClose}

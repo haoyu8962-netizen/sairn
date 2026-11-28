@@ -13,6 +13,7 @@ import {
 } from "@/config/cctp-deposit";
 import { describeActionError } from "@/lib/errors/action-error";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import {
 	addressToBytes32,
 	assertCctpDepositReceipt,
@@ -518,7 +519,9 @@ describe("CCTP deposit parameters", () => {
 		const signature = `0x${"11".repeat(32)}${"22".repeat(32)}05` as const;
 		const signatureFailure = captureError(() => splitCctpAuthorizationSignature(signature));
 		expect(signatureFailure).toBeInstanceOf(LocalizedActionError);
-		expect(describeActionError(signatureFailure, translate)).toBe("The wallet could not sign the request. Try again.");
+		expect(describeActionError(signatureFailure, translate, getNumberFormatters())).toBe(
+			"The wallet could not sign the request. Try again.",
+		);
 
 		const clockFailure = captureError(() =>
 			createCctpDepositParameters({
@@ -531,7 +534,7 @@ describe("CCTP deposit parameters", () => {
 			}),
 		);
 		expect(clockFailure).toBeInstanceOf(LocalizedActionError);
-		expect(describeActionError(clockFailure, translate)).toBe(
+		expect(describeActionError(clockFailure, translate, getNumberFormatters())).toBe(
 			"Your device clock is out of sync. Correct the date and time, then try again.",
 		);
 	});

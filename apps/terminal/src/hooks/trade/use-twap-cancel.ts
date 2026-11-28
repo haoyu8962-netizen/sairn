@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { isConfirmedTwapCancelResponse } from "@/domain/trade/open-order-cancel";
 import { isAmbiguousOrderRequestError } from "@/domain/trade/order-tracking";
 import { type ActionFailure, classifyActionError, formatActionFailure } from "@/lib/errors/action-error";
+import { type NumberFormatters, useNumberFormat } from "@/lib/format";
 import { type ExchangeParams, useExchange, useHyperliquid, useMarkets } from "@/lib/hyperliquid";
 import { runWithOrderAssetLocks } from "@/lib/trade/order-asset-lock";
 import {
@@ -64,6 +65,7 @@ const TWAP_CANCEL_LOCK_WAIT_MS = EXCHANGE_ACTION_START_DEADLINE_MS;
 
 export function useTwapCancel() {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const markets = useMarkets();
 	const { clientKey, env, exchangeSession } = useHyperliquid();
 	const executionsRef = useRef(new Map<ExchangeParams<"twapCancel">["t"], TwapCancelExecutionContext>());
@@ -119,7 +121,7 @@ export function useTwapCancel() {
 		storedFeedback && storedFeedbackMatchesIdentity && storedFeedbackActionActive
 			? {
 					tone: storedFeedback.tone,
-					message: formatStoredTwapCancelFeedback(storedFeedback.value, (descriptor) => t(descriptor)),
+					message: formatStoredTwapCancelFeedback(storedFeedback.value, (descriptor) => t(descriptor), numberFormat),
 				}
 			: null;
 
@@ -151,7 +153,7 @@ export function useTwapCancel() {
 		if (activeCancellations.some((action) => action.twapId === twapId)) return;
 
 		function reportBeforeQueue(value: OrderSubmissionFeedback) {
-			const message = formatStoredTwapCancelFeedback(value, (descriptor) => t(descriptor));
+			const message = formatStoredTwapCancelFeedback(value, (descriptor) => t(descriptor), numberFormat);
 			setFeedback({ tone: "error", value, env, owner: normalizedOwner });
 			toast.error(message);
 		}
@@ -279,10 +281,14 @@ export function useTwapCancel() {
 	return { cancelTwap, cancellingTwapId, feedback };
 }
 
-function formatStoredTwapCancelFeedback(value: StoredTwapCancelFeedbackValue, translate: Translate): string {
+function formatStoredTwapCancelFeedback(
+	value: StoredTwapCancelFeedbackValue,
+	translate: Translate,
+	numberFormat: NumberFormatters,
+): string {
 	if ("kind" in value && value.kind === "order-submission") return formatOrderSubmissionFeedback(value, translate);
 	return (
-		formatActionFailure(value, translate) ??
+		formatActionFailure(value, translate, numberFormat) ??
 		formatOrderSubmissionFeedback(orderSubmissionFeedback("twap-cancel-failed"), translate)
 	);
 }

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAssetLeverage } from "@/hooks/trade/use-asset-leverage";
 import { describeActionError } from "@/lib/errors/action-error";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { createExchangeHarness } from "./harness/hyperliquid-exchange";
 
 const USER = "0x1111111111111111111111111111111111111111";
@@ -819,8 +820,8 @@ describe("useAssetLeverage", () => {
 			},
 		});
 		try {
-			expect(describeActionError(guardError, translate)).toBe("持仓数据不可用");
-			expect(describeActionError(busyError, translate)).toBe("该市场的另一项操作仍在进行中。");
+			expect(describeActionError(guardError, translate, getNumberFormatters())).toBe("持仓数据不可用");
+			expect(describeActionError(busyError, translate, getNumberFormatters())).toBe("该市场的另一项操作仍在进行中。");
 		} finally {
 			i18n.loadAndActivate({ locale: "en", messages: {} });
 		}

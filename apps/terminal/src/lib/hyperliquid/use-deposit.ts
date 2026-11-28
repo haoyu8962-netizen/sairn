@@ -24,8 +24,6 @@ import { bytesToHex, createWalletClient, custom, encodeFunctionData, formatUnits
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { usePublicClient } from "wagmi";
 import {
-	CCTP_MAX_DEPOSIT_USDC,
-	CCTP_TESTNET_MAX_DEPOSIT_USDC,
 	type CctpDepositConfig,
 	type CctpDepositNetwork,
 	getCctpDepositConfig,
@@ -50,7 +48,8 @@ import { useGeoRestriction } from "@/hooks/use-geo-restriction";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { reportClientError } from "@/lib/error-reporting/client";
 import { createActionError } from "@/lib/errors/action-error";
-import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { AmountLimitActionError, LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getCctpDepositLimitFailure } from "@/lib/hyperliquid/cctp-deposit-limit";
 import {
 	finishDepositExecution,
 	isCurrentDepositExecution,
@@ -1531,12 +1530,8 @@ export function useDeposit({
 					} finally {
 						lockedGeoRead.clear();
 					}
-					if (amountRaw > CCTP_MAX_DEPOSIT_USDC) {
-						throw new LocalizedActionError(msg`Circle CCTP deposits are limited to 10,000,000 USDC per transfer.`);
-					}
-					if (network === "testnet" && amountRaw > CCTP_TESTNET_MAX_DEPOSIT_USDC) {
-						throw new LocalizedActionError(msg`Circle testnet deposits are limited to 1,000 USDC per transfer.`);
-					}
+					const limitFailure = getCctpDepositLimitFailure(amountRaw, network === "testnet");
+					if (limitFailure) throw new AmountLimitActionError(limitFailure.code, limitFailure.amount);
 					if (readCctpDepositTrackingRecords(cctpTrackingEnv, ready.address).length > 0) {
 						throw new LocalizedActionError(
 							msg`Another Circle CCTP deposit is still pending for this account. Wait for it to finish before submitting another deposit.`,

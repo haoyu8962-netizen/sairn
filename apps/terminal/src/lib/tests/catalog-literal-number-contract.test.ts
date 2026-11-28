@@ -5,11 +5,11 @@ import { localeList } from "@/config/i18n";
 
 const LOCALES_ROOT = resolve(__dirname, "../../locales");
 
-// Numbers follow the number-format setting, never the interface language. A number written into a message (a deposit
-// limit, a volume threshold) is not formatted at runtime, so every catalog keeps the source's digits and separators.
-// An exception would list each message with the source numbers it changes; a listed message that no longer changes
-// them fails as stale. The list is empty since `es` and `fr` took back the source's digits (docs/i18n-presentation.md,
-// task record 2026-11-26 pending item 6).
+// Numbers follow the number-format setting, never the interface language. A source message therefore carries no
+// grouped number: a limit or threshold is a placeholder that the number formatter fills at render time
+// (docs/i18n-presentation.md, docs/number-format-setting.md). Any number a message still writes (none today) is not
+// formatted at runtime, so every catalog keeps the source's digits and separators. An exception would list each message
+// with the source numbers it changes; a listed message that no longer changes them fails as stale.
 const PENDING_LOCALIZED_NUMBERS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {};
 
 const PO_FIELDS = new Set(["msgctxt", "msgid", "msgstr"]);
@@ -55,10 +55,22 @@ function escapeRegExp(value: string) {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const GROUPED_NUMBER_PATTERN = /(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d]|[.,]\d)/g;
+
+// Every source message that writes a grouped number, translated or not, with the numbers it writes.
+function sourceGroupedNumbers(source: string): Record<string, string[]> {
+	const found: Record<string, string[]> = {};
+	for (const { key, msgid } of parsePo(source)) {
+		const numbers = msgid.match(GROUPED_NUMBER_PATTERN);
+		if (numbers) found[key] = [...numbers];
+	}
+	return found;
+}
+
 // The source's grouped numbers that the translation does not repeat as whole tokens, as often as the source has them.
 function changedNumbers(msgid: string, msgstr: string): string[] {
 	const wanted = new Map<string, number>();
-	for (const number of msgid.match(/(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d]|[.,]\d)/g) ?? []) {
+	for (const number of msgid.match(GROUPED_NUMBER_PATTERN) ?? []) {
 		wanted.set(number, (wanted.get(number) ?? 0) + 1);
 	}
 	const changed: string[] = [];
@@ -114,6 +126,35 @@ describe("catalog literal number contract", () => {
 		});
 		expect(() => parsePo('msgid "One"\nmsgid_plural "Many"\nmsgstr[0] "1,000"')).toThrow();
 	});
+
+	it("finds a grouped number in any source message, translated or not", () => {
+		const catalog = [
+			'msgid "Cap {limit} USDC"',
+			'msgstr ""',
+			"",
+			'msgid "Cap 10,000,000 USDC"',
+			'msgstr ""',
+			"",
+			'msgctxt "Board"',
+			'msgid "Over $10,000"',
+			'msgstr "Über $10,000"',
+			"",
+			'#~ msgid "Old cap 1,000 USDC"',
+			'#~ msgstr "Alte Grenze 1,000 USDC"',
+			"",
+		].join("\n");
+		expect(sourceGroupedNumbers(catalog)).toEqual({
+			"Cap 10,000,000 USDC": ["10,000,000"],
+			"Board\u0004Over $10,000": ["10,000"],
+		});
+	});
+
+	it.each(localeList.map(({ code }) => code))(
+		"writes no grouped number into a source message of the %s catalog",
+		(locale) => {
+			expect(sourceGroupedNumbers(readCatalog(locale))).toEqual({});
+		},
+	);
 
 	it.each(localeList.map(({ code }) => code).filter((code) => code !== "en"))(
 		"keeps the source's literal numbers in the %s catalog",

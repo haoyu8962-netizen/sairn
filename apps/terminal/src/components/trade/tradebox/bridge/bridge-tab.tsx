@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LIFI_BRIDGE_FEATURES } from "@/config/lifi-bridge";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { describeActionFailure } from "@/lib/errors/action-error";
+import { useNumberFormat } from "@/lib/format";
 import { getBridgeMaxTokenAmount, getBridgeUsdShortcut } from "@/lib/lifi/bridge-amount";
 import { initLiFi } from "@/lib/lifi/config";
 import type { BridgeToken } from "@/lib/lifi/use-balances";
@@ -20,6 +21,7 @@ import type { BridgeScreen } from "./types";
 
 export function BridgeTab() {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const { walletAddress, hasWalletAccess } = useWalletSession();
 	const [screen, setScreen] = useState<BridgeScreen>("select");
 	const [selectedToken, setSelectedToken] = useState<BridgeToken | null>(null);
@@ -143,7 +145,9 @@ export function BridgeTab() {
 		return (
 			<BridgeErrorScreen
 				error={[
-					bridge.error ? describeActionFailure(bridge.error, (descriptor) => t(descriptor)) : t`Unknown error`,
+					bridge.error
+						? describeActionFailure(bridge.error, (descriptor) => t(descriptor), numberFormat)
+						: t`Unknown error`,
 					bridge.recoveryWarning ? t(bridge.recoveryWarning) : null,
 					retryUnavailableMessage,
 				]

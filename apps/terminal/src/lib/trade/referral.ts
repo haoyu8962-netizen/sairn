@@ -1,6 +1,7 @@
 import type { ReferralResponse } from "@nktkas/hyperliquid";
 import Big from "big.js";
 import { getPublicOrigin } from "@/config/public-origins";
+import { REFERRAL_APPLY_VOLUME_LIMIT } from "@/config/referral";
 import { z } from "@/lib/zod";
 
 export { isValidReferralCode, normalizeReferralCode } from "./referral-code";
@@ -219,7 +220,7 @@ export function getBrandReferralUrl(code: string, env: "Mainnet" | "Testnet"): s
 
 export function canApplyReferralCode(data: ReferralData): boolean {
 	if (data.referredBy !== null) return false;
-	return Big(getReferralCumulativeVolume(data)).lte(10_000);
+	return Big(getReferralCumulativeVolume(data)).lte(REFERRAL_APPLY_VOLUME_LIMIT);
 }
 
 export function isReferralMutationReconciled(

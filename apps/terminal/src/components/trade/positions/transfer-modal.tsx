@@ -73,7 +73,8 @@ interface BodyProps {
 function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) {
 	const { t } = useLingui();
 	const amountErrorId = useId();
-	const { formatDecimalString } = useNumberFormat();
+	const numberFormat = useNumberFormat();
+	const { formatDecimalString } = numberFormat;
 	const submissionSequenceRef = useRef(0);
 	const submissionIdentityRef = useRef<object | null>(null);
 	const submissionRef = useRef<TransferSubmission | null>(null);
@@ -270,7 +271,7 @@ function TransferModalBody({ onOpenChange, initialDirection, open }: BodyProps) 
 			});
 			return;
 		}
-		toast.error(formatExchangeActionError(error, t`Transfer failed`, (descriptor) => t(descriptor)));
+		toast.error(formatExchangeActionError(error, t`Transfer failed`, (descriptor) => t(descriptor), numberFormat));
 	}
 
 	async function handleTransfer() {

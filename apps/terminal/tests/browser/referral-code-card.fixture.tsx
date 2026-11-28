@@ -1,7 +1,9 @@
 import { i18n } from "@lingui/core";
+import { useEffect } from "react";
 import { DashboardFrameView } from "@/components/dashboard/dashboard-frame-view";
 import { ReferralCodeCard } from "@/components/referrals/referral-code-card";
 import { DASHBOARD_FRAMES } from "@/config/dashboard-frames";
+import { type NumberFormatLocale, numberFormatLocales } from "@/config/i18n";
 import { createI18nRoot } from "@/lib/tests/harness/react";
 import type { ReferralData } from "@/lib/trade/referral";
 import { messages as ar } from "@/locales/ar/messages.po";
@@ -18,6 +20,7 @@ import { messages as tr } from "@/locales/tr/messages.po";
 import { messages as vi } from "@/locales/vi/messages.po";
 import { messages as zh } from "@/locales/zh/messages.po";
 import { messages as zhTW } from "@/locales/zh-TW/messages.po";
+import { useGlobalSettingsActions } from "@/stores/use-global-settings-store";
 import "./referral-code-card.css";
 
 const catalogs = { en, zh, "zh-TW": zhTW, ja, ko, vi, id, pt, fr, es, hi, tr, ru, ar };
@@ -37,27 +40,43 @@ const DATA: ReferralData = {
 	tokenToState: [],
 };
 
+const requestedNumberFormat = params.get("numberFormat");
+if (requestedNumberFormat !== null && !Object.hasOwn(numberFormatLocales, requestedNumberFormat)) {
+	throw new Error(`Fixture has no number format ${requestedNumberFormat}`);
+}
+
+function NumberFormatParameter({ value }: { value: NumberFormatLocale }) {
+	const { setNumberFormatLocale } = useGlobalSettingsActions();
+	useEffect(() => setNumberFormatLocale(value), [setNumberFormatLocale, value]);
+	return null;
+}
+
 function Fixture() {
 	return (
-		<DashboardFrameView
-			{...DASHBOARD_FRAMES["/referrals"]}
-			header={null}
-			headerOffset={false}
-			main={
-				<section className="overflow-hidden rounded-24 bg-surface shadow-raised">
-					<div className="grid grid-cols-1 gap-3 px-4 pb-4 min-[1001px]:grid-cols-[minmax(0,560px)_minmax(0,1fr)] min-[1001px]:gap-4 min-[1001px]:px-5 min-[1001px]:pb-0">
-						<div className="order-1">
-							<ReferralCodeCard
-								actionsDisabled={false}
-								data={DATA}
-								onApplyCode={() => undefined}
-								onCreateCode={() => undefined}
-							/>
+		<>
+			{requestedNumberFormat === null ? null : (
+				<NumberFormatParameter value={requestedNumberFormat as NumberFormatLocale} />
+			)}
+			<DashboardFrameView
+				{...DASHBOARD_FRAMES["/referrals"]}
+				header={null}
+				headerOffset={false}
+				main={
+					<section className="overflow-hidden rounded-24 bg-surface shadow-raised">
+						<div className="grid grid-cols-1 gap-3 px-4 pb-4 min-[1001px]:grid-cols-[minmax(0,560px)_minmax(0,1fr)] min-[1001px]:gap-4 min-[1001px]:px-5 min-[1001px]:pb-0">
+							<div className="order-1">
+								<ReferralCodeCard
+									actionsDisabled={false}
+									data={DATA}
+									onApplyCode={() => undefined}
+									onCreateCode={() => undefined}
+								/>
+							</div>
 						</div>
-					</div>
-				</section>
-			}
-		/>
+					</section>
+				}
+			/>
+		</>
 	);
 }
 

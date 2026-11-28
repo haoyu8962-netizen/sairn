@@ -642,7 +642,7 @@
 
 - 待决第 3 项（订单簿 `Size` 列头）与第 4 项（繁中现货描述）仍待运营方决定，本次未动。
 - 同类的搜索大小写问题还有两处，不在本次范围：资金费率对比的搜索（`domain/market/funding-comparison.ts` 的 `normalizeFundingComparisonQuery` 与 `row.coin.toLowerCase()`）同样搜不到「İNİT」；排行榜的搜索（`components/leaderboard/leaderboard-domain.ts`）用不带参数的 `toLocaleLowerCase()`，结果取决于浏览器的默认语言，在土耳其语系统上「I」会变成「ı」。两处都可以改用 `foldSearchText`（地址部分保持原样）。（已处理，2026-11-28：两处都改为折叠匹配，排行榜的地址比较与请求查询不变，见 [资金费率对比与排行榜搜索](2026-11-28-search-fold-funding-leaderboard.md)。）
-- 静态数字仍以 `,` 分组显示，不跟随数字格式设置；要跟随，需要把这些数字改成由数字格式器填入的占位符（改共享源码与所有目录）。
+- 静态数字仍以 `,` 分组显示，不跟随数字格式设置；要跟随，需要把这些数字改成由数字格式器填入的占位符（改共享源码与所有目录）。（已处理，2026-11-28：三类限额与门槛改为显示时填入的占位符，见 [静态数字占位符](2026-11-28-static-number-placeholders.md)。）
 - 包体（见下一节）：`foldSearchText` 和模糊匹配辅助函数一起进了静态启动块。把它拆成单独的模块（如 `lib/search/fold.ts`）很可能让 `levenshtein` 等函数留在懒加载的 `search` 块里，没有构建，也没有量。
 
 ### 合入 main 7474813c 与静态启动重定基线（2026-11-27，PR #24）

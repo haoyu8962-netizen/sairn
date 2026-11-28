@@ -44,6 +44,7 @@ vi.mock("@/lib/lifi/bridge-execution-persistence", async (importOriginal) => {
 	};
 });
 
+import { getNumberFormatters } from "@/lib/format";
 import { INITIAL_BRIDGE_STATE, useBridgeExecutionState } from "@/lib/lifi/bridge-execution-state";
 import {
 	continueBridgeInBackground,
@@ -78,7 +79,7 @@ function restoreBridgeInForeground() {
 
 function getBridgeErrorText(): string | null {
 	const { error } = useBridgeExecutionState.getState();
-	return error ? describeActionFailure(error, (descriptor) => i18n._(descriptor)) : null;
+	return error ? describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters()) : null;
 }
 
 function getRecoveryWarningText(): string | null {

@@ -25,6 +25,7 @@ import { DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { getDepositExecutionState } from "@/lib/hyperliquid/deposit-execution-state";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import {
@@ -2213,7 +2214,12 @@ describe("useDeposit fresh USDC route guard", () => {
 			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
 			expect(reportClientError).not.toHaveBeenCalled();
 			expect(
-				formatTransferError(capturedDeposit?.error ?? null, (descriptor) => i18n._(descriptor), "Deposit failed"),
+				formatTransferError(
+					capturedDeposit?.error ?? null,
+					(descriptor) => i18n._(descriptor),
+					getNumberFormatters(),
+					"Deposit failed",
+				),
 			).toBe("The checks before this request took too long. Nothing was signed or sent. Try again.");
 		});
 

@@ -17,6 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isExchangeRequestNotSentError } from "@/lib/errors/action-error";
 import { formatTransferError } from "@/lib/errors/format";
+import { getNumberFormatters } from "@/lib/format";
 
 const AGENT = "0x3333333333333333333333333333333333333333" as const;
 const BUILDER = "0x2222222222222222222222222222222222222222" as const;
@@ -278,7 +279,9 @@ describe("trading authorization contracts", () => {
 		expect(failure).toMatchObject({ name: "TradingAuthorizationIncompleteError" });
 		expect((failure as Error).cause).toBe(dropped);
 		expect(isExchangeRequestNotSentError(failure)).toBe(false);
-		expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor))).toBe("Failed to enable trading");
+		expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
+			"Failed to enable trading",
+		);
 	});
 
 	it("keeps a builder fee dropped by the scheduler as not sent when no Agent was approved", async () => {
@@ -419,7 +422,7 @@ describe("trading authorization contracts", () => {
 
 			expect(failure).toMatchObject({ name: "TradingAuthorizationIncompleteError" });
 			expect((failure as Error).cause).toBeInstanceOf(ExchangeActionDeadlineError);
-			expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor))).toBe(
+			expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
 				"Failed to enable trading",
 			);
 			expect(signAgent).toHaveBeenCalledOnce();
@@ -429,7 +432,7 @@ describe("trading authorization contracts", () => {
 		it("still says that nothing was signed when the builder fee alone was refused as too late", async () => {
 			pausedFirstStatus(requirements(true, false), requirements(false, false));
 			const failure = await authorizeOfflineFor(120_000);
-			expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor))).toBe(
+			expect(formatTransferError(failure as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
 				"The checks before this request took too long. Nothing was signed or sent. Try again.",
 			);
 		});

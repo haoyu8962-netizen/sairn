@@ -171,7 +171,8 @@ export function TradePanel() {
 	const scaleEndPriceInput = useScaleEnd();
 	const scaleLevelsNum = useScaleLevels();
 	const scaleSkewInput = useScaleSkew();
-	const { formatDecimalString } = useNumberFormat();
+	const numberFormat = useNumberFormat();
+	const { formatDecimalString } = numberFormat;
 	const position = market?.name ? userPositions.getPosition(market.name, getPositionDex(market)) : null;
 	const positionSize = toNumberOrZero(position?.szi);
 	const positionSnapshotReady = !userPositions.isLoading && !userPositions.hasError && !userPositions.isStale;
@@ -646,7 +647,7 @@ export function TradePanel() {
 
 	function getApprovalErrorMessage(cause: unknown): string {
 		return cause instanceof Error
-			? formatTransferError(cause, (descriptor) => t(descriptor))
+			? formatTransferError(cause, (descriptor) => t(descriptor), numberFormat)
 			: t`Failed to enable trading`;
 	}
 
