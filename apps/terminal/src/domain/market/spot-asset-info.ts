@@ -2,7 +2,7 @@ import type { UnifiedMarket } from "@sairn/hl-react";
 import { isTraditionalChineseTag } from "@/config/i18n";
 import { SPOT_ASSET_SOCIALS } from "./spot-asset-socials.generated";
 
-export type SpotAssetDescriptionLocale = "en" | "es" | "fr" | "zh-CN";
+export type SpotAssetDescriptionLocale = "en" | "es" | "fr" | "zh-CN" | "zh-TW";
 export type SpotAssetDescriptionKind = "asset" | "provider";
 type TokenId = `0x${string}`;
 
@@ -59,7 +59,7 @@ function normalizeTokenId(value: unknown): TokenId | null {
 
 function getDescriptionLocale(locale: string): SpotAssetDescriptionLocale | null {
 	const normalizedLocale = locale.toLowerCase();
-	if (isTraditionalChineseTag(normalizedLocale)) return null;
+	if (isTraditionalChineseTag(normalizedLocale)) return "zh-TW";
 	if (normalizedLocale === "zh" || normalizedLocale.startsWith("zh-")) return "zh-CN";
 	if (normalizedLocale === "es" || normalizedLocale.startsWith("es-")) return "es";
 	if (normalizedLocale === "fr" || normalizedLocale.startsWith("fr-")) return "fr";
@@ -108,16 +108,27 @@ export function getSpotAssetSocials(market: UnifiedMarket | undefined): SpotAsse
 	return { displayName, x, telegram, website };
 }
 
+async function loadDescriptions(
+	locale: SpotAssetDescriptionLocale,
+): Promise<Readonly<Record<string, SpotAssetDescriptionEntry>>> {
+	if (locale === "zh-TW") {
+		const { SPOT_ASSET_DESCRIPTIONS } = await import("./spot-asset-descriptions-zh-tw");
+		return SPOT_ASSET_DESCRIPTIONS;
+	}
+	const { SPOT_ASSET_DESCRIPTIONS } = await import("./spot-asset-descriptions.generated");
+	return SPOT_ASSET_DESCRIPTIONS;
+}
+
 export async function loadSpotAssetDescription(
 	identity: SpotAssetSnapshotIdentity | null,
 	locale: string,
 ): Promise<SpotAssetDescription | null> {
 	if (!identity) return null;
-	const { SPOT_ASSET_DESCRIPTIONS } = await import("./spot-asset-descriptions.generated");
-	const entry = SPOT_ASSET_DESCRIPTIONS[identity.pair];
-	if (!matchesIdentity(entry, identity)) return null;
 	const descriptionLocale = getDescriptionLocale(locale);
 	if (!descriptionLocale) return null;
+	const descriptions = await loadDescriptions(descriptionLocale);
+	const entry = descriptions[identity.pair];
+	if (!matchesIdentity(entry, identity)) return null;
 	const text = entry.descriptions[descriptionLocale];
 	return text ? { kind: entry.descriptionKind, text } : null;
 }

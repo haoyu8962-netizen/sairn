@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@lingui/core";
 import type { PerpAnnotationResponse, PerpConciseAnnotationsResponse, TokenDetailsResponse } from "@nktkas/hyperliquid";
 import { act, createElement, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
@@ -7,12 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketAssetInfo } from "@/components/trade/components/market-asset-info";
 import type { SpotAssetDescription } from "@/domain/market/spot-asset-info";
 import type { UnifiedMarketInfo } from "@/lib/hyperliquid";
+import { type CatalogEntry, loadCatalogMessages, readCatalogTranslation } from "./harness/catalog-messages";
 import { createI18nRoot } from "./harness/react";
 
+const BITCOIN_TOKEN_ID = "0x8f254b963e8468305d409b33aa137c67";
 const HYPE_TOKEN_ID = "0x0d01dc56dcaaca66ad901c959b4011ec";
+const LICK_TOKEN_ID = "0xba3aaf468f793d9b42fd3328e24f1de9";
 const SOLANA_TOKEN_ID = "0x49b67c39f5566535de22b29b0e51e685";
 const SPCXD_TOKEN_ID = "0x4f49b5f025c969501c6a350f984e1725";
 const USDC_TOKEN_ID = "0x6d1e7cde53ba9467b783cb7c530ce054";
+const ZCASH_TOKEN_ID = "0x1c994ad3381d31c86c8c2d74ed89a365";
 
 const testState = vi.hoisted(() => ({
 	annotation: undefined as PerpAnnotationResponse | undefined,
@@ -232,6 +237,40 @@ const GENERIC_SPOT_MARKET = {
 		},
 	],
 } as unknown as UnifiedMarketInfo;
+
+function createSnapshotSpotMarket(
+	name: string,
+	base: { name: string; displayName: string; fullName: string | null; tokenId: string },
+): UnifiedMarketInfo {
+	return {
+		kind: "spot",
+		name,
+		pairName: `${base.displayName}-USDC`,
+		iconUrl: `/coins/${base.displayName}.svg`,
+		tokensInfo: [base, { name: "USDC", displayName: "USDC", fullName: null, tokenId: USDC_TOKEN_ID }],
+	} as unknown as UnifiedMarketInfo;
+}
+
+const LICK_SPOT_MARKET = createSnapshotSpotMarket("@2", {
+	name: "LICK",
+	displayName: "LICK",
+	fullName: null,
+	tokenId: LICK_TOKEN_ID,
+});
+
+const UNIT_BTC_SPOT_MARKET = createSnapshotSpotMarket("@142", {
+	name: "UBTC",
+	displayName: "BTC",
+	fullName: "Unit Bitcoin",
+	tokenId: BITCOIN_TOKEN_ID,
+});
+
+const UNIT_ZEC_SPOT_MARKET = createSnapshotSpotMarket("@272", {
+	name: "UZEC",
+	displayName: "ZEC",
+	fullName: "Unit Zcash",
+	tokenId: ZCASH_TOKEN_ID,
+});
 
 const SPCXD_SPOT_MARKET = {
 	kind: "spot",
@@ -657,6 +696,101 @@ describe("MarketAssetInfo", () => {
 		expect(container.textContent).toContain("tokenized representation of SpaceX");
 		expect(container.textContent).toContain("Dinari's dShares™ infrastructure");
 		expect(container.textContent).not.toContain("This spot market trades SPCXD against USDC");
+	});
+
+	describe("in Traditional Chinese", () => {
+		const LOCAL_COPY: readonly CatalogEntry[] = [
+			["HYPE is the native token of Hyperliquid.", ""],
+			["Bitcoin is a decentralized digital asset secured by a proof-of-work network.", ""],
+			["This spot asset is enabled independently by Unit, a third-party provider.", ""],
+		];
+
+		afterEach(() => {
+			act(() => i18n.loadAndActivate({ locale: "en", messages: {} }));
+		});
+
+		function activate(locale: string) {
+			act(() =>
+				i18n.loadAndActivate({ locale, messages: locale === "zh-TW" ? loadCatalogMessages(locale, LOCAL_COPY) : {} }),
+			);
+		}
+
+		function lastDescriptionQuery() {
+			const options = testState.useDescriptionQuery.mock.calls.at(-1)?.[0] as
+				| { queryKey: unknown[]; queryFn: () => Promise<SpotAssetDescription | null> }
+				| undefined;
+			if (!options) throw new Error("The description query was not created");
+			return options;
+		}
+
+		function descriptionSlots() {
+			const asset = container.querySelector("p.whitespace-pre-wrap");
+			if (!asset) throw new Error("The asset description paragraph was not rendered");
+			return { asset: asset.textContent, provider: asset.nextElementSibling?.textContent ?? null };
+		}
+
+		async function showSnapshotResult(market: UnifiedMarketInfo) {
+			renderAssetInfo(market);
+			openDialog();
+			testState.spotDescription = await lastDescriptionQuery().queryFn();
+			act(() => root.render(createElement(MarketAssetInfo, { market })));
+		}
+
+		it("loads the reviewed Traditional Chinese copy for the locale the query was created with", async () => {
+			activate("zh-TW");
+			renderAssetInfo(LICK_SPOT_MARKET);
+			openDialog();
+			const { queryKey, queryFn } = lastDescriptionQuery();
+			expect(queryKey.at(-1)).toBe("zh-TW");
+
+			activate("zh");
+			expect(lastDescriptionQuery().queryKey.at(-1)).toBe("zh");
+			const traditional = await queryFn();
+			expect(traditional).toEqual({ kind: "asset", text: expect.stringContaining("人工智慧") });
+			expect(traditional?.text).not.toContain("人工智能");
+
+			activate("en");
+			expect(lastDescriptionQuery().queryKey.at(-1)).toBe("en");
+
+			activate("zh-TW");
+			testState.spotDescription = traditional;
+			act(() => root.render(createElement(MarketAssetInfo, { market: LICK_SPOT_MARKET })));
+			expect(container.textContent).toContain(traditional?.text);
+		});
+
+		it("keeps the reviewed local asset copy for HYPE", async () => {
+			activate("zh-TW");
+			await showSnapshotResult(SPOT_MARKET);
+
+			expect(testState.spotDescription).toBeNull();
+			expect(descriptionSlots()).toEqual({
+				asset: readCatalogTranslation("zh-TW", LOCAL_COPY[0] as CatalogEntry),
+				provider: null,
+			});
+		});
+
+		it("keeps the reviewed local asset and provider copy for UBTC", async () => {
+			activate("zh-TW");
+			await showSnapshotResult(UNIT_BTC_SPOT_MARKET);
+
+			expect(testState.spotDescription).toBeNull();
+			expect(descriptionSlots()).toEqual({
+				asset: readCatalogTranslation("zh-TW", LOCAL_COPY[1] as CatalogEntry),
+				provider: readCatalogTranslation("zh-TW", LOCAL_COPY[2] as CatalogEntry),
+			});
+		});
+
+		it("shows the Traditional Chinese snapshot provider copy for UZEC", async () => {
+			activate("zh-TW");
+			await showSnapshotResult(UNIT_ZEC_SPOT_MARKET);
+
+			expect(testState.spotDescription).toEqual({ kind: "provider", text: expect.stringContaining("Zcash") });
+			const slots = descriptionSlots();
+			expect(slots.provider).toBe(testState.spotDescription?.text);
+			expect(slots.asset).not.toContain("Zcash");
+			expect(container.textContent).not.toContain(readCatalogTranslation("zh-TW", LOCAL_COPY[2] as CatalogEntry));
+			expect(container.textContent).not.toMatch(/现货|资产|启用/);
+		});
 	});
 
 	it("loads official tokenDetails for spot markets and renders structured metadata", async () => {

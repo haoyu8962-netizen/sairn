@@ -102,6 +102,7 @@ function createProviderDescription(reference: MarketAssetReference | null): Reac
 export function MarketAssetInfo({ market }: Props) {
 	const { formatNumber, formatUSD } = useNumberFormat();
 	const { i18n, t } = useLingui();
+	const locale = i18n.locale;
 	const isMobile = useIsMobile();
 	const [open, setOpen] = useState(false);
 	const reference = getMarketAssetReference(market);
@@ -151,9 +152,9 @@ export function MarketAssetInfo({ market }: Props) {
 			spotAssetIdentity?.quote,
 			spotAssetIdentity?.baseTokenId,
 			spotAssetIdentity?.quoteTokenId,
-			i18n.locale,
+			locale,
 		],
-		queryFn: () => loadSpotAssetDescription(spotAssetIdentity, i18n.locale),
+		queryFn: () => loadSpotAssetDescription(spotAssetIdentity, locale),
 		enabled: open && spotAssetIdentity !== null,
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,

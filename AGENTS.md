@@ -582,6 +582,9 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/lingui-helper-translator-contract.test.ts \
   src/lib/tests/catalog-completeness-contract.test.ts \
   src/lib/tests/catalog-literal-number-contract.test.ts \
+  src/lib/tests/spot-asset-zh-tw-contract.test.ts \
+  src/lib/tests/spot-asset-info.test.ts \
+  src/lib/tests/market-asset-info.test.tsx \
   src/lib/tests/command-menu.test.tsx \
   src/lib/tests/search-fold.test.ts \
   src/lib/tests/funding-comparison-domain.test.ts \

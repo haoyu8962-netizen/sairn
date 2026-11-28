@@ -8,6 +8,7 @@ import {
 } from "@/domain/market/spot-asset-info";
 
 const TOKEN_IDS: Readonly<Record<string, `0x${string}`>> = {
+	HYPE: "0x0d01dc56dcaaca66ad901c959b4011ec",
 	LICK: "0xba3aaf468f793d9b42fd3328e24f1de9",
 	MBAPPE: "0x03e1ad7d4d6d82b3da89ac8d35cc917b",
 	NOT_LICK: "0x11111111111111111111111111111111",
@@ -54,10 +55,38 @@ describe("spot asset info snapshot", () => {
 			kind: "asset",
 			text: expect.stringContaining("人工智能"),
 		});
-		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(identity, "zh-HK")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(identity, "zh-Hant")).resolves.toBeNull();
+		for (const locale of ["zh-TW", "zh-HK", "zh-MO", "zh-Hant", "zh_TW", "zh-Hant-TW"]) {
+			await expect(loadSpotAssetDescription(identity, locale), locale).resolves.toEqual({
+				kind: "asset",
+				text: expect.stringContaining("人工智慧"),
+			});
+		}
+		for (const locale of ["zh-Hans-TW", "zh-Hans-HK"]) {
+			await expect(loadSpotAssetDescription(identity, locale), locale).resolves.toEqual({
+				kind: "asset",
+				text: expect.stringContaining("人工智能"),
+			});
+		}
 		await expect(loadSpotAssetDescription(identity, "en")).resolves.toBeNull();
+	});
+
+	it("leaves Traditional Chinese to the reviewed local copy where the dialog has one", async () => {
+		const hypeIdentity = getSpotAssetSnapshotIdentity(createSpotMarket("@107", "HYPE"));
+
+		await expect(loadSpotAssetDescription(hypeIdentity, "zh")).resolves.toEqual({
+			kind: "asset",
+			text: expect.any(String),
+		});
+		await expect(loadSpotAssetDescription(hypeIdentity, "zh-TW")).resolves.toBeNull();
+		await expect(
+			loadSpotAssetDescription(getSpotAssetSnapshotIdentity(createSpotMarket("@142", "UBTC")), "zh-TW"),
+		).resolves.toBeNull();
+		await expect(
+			loadSpotAssetDescription(getSpotAssetSnapshotIdentity(createSpotMarket("@272", "UZEC")), "zh-TW"),
+		).resolves.toEqual({
+			kind: "provider",
+			text: expect.stringContaining("Unit"),
+		});
 	});
 
 	it("does not replace unsupported app locales with English snapshot copy", async () => {
@@ -79,9 +108,10 @@ describe("spot asset info snapshot", () => {
 		await expect(loadSpotAssetDescription(identity, "pt-BR")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "id")).resolves.toBeNull();
 		await expect(loadSpotAssetDescription(identity, "id-ID")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(identity, "zh-HK")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(identity, "zh-Hant")).resolves.toBeNull();
+		await expect(loadSpotAssetDescription(identity, "zh-TW")).resolves.toEqual({
+			kind: "asset",
+			text: expect.stringContaining("現貨資產"),
+		});
 		await expect(loadSpotAssetDescription(identity, "en-US")).resolves.toEqual({
 			kind: "asset",
 			text: expect.stringContaining("first native spot asset"),
@@ -107,8 +137,23 @@ describe("spot asset info snapshot", () => {
 			baseTokenId: TOKEN_IDS.NOT_LICK,
 		};
 
-		await expect(loadSpotAssetDescription(staleIdentity, "zh")).resolves.toBeNull();
-		await expect(loadSpotAssetDescription(staleTokenIdentity, "zh")).resolves.toBeNull();
+		const singleFieldChanges = [
+			{ base: "NOT_LICK" },
+			{ quote: "USDT0" },
+			{ baseTokenId: TOKEN_IDS.NOT_LICK },
+			{ quoteTokenId: TOKEN_IDS.NOT_LICK },
+		];
+		for (const locale of ["zh", "zh-TW"]) {
+			await expect(loadSpotAssetDescription(currentIdentity, locale), locale).resolves.not.toBeNull();
+			await expect(loadSpotAssetDescription(staleIdentity, locale), locale).resolves.toBeNull();
+			await expect(loadSpotAssetDescription(staleTokenIdentity, locale), locale).resolves.toBeNull();
+			for (const change of singleFieldChanges) {
+				await expect(
+					loadSpotAssetDescription({ ...currentIdentity, ...change }, locale),
+					`${locale} ${JSON.stringify(change)}`,
+				).resolves.toBeNull();
+			}
+		}
 		expect(getSpotAssetSocials(createSpotMarket("@2", "NOT_LICK"))).toBeNull();
 	});
 
