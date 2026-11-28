@@ -11,6 +11,7 @@ import { getCloseOrderFeedbackChildren } from "@/domain/trade/close-order-feedba
 import { buildOrderPlan } from "@/domain/trade/order-intent";
 import { throwIfAnyResponseError } from "@/domain/trade/orders";
 import { type TrackedOrderResult, useTrackedOrder } from "@/hooks/trade/use-tracked-order";
+import { useNumberFormat } from "@/lib/format";
 import {
 	type ExchangeParams,
 	parseAssetId,
@@ -87,6 +88,7 @@ interface LiveContext {
  */
 export function usePositionLimitCloseSubmit(target: PositionLimitCloseTarget) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const { clientKey, env, info } = useHyperliquid();
 	const markets = useMarkets();
 	const userPositions = useUserPositions();
@@ -259,7 +261,7 @@ export function usePositionLimitCloseSubmit(target: PositionLimitCloseTarget) {
 			return outcome;
 		} catch (cause) {
 			const submitError = positionSubmitFeedbackFromCause(cause, "failed-limit-close");
-			const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor));
+			const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor), numberFormat);
 			setPhase("idle");
 			setError(submitError);
 			updateOrderQueueItem(queueId, {
@@ -277,7 +279,7 @@ export function usePositionLimitCloseSubmit(target: PositionLimitCloseTarget) {
 
 	function failBeforeSubmission(queueId: string, submitError: PositionSubmitFeedback): never {
 		updateOrderQueueItem(queueId, { status: "failed", error: submitError });
-		const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor));
+		const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor), numberFormat);
 		setError(submitError);
 		throw new PositionSubmitFeedbackCause(submitError, message);
 	}
@@ -294,8 +296,13 @@ export function usePositionLimitCloseSubmit(target: PositionLimitCloseTarget) {
 		isPending: phase === "validating" || phase === "submitting" || trackedOrder.isPending,
 		isReconciling: phase === "reconciling",
 		error: error
-			? formatPositionSubmitFeedback(error, (descriptor) => t(descriptor))
-			: formatTrackedPositionSubmitError(trackedOrder.error, "failed-limit-close", (descriptor) => t(descriptor)),
+			? formatPositionSubmitFeedback(error, (descriptor) => t(descriptor), numberFormat)
+			: formatTrackedPositionSubmitError(
+					trackedOrder.error,
+					"failed-limit-close",
+					(descriptor) => t(descriptor),
+					numberFormat,
+				),
 		resetError,
 	};
 }

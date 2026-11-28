@@ -30,13 +30,26 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/cn";
 import { shortenAddress, useNumberFormat } from "@/lib/format";
 import { LEADERBOARD_API_MAX_QUERY_LENGTH } from "@/lib/leaderboard/leaderboard-api";
-import type { LeaderboardPeriod, LeaderboardSortKey, LeaderboardValueTone } from "./leaderboard-domain";
+import {
+	LEADERBOARD_ACCOUNT_VALUE_THRESHOLD,
+	LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD,
+	type LeaderboardPeriod,
+	type LeaderboardSortKey,
+	type LeaderboardValueTone,
+} from "./leaderboard-domain";
 import type { LeaderboardController, LeaderboardDataNotice } from "./use-leaderboard-controller";
 
 export type LeaderboardViewProps = LeaderboardController;
 
 export function LeaderboardView(props: LeaderboardViewProps) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
+	const accountValueLimit = numberFormat.isolateNumber(
+		numberFormat.formatDecimalString(LEADERBOARD_ACCOUNT_VALUE_THRESHOLD),
+	);
+	const volumeLimit = numberFormat.isolateNumber(
+		numberFormat.formatDecimalString(LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD),
+	);
 	const isMobile = useIsMobile();
 	const periodLabel =
 		props.period === "day" ? t`24H` : props.period === "week" ? t`7D` : props.period === "month" ? t`30D` : t`All-time`;
@@ -129,10 +142,11 @@ export function LeaderboardView(props: LeaderboardViewProps) {
 				<InfoIcon className="mt-0.5 size-4 shrink-0" />
 				<p>
 					<Trans>
-						An account is excluded only when both its account value is below $100,000 and its all-time volume is below
-						$10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded
-						using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available,
-						so this ranking does not claim exact parity with Hyperliquid's official leaderboard.
+						An account is excluded only when both its account value is below ${accountValueLimit} and its all-time
+						volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault
+						accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address
+						policy is not available, so this ranking does not claim exact parity with Hyperliquid's official
+						leaderboard.
 					</Trans>
 				</p>
 			</div>

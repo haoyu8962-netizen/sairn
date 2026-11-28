@@ -5,6 +5,7 @@ import { ApiRequestError, HttpRequestError } from "@nktkas/hyperliquid";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrderBatchResolutionError, OrderTrackingInputError } from "@/domain/trade/order-tracking";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import {
 	formatPositionSubmitFeedback,
 	formatTrackedPositionSubmitError,
@@ -75,7 +76,7 @@ describe("position submission feedback", () => {
 				{ index: 1, text: "A rejection nobody documented" },
 			],
 		});
-		expect(formatPositionSubmitFeedback(feedback, translate)).toBe(
+		expect(formatPositionSubmitFeedback(feedback, translate, getNumberFormatters())).toBe(
 			"Order 1: No liquidity is available for this market order.; Order 2: A rejection nobody documented",
 		);
 	});
@@ -133,17 +134,22 @@ describe("position submission feedback", () => {
 			"1 of 2 close orders were accepted. Review positions before retrying.",
 		],
 	])("formats and describes every feedback kind: %o", (feedback, formatted, defaultMessage) => {
-		expect(formatPositionSubmitFeedback(feedback, translate)).toBe(formatted);
+		expect(formatPositionSubmitFeedback(feedback, translate, getNumberFormatters())).toBe(formatted);
 		expect(new PositionSubmitFeedbackCause(feedback).message).toBe(defaultMessage);
 	});
 
 	it("formats a tracked request error in the active language with the caller's fallback", () => {
-		expect(formatTrackedPositionSubmitError(null, "failed-limit-close", translate)).toBeNull();
-		expect(formatTrackedPositionSubmitError(new Error("socket closed"), "failed-limit-close", translate)).toBe(
-			"Failed to place limit close order",
-		);
+		expect(formatTrackedPositionSubmitError(null, "failed-limit-close", translate, getNumberFormatters())).toBeNull();
+		expect(
+			formatTrackedPositionSubmitError(
+				new Error("socket closed"),
+				"failed-limit-close",
+				translate,
+				getNumberFormatters(),
+			),
+		).toBe("Failed to place limit close order");
 		const rejection = Object.assign(new Error("User rejected the request."), { code: 4001 });
-		expect(formatTrackedPositionSubmitError(rejection, "failed-limit-close", translate)).toBe(
+		expect(formatTrackedPositionSubmitError(rejection, "failed-limit-close", translate, getNumberFormatters())).toBe(
 			"Transaction was rejected",
 		);
 
@@ -151,8 +157,13 @@ describe("position submission feedback", () => {
 			locale: "zh",
 			messages: { [messageId("Failed to place limit close order")]: "限价平仓下单失败" },
 		});
-		expect(formatTrackedPositionSubmitError(new Error("socket closed"), "failed-limit-close", translate)).toBe(
-			"限价平仓下单失败",
-		);
+		expect(
+			formatTrackedPositionSubmitError(
+				new Error("socket closed"),
+				"failed-limit-close",
+				translate,
+				getNumberFormatters(),
+			),
+		).toBe("限价平仓下单失败");
 	});
 });

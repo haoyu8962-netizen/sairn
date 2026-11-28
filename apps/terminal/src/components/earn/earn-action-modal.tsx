@@ -376,7 +376,10 @@ function EarnActionModalBody({ open, operation, initialToken, data, onOpenChange
 			return;
 		}
 		toast.error(
-			<EarnOutcomeToastContent {...identity} render={(translateMessage) => getFailureText(error, translateMessage)} />,
+			<EarnOutcomeToastContent
+				{...identity}
+				render={(translateMessage, numberFormat) => getFailureText(error, translateMessage, numberFormat)}
+			/>,
 			{ id: identity.toastId },
 		);
 	}
@@ -659,7 +662,7 @@ function isolate(value: string): string {
 	return `\u2068${value}\u2069`;
 }
 
-function getFailureText(error: unknown, translate: Translate): string {
+function getFailureText(error: unknown, translate: Translate, numberFormat: NumberFormatters): string {
 	if (error instanceof FundsActionFeedbackCause) return formatFundsActionFeedback(error.code, translate);
 	if (error instanceof EarnSubmissionStaleError) {
 		return translate(msg`Earn balances changed before submission. Review the updated amounts and try again.`);
@@ -669,7 +672,7 @@ function getFailureText(error: unknown, translate: Translate): string {
 			msg`Hyperliquid requires at least $1 to stay supplied. Withdraw everything with Max, or leave at least $1.`,
 		);
 	}
-	return formatExchangeActionError(error, translate(msg`Earn request failed`), translate);
+	return formatExchangeActionError(error, translate(msg`Earn request failed`), translate, numberFormat);
 }
 
 interface EarnPositionBaseline {

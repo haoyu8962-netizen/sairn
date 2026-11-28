@@ -743,8 +743,12 @@ msgid "An accepted order was canceled afterward. Review open orders and position
 msgstr "Kabul edilen bir emir sonradan iptal edildi. Tekrar denemeden önce açık emirlerinizi ve pozisyonlarınızı kontrol edin."
 
 #: src/components/leaderboard/leaderboard-view.tsx
-msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "Bir hesap yalnızca hem hesap değeri $100,000'ın hem de tüm zamanlar hacmi $10,000,000'ın altındaysa hariç tutulur. ROI, mevcut resmi uygulama veri kaynağının bildirdiği değerdir. Kasa hesapları, ağla eşleşen kasa veri kümesi kullanılarak hariç tutulur. İncelenmiş bir protokol ve hazine adresi politikası bulunmadığından, bu sıralama Hyperliquid'in resmi liderlik tablosuyla tam eşleşme iddiasında bulunmaz."
+msgid "An account is excluded only when both its account value is below ${accountValueLimit} and its all-time volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+msgstr "Bir hesap yalnızca hem hesap değeri ${accountValueLimit} altında hem de tüm zamanlar hacmi ${volumeLimit} altında olduğunda hariç tutulur. ROI, mevcut resmi uygulama veri kaynağının bildirdiği değerdir. Kasa hesapları, ağla eşleşen kasa veri kümesi kullanılarak hariç tutulur. İncelenmiş bir protokol ve hazine adresi politikası bulunmadığından, bu sıralama Hyperliquid'in resmi liderlik tablosuyla tam eşleşme iddiasında bulunmaz."
+
+#: src/components/leaderboard/leaderboard-view.tsx
+#~ msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+#~ msgstr "Bir hesap yalnızca hem hesap değeri $100,000'ın hem de tüm zamanlar hacmi $10,000,000'ın altındaysa hariç tutulur. ROI, mevcut resmi uygulama veri kaynağının bildirdiği değerdir. Kasa hesapları, ağla eşleşen kasa veri kümesi kullanılarak hariç tutulur. İncelenmiş bir protokol ve hazine adresi politikası bulunmadığından, bu sıralama Hyperliquid'in resmi liderlik tablosuyla tam eşleşme iddiasında bulunmaz."
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1479,10 +1483,14 @@ msgstr "Başka bir piyasa, yön, rol veya tür seçin."
 msgid "Choose different market, direction, type, or status filters."
 msgstr "Farklı piyasa, yön, tür veya durum filtreleri seçin."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle CCTP deposits are limited to {limit} USDC per transfer."
+msgstr "Circle CCTP yatırma işlemleri transfer başına {limit} USDC ile sınırlıdır."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Circle CCTP yatırma işlemleri transfer başına 10,000,000 USDC ile sınırlıdır."
+#~ msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
+#~ msgstr "Circle CCTP yatırma işlemleri transfer başına 10,000,000 USDC ile sınırlıdır."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1504,10 +1512,14 @@ msgstr "Circle ücretleri değişti. Güncellenen ücreti inceleyin ve ardından
 msgid "Circle is forwarding your USDC to Hyperliquid. Do not submit this deposit again."
 msgstr "Circle, USDC tutarınızı Hyperliquid'e iletiyor. Bu yatırma işlemini tekrar göndermeyin."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle testnet deposits are limited to {limit} USDC per transfer."
+msgstr "Circle Testnet yatırma işlemleri transfer başına {limit} USDC ile sınırlıdır."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Circle Testnet yatırma işlemleri transfer başına 1,000 USDC ile sınırlıdır."
+#~ msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
+#~ msgstr "Circle Testnet yatırma işlemleri transfer başına 1,000 USDC ile sınırlıdır."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -6307,10 +6319,14 @@ msgstr "Referans kodu uygulandı"
 msgid "Referral code created"
 msgstr "Referans kodu oluşturuldu"
 
+#: src/lib/errors/action-error.ts
+msgid "Referral codes cannot be applied after cumulative volume exceeds ${limit}."
+msgstr "Kümülatif işlem hacmi ${limit} tutarını aştıktan sonra referans kodu uygulanamaz."
+
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
-msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "Kümülatif işlem hacmi $10,000 tutarını aştıktan sonra referans kodu uygulanamaz."
+#~ msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
+#~ msgstr "Kümülatif işlem hacmi $10,000 tutarını aştıktan sonra referans kodu uygulanamaz."
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

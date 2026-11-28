@@ -1266,8 +1266,9 @@ export function MobileTradeView({ active = true, className, embedded, sizeMode, 
 
 export function MobileTradingApprovalErrorMessage({ cause }: { cause: unknown }) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	return cause instanceof Error
-		? formatTransferError(cause, (descriptor) => t(descriptor))
+		? formatTransferError(cause, (descriptor) => t(descriptor), numberFormat)
 		: t`Failed to enable trading`;
 }
 

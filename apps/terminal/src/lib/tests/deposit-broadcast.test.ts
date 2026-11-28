@@ -4,6 +4,7 @@ import type { Hash, PublicClient } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import {
 	DefinitiveDepositSourceFailureError,
 	isDefinitiveDepositSourceFailure,
@@ -191,14 +192,14 @@ describe("deposit broadcast confirmation", () => {
 		);
 
 		expect(failure).toBeInstanceOf(LocalizedActionError);
-		expect(formatTransferError(failure as Error, translate, "Deposit failed")).toBe(
+		expect(formatTransferError(failure as Error, translate, getNumberFormatters(), "Deposit failed")).toBe(
 			"Deposit transaction was broadcast but confirmation timed out. Check Arbiscan before retrying.",
 		);
 		i18n.loadAndActivate({
 			locale: "zh",
 			messages: { [CONFIRMATION_TIMED_OUT.id]: "存款交易已广播，但确认超时。重试前请先在 Arbiscan 上检查。" },
 		});
-		expect(formatTransferError(failure as Error, translate, "存款失败")).toBe(
+		expect(formatTransferError(failure as Error, translate, getNumberFormatters(), "存款失败")).toBe(
 			"存款交易已广播，但确认超时。重试前请先在 Arbiscan 上检查。",
 		);
 	});

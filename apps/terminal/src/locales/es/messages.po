@@ -825,8 +825,12 @@ msgid "An accepted order was canceled afterward. Review open orders and position
 msgstr "Una orden aceptada se canceló después. Revisa las órdenes abiertas y las posiciones antes de reintentar."
 
 #: src/components/leaderboard/leaderboard-view.tsx
-msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "Una cuenta solo se excluye si tanto el valor de su cuenta es inferior a $100,000 como su volumen histórico es inferior a $10,000,000. El ROI es el valor informado por la fuente de datos actual de la aplicación oficial. Las cuentas de bóvedas se excluyen mediante el conjunto de datos correspondiente a la red. No se dispone de una política revisada de direcciones de protocolo y tesorería, por lo que esta clasificación no afirma tener una paridad exacta con la clasificación oficial de Hyperliquid."
+msgid "An account is excluded only when both its account value is below ${accountValueLimit} and its all-time volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+msgstr "Una cuenta solo se excluye si tanto el valor de su cuenta es inferior a ${accountValueLimit} como su volumen histórico es inferior a ${volumeLimit}. El ROI es el valor informado por la fuente de datos actual de la aplicación oficial. Las cuentas de bóvedas se excluyen mediante el conjunto de datos correspondiente a la red. No se dispone de una política revisada de direcciones de protocolo y tesorería, por lo que esta clasificación no afirma tener una paridad exacta con la clasificación oficial de Hyperliquid."
+
+#: src/components/leaderboard/leaderboard-view.tsx
+#~ msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+#~ msgstr "Una cuenta solo se excluye si tanto el valor de su cuenta es inferior a $100,000 como su volumen histórico es inferior a $10,000,000. El ROI es el valor informado por la fuente de datos actual de la aplicación oficial. Las cuentas de bóvedas se excluyen mediante el conjunto de datos correspondiente a la red. No se dispone de una política revisada de direcciones de protocolo y tesorería, por lo que esta clasificación no afirma tener una paridad exacta con la clasificación oficial de Hyperliquid."
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1674,10 +1678,14 @@ msgstr "Elige otro mercado, dirección, rol o tipo."
 msgid "Choose different market, direction, type, or status filters."
 msgstr "Elige otros filtros de mercado, dirección, tipo o estado."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle CCTP deposits are limited to {limit} USDC per transfer."
+msgstr "Los depósitos mediante Circle CCTP están limitados a {limit} USDC por transferencia."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Los depósitos mediante Circle CCTP están limitados a 10,000,000 USDC por transferencia."
+#~ msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
+#~ msgstr "Los depósitos mediante Circle CCTP están limitados a 10,000,000 USDC por transferencia."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1709,10 +1717,14 @@ msgstr "Circle está reenviando tus USDC a Hyperliquid. No vuelvas a enviar este
 #~ msgid "Circle submitted the HyperEVM forwarding transaction. HyperCore credit may take additional time."
 #~ msgstr "Circle ha enviado la transacción de reenvío de HyperEVM. El abono en HyperCore puede tardar más."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle testnet deposits are limited to {limit} USDC per transfer."
+msgstr "Los depósitos en la testnet de Circle están limitados a {limit} USDC por transferencia."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Los depósitos en la testnet de Circle están limitados a 1,000 USDC por transferencia."
+#~ msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
+#~ msgstr "Los depósitos en la testnet de Circle están limitados a 1,000 USDC por transferencia."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -7131,10 +7143,14 @@ msgstr "Código de referido aplicado"
 msgid "Referral code created"
 msgstr "Código de referido creado"
 
+#: src/lib/errors/action-error.ts
+msgid "Referral codes cannot be applied after cumulative volume exceeds ${limit}."
+msgstr "Los códigos de referido no se pueden aplicar cuando el volumen acumulado supera los ${limit}."
+
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
-msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "Los códigos de referido no se pueden aplicar cuando el volumen acumulado supera los $10,000."
+#~ msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
+#~ msgstr "Los códigos de referido no se pueden aplicar cuando el volumen acumulado supera los $10,000."
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

@@ -36,6 +36,7 @@ import {
 	parseExchangeErrorText,
 } from "@/lib/errors/exchange-error-text";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { fundsActionFeedbackCause } from "@/lib/trade/funds-action-feedback";
 import { describeOrderStatusReason, formatOrderChildError } from "@/lib/trade/order-status-reasons";
 import type { Translate } from "@/lib/translate";
@@ -241,12 +242,12 @@ describe("exchange rejection texts", () => {
 
 	it("renders in the active language and re-renders after a language switch", () => {
 		const failure = exchangeActionFailure(LEVERAGE_DECREASE_ERROR);
-		expect(formatActionFailure(failure, translate)).toBe(LEVERAGE_DECREASE_MESSAGE);
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe(LEVERAGE_DECREASE_MESSAGE);
 		const messages: Messages = {
 			[messageId(LEVERAGE_DECREASE_MESSAGE)]: "全仓仓位的可用保证金不足，无法降低杠杆。请存入更多抵押品后再降低杠杆。",
 		};
 		i18n.loadAndActivate({ locale: "zh", messages });
-		expect(formatActionFailure(failure, translate)).toBe(
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe(
 			"全仓仓位的可用保证金不足，无法降低杠杆。请存入更多抵押品后再降低杠杆。",
 		);
 	});
@@ -320,7 +321,7 @@ describe("classifyActionError", () => {
 			kind: "exchange-error",
 			entries: [{ index: 1, text: "Invalid TP/SL price." }],
 		});
-		expect(describeActionError(bulk, translate)).toBe("Invalid TP/SL price.");
+		expect(describeActionError(bulk, translate, getNumberFormatters())).toBe("Invalid TP/SL price.");
 	});
 
 	it("reports transport results by status", () => {
@@ -341,11 +342,13 @@ describe("classifyActionError", () => {
 		const rejected = new AbstractWalletError("Failed to sign the typed data using the wallet", {
 			cause: Object.assign(new Error("User rejected the request."), { code: 4001 }),
 		});
-		expect(describeActionError(rejected, translate)).toBe("Transaction was rejected");
+		expect(describeActionError(rejected, translate, getNumberFormatters())).toBe("Transaction was rejected");
 		const failed = new AbstractWalletError("Failed to sign the typed data using the wallet", {
 			cause: new Error("device disconnected"),
 		});
-		expect(describeActionError(failed, translate)).toBe("The wallet could not sign the request. Try again.");
+		expect(describeActionError(failed, translate, getNumberFormatters())).toBe(
+			"The wallet could not sign the request. Try again.",
+		);
 	});
 
 	it("uses hl-react error names and reasons instead of their English messages", () => {
@@ -353,26 +356,32 @@ describe("classifyActionError", () => {
 			name: "LegalActionNotAllowedError",
 			reason: "terms_required",
 		});
-		expect(describeActionError(terms, translate)).toBe("Accept the Hyperliquid terms before continuing.");
+		expect(describeActionError(terms, translate, getNumberFormatters())).toBe(
+			"Accept the Hyperliquid terms before continuing.",
+		);
 		const changed = Object.assign(new Error("anything"), { name: "ExchangeRequestInvalidatedError" });
-		expect(describeActionError(changed, translate)).toBe(
+		expect(describeActionError(changed, translate, getNumberFormatters())).toBe(
 			"The active wallet or network changed. Review the account and try again.",
 		);
-		expect(describeActionError(new Error("The local clock cannot produce a safe Hyperliquid nonce."), translate)).toBe(
-			"Your device clock is out of sync. Correct the date and time, then try again.",
-		);
+		expect(
+			describeActionError(
+				new Error("The local clock cannot produce a safe Hyperliquid nonce."),
+				translate,
+				getNumberFormatters(),
+			),
+		).toBe("Your device clock is out of sync. Correct the date and time, then try again.");
 	});
 
 	it("translates our own errors when they are displayed, not when they are thrown", () => {
 		const error = new LocalizedActionError(msg`Margin mode data is unavailable`);
 		expect(error.message).toBe("Margin mode data is unavailable");
 		const failure = classifyActionError(error);
-		expect(formatActionFailure(failure, translate)).toBe("Margin mode data is unavailable");
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe("Margin mode data is unavailable");
 		i18n.loadAndActivate({
 			locale: "zh",
 			messages: { [messageId("Margin mode data is unavailable")]: "保证金模式数据不可用" },
 		});
-		expect(formatActionFailure(failure, translate)).toBe("保证金模式数据不可用");
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe("保证金模式数据不可用");
 	});
 
 	it("keeps each rejected order's own text and position from our order tracking result", () => {
@@ -394,7 +403,7 @@ describe("classifyActionError", () => {
 				{ index: 2, text: "Price must be divisible by tick size." },
 			],
 		});
-		expect(formatActionFailure(failure, translate)).toBe(
+		expect(formatActionFailure(failure, translate, getNumberFormatters())).toBe(
 			"Order 1: Risk cap exceeded; contact support; Order 3: Price must be a multiple of the tick size.",
 		);
 	});
@@ -436,7 +445,7 @@ describe("classifyActionError", () => {
 		const ours = new LocalizedActionError(msg`LI.FI requested a network that does not match this bridge route.`);
 		const wrapped = new SDKError(new UnknownError(ours.message, ours));
 		expect(classifyActionError(wrapped)).toEqual(msg`LI.FI requested a network that does not match this bridge route.`);
-		expect(describeActionError(wrapped, translate)).toBe(
+		expect(describeActionError(wrapped, translate, getNumberFormatters())).toBe(
 			"LI.FI requested a network that does not match this bridge route.",
 		);
 	});
@@ -444,8 +453,10 @@ describe("classifyActionError", () => {
 	it("never shows an unrecognised English error", () => {
 		const internal = new Error("Leverage request no longer matches the selected market");
 		expect(classifyActionError(internal)).toEqual({ kind: "action-error", code: "unknown" });
-		expect(describeActionError(internal, translate)).toBe("The request could not be completed. Try again.");
-		expect(describeActionError(internal, translate, "Update failed")).toBe("Update failed");
+		expect(describeActionError(internal, translate, getNumberFormatters())).toBe(
+			"The request could not be completed. Try again.",
+		);
+		expect(describeActionError(internal, translate, getNumberFormatters(), "Update failed")).toBe("Update failed");
 		expect(classifyActionErrorOr(internal, msg`Referral request could not be completed.`)).toEqual(
 			msg`Referral request could not be completed.`,
 		);
@@ -464,14 +475,16 @@ describe("classifyActionError", () => {
 					"当前钱包或网络已变化。请检查账户后重试。",
 			},
 		});
-		expect(describeActionFailure(failure, translate)).toBe("当前钱包或网络已变化。请检查账户后重试。");
+		expect(describeActionFailure(failure, translate, getNumberFormatters())).toBe(
+			"当前钱包或网络已变化。请检查账户后重试。",
+		);
 	});
 
 	it("keeps our own reason when the SDK wraps a failure raised while a wallet signs", () => {
 		const wrapped = new AbstractWalletError("Failed to sign the typed data using the wallet", {
 			cause: createActionError("identity-changed"),
 		});
-		expect(describeActionError(wrapped, translate)).toBe(
+		expect(describeActionError(wrapped, translate, getNumberFormatters())).toBe(
 			"The active wallet or network changed. Review the account and try again.",
 		);
 		const legal = new AbstractWalletError("Failed to sign the typed data using the wallet", {
@@ -480,16 +493,20 @@ describe("classifyActionError", () => {
 				reason: "terms_required",
 			}),
 		});
-		expect(describeActionError(legal, translate)).toBe("Accept the Hyperliquid terms before continuing.");
+		expect(describeActionError(legal, translate, getNumberFormatters())).toBe(
+			"Accept the Hyperliquid terms before continuing.",
+		);
 	});
 
 	it("describes a stored failure with the caller's fallback or the generic message", () => {
 		const unknown = classifyActionError(new Error("Something internal"));
-		expect(describeActionFailure(unknown, translate)).toBe("The request could not be completed. Try again.");
-		expect(describeActionFailure(unknown, translate, "Bridge failed")).toBe("Bridge failed");
-		expect(describeActionFailure(msg`Transaction was rejected`, translate, "Bridge failed")).toBe(
-			"Transaction was rejected",
+		expect(describeActionFailure(unknown, translate, getNumberFormatters())).toBe(
+			"The request could not be completed. Try again.",
 		);
+		expect(describeActionFailure(unknown, translate, getNumberFormatters(), "Bridge failed")).toBe("Bridge failed");
+		expect(
+			describeActionFailure(msg`Transaction was rejected`, translate, getNumberFormatters(), "Bridge failed"),
+		).toBe("Transaction was rejected");
 	});
 
 	it.each([
@@ -536,43 +553,47 @@ describe("classifyActionError", () => {
 			"The active wallet or network changed. Review the account and try again.",
 		],
 	])("maps the hl-react and wallet adapter message %s", (message, expected) => {
-		expect(describeActionError(new Error(message), translate)).toBe(expected);
+		expect(describeActionError(new Error(message), translate, getNumberFormatters())).toBe(expected);
 	});
 
 	it("uses stable hl-react and deposit error names instead of their English messages", () => {
 		const resetRequired = Object.assign(new Error("The previous trading connection cannot be resumed safely"), {
 			name: "AgentRegistrationResetRequiredError",
 		});
-		expect(describeActionError(resetRequired, translate)).toBe(
+		expect(describeActionError(resetRequired, translate, getNumberFormatters())).toBe(
 			"This browser no longer has the exact trading key for the pending approval. Reset the trading connection before trying again.",
 		);
 		const guardTimeout = Object.assign(
 			new Error("The pre-execution guard timed out before the signing request could start."),
 			{ name: "AgentRegistrationPreExecutionGuardTimeoutError" },
 		);
-		expect(describeActionError(guardTimeout, translate, "Transfer failed")).toBe(
+		expect(describeActionError(guardTimeout, translate, getNumberFormatters(), "Transfer failed")).toBe(
 			"The checks before this request took too long. Nothing was signed or sent. Try again.",
 		);
 		const deadline = Object.assign(new Error("Exchange request waited too long before signing and was not sent."), {
 			name: "ExchangeActionDeadlineError",
 		});
-		expect(describeActionError(deadline, translate, "Order failed")).toBe(
+		expect(describeActionError(deadline, translate, getNumberFormatters(), "Order failed")).toBe(
 			"The checks before this request took too long. Nothing was signed or sent. Try again.",
 		);
 		const rateLimited = Object.assign(new Error("Could not load agent status"), {
 			name: "AgentStatusError",
 			reason: "rate_limited",
 		});
-		expect(describeActionError(rateLimited, translate)).toBe("Too many requests. Wait a moment and try again.");
+		expect(describeActionError(rateLimited, translate, getNumberFormatters())).toBe(
+			"Too many requests. Wait a moment and try again.",
+		);
 		const statusUnavailable = Object.assign(new Error("Could not load agent status"), {
 			name: "AgentStatusError",
 			reason: "network",
 		});
-		expect(describeActionError(statusUnavailable, translate)).toBe("Trading could not be enabled. Try again.");
+		expect(describeActionError(statusUnavailable, translate, getNumberFormatters())).toBe(
+			"Trading could not be enabled. Try again.",
+		);
 		const recoveryStorage = Object.assign(new Error("CCTP deposit tracking storage is unavailable."), {
 			name: "CctpDepositTrackingPersistenceError",
 		});
-		expect(describeActionError(recoveryStorage, translate)).toBe(
+		expect(describeActionError(recoveryStorage, translate, getNumberFormatters())).toBe(
 			"This browser could not store deposit recovery data, so this deposit was not submitted. Allow site storage, then try again.",
 		);
 		const prototypeName = Object.assign(new Error("Something internal"), { name: "toString" });

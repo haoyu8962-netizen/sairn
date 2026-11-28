@@ -1,6 +1,6 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { type ActionFailure, formatActionFailure } from "@/lib/errors/action-error";
+import { type ActionFailure, type ActionFailureNumberFormat, formatActionFailure } from "@/lib/errors/action-error";
 import {
 	formatOrderSubmissionFeedback,
 	getDefaultOrderSubmissionFeedbackMessage,
@@ -152,6 +152,7 @@ export function positionSubmitFeedbackFromCause(
 export function formatPositionSubmitFeedback(
 	feedback: PositionSubmitFeedback,
 	translate: (descriptor: MessageDescriptor) => string,
+	numberFormat: ActionFailureNumberFormat,
 ): string {
 	if (!("kind" in feedback)) return translate(feedback);
 	switch (feedback.kind) {
@@ -159,7 +160,7 @@ export function formatPositionSubmitFeedback(
 			return formatOrderSubmissionFeedback(feedback, translate);
 		case "exchange-error":
 		case "action-error":
-			return formatActionFailure(feedback, translate) ?? "";
+			return formatActionFailure(feedback, translate, numberFormat) ?? "";
 		case "localized":
 			return translate(messages[feedback.code]);
 		case "partial-close-all":
@@ -194,9 +195,10 @@ export function formatTrackedPositionSubmitError(
 	error: Error | null | undefined,
 	fallbackCode: PositionSubmitFeedbackCode,
 	translate: (descriptor: MessageDescriptor) => string,
+	numberFormat: ActionFailureNumberFormat,
 ): string | null {
 	if (!error) return null;
-	return formatPositionSubmitFeedback(positionSubmitFeedbackFromCause(error, fallbackCode), translate);
+	return formatPositionSubmitFeedback(positionSubmitFeedbackFromCause(error, fallbackCode), translate, numberFormat);
 }
 
 export function getPositionMarketClosePlanFeedback(error: string | undefined): PositionSubmitFeedback {

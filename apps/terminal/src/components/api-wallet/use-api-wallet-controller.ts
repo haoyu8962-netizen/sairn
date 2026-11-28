@@ -14,7 +14,7 @@ import {
 	formatActionFailure,
 	isWalletRejectionError,
 } from "@/lib/errors/action-error";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, type NumberFormatters, useNumberFormat } from "@/lib/format";
 import { TradingRegionBlockedError } from "@/lib/geo/trading-region";
 import { type InfoResponse, useHyperliquid, useInfo } from "@/lib/hyperliquid";
 import type { Translate } from "@/lib/translate";
@@ -96,6 +96,7 @@ export function useApiWalletController({
 }: ApiWalletControllerOptions = {}): ApiWalletController {
 	const { t, i18n } = useLingui();
 	const translate: Translate = (descriptor) => t(descriptor);
+	const numberFormat = useNumberFormat();
 	const wallet = useWalletSession();
 	const { env } = useHyperliquid();
 	const activeAgentOwner = useActiveAgentOwner();
@@ -492,6 +493,7 @@ export function useApiWalletController({
 		i18n.locale,
 		actionSigner,
 		translate,
+		numberFormat,
 	);
 
 	return {
@@ -566,6 +568,7 @@ function createActionView(
 	locale: string,
 	signer: ApiWalletActionSigner,
 	translate: Translate,
+	numberFormat: NumberFormatters,
 ): ApiWalletActionView | null {
 	if (!action || action.state.stage === "input") return null;
 	const approval = action.approval;
@@ -584,7 +587,7 @@ function createActionView(
 			action.state.action === "authorize"
 				? formatValidityDays(approval ? Math.ceil((approval.validUntil - Date.now()) / 86_400_000) : 0, translate)
 				: formatValidityDate(action.removal?.target.validUntil ?? null, locale, translate),
-		errorMessage: action.failure ? formatApiWalletFailure(action.failure, translate) : undefined,
+		errorMessage: action.failure ? formatApiWalletFailure(action.failure, translate, numberFormat) : undefined,
 		privateKey: result === "success" && action.state.action === "authorize" ? privateKey : undefined,
 		privateKeyVisible: action.privateKeyVisible,
 		credentialDownloaded: action.credentialDownloaded,
@@ -593,8 +596,8 @@ function createActionView(
 	};
 }
 
-function formatApiWalletFailure(failure: ActionFailure, translate: Translate): string {
-	return formatActionFailure(failure, translate) ?? translate(API_WALLET_REQUEST_REJECTED);
+function formatApiWalletFailure(failure: ActionFailure, translate: Translate, numberFormat: NumberFormatters): string {
+	return formatActionFailure(failure, translate, numberFormat) ?? translate(API_WALLET_REQUEST_REJECTED);
 }
 
 function createAgentViews(

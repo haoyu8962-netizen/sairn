@@ -743,8 +743,12 @@ msgid "An accepted order was canceled afterward. Review open orders and position
 msgstr "Một lệnh đã tiếp nhận sau đó đã bị hủy. Vui lòng kiểm tra lệnh đang mở và vị thế trước khi thử lại."
 
 #: src/components/leaderboard/leaderboard-view.tsx
-msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
-msgstr "Một tài khoản chỉ bị loại trừ khi cả giá trị tài khoản dưới $100,000 và khối lượng toàn thời gian dưới $10,000,000. ROI là giá trị được báo cáo từ nguồn dữ liệu hiện tại của ứng dụng chính thức. Các tài khoản Vault được loại trừ dựa trên bộ dữ liệu Vault tương ứng với mạng. Do chưa có chính sách đã được rà soát cho địa chỉ giao thức và kho bạc, bảng xếp hạng này không khẳng định khớp hoàn toàn với bảng xếp hạng chính thức của Hyperliquid."
+msgid "An account is excluded only when both its account value is below ${accountValueLimit} and its all-time volume is below ${volumeLimit}. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+msgstr "Một tài khoản chỉ bị loại trừ khi cả giá trị tài khoản dưới ${accountValueLimit} và khối lượng toàn thời gian dưới ${volumeLimit}. ROI là giá trị được báo cáo từ nguồn dữ liệu hiện tại của ứng dụng chính thức. Các tài khoản Vault được loại trừ dựa trên bộ dữ liệu Vault tương ứng với mạng. Do chưa có chính sách đã được rà soát cho địa chỉ giao thức và kho bạc, bảng xếp hạng này không khẳng định khớp hoàn toàn với bảng xếp hạng chính thức của Hyperliquid."
+
+#: src/components/leaderboard/leaderboard-view.tsx
+#~ msgid "An account is excluded only when both its account value is below $100,000 and its all-time volume is below $10,000,000. ROI is the value reported by the current official-app data source. Vault accounts are excluded using the network-matched vault dataset. A reviewed protocol and treasury address policy is not available, so this ranking does not claim exact parity with Hyperliquid's official leaderboard."
+#~ msgstr "Một tài khoản chỉ bị loại trừ khi cả giá trị tài khoản dưới $100,000 và khối lượng toàn thời gian dưới $10,000,000. ROI là giá trị được báo cáo từ nguồn dữ liệu hiện tại của ứng dụng chính thức. Các tài khoản Vault được loại trừ dựa trên bộ dữ liệu Vault tương ứng với mạng. Do chưa có chính sách đã được rà soát cho địa chỉ giao thức và kho bạc, bảng xếp hạng này không khẳng định khớp hoàn toàn với bảng xếp hạng chính thức của Hyperliquid."
 
 #: src/components/api-wallet/api-wallet-view.tsx
 msgid "An approved API wallet can sign delegated L1 actions such as placing and cancelling orders and adjusting leverage or margin mode. Approval is not scoped per action. Master-only actions, including external withdrawals, still require the master wallet."
@@ -1479,10 +1483,14 @@ msgstr "Chọn thị trường, hướng, vai trò hoặc loại khác."
 msgid "Choose different market, direction, type, or status filters."
 msgstr "Chọn bộ lọc thị trường, hướng, loại hoặc trạng thái khác."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle CCTP deposits are limited to {limit} USDC per transfer."
+msgstr "Mỗi lần nạp qua Circle CCTP giới hạn tối đa {limit} USDC."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
-msgstr "Mỗi lần nạp qua Circle CCTP giới hạn tối đa 10,000,000 USDC."
+#~ msgid "Circle CCTP deposits are limited to 10,000,000 USDC per transfer."
+#~ msgstr "Mỗi lần nạp qua Circle CCTP giới hạn tối đa 10,000,000 USDC."
 
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/components/trade/tradebox/deposit-modal.tsx
@@ -1504,10 +1512,14 @@ msgstr "Phí Circle đã thay đổi. Hãy kiểm tra mức phí mới rồi g�
 msgid "Circle is forwarding your USDC to Hyperliquid. Do not submit this deposit again."
 msgstr "Circle đang chuyển tiếp USDC của bạn đến Hyperliquid. Không gửi lại lệnh nạp này."
 
+#: src/lib/errors/action-error.ts
+msgid "Circle testnet deposits are limited to {limit} USDC per transfer."
+msgstr "Mỗi lần nạp Circle Testnet giới hạn tối đa {limit} USDC."
+
 #: src/components/trade/tradebox/deposit-modal.tsx
 #: src/lib/hyperliquid/use-deposit.ts
-msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
-msgstr "Mỗi lần nạp Circle Testnet giới hạn tối đa 1,000 USDC."
+#~ msgid "Circle testnet deposits are limited to 1,000 USDC per transfer."
+#~ msgstr "Mỗi lần nạp Circle Testnet giới hạn tối đa 1,000 USDC."
 
 #: src/lib/hyperliquid/use-deposit.ts
 msgid "Circle testnet deposits require this address to already exist on Hyperliquid mainnet."
@@ -6307,10 +6319,14 @@ msgstr "Đã áp dụng mã giới thiệu"
 msgid "Referral code created"
 msgstr "Đã tạo mã giới thiệu"
 
+#: src/lib/errors/action-error.ts
+msgid "Referral codes cannot be applied after cumulative volume exceeds ${limit}."
+msgstr "Không thể áp dụng mã giới thiệu sau khi khối lượng tích lũy vượt quá ${limit}."
+
 #: src/components/referrals/referral-code-card.tsx
 #: src/lib/errors/action-error.ts
-msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
-msgstr "Không thể áp dụng mã giới thiệu sau khi khối lượng tích lũy vượt quá $10,000."
+#~ msgid "Referral codes cannot be applied after cumulative volume exceeds $10,000."
+#~ msgstr "Không thể áp dụng mã giới thiệu sau khi khối lượng tích lũy vượt quá $10,000."
 
 #: src/lib/errors/action-error.ts
 msgid "Referral codes must be between 1 and 20 characters."

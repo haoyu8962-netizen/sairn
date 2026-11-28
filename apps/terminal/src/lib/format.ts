@@ -570,6 +570,8 @@ export interface NumberFormatters {
 	formatUSD: typeof formatUSD;
 	/** For a signed number a helper composes itself, such as `-$12.50`: unchanged left to right. */
 	markLeadingSign: (text: string) => string;
+	/** For a formatted number placed inside a translated sentence: unchanged left to right. */
+	isolateNumber: (text: string) => string;
 }
 
 function createNumberFormatters(): NumberFormatters {
@@ -584,6 +586,7 @@ function createNumberFormatters(): NumberFormatters {
 		formatToken: (...args) => formatToken(...args),
 		formatUSD: (...args) => formatUSD(...args),
 		markLeadingSign: (text) => text,
+		isolateNumber: (text) => text,
 	};
 }
 
@@ -599,6 +602,19 @@ function markSignedNumber<Text extends string | null>(text: Text): Text {
 	return typeof text === "string" && SIGNED_NUMBER_PATTERN.test(text) ? (`${LEFT_TO_RIGHT_MARK}${text}` as Text) : text;
 }
 
+const LEFT_TO_RIGHT_ISOLATE = "\u2066";
+const POP_DIRECTIONAL_ISOLATE = "\u2069";
+const WHITESPACE_PATTERN = /\s/u;
+
+/**
+ * A number grouped with spaces ("10 000 000") splits into separate digit runs in a right-to-left
+ * sentence, and the bidirectional algorithm lays those runs out from right to left ("000 000 10").
+ * Commas and points join the runs, so only a number that contains whitespace is isolated.
+ */
+function isolateSpacedNumber(text: string): string {
+	return WHITESPACE_PATTERN.test(text) ? `${LEFT_TO_RIGHT_ISOLATE}${text}${POP_DIRECTIONAL_ISOLATE}` : text;
+}
+
 function createRightToLeftNumberFormatters(formatters: NumberFormatters): NumberFormatters {
 	return {
 		formatDecimalString: (...args) => markSignedNumber(formatters.formatDecimalString(...args)),
@@ -611,6 +627,7 @@ function createRightToLeftNumberFormatters(formatters: NumberFormatters): Number
 		formatToken: (...args) => markSignedNumber(formatters.formatToken(...args)),
 		formatUSD: (...args) => markSignedNumber(formatters.formatUSD(...args)),
 		markLeadingSign: (text) => markSignedNumber(text),
+		isolateNumber: (text) => isolateSpacedNumber(text),
 	};
 }
 

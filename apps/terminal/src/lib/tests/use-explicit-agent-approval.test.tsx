@@ -13,6 +13,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { ExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { formatTransferError } from "@/lib/errors/format";
 import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 
 const OWNER = "0x1111111111111111111111111111111111111111";
 const AGENT = "0x2222222222222222222222222222222222222222";
@@ -545,7 +546,9 @@ describe("useExplicitAgentApproval", () => {
 			});
 			expect(sessionClosedWhileSigning).toBe(true);
 			expect(rejection).toBeInstanceOf(Error);
-			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
+				SESSION_CHANGED,
+			);
 			expect(testState.signTypedData).toHaveBeenCalledOnce();
 			expect(testState.signTypedData.mock.calls[0]?.[0]).toMatchObject({
 				primaryType: "HyperliquidTransaction:ApproveAgent",
@@ -610,7 +613,9 @@ describe("useExplicitAgentApproval", () => {
 				rejection = await request;
 			});
 			expect(rejection).toBeInstanceOf(Error);
-			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
+				SESSION_CHANGED,
+			);
 			expect(walletSignTypedData).not.toHaveBeenCalled();
 			expect(testState.transportRequest).not.toHaveBeenCalled();
 		} finally {
@@ -818,7 +823,9 @@ describe("useExplicitAgentApproval", () => {
 				rejection = await request;
 			});
 			expect(rejection).toBeInstanceOf(Error);
-			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(SESSION_CHANGED);
+			expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
+				SESSION_CHANGED,
+			);
 			expect(walletSignTypedData).not.toHaveBeenCalled();
 			expect(testState.transportRequest).not.toHaveBeenCalled();
 		} finally {
@@ -1087,7 +1094,7 @@ describe("useExplicitAgentApproval", () => {
 		});
 
 		expect(rejection).toBeInstanceOf(LocalizedActionError);
-		expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor))).toBe(
+		expect(formatTransferError(rejection as Error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
 			"Wallet connection failed. Unlock your wallet, approve the connection, then retry.",
 		);
 		expect(testState.createPrivyAgentSigner).not.toHaveBeenCalled();

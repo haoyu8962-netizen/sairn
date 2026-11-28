@@ -22,6 +22,7 @@ import { getFundsActionHistoryStartTime } from "@/components/funds-action/funds-
 import type { VaultDetail, VaultOwnerView, VaultOwnerViewState } from "@/components/vaults/domain/vaults";
 import { createVaultIdentityKey, useVaultActionController } from "@/components/vaults/use-vault-action-controller";
 import { describeActionFailure } from "@/lib/errors/action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { createI18nRoot } from "@/lib/tests/harness/react";
 
 const OWNER = "0x1111111111111111111111111111111111111111" as const;
@@ -528,7 +529,7 @@ describe("useVaultActionController", () => {
 
 	function vaultErrorText() {
 		const error = current().action?.error;
-		return error ? describeActionFailure(error, (descriptor) => i18n._(descriptor)) : null;
+		return error ? describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters()) : null;
 	}
 
 	it("signs nothing when the balance re-read before signing no longer covers the reviewed deposit", async () => {
@@ -702,7 +703,7 @@ describe("useVaultActionController", () => {
 
 		expect(current().action).toMatchObject({ state: { stage: "review", result: null } });
 		const error = current().action?.error;
-		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor))).toBe(
+		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
 			"This Vault no longer accepts deposits.",
 		);
 		expect(mocks.exchangeMutate).not.toHaveBeenCalled();
@@ -715,7 +716,7 @@ describe("useVaultActionController", () => {
 		await act(async () => current().confirm());
 
 		const error = current().action?.error;
-		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor))).toBe(
+		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(
 			"Vault operation failed. Verify current balances and history before trying again.",
 		);
 		expect(mocks.exchangeMutate).not.toHaveBeenCalled();
@@ -730,7 +731,7 @@ describe("useVaultActionController", () => {
 
 		expect(current().action).toMatchObject({ state: { stage: "done", result: "apiError" } });
 		const error = current().action?.error;
-		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor))).toBe(text);
+		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(text);
 	});
 
 	it("keeps an exchange rejection that mentions a user rejection as the exchange's reason", async () => {
@@ -741,7 +742,7 @@ describe("useVaultActionController", () => {
 
 		expect(current().action).toMatchObject({ state: { stage: "done", result: "apiError" } });
 		const error = current().action?.error;
-		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor))).toBe(text);
+		expect(error && describeActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters())).toBe(text);
 	});
 
 	it("hydrates and verifies the exact owner marker read-only in an Agent-only session", async () => {

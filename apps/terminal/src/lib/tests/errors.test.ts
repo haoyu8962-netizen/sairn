@@ -8,6 +8,7 @@ import {
 	formatTransferError,
 	isAmbiguousExchangeActionError,
 } from "@/lib/errors/format";
+import { getNumberFormatters } from "@/lib/format";
 import type { Translate } from "@/lib/translate";
 
 const translate: Translate = (descriptor) => i18n._(descriptor);
@@ -19,19 +20,35 @@ beforeAll(() => {
 describe("errors", () => {
 	it("maps cross-tab funds lock failures to actionable product messages", () => {
 		expect(
-			formatTransferError(new Error("Another funds operation is still in progress for this account."), translate),
+			formatTransferError(
+				new Error("Another funds operation is still in progress for this account."),
+				translate,
+				getNumberFormatters(),
+			),
 		).toContain("Another funds operation");
 		expect(
-			formatTransferError(new Error("Secure cross-tab funds coordination requires Web Locks support."), translate),
+			formatTransferError(
+				new Error("Secure cross-tab funds coordination requires Web Locks support."),
+				translate,
+				getNumberFormatters(),
+			),
 		).toContain("supported browser");
 	});
 
 	it("maps fail-closed legal execution errors to actionable product messages", () => {
 		expect(
-			formatTransferError(new Error("Hyperliquid access could not be verified before this action"), translate),
+			formatTransferError(
+				new Error("Hyperliquid access could not be verified before this action"),
+				translate,
+				getNumberFormatters(),
+			),
 		).toBe("Unable to verify regional availability. Trading is temporarily unavailable.");
 		expect(
-			formatTransferError(new Error("This account is not permitted to perform this Hyperliquid action"), translate),
+			formatTransferError(
+				new Error("This account is not permitted to perform this Hyperliquid action"),
+				translate,
+				getNumberFormatters(),
+			),
 		).toBe("This account is not currently permitted to perform trading actions on Hyperliquid.");
 	});
 
@@ -40,7 +57,7 @@ describe("errors", () => {
 			"There are no unclaimed rewards available to claim",
 			"There are no eligible rewards available to claim",
 		]) {
-			expect(formatExchangeActionError(new Error(wording), "Claim failed", translate)).toBe(
+			expect(formatExchangeActionError(new Error(wording), "Claim failed", translate, getNumberFormatters())).toBe(
 				"There are no unclaimed rewards available to claim.",
 			);
 		}
@@ -64,13 +81,15 @@ describe("errors", () => {
 	});
 
 	it("formats deposit broadcast failures without exposing raw provider output", () => {
-		expect(formatTransferError(new Error("Transaction was not broadcast. Please retry."), translate)).toBe(
-			"Transaction was not broadcast. Please retry.",
-		);
+		expect(
+			formatTransferError(new Error("Transaction was not broadcast. Please retry."), translate, getNumberFormatters()),
+		).toBe("Transaction was not broadcast. Please retry.");
 	});
 
 	it("formats deposit wallet response timeouts without truncating the retry warning", () => {
-		expect(formatTransferError(new Error("Wallet did not return a transaction hash."), translate)).toBe(
+		expect(
+			formatTransferError(new Error("Wallet did not return a transaction hash."), translate, getNumberFormatters()),
+		).toBe(
 			"Wallet did not return a transaction hash. Check your wallet activity before retrying to avoid sending the deposit twice.",
 		);
 	});
@@ -80,6 +99,7 @@ describe("errors", () => {
 			formatTransferError(
 				new Error("Wallet returned a transaction hash, but it is not visible on Arbitrum yet."),
 				translate,
+				getNumberFormatters(),
 			),
 		).toBe(
 			"Wallet returned a transaction hash, but it is not visible on Arbitrum yet. Check your wallet activity or Arbiscan before retrying to avoid sending the deposit twice.",
@@ -87,34 +107,44 @@ describe("errors", () => {
 	});
 
 	it("formats wallet connection failures separately from broadcast failures", () => {
-		expect(formatTransferError(new Error("Failed to connect to MetaMask"), translate)).toBe(
+		expect(formatTransferError(new Error("Failed to connect to MetaMask"), translate, getNumberFormatters())).toBe(
 			"Wallet connection failed. Unlock your wallet, approve the connection, then retry.",
 		);
-		expect(formatTransferError(new Error("Wallet client not ready"), translate)).toBe(
+		expect(formatTransferError(new Error("Wallet client not ready"), translate, getNumberFormatters())).toBe(
 			"Wallet connection failed. Unlock your wallet, approve the connection, then retry.",
 		);
-		expect(formatTransferError(new Error("Wallet connection request was rejected."), translate)).toBe(
-			"Wallet connection request was rejected.",
-		);
+		expect(
+			formatTransferError(new Error("Wallet connection request was rejected."), translate, getNumberFormatters()),
+		).toBe("Wallet connection request was rejected.");
 	});
 
 	it("formats Arbitrum chain switch failures", () => {
-		expect(formatTransferError(new Error("Arbitrum network switch was rejected."), translate)).toBe(
-			"Arbitrum network switch was rejected.",
-		);
-		expect(formatTransferError(new Error("Wallet is not connected to Arbitrum."), translate)).toBe(
-			"Unable to switch wallet to Arbitrum. Switch networks in your wallet and retry.",
-		);
+		expect(
+			formatTransferError(new Error("Arbitrum network switch was rejected."), translate, getNumberFormatters()),
+		).toBe("Arbitrum network switch was rejected.");
+		expect(
+			formatTransferError(new Error("Wallet is not connected to Arbitrum."), translate, getNumberFormatters()),
+		).toBe("Unable to switch wallet to Arbitrum. Switch networks in your wallet and retry.");
 	});
 
 	it("formats deposit confirmation timeouts", () => {
 		expect(
-			formatTransferError(new Error("Deposit transaction was broadcast but confirmation timed out."), translate),
+			formatTransferError(
+				new Error("Deposit transaction was broadcast but confirmation timed out."),
+				translate,
+				getNumberFormatters(),
+			),
 		).toBe("Deposit transaction was broadcast but confirmation timed out. Check Arbiscan before retrying.");
 	});
 
 	it("formats deposit nonce sync failures", () => {
-		expect(formatTransferError(new Error("wallet nonce may be out of sync with the network"), translate)).toBe(
+		expect(
+			formatTransferError(
+				new Error("wallet nonce may be out of sync with the network"),
+				translate,
+				getNumberFormatters(),
+			),
+		).toBe(
 			"Deposit transaction was submitted but did not confirm on Arbitrum. Your wallet nonce may be out of sync with the network. Clear pending activity or reset nonce data in your wallet, then retry.",
 		);
 	});
@@ -123,7 +153,7 @@ describe("errors", () => {
 		const message =
 			'RPC Request failed. URL: https://rpc.zerodev.app/private Request body: {"callData":"0xdeadbeef"} Details: AA25 invalid account nonce';
 
-		const formatted = formatTransferError(new Error(message), translate);
+		const formatted = formatTransferError(new Error(message), translate, getNumberFormatters());
 
 		expect(formatted).toBe(
 			"Smart wallet deposit state is syncing. Do not submit another deposit while the balance is being checked.",
@@ -134,28 +164,40 @@ describe("errors", () => {
 
 	it("uses the surface's own fallback only when a failure has nothing more specific to say", () => {
 		expect(
-			formatTransferError(new Error("Paymaster policy rejected sponsored call"), translate, "Deposit failed"),
+			formatTransferError(
+				new Error("Paymaster policy rejected sponsored call"),
+				translate,
+				getNumberFormatters(),
+				"Deposit failed",
+			),
 		).toBe("Deposit failed");
-		expect(formatTransferError(null, translate, "Automatic USDC deposit failed")).toBe("Automatic USDC deposit failed");
-		expect(formatTransferError(new Error("Wallet client not ready"), translate, "Deposit failed")).toBe(
-			"Wallet connection failed. Unlock your wallet, approve the connection, then retry.",
+		expect(formatTransferError(null, translate, getNumberFormatters(), "Automatic USDC deposit failed")).toBe(
+			"Automatic USDC deposit failed",
 		);
+		expect(
+			formatTransferError(new Error("Wallet client not ready"), translate, getNumberFormatters(), "Deposit failed"),
+		).toBe("Wallet connection failed. Unlock your wallet, approve the connection, then retry.");
 	});
 
 	it("shows a translated generic message instead of an unrecognised English error", () => {
-		expect(formatTransferError(new Error("Withdraw confirmation timed out."), translate)).toBe(
+		expect(formatTransferError(new Error("Withdraw confirmation timed out."), translate, getNumberFormatters())).toBe(
 			"The request could not be completed. Try again.",
 		);
-		expect(formatExchangeActionError(new Error("Internal invariant failed"), "Transfer failed", translate)).toBe(
-			"Transfer failed",
-		);
+		expect(
+			formatExchangeActionError(
+				new Error("Internal invariant failed"),
+				"Transfer failed",
+				translate,
+				getNumberFormatters(),
+			),
+		).toBe("Transfer failed");
 	});
 
 	it("warns against blind retries when a signed exchange request has an ambiguous transport result", () => {
 		const error = new HttpRequestError({ detail: "Request timed out after 10000 ms" });
 
 		expect(isAmbiguousExchangeActionError(error)).toBe(true);
-		expect(formatExchangeActionError(error, "Withdrawal failed", translate)).toBe(
+		expect(formatExchangeActionError(error, "Withdrawal failed", translate, getNumberFormatters())).toBe(
 			"Request status could not be confirmed. Check balances and transfer history before retrying.",
 		);
 	});
@@ -164,7 +206,7 @@ describe("errors", () => {
 		const error = new HttpRequestError({ response: new Response("rate limited", { status: 429 }) });
 
 		expect(isAmbiguousExchangeActionError(error)).toBe(false);
-		expect(formatExchangeActionError(error, "Transfer failed", translate)).toBe(
+		expect(formatExchangeActionError(error, "Transfer failed", translate, getNumberFormatters())).toBe(
 			"Too many requests. Wait a moment and try again.",
 		);
 	});

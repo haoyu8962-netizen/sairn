@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import type { Hash } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
@@ -7,6 +7,7 @@ import { FUNDS_OUTCOME_TOAST_DURATION_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatTransferError } from "@/lib/errors/format";
+import { useNumberFormat } from "@/lib/format";
 import { isDefinitiveDepositSourceFailure } from "@/lib/hyperliquid/deposit-source-error";
 import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { useDepositModalOpen } from "@/stores/use-global-modal-store";
@@ -28,6 +29,7 @@ let presentationSequence = 0;
 
 export function CctpDepositTrackingNotifier() {
 	const { t, i18n } = useLingui();
+	const numberFormat = useNumberFormat();
 	const isTestnet = useIsTestnet();
 	const depositModalOpen = useDepositModalOpen();
 	const { walletAddress, embeddedWalletAddress, walletIntent } = useWalletSession();
@@ -64,6 +66,11 @@ export function CctpDepositTrackingNotifier() {
 		};
 	}, [identity]);
 
+	const describeNotificationError = useEffectEvent((error: Error | null) =>
+		formatTransferError(error, (descriptor) => t(descriptor), numberFormat),
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: describeNotificationError is an effect event, so a number-format change does not re-run the notices
 	useEffect(() => {
 		const notifications = notificationsRef.current;
 		for (const [id, notification] of notifications) {
@@ -133,7 +140,7 @@ export function CctpDepositTrackingNotifier() {
 					...lifecycle,
 					description: (
 						<span className="flex flex-col gap-1">
-							<span>{formatTransferError(notification.error, (descriptor) => t(descriptor))}</span>
+							<span>{describeNotificationError(notification.error)}</span>
 							{explorerLink}
 						</span>
 					),

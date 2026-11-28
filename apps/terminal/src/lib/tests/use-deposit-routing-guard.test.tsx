@@ -24,7 +24,8 @@ import { CCTP_DEPOSIT_NETWORKS } from "@/config/cctp-deposit";
 import { DEPOSIT_LOCKED_REQUEST_TIMEOUT_MS } from "@/config/time";
 import { useCctpDepositTracking } from "@/hooks/trade/use-cctp-deposit-tracking";
 import { formatTransferError } from "@/lib/errors/format";
-import { LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { AmountLimitActionError, LocalizedActionError } from "@/lib/errors/localized-action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { getDepositExecutionState } from "@/lib/hyperliquid/deposit-execution-state";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
 import {
@@ -241,6 +242,7 @@ vi.mock("@/hooks/use-geo-restriction", () => ({
 }));
 
 vi.mock("@/stores/use-global-settings-store", () => ({
+	getResolvedFormatLocale: () => "en-US",
 	useIsTestnet: () => testState.isTestnet,
 }));
 
@@ -699,6 +701,24 @@ describe("useDeposit fresh USDC route guard", () => {
 			);
 		},
 	);
+
+	it("stops a Testnet deposit above the Circle limit before signing and keeps the limit for display", async () => {
+		testState.isTestnet = true;
+		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
+		stubSuccessfulCctpCapacity(2_000_000_000n, 2_000_000_000n, () => 10_000_000);
+		const depositHook = renderMode("wallet", "cctp");
+
+		await act(async () => {
+			await depositHook.deposit("1001");
+		});
+
+		expect(testState.permitSign).not.toHaveBeenCalled();
+		expect(testState.walletWriteContract).not.toHaveBeenCalled();
+		expect(capturedDeposit?.error).toBeInstanceOf(AmountLimitActionError);
+		expect(
+			formatTransferError(capturedDeposit?.error ?? null, (descriptor) => i18n._(descriptor), getNumberFormatters()),
+		).toBe("Circle testnet deposits are limited to 1,000 USDC per transfer.");
+	});
 
 	it("uses the verified Circle CCTP path for an external wallet and never enters Bridge2", async () => {
 		testState.routingResponse = { depositRoute: "cctp", withdrawalRoute: "cctp" };
@@ -2213,7 +2233,12 @@ describe("useDeposit fresh USDC route guard", () => {
 			expect(readCctpSponsoredAuthorizationIntent("Mainnet", WALLET_ADDRESS)).toBeNull();
 			expect(reportClientError).not.toHaveBeenCalled();
 			expect(
-				formatTransferError(capturedDeposit?.error ?? null, (descriptor) => i18n._(descriptor), "Deposit failed"),
+				formatTransferError(
+					capturedDeposit?.error ?? null,
+					(descriptor) => i18n._(descriptor),
+					getNumberFormatters(),
+					"Deposit failed",
+				),
 			).toBe("The checks before this request took too long. Nothing was signed or sent. Try again.");
 		});
 

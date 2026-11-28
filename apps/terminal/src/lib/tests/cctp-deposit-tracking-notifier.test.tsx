@@ -6,6 +6,7 @@ import { act, createElement } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
+import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { createI18nRoot } from "./harness/react";
 
@@ -16,6 +17,7 @@ const EMBEDDED_WALLET = "0x2222222222222222222222222222222222222222";
 const testState = vi.hoisted(() => ({
 	depositModalOpen: false,
 	isTestnet: false,
+	numberFormatLocale: "en-US",
 	trackingOptions: null as Record<string, unknown> | null,
 	tracking: {
 		data: undefined as { status: "waiting" | "forward-submitted" } | undefined,
@@ -57,7 +59,10 @@ vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
 }));
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({ useWalletSession: () => testState.walletSession }));
 vi.mock("@/stores/use-global-modal-store", () => ({ useDepositModalOpen: () => testState.depositModalOpen }));
-vi.mock("@/stores/use-global-settings-store", () => ({ useIsTestnet: () => testState.isTestnet }));
+vi.mock("@/stores/use-global-settings-store", () => ({
+	getResolvedFormatLocale: () => testState.numberFormatLocale,
+	useIsTestnet: () => testState.isTestnet,
+}));
 
 import { CctpDepositTrackingNotifier } from "@/components/trade/tradebox/cctp-deposit-tracking-notifier";
 
@@ -68,6 +73,7 @@ describe("CctpDepositTrackingNotifier", () => {
 	beforeEach(() => {
 		testState.depositModalOpen = false;
 		testState.isTestnet = false;
+		testState.numberFormatLocale = "en-US";
 		testState.trackingOptions = null;
 		testState.tracking = {
 			data: undefined,
@@ -174,6 +180,24 @@ describe("CctpDepositTrackingNotifier", () => {
 				),
 			}),
 		);
+	});
+
+	it("does not reopen a dismissed failure when only the number format changes", () => {
+		trackWaitingDeposit();
+		render();
+		settle(new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted"));
+		render();
+		expect(toastMocks.error).toHaveBeenCalledTimes(1);
+		const options = toastMocks.error.mock.calls[0]?.[1] as { onDismiss: () => void };
+
+		act(() => options.onDismiss());
+		act(() => {
+			testState.numberFormatLocale = "de-DE";
+			notifyNumberFormatChange();
+		});
+		render();
+
+		expect(toastMocks.error).toHaveBeenCalledTimes(1);
 	});
 
 	it("keeps a deposit whose outcome could not be determined on screen as status unknown, not as a failure", () => {

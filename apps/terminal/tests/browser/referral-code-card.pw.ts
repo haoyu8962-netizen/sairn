@@ -132,3 +132,35 @@ for (const viewport of [
 		}
 	});
 }
+
+test("keeps a space-grouped limit in reading order inside an Arabic sentence", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto("/referral-code-card.html?locale=ar&numberFormat=fr-FR");
+	const notice = page.locator("p", { hasText: "10 000" });
+	await expect(notice).toHaveCount(1);
+	await page.evaluate(async () => {
+		await document.fonts.ready;
+	});
+
+	const layout = await notice.evaluate((element) => {
+		const text = element.firstChild;
+		if (!text || text.nodeType !== Node.TEXT_NODE) throw new Error("Missing limit notice text");
+		const content = text.textContent ?? "";
+		const start = content.indexOf("10 000");
+		if (start < 0) throw new Error(`Missing limit in ${content}`);
+		const box = (from: number, to: number) => {
+			const range = document.createRange();
+			range.setStart(text, from);
+			range.setEnd(text, to);
+			return range.getBoundingClientRect();
+		};
+		const style = getComputedStyle(element);
+		const lineHeight =
+			style.lineHeight === "normal" ? Number.parseFloat(style.fontSize) * 1.2 : Number.parseFloat(style.lineHeight);
+		const lead = box(start, start + 2);
+		const group = box(start + 3, start + 6);
+		return { leadLeft: lead.left, groupLeft: group.left, topGap: Math.abs(lead.top - group.top), lineHeight };
+	});
+	expect(layout.topGap).toBeLessThanOrEqual(layout.lineHeight * 0.5);
+	expect(layout.leadLeft).toBeLessThan(layout.groupLeft);
+});

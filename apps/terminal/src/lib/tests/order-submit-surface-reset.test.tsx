@@ -9,11 +9,12 @@ import { EntryExecutionError } from "@/domain/trade/order/entry-execution-guard"
 import { OrderBatchResolutionError, type TrackedOrderParams, trackOrderRequest } from "@/domain/trade/order-tracking";
 import { type OrderSubmitInput, useOrderSubmit } from "@/hooks/trade/use-order-submit";
 import { type ActionFailure, formatActionFailure } from "@/lib/errors/action-error";
+import { getNumberFormatters } from "@/lib/format";
 import { orderSubmissionFeedbackCause } from "@/lib/trade/order-submission-feedback";
 import { createI18nRoot } from "./harness/react";
 
 function failureText(error: ActionFailure): string {
-	return formatActionFailure(error, (descriptor) => i18n._(descriptor)) ?? "";
+	return formatActionFailure(error, (descriptor) => i18n._(descriptor), getNumberFormatters()) ?? "";
 }
 
 const mocks = vi.hoisted(() => ({

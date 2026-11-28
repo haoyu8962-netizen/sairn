@@ -41,7 +41,11 @@ const ASSET_ID = 120_031;
 const BLOCKED_MESSAGE = "Another order for this market is still being confirmed.";
 
 function localizedMessage(code: PositionSubmitFeedbackCode): string {
-	return formatPositionSubmitFeedback(localizedPositionSubmitFeedback(code), (descriptor) => i18n._(descriptor));
+	return formatPositionSubmitFeedback(
+		localizedPositionSubmitFeedback(code),
+		(descriptor) => i18n._(descriptor),
+		getNumberFormatters(),
+	);
 }
 
 function messageId(message: string): string {

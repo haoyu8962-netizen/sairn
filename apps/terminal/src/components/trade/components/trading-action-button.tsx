@@ -5,6 +5,7 @@ import { ButtonLoading } from "@/components/brand/button-loading";
 import { usePressAndHold } from "@/hooks/ui/use-press-and-hold";
 import { cn } from "@/lib/cn";
 import { formatTransferError } from "@/lib/errors/format";
+import { useNumberFormat } from "@/lib/format";
 import { useTradingGuard } from "@/lib/hyperliquid";
 import { AGENT_ONLY_OWNER_APPROVAL_MESSAGE } from "@/lib/trade/owner-approval-message";
 
@@ -46,6 +47,7 @@ export function TradingActionButton({
 	...buttonProps
 }: Props) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const { isReady, isEnabling, needsTrading, needsOwnerApproval, enableTrading, guardAction, error } = useTradingGuard({
 		requiresBuilderFee,
 	});
@@ -193,7 +195,7 @@ export function TradingActionButton({
 			</Button>
 			{error && (
 				<p role="alert" className="w-full text-xs leading-normal text-error">
-					{formatTransferError(error, (descriptor) => t(descriptor))}
+					{formatTransferError(error, (descriptor) => t(descriptor), numberFormat)}
 				</p>
 			)}
 			{!error && needsOwnerApproval && (

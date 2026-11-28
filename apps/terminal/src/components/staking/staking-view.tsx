@@ -106,7 +106,7 @@ export function StakingView(props: StakingViewProps) {
 		}
 		const failure = getStakingActionFailureNotice(settledResult, session.errorMessage, session.failure);
 		toast.error(t(failure.title), {
-			description: describeActionFailure(failure.description, (descriptor) => t(descriptor)),
+			description: describeActionFailure(failure.description, (descriptor) => t(descriptor), numberFormat),
 			duration: FUNDS_OUTCOME_TOAST_DURATION_MS,
 		});
 		props.onActionRetry?.();

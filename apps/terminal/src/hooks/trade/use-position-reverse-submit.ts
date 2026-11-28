@@ -14,6 +14,7 @@ import { throwIfAnyResponseError } from "@/domain/trade/orders";
 import { buildPositionReverseOrder, type PositionReverseOrderError } from "@/domain/trade/position-reverse";
 import { type TrackedOrderResult, useTrackedOrder } from "@/hooks/trade/use-tracked-order";
 import { useGeoRestriction } from "@/hooks/use-geo-restriction";
+import { useNumberFormat } from "@/lib/format";
 import {
 	type ExchangeParams,
 	parseAssetId,
@@ -108,6 +109,7 @@ const USER_STATE_MAX_AGE_MS = 60_000;
  */
 export function usePositionReverseSubmit(target: PositionReverseTarget) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	const { clientKey, env, info } = useHyperliquid();
 	const markets = useMarkets();
 	const userPositions = useUserPositions();
@@ -338,7 +340,7 @@ export function usePositionReverseSubmit(target: PositionReverseTarget) {
 					child.status === "pending" ? { ...child, status: "rejected" } : child,
 				),
 			});
-			const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor));
+			const message = formatPositionSubmitFeedback(submitError, (descriptor) => t(descriptor), numberFormat);
 			if (lifecycleRef.current.mounted && lifecycleRef.current.epoch === lifecycleEpoch) {
 				setPhase("idle");
 				setError(submitError);
@@ -373,8 +375,13 @@ export function usePositionReverseSubmit(target: PositionReverseTarget) {
 		isPending: phase === "validating" || phase === "submitting" || trackedOrder.isPending,
 		isReconciling: phase === "reconciling",
 		error: error
-			? formatPositionSubmitFeedback(error, (descriptor) => t(descriptor))
-			: formatTrackedPositionSubmitError(trackedOrder.error, "failed-reverse", (descriptor) => t(descriptor)),
+			? formatPositionSubmitFeedback(error, (descriptor) => t(descriptor), numberFormat)
+			: formatTrackedPositionSubmitError(
+					trackedOrder.error,
+					"failed-reverse",
+					(descriptor) => t(descriptor),
+					numberFormat,
+				),
 		resetError,
 	};
 }

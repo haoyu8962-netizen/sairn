@@ -154,6 +154,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Fixed
 
+- The Circle deposit limits, the referral code volume threshold and the leaderboard exclusion rule
+  now follow the number-format setting (for example `10.000.000 USDC` or `10 000 000 USDC`), in the
+  deposit form, in its error messages and notifications, and on the Referrals and Leaderboard pages.
+  In Arabic a limit grouped with spaces keeps its digits in reading order.
 - In Arabic, every desktop trading panel is visible again: the grid panels used to start from the
   right edge and were pushed off the screen.
 - A TWAP order with a trigger price is no longer sent when the mark price crossed the trigger

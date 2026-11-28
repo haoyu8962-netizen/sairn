@@ -42,7 +42,7 @@ export function getOrderNotificationCopy(
 	const execution = order.execution && isValidOrderExecutionSummary(order.execution) ? order.execution : undefined;
 	const showExecution =
 		ordinary && execution && market && order.side && (order.status === "success" || order.status === "partial");
-	const error = repeatsChildErrors(order) ? undefined : getErrorCopy(order, translate);
+	const error = repeatsChildErrors(order) ? undefined : getErrorCopy(order, translate, numberFormat);
 	let summary: string;
 	let detail: string | undefined;
 	let notice: string | undefined;
@@ -147,14 +147,14 @@ function getCountSummary(order: OrderQueueItem, translate: Translate): string | 
 	return translate(msg`Accepted ${accepted}/${total} · Review orders`);
 }
 
-function getErrorCopy(order: OrderQueueItem, translate: Translate): string | undefined {
+function getErrorCopy(order: OrderQueueItem, translate: Translate, numberFormat: NumberFormatters): string | undefined {
 	const error = order.error;
 	if (!error) return;
 	if (order.status === "failed" && isGenericFailure(error)) return;
 	if (typeof error === "string") return formatExchangeErrorText(error, translate);
 	if (!("kind" in error)) return translate(error);
 	if (error.kind === "exchange-error" || error.kind === "action-error") {
-		return formatActionFailure(error, translate) ?? undefined;
+		return formatActionFailure(error, translate, numberFormat) ?? undefined;
 	}
 	if (error.kind === "spot-swap") return formatSpotSwapFeedback(error, translate);
 	if (error.kind === "order-reconciliation") {
@@ -176,7 +176,7 @@ function getErrorCopy(order: OrderQueueItem, translate: Translate): string | und
 	)
 		return;
 	if (error.kind === "order-submission") return formatOrderSubmissionFeedback(error, translate);
-	return formatPositionSubmitFeedback(error, translate);
+	return formatPositionSubmitFeedback(error, translate, numberFormat);
 }
 
 /**

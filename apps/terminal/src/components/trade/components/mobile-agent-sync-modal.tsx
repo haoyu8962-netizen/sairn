@@ -20,7 +20,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useExplicitAgentApproval } from "@/hooks/wallet/use-explicit-agent-approval";
 import { useWalletSession } from "@/hooks/wallet/use-wallet-session";
 import { formatTransferError } from "@/lib/errors/format";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, useNumberFormat } from "@/lib/format";
 import { type HyperliquidEnv, type InfoResponse, useHyperliquid, useTradingStatus } from "@/lib/hyperliquid";
 import { isApiWalletExtraAgentSnapshot } from "@/lib/hyperliquid/extra-agent-snapshot";
 import { createMobileAgentSyncUrl, MOBILE_SYNC_QR_VISIBLE_MS } from "@/lib/mobile-sync/sync-core";
@@ -405,10 +405,19 @@ function NamedSlotsFullNotice({
 
 function SyncErrorText({ error }: { error: SyncError }) {
 	const { t } = useLingui();
+	const numberFormat = useNumberFormat();
 	if (error.code === "activation_unknown") {
 		return <Trans>Could not check on Hyperliquid whether trading is activated. Nothing was signed. Try again.</Trans>;
 	}
-	return <>{formatTransferError(error.cause instanceof Error ? error.cause : null, (descriptor) => t(descriptor))}</>;
+	return (
+		<>
+			{formatTransferError(
+				error.cause instanceof Error ? error.cause : null,
+				(descriptor) => t(descriptor),
+				numberFormat,
+			)}
+		</>
+	);
 }
 
 function RevealButton({ onReveal }: { onReveal: () => void }) {

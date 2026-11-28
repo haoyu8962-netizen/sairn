@@ -40,6 +40,12 @@
    - 程序写入数量框的值保留 `szDecimals` 位（[下单面板](order-entry-surface-parity.md)），修改订单的起始数量也一样。
    - Max 填入的金额（兑换、Earn、金库、质押）经 `formatDecimalFloor(值, 输入允许的位数, FILLED_AMOUNT_MIN_DECIMALS)`：按输入允许的位数向下取整，至少显示 2 位小数，超出部分的精确位数不截掉（12.5 → 12.50，12.345678 不变）。输入只允许 0 或 1 位小数的代币按允许的位数显示，结果为零时仍是 `0`。划转、发送、提款原本就按各自输入的位数补零。
    - 本来就与官方一致、没有改动的：订单簿、成交列表、行情头部与手机行情条的价格（`getTradePriceDecimals`，规则相同），表格里的数量（`formatToken(…, { decimals: szDecimals })`），以及美元金额（`formatUSD`，固定 2 位）。
+13. **英文源消息不写以逗号分组的数字，限额与门槛由占位符在显示时填入**（2026-11-28，[任务记录](work-memory/sessions/2026-11-28-static-number-placeholders.md)）。
+   - **范围**：Circle CCTP 单笔存款上限（`config/cctp-deposit.ts`，主网 10,000,000、测试网 1,000 USDC）、推荐码的累计成交量门槛（`config/referral.ts`，10,000 美元）和排行榜的排除规则（`LEADERBOARD_ACCOUNT_VALUE_THRESHOLD`、`LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD`）。
+   - **怎么填**：这些数字都写成占位符，显示时由 `useNumberFormat()` 的 `formatDecimalString` 填入，不带小数；`$` 和单位词留在各语言的译文里。
+   - **出错时**：两种 Circle 存款上限和推荐码门槛保存为带金额的分类失败 `AmountLimitActionFailure`；排行榜的规则只在页面上显示，不会出错（[ADR 0024](adr/0024-translate-action-errors-at-render.md)）。`formatActionFailure`、`describeActionFailure`、`describeActionError`、`formatTransferError`、`formatExchangeActionError` 都必须传入数字格式化函数，所以已保存的失败在设置改变后重新渲染时，会换成新的分隔符。一次性弹出的提示仍在弹出时格式化，已显示的不变（[ADR 0036](adr/0036-render-time-number-formatters.md)）。
+   - **从右到左的界面**：以空格分组的数字（`fr-FR` 的 `10 000 000`）会被双向算法拆成几段，并从右往左排列（推荐码门槛 `10 000` 在浏览器里实测排成 `000 10`）。`useNumberFormat()` 的 `isolateNumber` 只在这种情况下给数字包上 U+2066…U+2069；从左到右的语言、逗号或点分组的数字，以及 `getNumberFormatters()` 的结果都原样输出。
+   - **契约**：`catalog-literal-number-contract` 在任何英文源消息写入以逗号分组的数字时失败，带小数的（`10,000.00`）也算。
 
 ## 选项与存储
 
@@ -88,6 +94,8 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/number-format-reactivity-contract.test.ts \
   src/lib/tests/date-locale-reactivity-contract.test.ts \
   src/lib/tests/number-format-direction.test.tsx \
+  src/lib/tests/amount-limit-failure.test.tsx \
+  src/lib/tests/catalog-literal-number-contract.test.ts \
   src/lib/tests/locale-format-contract.test.ts \
   src/lib/tests/decimal-input-normalization.test.tsx \
   src/lib/tests/tradingview-chart.test.tsx \
