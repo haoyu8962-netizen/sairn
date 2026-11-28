@@ -119,6 +119,9 @@ describe("leaderboard API server", () => {
 		expect(await names("İNİT")).toEqual(["INIT Whale"]);
 		expect(await names("ınıt")).toEqual(["INIT Whale"]);
 		expect(await names(TRADER_B.slice(-6).toUpperCase())).toEqual(["INIT Whale"]);
+		for (const query of ["ınıt", "İNİT", " Atlas "]) {
+			expect((await (await handler(request({}, { query }))).json()).query).toBe(query);
+		}
 	});
 
 	it("reuses one global sort index across pages and searches", async () => {

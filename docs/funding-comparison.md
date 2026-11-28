@@ -69,7 +69,7 @@
 
 搜索、排序、分页在 `deriveFundingComparisonPage` 中完成：
 
-- 搜索：资产名与输入都经 `foldSearchText`（`lib/search/utils.ts`）折叠大小写和重音后做包含匹配；输入先去掉首尾空格，折叠后再去一次。土耳其语的 `İNİT` 与 `ınıt` 都能找到 INIT；只含组合符号、折叠后为空的输入不匹配任何行，显示 `noResults`。规则见 `docs/i18n-presentation.md`。
+- 搜索：资产名与输入都经 `foldSearchText`（`lib/search/utils.ts`）折叠大小写和重音后做包含匹配；输入先去掉首尾空格，折叠后再去一次。土耳其语的 `İNİT` 与 `ınıt` 都能找到 INIT；只含组合符号、折叠后为空的输入不匹配任何行；有可用快照且有数据行时，页面显示 `noResults`（见第 6 节）。规则见 `docs/i18n-presentation.md`。
 - 默认按 Hyperliquid OI 降序。数值列在两个方向上都把空值排在最后；值相同时按资产名（先不区分大小写，再区分）升序。差值列按绝对值排序，与显示值一致。
 - `toggleFundingComparisonSort`：换到数值列时先降序，换到 Market 列时先升序，再次点击同一列反转方向。
 - 每页 10 / 25 / 50 行，默认 25；页码夹在 `[1, totalPages]`。改变周期、排序、搜索或每页行数时回到第 1 页。周期、排序、搜索、页码只保存在组件状态中，离开页面即丢弃。

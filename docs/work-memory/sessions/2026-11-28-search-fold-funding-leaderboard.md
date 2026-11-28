@@ -7,7 +7,7 @@
   "kind": "task",
   "status": "verified",
   "topics": ["i18n-runtime"],
-  "summary": "七种语言任务留下的两处搜索大小写问题按运营方要求修复。资金费率对比的币名与输入都经 foldSearchText 折叠；排行榜在服务端按显示名折叠匹配，服务端与夹具共用 matchesLeaderboardSearch，发送和缓存用的查询形式与地址比较不变。土耳其语 İ/ı、重音、只含组合符号的输入各有测试，五处变异都会让测试失败。未构建包体，未推送。",
+  "summary": "七种语言任务留下的两处搜索大小写问题按运营方要求修复。资金费率对比的币名与输入都经 foldSearchText 折叠；排行榜在服务端按显示名折叠匹配，服务端与夹具共用 matchesLeaderboardSearch，发送和缓存用的查询形式与地址比较不变。土耳其语 İ/ı、重音、只含组合符号的输入各有测试，五处变异都会让测试失败。Codex 只读审查 8/10，2 项 P2、2 项 P3 都已处理：收窄「不取决于浏览器语言」的说法并写明 128 码点的边界，说明按 NFC 比较，补回传与折叠后去空格的测试。未构建包体，未推送。",
   "thread": null,
   "baseCommit": "0bb212a02",
   "commits": [],
@@ -39,7 +39,7 @@
 ### 资金费率对比
 
 - `normalizeFundingComparisonQuery` 改为 `foldSearchText(value.trim()).trim()`。`deriveFundingComparisonPage` 把每个币名也经 `foldSearchText` 折叠后做包含匹配。
-- 有输入但折叠后为空（只有组合符号）时不匹配任何行，页面显示 `noResults`。这与市场搜索、金库搜索的规则一致。
+- 有输入但折叠后为空（只有组合符号）时不匹配任何行。有可用快照且有数据行时，页面显示 `noResults`。这与市场搜索、金库搜索的规则一致。
 - 改前，输入 `İNİT` 会变成 `i̇ni̇t`，找不到 INIT。改后 `İNİT`、`ınıt`、` İnit ` 都能找到。
 - 现有的永续币名都是 ASCII，对它们只有查询一侧的折叠起作用。币名一侧的折叠用一个合成的 `İSTANBUL` 行测试。
 
@@ -53,7 +53,8 @@
   - 地址比较也保持原样：`đ` 之类折叠成 ASCII 的输入不会去匹配十六进制地址。这与金库地址的规则相同。
 - **结果**：
   - `İNİT`、`ınıt` 能找到 `INIT Whale`，`istanbul`、`İSTANBUL` 能找到 `İstanbul`。
-  - 土耳其语系统上输入 `INIT` 会被小写成 `ınıt`，服务端折叠后也能匹配。所以结果不再取决于浏览器语言。
+  - 土耳其语系统上输入 `INIT` 会被小写成 `ınıt`，服务端折叠后也能匹配。所以查询能匹配到哪些名称，不再取决于浏览器语言。
+  - 例外是长度上限：服务端按浏览器发来的形式数 128 个码点。一条 128 个码点、含 `İ` 的查询，在土耳其语浏览器里能通过，在其他浏览器里小写后变成 129 个码点，会被拒绝。改动前也是这样，本次没有改。
 - **服务端开销**：每次搜索对每个可见资格行折叠一次显示名，与原来逐行做 `toLocaleLowerCase()` 同一量级。ASCII 名称只做小写转换。没有为折叠结果加缓存。
 
 ### 文档
@@ -95,6 +96,22 @@
 - 排行榜与资金费率对比的其余测试（`components/leaderboard/__tests__` 全部、`funding-comparison-catalogs`）和几项读这些文件的契约测试（`decimal-display-contract`、`desktop-nav-layout`、`dashboard-surface-radius-contract`、`dashboard-mobile-grid-track-contract`、`locale-format-contract`、`number-format-reactivity-contract`、`date-locale-reactivity-contract`）：16 个文件 591 项通过。
 - `pnpm memory:check` 通过；`pnpm memory:test` 12 项通过；`git diff --check` 无输出。
 - 没有跑终端全量 Vitest，交给 PR 的 CI。
+
+### Codex 只读审查与修订（2026-11-28）
+
+- **审查方式**：Codex CLI `gpt-6.2-sol`，只读沙箱，推理强度 low。只审 `34435ed97` 的差异，约 4.5 万 token，没有跑测试或构建。
+- **结果**：8/10，没有 P0、P1，有 2 项 P2、2 项 P3。逐条对照代码核对后都成立，P2 第 2 项部分成立。
+  1. P2：「排行榜结果不再取决于浏览器语言」说得太满。128 个码点的上限按浏览器发来的形式计算，含 `İ` 的满长查询在英文浏览器里会被拒绝。这是改动前就有的边界情况。处理：收窄 `CHANGELOG.md`、`docs/i18n-presentation.md` 与本记录的措辞，并把这个边界写明；长度规则没有改。
+  2. P2：以分解形式存储的名称（`か` 后跟 U+3099）经 NFC 重组成 `が` 后，用 `か` 搜不到。这是共享 `foldSearchText` 的既有行为，与「区块外的符号改变字义、保留」的规则一致；用户输入法打出的组合形式 `が` 以前也搜不到。但 `docs/i18n-presentation.md` 里「只会更宽松」的说法不准。处理：改写那句话，说明按组合形式（NFC）比较；`search-fold.test.ts` 补测试，确定分解形式与组合形式的折叠结果相同。
+  3. P3：测试没有确认服务端原样回传查询，也没有区分折叠前后两次去空格。处理：服务端测试断言 `ınıt`、`İNİT`、` Atlas ` 原样回传；两个领域测试加入 `"̇ INIT"`，这类首部空格要折叠后才露出来。
+  4. P3：资金费率文档没写 `noResults` 的前提。处理：`docs/funding-comparison.md` 与本记录补上「有可用快照且有数据行」。
+- **新测试的变异检查**：以下四处变异，各自都会让对应测试失败；恢复后四个文件 72 项通过。
+  - 资金费率去掉折叠后的去空格。
+  - 排行榜去掉折叠后的去空格。
+  - 服务端回传小写后的查询。
+  - `foldSearchText` 去掉 NFC，`search-fold.test.ts` 有 3 项失败。
+- **修订后的检查**：终端 typecheck 退出码 0；改动的 4 个测试文件跑 Biome 通过；运行时翻译、搜索、金库、排行榜与资金费率对比的 18 个测试文件 504 项通过；`pnpm memory:check` 通过，`memory:test` 12 项通过，`git diff --check` 无输出。
+- 没有对修订再做一轮审查：修订只改测试与文档，没有改实现。
 
 ## 后续与替代关系
 

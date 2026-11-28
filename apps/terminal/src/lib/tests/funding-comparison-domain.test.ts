@@ -438,6 +438,7 @@ describe("deriveFundingComparisonPage", () => {
 		expect(coins("İNİT")).toEqual(["INIT"]);
 		expect(coins("ınıt")).toEqual(["INIT"]);
 		expect(coins(" İnit ")).toEqual(["INIT"]);
+		expect(coins("\u0307 INIT")).toEqual(["INIT"]);
 		expect(coins("dóge")).toEqual(["DOGE"]);
 		expect(coins("istanbul")).toEqual(["İSTANBUL"]);
 		expect(page(rows, { query: "\u0307" })).toMatchObject({ rows: [], totalRows: 0 });

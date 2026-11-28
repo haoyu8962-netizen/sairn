@@ -78,6 +78,7 @@ describe("leaderboard domain", () => {
 
 		expect(names("İNİT")).toEqual(["INIT Whale"]);
 		expect(names("ınıt")).toEqual(["INIT Whale"]);
+		expect(names("\u0307 INIT")).toEqual(["INIT Whale"]);
 		expect(names("istanbul")).toEqual(["İstanbul"]);
 		expect(names("İSTANBUL")).toEqual(["İstanbul"]);
 		expect(derive(rows, { query: unnamed.address.slice(-6).toUpperCase() }).rows.map((entry) => entry.address)).toEqual(
