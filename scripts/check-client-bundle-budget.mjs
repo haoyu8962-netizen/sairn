@@ -159,7 +159,12 @@ const budgets = {
 	// vendor-router. Fixed-identity Node 22.15.0 pairing-on builds without .env.local: 3,709,749 for c363643b minus
 	// 3,433,046 for main 4548175e (pairing off measures +275,955: 3,706,213 minus 3,430,258). The branch had first
 	// been measured against main ce3259b6 at +273,270 (docs/terminal-performance-baseline.md).
-	totalGzipBaselineBytes: 3_702_262,
+	// Raised 2026-11-28 by +12,740 for the Traditional Chinese spot asset descriptions: almost all of it is their lazily
+	// loaded chunk (12,327 gzip, fetched only when a Traditional Chinese viewer opens the asset dialog). Fixed-identity
+	// Node 22.15.0 pairing-on builds without .env.local: 3,722,044 for the branch minus 3,709,304 for main 708b43aa
+	// (pairing off measures +12,292: 3,718,863 minus 3,706,571), so the room stays at main's 2,958
+	// (docs/terminal-performance-baseline.md).
+	totalGzipBaselineBytes: 3_715_002,
 	totalGzipAllowedIncreaseBytes: 10_000,
 	tradeStartup: {
 		requiredRouteIds: ["__root__", "/trade/$symbol"],
@@ -295,7 +300,11 @@ const budgets = {
 		// Raised 2026-11-27 by +216 for the order book size heading's own message (PR #23): pairing off 131,439 minus
 		// main 7474813c's 131,223 (pairing on +211). The order book labels object moved here from the shared fees
 		// chunk, which shrank by 195; both chunks are in the static trade closure.
-		{ name: "trade-terminal-page", baselineGzipBytes: 127_624, allowedIncreaseBytes: 4_000 },
+		// Raised 2026-11-28 by +54 for the Traditional Chinese spot asset descriptions (the locale branch that imports
+		// their chunk, and one locale read shared by the description query): pairing on 131,499 minus main 708b43aa's
+		// 131,445 (pairing off +37: 131,506 minus 131,469). Main already kept less than the 200 bytes the release
+		// precheck asks for (155 off, 179 on), so the raise keeps main's room rather than restoring 200.
+		{ name: "trade-terminal-page", baselineGzipBytes: 127_678, allowedIncreaseBytes: 4_000 },
 		// Raised 2026-11-27 by +866 for the same fixes (selector busy and retry states, favourites highlight, row
 		// accessibility): pairing on 16,275 minus main ce3259b6's 15,409 (pairing off +847).
 		{ name: "token-selector-popup", baselineGzipBytes: 15_221, allowedIncreaseBytes: 1_500 },

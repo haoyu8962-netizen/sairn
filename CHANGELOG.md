@@ -8,6 +8,10 @@ changes, not evidence that a build has been deployed or accepted on real devices
 
 ### Added
 
+- Traditional Chinese descriptions in the spot asset information dialog. In Traditional Chinese the dialog used
+  to show only the local copy of a few assets or the generic market sentence; it now shows a reviewed Taiwanese
+  translation of Hyperliquid's descriptions, keeps the reviewed local copy for HYPE, SPCXD, UBTC and USOL, and never
+  shows Simplified Chinese.
 - Indonesian interface language (Bahasa Indonesia) in the language menu, including the TradingView
   chart and Indonesian dates; numbers keep following the separate number-format setting.
 - Brazilian Portuguese interface language (Português) in the language menu, including the TradingView

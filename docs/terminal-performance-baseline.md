@@ -433,6 +433,57 @@ The sixth round (commit `4af147fd`) changed one classification function in the d
 3,286,638 in total (+16), 1,626,663 static trade startup, 117,769 mobile and 201,070 desktop, with the desktop runtime
 increment 918 bytes under its allowance. Later commits on the branch change tests and documents only.
 
+## Traditional Chinese spot descriptions re-baseline (2026-11-28)
+
+The Traditional Chinese interface now shows the project's reviewed spot asset descriptions
+(`docs/spot-asset-information.md#traditional-chinese`). They are a new lazy chunk,
+`spot-asset-descriptions-zh-tw`, which the asset information dialog fetches only for a Traditional Chinese viewer and
+which no other locale downloads. `spot-asset-info.ts` gained a locale branch that imports that chunk, and the dialog
+reads the locale once for the query key and the query function.
+
+Paired builds, each run on its own, in two clean detached worktrees on the same machine: `main` `708b43aa2` and the
+branch working tree applied on top of it (the task's diff and new files; every file under `apps/` is the same as in the commit, and afterwards only the baselines in `scripts/check-client-bundle-budget.mjs`, this document and the task record changed), both with
+Node 22.15.0, pnpm 10.21.0, `pnpm install --frozen-lockfile --prefer-offline`, the chart library installed from a local
+copy with `scripts/fetch-chart-library.mjs --from`, no `apps/terminal/.env.local`, `NODE_ENV=production`,
+`NITRO_PRESET=node-server` and the same fixed identity (`SAIRN_BUILD_SHA=708b43aa2bc8786ace6c9cf5a45d5373de1ae38d`,
+`SAIRN_RELEASE_ID=zh-tw-spot-descriptions-rebaseline`, `SAIRN_BUILD_TIME=2026-11-28T00:00:00.000Z`), pairing off then
+pairing on, followed by `perf:startup`. In both worktrees the installed `node_modules/.pnpm/lock.yaml` differs from
+`pnpm-lock.yaml` by the same three lines (an optional `picomatch` peer of `fdir`). The build script, worktree states,
+environment-file checks, build, budget and startup logs, the readings and a copy of each client asset directory are in
+the Git-ignored `.worklog/2026-11-28/zh-tw-spot-asset-descriptions/bundle/` of the branch worktree.
+
+| Metric | `main` off | Branch off | Change | `main` on | Branch on | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| Client assets | 465 | 466 | +1 | 466 | 467 | +1 |
+| All client JS + CSS | 3,706,571 | 3,718,863 | +12,292 | 3,709,304 | 3,722,044 | +12,740 |
+| Route preloads only (6) | 534,075 | 534,081 | +6 | 535,065 | 535,075 | +10 |
+| Static trade startup (105 assets) | 1,685,795 | 1,685,893 | +98 | 1,686,868 | 1,686,986 | +118 |
+| Mobile runtime increment | 121,535 | 121,553 | +18 | 121,548 | 121,556 | +8 |
+| Desktop runtime increment | 209,322 | 209,350 | +28 | 209,271 | 209,350 | +79 |
+| `trade-terminal-page` | 131,469 | 131,506 | +37 | 131,445 | 131,499 | +54 |
+| `spot-asset-descriptions-zh-tw` (new, lazy) | — | 12,327 | +12,327 | — | 12,327 | +12,327 |
+| `spot-asset-descriptions.generated` | 20,649 | 20,649 | 0 | 20,649 | 20,649 | 0 |
+
+The static closure and both runtime profiles keep their asset counts (105, 15, 31); the new chunk is reached only
+through a dynamic import from `trade-terminal-page` (`client-chunk-graph.json`). Most other chunks moved by a few
+bytes in either direction because a new chunk changes the hashed file names other chunks import, and that noise is
+of the same size as the code change itself: two branch builds of the same code that differ only in two characters of
+two descriptions measured +12,533 and +12,740 for the total and +47 and +54 for `trade-terminal-page` with pairing
+on. The numbers above are from the final state. Two earlier branch builds are kept and not used here:
+`bundle/superseded-ternary/` (with `await (isTraditional ? import(a) : import(b))`, which kept every export of both
+description modules and added 136 bytes to `spot-asset-descriptions.generated`; importing each module in its own
+branch with a destructuring `await import()` removed that) and `bundle/superseded-pre-wording/` (before the two
+wording changes).
+
+New baselines, each the current baseline plus the larger of the two increments, so the room stays at `main`'s:
+the client total 3,702,262 → 3,715,002 (+12,740, room 2,958 with pairing on), `trade-terminal-page`
+127,624 → 127,678 (+54, room 179 on and 172 off; `main` already kept less than the release precheck's 200: 179 on,
+155 off). Static startup (room 655 with pairing on, 1,748 off), the mobile runtime increment (room 1,166 on, 1,169
+off), the desktop runtime increment (room 3,333 in both states) and the other surfaces stay within their allowances
+and keep their baselines. The final branch builds ran the whole `pnpm --filter @sairn/terminal build` chain to the
+end in both pairing states (chunk-cycle check, budget, shell preloads, inline script hashes) against baselines 207
+and 7 bytes lower than these.
+
 ## Order book size heading `trade-terminal-page` re-baseline (2026-11-27)
 
 PR #23 (`claude/quizzical-darwin-c01302`) gives the desktop order book's size column heading its own message
