@@ -16,7 +16,7 @@ import {
 } from "@/lib/errors/action-error";
 import { formatTransferError } from "@/lib/errors/format";
 import { AmountLimitActionError } from "@/lib/errors/localized-action-error";
-import { getNumberFormatters, type NumberFormatters, useNumberFormat } from "@/lib/format";
+import { getNumberFormatters, useNumberFormat } from "@/lib/format";
 import { getCctpDepositLimitFailure } from "@/lib/hyperliquid/cctp-deposit-limit";
 import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { createI18nRoot } from "@/lib/tests/harness/react";
@@ -32,8 +32,8 @@ vi.mock("@/stores/use-global-settings-store", async (importOriginal) => ({
 	getResolvedFormatLocale: () => formatSettings.numberFormatLocale,
 }));
 
-const LRI = "⁦";
-const PDI = "⁩";
+const LRI = "\u2066";
+const PDI = "\u2069";
 const translate: Translate = (descriptor) => i18n._(descriptor);
 
 const REFERRAL_ERROR_TEXT = "Referral codes cannot be applied after cumulative volume exceeds $10,000";
@@ -160,14 +160,12 @@ describe("amount limit failures", () => {
 describe("amount limit failures while the setting or language changes", () => {
 	let container: HTMLDivElement;
 	let root: Root;
-	const formatters: NumberFormatters[] = [];
 	const referralFailure = classifyActionError(new Error(REFERRAL_ERROR_TEXT));
 	const depositError = new AmountLimitActionError("cctp-mainnet-deposit-limit", "10000000");
 
 	function Probe() {
 		const { t } = useLingui();
 		const numberFormat = useNumberFormat();
-		formatters.push(numberFormat);
 		const translateHere: Translate = (descriptor) => t(descriptor);
 		return (
 			<>
@@ -185,7 +183,6 @@ describe("amount limit failures while the setting or language changes", () => {
 
 	beforeEach(() => {
 		(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-		formatters.length = 0;
 		container = document.createElement("div");
 		document.body.append(container);
 		root = createI18nRoot(container);

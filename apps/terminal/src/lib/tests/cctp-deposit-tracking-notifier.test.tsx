@@ -6,6 +6,7 @@ import { act, createElement } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DefinitiveDepositSourceFailureError } from "@/lib/hyperliquid/deposit-source-error";
+import { notifyNumberFormatChange } from "@/lib/number-format-reactivity";
 import { CctpDepositOutcomeUnknownError } from "@/lib/trade/cctp-deposit-tracking";
 import { createI18nRoot } from "./harness/react";
 
@@ -57,7 +58,10 @@ vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
 }));
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({ useWalletSession: () => testState.walletSession }));
 vi.mock("@/stores/use-global-modal-store", () => ({ useDepositModalOpen: () => testState.depositModalOpen }));
-vi.mock("@/stores/use-global-settings-store", () => ({ useIsTestnet: () => testState.isTestnet }));
+vi.mock("@/stores/use-global-settings-store", () => ({
+	getResolvedFormatLocale: () => "en-US",
+	useIsTestnet: () => testState.isTestnet,
+}));
 
 import { CctpDepositTrackingNotifier } from "@/components/trade/tradebox/cctp-deposit-tracking-notifier";
 
@@ -174,6 +178,21 @@ describe("CctpDepositTrackingNotifier", () => {
 				),
 			}),
 		);
+	});
+
+	it("does not reopen a dismissed failure when only the number format changes", () => {
+		trackWaitingDeposit();
+		render();
+		settle(new DefinitiveDepositSourceFailureError("source-transaction-reverted", "Reverted"));
+		render();
+		expect(toastMocks.error).toHaveBeenCalledTimes(1);
+		const options = toastMocks.error.mock.calls[0]?.[1] as { onDismiss: () => void };
+
+		act(() => options.onDismiss());
+		act(() => notifyNumberFormatChange());
+		render();
+
+		expect(toastMocks.error).toHaveBeenCalledTimes(1);
 	});
 
 	it("keeps a deposit whose outcome could not be determined on screen as status unknown, not as a failure", () => {

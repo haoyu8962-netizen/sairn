@@ -63,7 +63,7 @@
     - 应用代码里 28 处调用，分布在 21 个文件；
     - 往上一层，`formatPositionSubmitFeedback` 和 `formatTrackedPositionSubmitError` 也要传，影响三个平仓 Hook 和 `order-notification-copy.ts`；
     - 直接调用这些函数的 17 个测试文件，统一改为传 `getNumberFormatters()`。
-  - 有两个 effect 原本只在依赖里有 `t`，这次加入了 `numberFormat`：`embedded-deposit-auto-bridge.tsx` 和 `cctp-deposit-tracking-notifier.tsx`。切换数字格式时它们会重跑一次，与切换语言时的现有行为相同；通知按原来的展示 ID 和语言标记去重。
+  - 第一个提交给两个 effect（`embedded-deposit-auto-bridge.tsx`、`cctp-deposit-tracking-notifier.tsx`）的依赖加入了 `numberFormat`。这一做法后来被撤回：自动存款的那个会重新弹出已关闭的通知，两个 effect 最终都改用 `useEffectEvent` 读取格式化函数，见「Codex 只读审查与修订」和「Gemini 终审与修订」。
 - **存款**：
   - 新增 `lib/hyperliquid/cctp-deposit-limit.ts` 的 `getCctpDepositLimitFailure`，弹窗的预检查和 `use-deposit.ts` 的抛错共用这一个判断。
   - 弹窗原来那段嵌套三元一并拆掉了。
@@ -148,6 +148,32 @@
 - **终端全量 Vitest**（`--maxWorkers=4`，沙箱外）：821 个文件中 820 个通过、1 个跳过；12,650 项中 12,649 项通过、1 项跳过，没有失败。比上一轮多出的 3 项，是两条自动存款回归用例和一条排行榜切换用例。
 - **类型与格式检查**：终端 typecheck 退出码 0；Biome 检查了改动的 4 个文件，全部通过。
 - **相关测试组**：16 个文件 607 项通过，包括自动存款的两个测试文件、排行榜、契约、新增的限额测试、数字格式、CCTP 通知和存款方式选择。
+
+### Gemini 终审与修订（2026-11-28）
+
+**审查方式**：Gemini 4 Neon（`gemini-4-neon-xhigh`）只读终审，对象是 `708b43aa2..a094f2373`。送审的材料不含原始目录 diff，换成 14 种语言 × 4 条新译文的对照表和旧译文；另附任务记录全文和除目录以外的完整差异，共约 229KB。
+
+**结果**：评分 9/10，没有 P0、P1、P2；不到运营方要求的「大于 9」。其中一个原因是送进去的差异在 `order-notification-copy.ts:176` 之后被截掉了约 41KB，它看不到后面的文件和三份规范文档，所以没法签字。另有 5 项 P3，我逐条对照代码核对，都成立：
+
+1. **`amount-limit-failure.test.tsx` 里写入了原始的 U+2066/U+2069 字符。**
+   - 原因：我用写文件工具写入时，`"\u2066"` 被直接转成了不可见字符。推到 GitHub 后会触发「Trojan Source」双向字符告警，审查时也看不到。
+   - 处理：改成转义写法，并删掉一个只写不读的数组。整个差异里新增行的双向控制字符已扫过一遍，现在是 0。
+2. **`AGENTS.md` 的措辞说得太满。** 原来写的是「消息从不写数字」，改为与契约测试一致：英文源消息不写以逗号分组的数字。
+3. **`cctp-deposit-tracking-notifier.tsx` 的依赖里还留着 `numberFormat`。**
+   - 处理：和自动存款一样改用 `useEffectEvent`（`describeNotificationError`），并补了用例「关闭失败通知后只切换数字格式，不再弹出」。
+   - 限制：这个通知本来就会在同一语言下跳过已经展示过的通知，所以新用例在改动前也能通过，它拦不住「把 `numberFormat` 放回依赖」这一类回归。我试过删掉这个同语言跳过的判断，现有用例中有 5 项失败，说明这个判断本身已有测试覆盖。
+4. **缺少存款 Hook 超限路径的端到端测试。**
+   - 处理：在 `use-deposit-routing-guard.test.tsx` 新增用例：测试网存 1001 USDC，签名和写合约都不会发生，错误是 `AmountLimitActionError`，经 `formatTransferError` 显示为「Circle testnet deposits are limited to 1,000 USDC per transfer.」。为此在这个文件的设置状态库模拟里补了 `getResolvedFormatLocale`。
+   - 变异检查：改成抛普通错误、忽略测试网，都会让这个用例失败。
+   - 另查：存款流程只在提交已经开始后才上报错误。超限检查发生在提交之前，所以不会上报；代码里也没有哪一处按 `LocalizedActionError` 与 `AmountLimitActionError` 的类分支。
+   - 没做：在 `DepositModal` 里切换数字格式的组件测试。这个弹窗的测试准备工作很重，而预检查用的格式化方式与 `amount-limit-failure.test.tsx` 里那个「切换设置后重新渲染」的探针相同。
+5. **任务记录前后不一致。** 「实现」一节已改正，说明两个 effect 最终都改用了 `useEffectEvent`。修订后的检查结果见下。
+
+### 检查结果（终审修订后）
+
+- **终端全量 Vitest**（`--maxWorkers=4`，沙箱外）：821 个文件中 820 个通过、1 个跳过；12,652 项中 12,651 项通过、1 项跳过，没有失败。比上一轮多出的 2 项，是 CCTP 通知和存款 Hook 的新用例。
+- **受影响的测试文件**：4 个文件 288 项通过，分别是 `amount-limit-failure`、`cctp-deposit-tracking-notifier`、`embedded-deposit-auto-bridge` 和 `use-deposit-routing-guard`。
+- **其他检查**：终端 typecheck 通过；改动的 4 个 ts/tsx 文件跑 Biome 通过；`pnpm memory:check` 通过，`memory:test` 12 项通过，`git diff --check` 无输出。
 
 ## 后续与替代关系
 

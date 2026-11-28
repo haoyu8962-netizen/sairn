@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import type { Hash } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
@@ -66,6 +66,11 @@ export function CctpDepositTrackingNotifier() {
 		};
 	}, [identity]);
 
+	const describeNotificationError = useEffectEvent((error: Error | null) =>
+		formatTransferError(error, (descriptor) => t(descriptor), numberFormat),
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: describeNotificationError is an effect event, so a number-format change does not re-run the notices
 	useEffect(() => {
 		const notifications = notificationsRef.current;
 		for (const [id, notification] of notifications) {
@@ -135,7 +140,7 @@ export function CctpDepositTrackingNotifier() {
 					...lifecycle,
 					description: (
 						<span className="flex flex-col gap-1">
-							<span>{formatTransferError(notification.error, (descriptor) => t(descriptor), numberFormat)}</span>
+							<span>{describeNotificationError(notification.error)}</span>
 							{explorerLink}
 						</span>
 					),
@@ -191,7 +196,6 @@ export function CctpDepositTrackingNotifier() {
 		forwardSubmitted,
 		i18n.locale,
 		identity,
-		numberFormat,
 		outcomeUnknown,
 		owner,
 		sourceHash,
