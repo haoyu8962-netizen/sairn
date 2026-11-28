@@ -1,6 +1,7 @@
 import type { PredictedFundingsResponse } from "@nktkas/hyperliquid";
 import type Big from "big.js";
 import { isLiveMarkPriceReady, type MarkPriceStatus } from "@/domain/trade/market-price";
+import { foldSearchText } from "@/lib/search/utils";
 import { type Numeric, toBig } from "@/lib/trade/numbers";
 
 export type FundingComparisonVenue = "HlPerp" | "BinPerp" | "BybitPerp";
@@ -322,13 +323,14 @@ function compareRows(
 }
 
 export function normalizeFundingComparisonQuery(value: string): string {
-	return value.trim().toLowerCase();
+	return foldSearchText(value.trim()).trim();
 }
 
 export function deriveFundingComparisonPage(input: DeriveFundingComparisonPageInput): FundingComparisonPageResult {
+	const searching = input.query.trim() !== "";
 	const query = normalizeFundingComparisonQuery(input.query);
 	const matchingRows = input.rows
-		.filter((row) => !query || row.coin.toLowerCase().includes(query))
+		.filter((row) => !searching || (query !== "" && foldSearchText(row.coin).includes(query)))
 		.map((row) => toPageRow(row, input.period))
 		.sort((left, right) => compareRows(left, right, input.sortKey, input.sortDirection));
 

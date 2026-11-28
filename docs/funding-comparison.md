@@ -69,7 +69,7 @@
 
 搜索、排序、分页在 `deriveFundingComparisonPage` 中完成：
 
-- 搜索：去掉首尾空格后小写包含匹配资产名。
+- 搜索：资产名与输入都经 `foldSearchText`（`lib/search/utils.ts`）折叠大小写和重音后做包含匹配；输入先去掉首尾空格，折叠后再去一次。土耳其语的 `İNİT` 与 `ınıt` 都能找到 INIT；只含组合符号、折叠后为空的输入不匹配任何行；有可用快照且有数据行时，页面显示 `noResults`（见第 6 节）。规则见 `docs/i18n-presentation.md`。
 - 默认按 Hyperliquid OI 降序。数值列在两个方向上都把空值排在最后；值相同时按资产名（先不区分大小写，再区分）升序。差值列按绝对值排序，与显示值一致。
 - `toggleFundingComparisonSort`：换到数值列时先降序，换到 Market 列时先升序，再次点击同一列反转方向。
 - 每页 10 / 25 / 50 行，默认 25；页码夹在 `[1, totalPages]`。改变周期、排序、搜索或每页行数时回到第 1 页。周期、排序、搜索、页码只保存在组件状态中，离开页面即丢弃。
@@ -159,7 +159,7 @@
 
 新增与更新的回归入口：
 
-- `src/lib/tests/funding-comparison-domain.test.ts`：解析的 fail-closed 条件、HL 与 CEX 每小时换算、缺失间隔、零费率、五个周期倍数（精确 Big 字符串，例如 PONS：HL `0.0000284027` → 8 小时 `0.0002272216`，Binance 4 小时 `0.00012985` → 8 小时 `0.0002597`，差值 `0.0000324784`）、差值方向与空值、色调阈值、目录过滤与 OI、空值排最后、差值按绝对值、同值按名称、搜索与分页夹取、排序切换。OI 只在标记价格实时时计算：`success` 且接收正好 10 秒时仍有值；`idle` / `loading` / `stale` / `error`、接收超过 10 秒、接收晚于当前时间、缺少接收时间、价格为 0 或缺少持仓量时为空，且同一行的每小时费率不变。标记价格实时而 `perpContextsLive` 为假时 OI 为空、费率不变；此时全部 OI 为空，降序与升序都按市场名排列。
+- `src/lib/tests/funding-comparison-domain.test.ts`：解析的 fail-closed 条件、HL 与 CEX 每小时换算、缺失间隔、零费率、五个周期倍数（精确 Big 字符串，例如 PONS：HL `0.0000284027` → 8 小时 `0.0002272216`，Binance 4 小时 `0.00012985` → 8 小时 `0.0002597`，差值 `0.0000324784`）、差值方向与空值、色调阈值、目录过滤与 OI、空值排最后、差值按绝对值、同值按名称、搜索与分页夹取、搜索折叠大小写与重音（土耳其语 `İ` / `ı`、非 ASCII 资产名、只含组合符号的输入）、排序切换。OI 只在标记价格实时时计算：`success` 且接收正好 10 秒时仍有值；`idle` / `loading` / `stale` / `error`、接收超过 10 秒、接收晚于当前时间、缺少接收时间、价格为 0 或缺少持仓量时为空，且同一行的每小时费率不变。标记价格实时而 `perpContextsLive` 为假时 OI 为空、费率不变；此时全部 OI 为空，降序与升序都按市场名排列。
 - `src/components/funding-comparison/__tests__/use-funding-comparison-controller.test.tsx`：查询参数与节奏、首份快照 / 目录 / 离线等待时保持 loading、首份失败与格式错误进入 error 并重试、目录失败时同时重试目录、只有成功的空快照才是 empty、搜索无结果、周期 / 排序 / 搜索 / 行数变化回到第 1 页、OI 在上下文到达前为空、选中市场调用导航。新鲜度（假计时器）：上限为两个刷新周期即 120 秒；刷新失败时差 1 毫秒满 120 秒仍显示、满 120 秒换成中性 Retry 且重试中禁用、新快照到达后恢复；未失败时满 120 秒为骨架；页面重新可见时立即核对（墙钟前跳，模拟休眠醒来）；满 120 秒的空快照不再是 empty；`paused` 时立即不可用（有失败时为 error）；接收时间晚于本地时钟时不可用。时钟回拨（`dataUpdatedAt` 保持不变）：经过 60 秒后墙钟回拨 60 秒，单调时钟满 120 秒仍按时判为不可用；墙钟回拨一小时后单调时钟满 120 秒不可用；截止计时器被清除（模拟后台节流）且墙钟回拨后，`focus` 与 `visibilitychange` 各自按单调年龄判为不可用；墙钟回拨到接收之前时下一次 `focus` 核对即不可用。HTTP 快照成功而标记价格为 `loading` / `stale` / `error` / `idle`、缺少接收时间、接收超过 10 秒或晚于当前时间时，页面仍为 normal，BTC 的 OI 为空并在降序与升序中都排在 ETH 之后，费率与差值照常，行情恢复实时后 OI 回来。HTTP 快照成功、标记价格实时而 `perpContextsLive` 为假时，三个市场的 OI 都为空，降序与升序都按市场名排列（不再按旧持仓量排序），费率与差值照常，上下文恢复实时后按 OI 重新排序。桩数据经 `useSyncExternalStore` 驱动（React Compiler 下的测试约定）。
 - `src/lib/tests/use-markets-info-subscriptions.test.tsx`（`useMarketsInfoInternal`，桩 `useSubscription`）：`pac` 有帧、`active` 且未过期时 `perpContextsLive` 为真；`pac` 过期、`subscribing`（恢复中）、`active` 但尚无帧、`error`（随后切到原频道）时为假，前两种保留的持仓量仍照旧提供给其他使用方；存储里有旧版本的会话快照而订阅尚无帧时为假，持仓量为空（2026-11-01，ADR 0047；此前「只有会话缓存时为假而缓存持仓量照旧可读」）；路由关闭订阅时为假；紧凑频道禁用后的 `allDexsAssetCtxs` 路径：`active` 且未过期为真，过期、`error`、`subscribing` 为假。
 - `src/lib/tests/funding-comparison-domain.test.ts` 另含 `isFundingComparisonSnapshotFresh` 的边界：年龄 0 与上限减 1 毫秒可用，等于上限及以上不可用；接收时间为 0 / NaN、当前时间为 NaN、接收时间晚于当前时间均不可用。`observeFundingComparisonSnapshot` 以首次看到时的墙钟年龄折算单调截止时刻，接收时间为 0、晚于本地时钟、已满上限或单调时刻无效时为空；`getFundingComparisonSnapshotRemainingMs` 取两个时钟中较早的截止：墙钟回拨时按单调剩余，单调时钟未前进时按墙钟剩余，墙钟回拨到接收之前或单调时刻无效时为 0。

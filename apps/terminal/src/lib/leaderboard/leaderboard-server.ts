@@ -8,11 +8,12 @@ import Big from "big.js";
 import { isAddress } from "viem";
 import {
 	getLeaderboardExcludedAddresses,
+	getLeaderboardSearch,
 	LEADERBOARD_ACCOUNT_VALUE_THRESHOLD,
 	LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD,
 	type LeaderboardResult,
 	type LeaderboardRow,
-	normalizeLeaderboardQuery,
+	matchesLeaderboardSearch,
 } from "@/components/leaderboard/leaderboard-domain";
 import {
 	type LeaderboardApiErrorResponse,
@@ -354,11 +355,11 @@ function normalizeVaultAddresses(value: unknown): readonly string[] {
 
 function deriveLeaderboardPage(snapshot: LeaderboardSnapshot, query: LeaderboardApiQuery): LeaderboardResult {
 	const sortedIndexes = getSortedIndexes(snapshot, query);
-	const normalizedQuery = normalizeLeaderboardQuery(query.query);
-	const matchingPositions = normalizedQuery
+	const search = getLeaderboardSearch(query.query);
+	const matchingPositions = search
 		? sortedIndexes.reduce<number[]>((positions, sourceIndex, sortedPosition) => {
 				const row = snapshot.leaderboard.data[sourceIndex];
-				if (row && matchesLeaderboardQuery(row, normalizedQuery)) positions.push(sortedPosition);
+				if (row && matchesLeaderboardSearch(row, search)) positions.push(sortedPosition);
 				return positions;
 			}, [])
 		: null;
@@ -453,12 +454,6 @@ function getSortedIndexes(snapshot: LeaderboardSnapshot, query: LeaderboardApiQu
 function getLeaderboardSortValue(row: PublicLeaderboardRow, query: LeaderboardApiQuery): Big {
 	if (query.sortKey === "accountValue") return new Big(row.accountValue);
 	return new Big(row.performance[query.period][query.sortKey]);
-}
-
-function matchesLeaderboardQuery(row: PublicLeaderboardRow, query: string): boolean {
-	return (
-		row.address.toLocaleLowerCase().includes(query) || row.displayName?.toLocaleLowerCase().includes(query) === true
-	);
 }
 
 async function successResponse(

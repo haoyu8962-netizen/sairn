@@ -69,6 +69,25 @@ describe("leaderboard domain", () => {
 		expect(derive([atlas, beta], { query: beta.address.slice(-8).toUpperCase() }).rows[0]?.address).toBe(beta.address);
 	});
 
+	it("folds case and accents in display names while addresses keep their own comparison", () => {
+		const init = row("c", "200000", "20000000", { displayName: "INIT Whale" });
+		const istanbul = row("e", "200000", "20000000", { displayName: "İstanbul" });
+		const unnamed = row("d", "200000", "20000000");
+		const rows = [init, istanbul, unnamed];
+		const names = (query: string) => derive(rows, { query }).rows.map((entry) => entry.displayName);
+
+		expect(names("İNİT")).toEqual(["INIT Whale"]);
+		expect(names("ınıt")).toEqual(["INIT Whale"]);
+		expect(names("\u0307 INIT")).toEqual(["INIT Whale"]);
+		expect(names("istanbul")).toEqual(["İstanbul"]);
+		expect(names("İSTANBUL")).toEqual(["İstanbul"]);
+		expect(derive(rows, { query: unnamed.address.slice(-6).toUpperCase() }).rows.map((entry) => entry.address)).toEqual(
+			[unnamed.address],
+		);
+		expect(derive([unnamed], { query: "đ" }).totalRows).toBe(0);
+		expect(derive(rows, { query: "\u0307" }).totalRows).toBe(0);
+	});
+
 	it("sorts all numeric columns with Big.js-safe decimal comparisons", () => {
 		const low = row("1", "200000", "20000000", {
 			performance: {

@@ -1,4 +1,5 @@
 import Big from "big.js";
+import { foldSearchText } from "@/lib/search/utils";
 
 export const LEADERBOARD_ACCOUNT_VALUE_THRESHOLD = "100000";
 export const LEADERBOARD_ALL_TIME_VOLUME_THRESHOLD = "10000000";
@@ -41,6 +42,11 @@ export interface LeaderboardResult {
 	page: number;
 	start: number;
 	end: number;
+}
+
+export interface LeaderboardSearch {
+	addressQuery: string;
+	nameQuery: string;
 }
 
 export interface DeriveLeaderboardInput {
@@ -92,6 +98,22 @@ export function normalizeLeaderboardQuery(value: string): string {
 	return value.trim().toLocaleLowerCase();
 }
 
+export function getLeaderboardSearch(query: string): LeaderboardSearch | null {
+	const addressQuery = normalizeLeaderboardQuery(query);
+	if (!addressQuery) return null;
+	return { addressQuery, nameQuery: foldSearchText(addressQuery).trim() };
+}
+
+export function matchesLeaderboardSearch(
+	row: { readonly address: string; readonly displayName: string | null },
+	search: LeaderboardSearch,
+): boolean {
+	if (row.address.toLocaleLowerCase().includes(search.addressQuery)) return true;
+	return (
+		search.nameQuery !== "" && row.displayName !== null && foldSearchText(row.displayName).includes(search.nameQuery)
+	);
+}
+
 export function getLeaderboardValueTone(value: string): LeaderboardValueTone {
 	const parsed = asBig(value);
 	if (!parsed || parsed.eq(0)) return "neutral";
@@ -104,7 +126,7 @@ export function getLeaderboardExcludedAddresses(addresses: readonly string[]): R
 
 export function deriveLeaderboard(input: DeriveLeaderboardInput): LeaderboardResult {
 	const excludedAddresses = input.excludedAddresses ?? new Set<string>();
-	const query = normalizeLeaderboardQuery(input.query);
+	const search = getLeaderboardSearch(input.query);
 	const rankedRows = input.rows
 		.filter(isEligible)
 		.filter((row) => !excludedAddresses.has(row.address.toLocaleLowerCase()))
@@ -123,12 +145,7 @@ export function deriveLeaderboard(input: DeriveLeaderboardInput): LeaderboardRes
 		})
 		.sort((left, right) => compareRows(left, right, input.sortKey, input.sortDirection))
 		.map((row, index) => ({ ...row, rank: index + 1 }))
-		.filter((row) => {
-			if (!query) return true;
-			return (
-				row.address.toLocaleLowerCase().includes(query) || row.displayName?.toLocaleLowerCase().includes(query) === true
-			);
-		});
+		.filter((row) => search === null || matchesLeaderboardSearch(row, search));
 
 	const totalRows = rankedRows.length;
 	const totalPages = Math.max(1, Math.ceil(totalRows / input.rowsPerPage));

@@ -584,6 +584,9 @@ pnpm --dir apps/terminal exec vitest run \
   src/lib/tests/catalog-literal-number-contract.test.ts \
   src/lib/tests/command-menu.test.tsx \
   src/lib/tests/search-fold.test.ts \
+  src/lib/tests/funding-comparison-domain.test.ts \
+  src/lib/tests/leaderboard-domain.test.ts \
+  src/lib/tests/leaderboard-server.test.ts \
   src/components/staking/__tests__/use-staking-actions.test.tsx \
   src/lib/tests/use-api-wallet-controller.test.tsx
 

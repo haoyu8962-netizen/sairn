@@ -74,6 +74,12 @@ describe("search text folding", () => {
 		expect(foldSearchText(arabic)).toBe(arabic);
 	});
 
+	it("compares decomposed text in its composed form", () => {
+		const decomposed = "\u304b\u3099";
+		expect(foldSearchText(decomposed)).toBe(foldSearchText("が"));
+		expect(foldSearchText(decomposed).includes(foldSearchText("か"))).toBe(false);
+	});
+
 	it("matches a Turkish query against an ASCII symbol and an ASCII query against a Turkish name", () => {
 		expect(symbols("İNİT")[0]).toBe("INIT");
 		expect(symbols("ınıt")[0]).toBe("INIT");

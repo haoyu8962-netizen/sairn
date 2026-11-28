@@ -95,6 +95,35 @@ describe("leaderboard API server", () => {
 		expect(concurrentResponse.status).toBe(200);
 	});
 
+	it("folds case and accents when it searches display names", async () => {
+		const fetchImplementation = vi.fn(async (url: string) =>
+			url.endsWith("/leaderboard")
+				? jsonResponse(
+						{
+							leaderboardRows: [
+								rawLeaderboardRow(TRADER_A, "İstanbul", "20"),
+								rawLeaderboardRow(TRADER_B, "INIT Whale", "10"),
+							],
+						},
+						'"leaderboard-v1"',
+					)
+				: jsonResponse([], '"vaults-v1"'),
+		);
+		const handler = createLeaderboardApiHandler({ fetch: fetchImplementation, now: () => GENERATED_AT });
+		const names = async (query: string) =>
+			(await (await handler(request({}, { query }))).json()).rows.map(
+				(row: { displayName: string | null }) => row.displayName,
+			);
+
+		expect(await names("istanbul")).toEqual(["İstanbul"]);
+		expect(await names("İNİT")).toEqual(["INIT Whale"]);
+		expect(await names("ınıt")).toEqual(["INIT Whale"]);
+		expect(await names(TRADER_B.slice(-6).toUpperCase())).toEqual(["INIT Whale"]);
+		for (const query of ["ınıt", "İNİT", " Atlas "]) {
+			expect((await (await handler(request({}, { query }))).json()).query).toBe(query);
+		}
+	});
+
 	it("reuses one global sort index across pages and searches", async () => {
 		const rows = Array.from({ length: 12 }, (_, index) =>
 			rawLeaderboardRow(`0x${(index + 16).toString(16).padStart(40, "0")}`, `Trader ${index + 1}`, String(12 - index)),

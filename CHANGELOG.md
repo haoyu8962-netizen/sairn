@@ -179,9 +179,11 @@ changes, not evidence that a build has been deployed or accepted on real devices
   reads as the market order type in every language, as in the order form: Japanese shows 成行 instead of
   市場 (market), Korean 시장가 instead of 마켓, Traditional Chinese 市價 instead of 市場. English is
   unchanged.
-- Market search (token selector and command menu) and the Vault name search ignore case and accents
-  the same way for names and what you type: a Turkish `İNİT` or `ınıt` finds INIT, `istanbul` finds a
-  Vault named İstanbul and `dong` finds Đồng. Addresses are still matched as before.
+- Market search (token selector and command menu), the Vault name search, the Funding Comparison market
+  search and the Leaderboard name search ignore case and accents the same way for names and what you
+  type: a Turkish `İNİT` or `ınıt` finds INIT, `istanbul` finds a Vault or trader named İstanbul and
+  `dong` finds Đồng. In a Turkish browser, typing `INIT` now finds INIT on the Leaderboard as well.
+  Addresses are still matched as before.
 - Spanish and French no longer rewrite the numbers fixed in a few messages (the Circle deposit limits,
   the referral code volume threshold and the leaderboard exclusion rule) in their own separators: they
   show the same digits as every other language, such as 10,000,000 USDC.
