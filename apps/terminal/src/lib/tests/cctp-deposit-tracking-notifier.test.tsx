@@ -17,6 +17,7 @@ const EMBEDDED_WALLET = "0x2222222222222222222222222222222222222222";
 const testState = vi.hoisted(() => ({
 	depositModalOpen: false,
 	isTestnet: false,
+	numberFormatLocale: "en-US",
 	trackingOptions: null as Record<string, unknown> | null,
 	tracking: {
 		data: undefined as { status: "waiting" | "forward-submitted" } | undefined,
@@ -59,7 +60,7 @@ vi.mock("@/hooks/trade/use-cctp-deposit-tracking", () => ({
 vi.mock("@/hooks/wallet/use-wallet-session", () => ({ useWalletSession: () => testState.walletSession }));
 vi.mock("@/stores/use-global-modal-store", () => ({ useDepositModalOpen: () => testState.depositModalOpen }));
 vi.mock("@/stores/use-global-settings-store", () => ({
-	getResolvedFormatLocale: () => "en-US",
+	getResolvedFormatLocale: () => testState.numberFormatLocale,
 	useIsTestnet: () => testState.isTestnet,
 }));
 
@@ -72,6 +73,7 @@ describe("CctpDepositTrackingNotifier", () => {
 	beforeEach(() => {
 		testState.depositModalOpen = false;
 		testState.isTestnet = false;
+		testState.numberFormatLocale = "en-US";
 		testState.trackingOptions = null;
 		testState.tracking = {
 			data: undefined,
@@ -189,7 +191,10 @@ describe("CctpDepositTrackingNotifier", () => {
 		const options = toastMocks.error.mock.calls[0]?.[1] as { onDismiss: () => void };
 
 		act(() => options.onDismiss());
-		act(() => notifyNumberFormatChange());
+		act(() => {
+			testState.numberFormatLocale = "de-DE";
+			notifyNumberFormatChange();
+		});
 		render();
 
 		expect(toastMocks.error).toHaveBeenCalledTimes(1);
