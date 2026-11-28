@@ -255,8 +255,8 @@ test("the manifest records each icon's measurement and the decision the rule mak
 	const flagged = manifest.icons.filter((icon) => icon.backplate).map((icon) => icon.coin).sort();
 	assert.deepEqual(
 		flagged,
-		["ETH", "NEAR", "io:ANTH"],
-		"the dark marks measured on 2026-10-27 (NEAR left the rendered markets on 2026-11-13 and returned on 2026-11-20); update after a review of the renders",
+		["ETH", "io:ANTH"],
+		"the dark marks measured on 2026-10-27 (NEAR left the rendered markets on 2026-11-13, returned on 2026-11-20 and left again on 2026-11-28); update after a review of the renders",
 	);
 });
 

@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 2,
-	"fetchedAt": "2026-11-20T13:50:14.120Z",
+	"fetchedAt": "2026-11-28T09:58:10.784Z",
 	"source": "GET https://app.hyperliquid.xyz/coins/<coin>.svg (the terminal's TOKEN_ICON_BASE_URL), sanitized by scripts/svg-sanitize.mjs and optimized by scripts/market-icons.mjs",
 	"icons": [
 		{
@@ -160,15 +160,15 @@
 			}
 		},
 		{
-			"coin": "NEAR",
-			"file": "NEAR.svg",
-			"sourceUrl": "https://app.hyperliquid.xyz/coins/NEAR.svg",
-			"bytes": 563,
-			"backplate": true,
+			"coin": "XMR",
+			"file": "XMR.svg",
+			"sourceUrl": "https://app.hyperliquid.xyz/coins/XMR.svg",
+			"bytes": 719,
+			"backplate": false,
 			"surface": {
-				"transparentShare": 0.8,
-				"inkOnDark": 0,
-				"inkOnWhite": 0.2
+				"transparentShare": 0,
+				"inkOnDark": 0.75,
+				"inkOnWhite": 0.7
 			}
 		},
 		{
@@ -184,18 +184,6 @@
 			}
 		},
 		{
-			"coin": "xyz:NVDA",
-			"file": "xyz--NVDA.svg",
-			"sourceUrl": "https://app.hyperliquid.xyz/coins/xyz:NVDA.svg",
-			"bytes": 1112,
-			"backplate": false,
-			"surface": {
-				"transparentShare": 0,
-				"inkOnDark": 1,
-				"inkOnWhite": 0
-			}
-		},
-		{
 			"coin": "xyz:SOXL",
 			"file": "xyz--SOXL.svg",
 			"sourceUrl": "https://app.hyperliquid.xyz/coins/xyz:SOXL.svg",
@@ -208,15 +196,27 @@
 			}
 		},
 		{
-			"coin": "xyz:MU",
-			"file": "xyz--MU.svg",
-			"sourceUrl": "https://app.hyperliquid.xyz/coins/xyz:MU.svg",
-			"bytes": 980,
+			"coin": "xyz:NVDA",
+			"file": "xyz--NVDA.svg",
+			"sourceUrl": "https://app.hyperliquid.xyz/coins/xyz:NVDA.svg",
+			"bytes": 1112,
 			"backplate": false,
 			"surface": {
 				"transparentShare": 0,
-				"inkOnDark": 0.21,
-				"inkOnWhite": 0.82
+				"inkOnDark": 1,
+				"inkOnWhite": 0
+			}
+		},
+		{
+			"coin": "xyz:SKHY",
+			"file": "xyz--SKHY.svg",
+			"sourceUrl": "https://app.hyperliquid.xyz/coins/xyz:SKHY.svg",
+			"bytes": 1321,
+			"backplate": false,
+			"surface": {
+				"transparentShare": 0,
+				"inkOnDark": 1,
+				"inkOnWhite": 0.07
 			}
 		},
 		{
@@ -340,13 +340,13 @@
 			"reason": "no icon (served text/html)"
 		},
 		{
-			"coin": "para:10Y",
-			"sourceUrl": "https://app.hyperliquid.xyz/coins/para:10Y.svg",
+			"coin": "para:2Y",
+			"sourceUrl": "https://app.hyperliquid.xyz/coins/para:2Y.svg",
 			"reason": "no icon (served text/html)"
 		},
 		{
-			"coin": "para:2Y",
-			"sourceUrl": "https://app.hyperliquid.xyz/coins/para:2Y.svg",
+			"coin": "para:10Y",
+			"sourceUrl": "https://app.hyperliquid.xyz/coins/para:10Y.svg",
 			"reason": "no icon (served text/html)"
 		},
 		{
