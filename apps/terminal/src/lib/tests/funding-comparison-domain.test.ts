@@ -425,6 +425,24 @@ describe("deriveFundingComparisonPage", () => {
 		]);
 	});
 
+	it("folds case and accents in the market search the same way for names and the query", () => {
+		const rates = { HlPerp: "0.00001", BinPerp: "0.0001" };
+		const rows = [
+			sourceRow("INIT", rates, "4"),
+			sourceRow("BTC", rates, "3"),
+			sourceRow("DOGE", rates, "2"),
+			sourceRow("İSTANBUL", rates, "1"),
+		];
+		const coins = (query: string) => page(rows, { query }).rows.map((row) => row.coin);
+
+		expect(coins("İNİT")).toEqual(["INIT"]);
+		expect(coins("ınıt")).toEqual(["INIT"]);
+		expect(coins(" İnit ")).toEqual(["INIT"]);
+		expect(coins("dóge")).toEqual(["DOGE"]);
+		expect(coins("istanbul")).toEqual(["İSTANBUL"]);
+		expect(page(rows, { query: "\u0307" })).toMatchObject({ rows: [], totalRows: 0 });
+	});
+
 	it("filters by market search and paginates with clamped bounds", () => {
 		const many = Array.from({ length: 12 }, (_, index) =>
 			sourceRow(
